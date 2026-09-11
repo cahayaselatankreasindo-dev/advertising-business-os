@@ -1,0 +1,1825 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Advertising Business OS — The Scales / CSK</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1C2333">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Business OS">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1C2333;
+      --ink-soft: #2E374D;
+      --amber: #D97706;
+      --amber-light: #FEF3C7;
+      --teal: #059669;
+      --teal-light: #D1FAE5;
+      --rust: #DC2626;
+      --rust-light: #FEE2E2;
+      --paper: #F8FAFC;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background-color: var(--paper);
+      color: #1E293B;
+      -webkit-tap-highlight-color: transparent;
+    }
+    h1, h2, h3, .font-heading {
+      font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .star-rating i { cursor: pointer; transition: color 0.15s; }
+    .star-rating i:hover, .star-rating i.active { color: #F59E0B; }
+    .star-rating i.inactive { color: #CBD5E1; }
+    /* SOP Checklist */
+    .sop-item input[type="checkbox"] { accent-color: #059669; width: 15px; height: 15px; cursor: pointer; }
+    .sop-item label { cursor: pointer; user-select: none; }
+    .pillar-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 6px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.25rem; }
+    .p1 { background: #DBEAFE; color: #1D4ED8; }
+    .p2 { background: #D1FAE5; color: #065F46; }
+    .p3 { background: #E0E7FF; color: #3730A3; }
+    .p4 { background: #FEF3C7; color: #92400E; }
+    .p5 { background: #FCE7F3; color: #9D174D; }
+  </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row overflow-hidden select-none">
+
+  <!-- SIDEBAR (DESKTOP) -->
+  <aside class="hidden md:flex flex-col w-64 bg-slate-900 text-slate-300 border-r border-slate-800 flex-shrink-0">
+    <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+      <div>
+        <div class="font-heading font-bold text-lg text-white tracking-wide">BUSINESS OS</div>
+        <div class="text-xs text-amber-500 font-semibold tracking-wider uppercase">The Scales / CSK</div>
+      </div>
+      <div id="cloud-indicator" class="w-2.5 h-2.5 rounded-full bg-slate-500" title="Status Cloud"></div>
+    </div>
+
+    <!-- Role Dropdown -->
+    <div class="px-4 py-3 border-b border-slate-800">
+      <label class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block mb-1">Hak Akses</label>
+      <select id="role-select" onchange="onRoleChange(this.value)" class="w-full text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-amber-500">
+        <option value="owner">Owner</option>
+        <option value="team">Tim Kreatif / Admin</option>
+      </select>
+    </div>
+
+    <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
+      <button onclick="nav('dashboard')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition active">
+        <i class="fa fa-tachometer w-5 text-amber-500"></i> Dasbor
+      </button>
+      <button onclick="nav('leads')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
+        <i class="fa fa-bullseye w-5 text-blue-400"></i> Pilar 1 · Leads CRM
+      </button>
+      <button onclick="nav('finance')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition pillar-finance">
+        <i class="fa fa-money w-5 text-teal-400"></i> Pilar 2 · Keuangan
+      </button>
+      <button onclick="nav('projects')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
+        <i class="fa fa-briefcase w-5 text-emerald-400"></i> Pilar 3 · Produksi
+      </button>
+      <button onclick="nav('clients')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
+        <i class="fa fa-users w-5 text-indigo-400"></i> Pilar 4 · Klien (PMF)
+      </button>
+      <button onclick="nav('marketing')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition pillar-marketing">
+        <i class="fa fa-ad w-5 text-pink-400"></i> Pilar 5 · Marketing
+      </button>
+      <button onclick="nav('analysis')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
+        <i class="fa fa-bar-chart w-5 text-purple-400"></i> Analisis Bisnis
+      </button>
+      <button onclick="nav('settings')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition pillar-riset">
+        <i class="fa fa-cog w-5 text-slate-400"></i> Pengaturan
+      </button>
+    </nav>
+
+    <div class="p-3 border-t border-slate-800 text-xs text-slate-500">
+      <div class="flex items-center justify-between mb-1">
+        <span>Status Cloud:</span>
+        <span id="cloud-status-text" class="text-slate-400">Lokal Offline</span>
+      </div>
+      <button onclick="syncWithGoogle()" class="w-full mt-2 py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded text-center font-semibold transition flex items-center justify-center gap-2">
+        <i class="fa fa-refresh"></i> Sinkron Google
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN WRAPPER -->
+  <div class="flex-1 flex flex-col h-full overflow-hidden">
+
+    <!-- Top Mobile Header -->
+    <header class="md:hidden bg-slate-900 text-white p-3 flex items-center justify-between border-b border-slate-800 flex-shrink-0">
+      <div>
+        <div class="font-heading font-bold text-sm text-white">BUSINESS OS</div>
+        <div class="text-[10px] text-amber-400 font-semibold tracking-wider">THE SCALES / CSK</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <!-- Role selector (mobile) -->
+        <select id="role-select-mob" onchange="onRoleChange(this.value)" class="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 rounded px-1.5 py-1">
+          <option value="owner">👤 Owner</option>
+          <option value="team">👥 Tim</option>
+        </select>
+        <button onclick="syncWithGoogle()" class="text-xs bg-slate-800 text-amber-400 px-2 py-1 rounded-md border border-slate-700 flex items-center gap-1.5">
+          <i class="fa fa-refresh"></i> Sync
+        </button>
+        <button onclick="nav('settings')" class="text-slate-400 hover:text-white p-1">
+          <i class="fa fa-cog fa-lg"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Scrollable Content -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
+
+      <!-- 1. DASHBOARD -->
+      <section id="page-dashboard" class="page-content space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 class="text-2xl md:text-3xl font-bold font-heading text-slate-900">Dashboard Bisnis</h1>
+            <p class="text-sm text-slate-500">Ringkasan performa 5 Pilar Bisnis Terpadu — The Scales Advertising / CSK.</p>
+          </div>
+          <div class="flex gap-2 flex-wrap">
+            <button onclick="openModal('modal-lead')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs md:text-sm font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow-sm">
+              <i class="fa fa-plus"></i> Lead Baru
+            </button>
+            <button onclick="openModal('modal-marketing')" class="bg-pink-600 hover:bg-pink-700 text-white text-xs md:text-sm font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow-sm">
+              <i class="fa fa-bullhorn"></i> Catat Iklan
+            </button>
+            <button onclick="pullData()" class="bg-slate-900 hover:bg-slate-800 text-white text-xs md:text-sm font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow-sm pillar-finance">
+              <i class="fa fa-download"></i> Tarik Data
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="text-xs font-semibold text-slate-500 uppercase">Total Leads</div>
+            <div id="stat-total-leads" class="text-2xl md:text-3xl font-bold font-heading text-blue-600 mt-1">0</div>
+            <div class="text-[11px] text-slate-400 mt-1"><span id="stat-active-leads">0</span> aktif berproses</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="text-xs font-semibold text-slate-500 uppercase">Deals Menang</div>
+            <div id="stat-won-leads" class="text-2xl md:text-3xl font-bold font-heading text-emerald-600 mt-1">0</div>
+            <div class="text-[11px] text-slate-400 mt-1">Konversi: <span id="stat-win-rate">0%</span></div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm pillar-finance">
+            <div class="text-xs font-semibold text-slate-500 uppercase">Omset Kas Masuk</div>
+            <div id="stat-total-income" class="text-xl md:text-2xl font-bold font-heading text-teal-600 mt-1">Rp 0</div>
+            <div class="text-[11px] text-slate-400 mt-1">Profit: <span id="stat-net-profit" class="font-bold text-emerald-600">Rp 0</span></div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm pillar-finance">
+            <div class="text-xs font-semibold text-slate-500 uppercase">Margin Laba</div>
+            <div id="stat-margin-pct" class="text-xl md:text-2xl font-bold font-heading text-amber-600 mt-1">0%</div>
+            <div class="text-[11px] text-slate-400 mt-1">Rasio bersih</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm pillar-marketing">
+            <div class="text-xs font-semibold text-slate-500 uppercase">Biaya Iklan</div>
+            <div id="stat-mkt-spend" class="text-xl md:text-2xl font-bold font-heading text-pink-600 mt-1">Rp 0</div>
+            <div class="text-[11px] text-slate-400 mt-1">Total campaign</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="font-heading font-bold text-slate-800 text-base flex items-center gap-2">
+                <i class="fa fa-briefcase text-emerald-500"></i> Proyek Berjalan
+              </h2>
+              <button onclick="nav('projects')" class="text-xs text-amber-600 hover:underline font-semibold">Lihat Semua</button>
+            </div>
+            <div id="dash-projects-list" class="space-y-3"></div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="font-heading font-bold text-slate-800 text-base flex items-center gap-2">
+                <i class="fa fa-bullseye text-blue-500"></i> Leads Perlu Follow Up
+              </h2>
+              <button onclick="nav('leads')" class="text-xs text-amber-600 hover:underline font-semibold">Lihat Semua</button>
+            </div>
+            <div id="dash-leads-list" class="space-y-3"></div>
+          </div>
+        </div>
+
+        <!-- Quick Marketing Summary (pillar 5) -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm pillar-marketing">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="font-heading font-bold text-slate-800 text-base flex items-center gap-2">
+              <i class="fa fa-ad text-pink-500"></i> Ringkasan Performa Iklan
+            </h2>
+            <button onclick="nav('marketing')" class="text-xs text-pink-600 hover:underline font-semibold">Kelola →</button>
+          </div>
+          <div class="grid grid-cols-3 gap-3">
+            <div class="text-center p-3 bg-pink-50 rounded-lg">
+              <div class="text-[10px] text-slate-500 font-semibold uppercase">Total Budget</div>
+              <div id="mkt-total-budget" class="text-lg font-bold text-pink-700 mt-1">Rp 0</div>
+            </div>
+            <div class="text-center p-3 bg-pink-50 rounded-lg">
+              <div class="text-[10px] text-slate-500 font-semibold uppercase">Total Leads from Ads</div>
+              <div id="mkt-total-leads" class="text-lg font-bold text-pink-700 mt-1">0</div>
+            </div>
+            <div class="text-center p-3 bg-pink-50 rounded-lg">
+              <div class="text-[10px] text-slate-500 font-semibold uppercase">CPL Rata-rata</div>
+              <div id="mkt-cpl" class="text-lg font-bold text-pink-700 mt-1">Rp 0</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. LEADS (Pilar 1 — CRM) -->
+      <section id="page-leads" class="page-content hidden space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <span class="pillar-badge p1">Pilar 1</span>
+            <h1 class="text-2xl font-bold font-heading text-slate-900">Leads & Prospek CRM</h1>
+            <p class="text-sm text-slate-500">Catat calon klien baru dari WA, Instagram Ads, TikTok, atau Referensi.</p>
+          </div>
+          <button onclick="openModal('modal-lead')" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition flex items-center gap-2 shadow-sm self-start">
+            <i class="fa fa-plus"></i> Tambah Lead Baru
+          </button>
+        </div>
+
+        <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar text-xs font-semibold">
+          <button onclick="filterLeads('all')" class="lead-filter-btn px-3 py-1.5 rounded-full bg-slate-900 text-white" data-filter="all">Semua</button>
+          <button onclick="filterLeads('new')" class="lead-filter-btn px-3 py-1.5 rounded-full bg-white text-slate-600 border border-slate-200" data-filter="new">Baru</button>
+          <button onclick="filterLeads('contacted')" class="lead-filter-btn px-3 py-1.5 rounded-full bg-white text-slate-600 border border-slate-200" data-filter="contacted">Dihubungi</button>
+          <button onclick="filterLeads('nego')" class="lead-filter-btn px-3 py-1.5 rounded-full bg-white text-slate-600 border border-slate-200" data-filter="nego">Negosiasi</button>
+          <button onclick="filterLeads('won')" class="lead-filter-btn px-3 py-1.5 rounded-full bg-white text-slate-600 border border-slate-200" data-filter="won">Deal (Won)</button>
+          <button onclick="filterLeads('lost')" class="lead-filter-btn px-3 py-1.5 rounded-full bg-white text-slate-600 border border-slate-200" data-filter="lost">Batal</button>
+        </div>
+
+        <div id="leads-container" class="space-y-3"></div>
+      </section>
+
+      <!-- 3. CLIENTS (Pilar 4 — PMF) -->
+      <section id="page-clients" class="page-content hidden space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <span class="pillar-badge p4">Pilar 4</span>
+            <h1 class="text-2xl font-bold font-heading text-slate-900">Database Klien Tetap (PMF)</h1>
+            <p class="text-sm text-slate-500">Rating & review klien untuk mengukur Product-Market Fit dan LTV.</p>
+          </div>
+          <button onclick="openModal('modal-client')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition flex items-center gap-2 shadow-sm self-start">
+            <i class="fa fa-plus"></i> Tambah Klien
+          </button>
+        </div>
+        <div id="clients-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- 4. PROJECTS (Pilar 3 — Produksi) -->
+      <section id="page-projects" class="page-content hidden space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <span class="pillar-badge p3">Pilar 3</span>
+            <h1 class="text-2xl font-bold font-heading text-slate-900">Proyek Produksi & Kampanye</h1>
+            <p class="text-sm text-slate-500">Pantau progres SOP, revisi, dan tenggat waktu (deadline).</p>
+          </div>
+          <button onclick="openModal('modal-project')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition flex items-center gap-2 shadow-sm self-start">
+            <i class="fa fa-plus"></i> Proyek Baru
+          </button>
+        </div>
+        <div id="projects-container" class="space-y-3"></div>
+      </section>
+
+      <!-- 5. FINANCE (Pilar 2 — Jurnal Keuangan) -->
+      <section id="page-finance" class="page-content hidden space-y-6 pillar-finance">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <span class="pillar-badge p2">Pilar 2</span>
+            <h1 class="text-2xl font-bold font-heading text-slate-900">Keuangan & Arus Kas</h1>
+            <p class="text-sm text-slate-500">Jurnal keuangan — pencatatan uang masuk (DP/Pelunasan) dan keluar (Ads, tools, operasional).</p>
+          </div>
+          <button onclick="openModal('modal-finance')" class="bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition flex items-center gap-2 shadow-sm self-start">
+            <i class="fa fa-plus"></i> Tambah Transaksi
+          </button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div class="bg-white p-4 rounded-xl border border-slate-200">
+            <div class="text-[11px] font-semibold text-slate-500 uppercase">Pemasukan</div>
+            <div id="fin-income" class="text-lg md:text-xl font-bold text-teal-600 mt-1">Rp 0</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200">
+            <div class="text-[11px] font-semibold text-slate-500 uppercase">Pengeluaran</div>
+            <div id="fin-expense" class="text-lg md:text-xl font-bold text-red-600 mt-1">Rp 0</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200">
+            <div class="text-[11px] font-semibold text-slate-500 uppercase">Saldo Kas</div>
+            <div id="fin-balance" class="text-lg md:text-xl font-bold text-slate-900 mt-1">Rp 0</div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+          <div class="p-4 border-b border-slate-100 font-semibold text-sm text-slate-800">
+            Riwayat Transaksi Terbaru
+          </div>
+          <div id="finance-table" class="divide-y divide-slate-100"></div>
+        </div>
+      </section>
+
+      <!-- 6. MARKETING SPEND (Pilar 5 — Pemasaran) -->
+      <section id="page-marketing" class="page-content hidden space-y-6 pillar-marketing">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <span class="pillar-badge p5">Pilar 5</span>
+            <h1 class="text-2xl font-bold font-heading text-slate-900">Marketing Spend & ROI</h1>
+            <p class="text-sm text-slate-500">Catat biaya iklan per platform & kampanye. Pantau CPL dan ROAS secara real-time.</p>
+          </div>
+          <button onclick="openModal('modal-marketing')" class="bg-pink-600 hover:bg-pink-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition flex items-center gap-2 shadow-sm self-start">
+            <i class="fa fa-bullhorn"></i> Catat Iklan
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="bg-white p-4 rounded-xl border border-slate-200">
+            <div class="text-[11px] font-semibold text-slate-500 uppercase">Total Budget</div>
+            <div id="mk-total-budget" class="text-xl font-bold text-pink-600 mt-1">Rp 0</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200">
+            <div class="text-[11px] font-semibold text-slate-500 uppercase">Terpakai</div>
+            <div id="mk-spent" class="text-xl font-bold text-red-500 mt-1">Rp 0</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200">
+            <div class="text-[11px] font-semibold text-slate-500 uppercase">Leads from Ads</div>
+            <div id="mk-leads" class="text-xl font-bold text-blue-600 mt-1">0</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200">
+            <div class="text-[11px] font-semibold text-slate-500 uppercase">CPL Rata-rata</div>
+            <div id="mk-cpl" class="text-xl font-bold text-amber-600 mt-1">Rp 0</div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+          <h3 class="font-heading font-bold text-slate-800 text-sm mb-3">ROAS per Platform</h3>
+          <div id="mk-roas-table" class="space-y-2 text-xs"></div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+          <div class="p-4 border-b border-slate-100 font-semibold text-sm text-slate-800">
+            Riwayat Kampanye Iklan
+          </div>
+          <div id="marketing-table" class="divide-y divide-slate-100"></div>
+        </div>
+      </section>
+
+      <!-- 7. BUSINESS MEMORY (hidden for non-owner) -->
+      <section id="page-memory" class="page-content hidden space-y-6 pillar-riset">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 class="text-2xl font-bold font-heading text-slate-900">Business Memory</h1>
+            <p class="text-sm text-slate-500">Catatan formula penawaran harga, evaluasi strategi iklan, dan ide ekspansi.</p>
+          </div>
+          <button onclick="openModal('modal-memory')" class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition flex items-center gap-2 shadow-sm self-start">
+            <i class="fa fa-plus"></i> Tambah Catatan
+          </button>
+        </div>
+        <div id="memory-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      </section>
+
+      <!-- 8. ANALYSIS -->
+      <section id="page-analysis" class="page-content hidden space-y-6">
+        <div>
+          <h1 class="text-2xl font-bold font-heading text-slate-900">Analisis & Wawasan Bisnis</h1>
+          <p class="text-sm text-slate-500">Kalkulasi performa bisnis otomatis berdasarkan data transaksi dan lead Anda.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-xl border border-slate-200">
+            <div class="text-xs font-semibold text-slate-400 uppercase">Rata-rata Nilai Deal</div>
+            <div id="ana-avg-deal" class="text-2xl font-bold text-slate-800 mt-2">Rp 0</div>
+            <p class="text-xs text-slate-500 mt-1">Rata-rata omset per klien yang deal.</p>
+          </div>
+          <div class="bg-white p-5 rounded-xl border border-slate-200">
+            <div class="text-xs font-semibold text-slate-400 uppercase">Biaya Iklan vs Omset</div>
+            <div id="ana-adspend-ratio" class="text-2xl font-bold text-amber-600 mt-2">0%</div>
+            <p class="text-xs text-slate-500 mt-1">Persentase pengeluaran iklan dibanding omset.</p>
+          </div>
+          <div class="bg-white p-5 rounded-xl border border-slate-200 pillar-finance">
+            <div class="text-xs font-semibold text-slate-400 uppercase">Kesehatan Margin</div>
+            <div id="ana-health" class="text-2xl font-bold text-emerald-600 mt-2">Sangat Sehat</div>
+            <p class="text-xs text-slate-500 mt-1">Target margin jasa periklanan > 50%.</p>
+          </div>
+          <div class="bg-white p-5 rounded-xl border border-slate-200 pillar-marketing">
+            <div class="text-xs font-semibold text-slate-400 uppercase">ROAS Bersih</div>
+            <div id="ana-roas" class="text-2xl font-bold text-pink-600 mt-2">0x</div>
+            <p class="text-xs text-slate-500 mt-1">Return over Ad Spend (omset ÷ biaya iklan).</p>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 text-white rounded-xl p-5 shadow-sm space-y-3">
+          <div class="flex items-center gap-2 text-amber-400 font-bold font-heading text-sm uppercase tracking-wider">
+            <i class="fa fa-compass"></i> Pedoman Strategis Bisnis CSK
+          </div>
+          <ul class="text-xs text-slate-300 space-y-2 list-disc list-inside">
+            <li><strong>Paket UMKM:</strong> Mulai Rp 1.500.000 (Desain Logo Saja) untuk perputaran cash cepat.</li>
+            <li><strong>Paket Menengah ke Atas:</strong> Mulai Rp 8.000.000 (Logo + Brand Guidelines + Stationery + Vector Editable) untuk margin tinggi.</li>
+            <li><strong>Siklus Kas:</strong> Selalu terapkan sistem DP minimal 50% sebelum proyek produksi dimulai.</li>
+            <li><strong>Product-Market Fit:</strong> Gunakan rating bintang di tab Klien untuk melacak kepuasan dan repeat order potential.</li>
+            <li><strong>Marketing ROI:</strong> Catat setiap iklan di tab Marketing. Bandingkan CPL vs nilai deal ratarata untuk evaluasi efisiensi.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 9. SETTINGS & CLOUD -->
+      <section id="page-settings" class="page-content hidden space-y-6 pillar-riset">
+        <div>
+          <h1 class="text-2xl font-bold font-heading text-slate-900">Pengaturan & Integrasi Cloud</h1>
+          <p class="text-sm text-slate-500">Hubungkan aplikasi ke Google Sheets agar bisa dibuka dari HP mana saja secara real-time.</p>
+        </div>
+
+        <div class="bg-white rounded-xl border border-amber-200 p-5 shadow-sm space-y-4 pillar-finance">
+          <div class="flex items-center gap-2 text-amber-600 font-bold font-heading">
+            <i class="fa fa-google fa-lg"></i> Koneksi Database Google Sheets (Gratis)
+          </div>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Masukkan URL Web App dari Google Apps Script Anda. Setelah terisi, data akan otomatis tersinkronisasi antara HP dan Komputer Anda.
+            <br><strong>Penting:</strong> Setelah deploy baru di Apps Script, jalankan fungsi <code>setupSheet</code> sekali untuk membuat tab baru.
+          </p>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Google Sheets Web App URL:</label>
+            <input type="url" id="setting-google-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-amber-500 font-mono">
+          </div>
+
+          <div class="flex flex-wrap gap-2 pt-1">
+            <button onclick="saveGoogleUrl()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition flex items-center gap-1.5">
+              <i class="fa fa-save"></i> Simpan URL
+            </button>
+            <button onclick="pullData()" class="bg-slate-900 hover:bg-slate-800 text-amber-400 text-xs font-semibold px-4 py-2 rounded-lg transition flex items-center gap-1.5">
+              <i class="fa fa-download"></i> Tarik Data dari Cloud
+            </button>
+            <button onclick="syncWithGoogle()" class="bg-slate-900 hover:bg-slate-800 text-amber-400 text-xs font-semibold px-4 py-2 rounded-lg transition flex items-center gap-1.5">
+              <i class="fa fa-upload"></i> Kirim ke Cloud
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4 pillar-finance">
+          <h3 class="font-heading font-bold text-slate-800 text-sm">Auto-Trigger Otomatisasi</h3>
+          <p class="text-xs text-slate-500">
+            Untuk mengaktifkan otomatisasi "Deal Menang → Pendapatan + Antrean Proyek", buka Apps Script editor, 
+            pilih fungsi <code>installAutoTrigger</code>, lalu klik Run. Ini akan memasang trigger onEdit & time-driven (per jam).
+          </p>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4 pillar-riset">
+          <h3 class="font-heading font-bold text-slate-800 text-sm">Cadangan Data Lokal (JSON)</h3>
+          <p class="text-xs text-slate-500">Simpan salinan data ke file laptop Anda sewaktu-waktu.</p>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="exportData()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
+              <i class="fa fa-download"></i> Unduh File Backup
+            </button>
+            <label class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5 cursor-pointer">
+              <i class="fa fa-upload"></i> Pulihkan Data dari File
+              <input type="file" id="file-import" accept=".json" onchange="importData(event)" class="hidden">
+            </label>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- BOTTOM NAVIGATION (MOBILE) -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 flex justify-around py-2 z-40 pillar-mobile-nav">
+      <button onclick="nav('dashboard')" class="mob-btn flex flex-col items-center text-[10px] text-amber-500 active">
+        <i class="fa fa-tachometer text-base mb-0.5"></i>Dasbor
+      </button>
+      <button onclick="nav('leads')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
+        <i class="fa fa-bullseye text-base mb-0.5"></i>Leads
+      </button>
+      <button onclick="nav('projects')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
+        <i class="fa fa-briefcase text-base mb-0.5"></i>Proyek
+      </button>
+      <button onclick="nav('clients')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
+        <i class="fa fa-users text-base mb-0.5"></i>Klien
+      </button>
+      <button onclick="nav('marketing')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400 pillar-marketing-mob">
+        <i class="fa fa-ad text-base mb-0.5"></i>Iklan
+      </button>
+      <button onclick="nav('settings')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
+        <i class="fa fa-cog text-base mb-0.5"></i>Pengaturan
+      </button>
+    </nav>
+  </div>
+
+  <!-- MODALS -->
+
+  <!-- Modal Lead -->
+  <div id="modal-lead" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-heading font-bold text-slate-900 text-base">Tambah Calon Klien (Lead)</h3>
+        <button onclick="closeModal('modal-lead')" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa fa-times"></i></button>
+      </div>
+      <form onsubmit="submitLead(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Nama Calon Klien / Brand</label>
+          <input type="text" id="lead-name" required placeholder="Contoh: Bpk. Hendra / Kopi Sore" class="w-full p-2 border border-slate-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Nomor WhatsApp</label>
+          <input type="tel" id="lead-phone" placeholder="Contoh: 08123456789" class="w-full p-2 border border-slate-300 rounded-lg">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Sumber Lead</label>
+            <select id="lead-source" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+              <option value="WhatsApp">WhatsApp Langsung</option>
+              <option value="Instagram Ads">Instagram Ads</option>
+              <option value="TikTok">TikTok</option>
+              <option value="Referensi">Referensi Teman</option>
+              <option value="Lainnya">Lainnya</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Estimasi Nilai (Rp)</label>
+            <input type="number" id="lead-value" placeholder="Contoh: 1500000" class="w-full p-2 border border-slate-300 rounded-lg">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Status Prospek</label>
+          <select id="lead-status" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+            <option value="new">Baru Kontak</option>
+            <option value="contacted">Sudah Dihubungi</option>
+            <option value="nego">Tahap Negosiasi</option>
+            <option value="won">Deal (Menang)</option>
+            <option value="lost">Batal / Lost</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Catatan Kebutuhan</label>
+          <textarea id="lead-notes" rows="2" placeholder="Contoh: Mau buat logo UMKM paket 1,5 juta..." class="w-full p-2 border border-slate-300 rounded-lg"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-lead')" class="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg font-semibold">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">Simpan Lead</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Client -->
+  <div id="modal-client" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-heading font-bold text-slate-900 text-base">Tambah Klien Tetap</h3>
+        <button onclick="closeModal('modal-client')" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa fa-times"></i></button>
+      </div>
+      <form onsubmit="submitClient(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Nama Klien / Brand</label>
+          <input type="text" id="client-name" required placeholder="Contoh: Bpk. Hendra (Kopi Sore)" class="w-full p-2 border border-slate-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Nomor WhatsApp</label>
+          <input type="tel" id="client-phone" placeholder="Contoh: 08123456789" class="w-full p-2 border border-slate-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Review Singkat</label>
+          <textarea id="client-review" rows="2" placeholder="Contoh: Sangat profesional, hasilnya memuaskan" class="w-full p-2 border border-slate-300 rounded-lg"></textarea>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Rating (1–5 Bintang)</label>
+          <div class="flex gap-1 star-rating" id="client-star-picker">
+            <i class="fa fa-star text-2xl inactive" data-val="1"></i>
+            <i class="fa fa-star text-2xl inactive" data-val="2"></i>
+            <i class="fa fa-star text-2xl inactive" data-val="3"></i>
+            <i class="fa fa-star text-2xl inactive" data-val="4"></i>
+            <i class="fa fa-star text-2xl inactive" data-val="5"></i>
+          </div>
+          <input type="hidden" id="client-rating" value="0">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-client')" class="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg font-semibold">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700">Simpan Klien</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Project -->
+  <div id="modal-project" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-heading font-bold text-slate-900 text-base">Buat Proyek Baru</h3>
+        <button onclick="closeModal('modal-project')" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa fa-times"></i></button>
+      </div>
+      <form onsubmit="submitProject(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Nama Proyek / Pekerjaan</label>
+          <input type="text" id="proj-title" required placeholder="Contoh: Branding Logo Kopi Sore" class="w-full p-2 border border-slate-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Nama Klien</label>
+          <input type="text" id="proj-client" required placeholder="Contoh: Bpk. Hendra" class="w-full p-2 border border-slate-300 rounded-lg">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Nilai Proyek (Rp)</label>
+            <input type="number" id="proj-value" placeholder="Contoh: 8000000" class="w-full p-2 border border-slate-300 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Deadline</label>
+            <input type="date" id="proj-deadline" class="w-full p-2 border border-slate-300 rounded-lg">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Status Proyek</label>
+          <select id="proj-status" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+            <option value="plan">Perencanaan / Brief</option>
+            <option value="ongoing">Sedang Pengerjaan</option>
+            <option value="review">Review Klien</option>
+            <option value="done">Selesai / Lunas</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Catatan</label>
+          <textarea id="proj-notes" rows="2" placeholder="Catatan khusus teknis atau revisi..." class="w-full p-2 border border-slate-300 rounded-lg"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-project')" class="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg font-semibold">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700">Simpan Proyek</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Finance -->
+  <div id="modal-finance" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50 pillar-finance">
+    <div class="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-heading font-bold text-slate-900 text-base">Catat Pemasukan / Pengeluaran</h3>
+        <button onclick="closeModal('modal-finance')" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa fa-times"></i></button>
+      </div>
+      <form onsubmit="submitFinance(event)" class="space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Tipe Transaksi</label>
+            <select id="fin-type" onchange="updateFinanceCategories()" class="w-full p-2 border border-slate-300 rounded-lg bg-white font-semibold">
+              <option value="income">Pemasukan (+)</option>
+              <option value="expense">Pengeluaran (-)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Tanggal</label>
+            <input type="date" id="fin-date" required class="w-full p-2 border border-slate-300 rounded-lg">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Kategori</label>
+            <select id="fin-category" class="w-full p-2 border border-slate-300 rounded-lg bg-white"></select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Nominal (Rp)</label>
+            <input type="number" id="fin-amount" required placeholder="Contoh: 1500000" class="w-full p-2 border border-slate-300 rounded-lg">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Keterangan / Klien</label>
+          <input type="text" id="fin-desc" required placeholder="Contoh: DP 50% Logo Bpk Hendra" class="w-full p-2 border border-slate-300 rounded-lg">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-finance')" class="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg font-semibold">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700">Simpan Transaksi</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Marketing Spend -->
+  <div id="modal-marketing" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50 pillar-marketing">
+    <div class="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-heading font-bold text-slate-900 text-base">Catat Biaya Iklan / Campaign</h3>
+        <button onclick="closeModal('modal-marketing')" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa fa-times"></i></button>
+      </div>
+      <form onsubmit="submitMarketing(event)" class="space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Platform</label>
+            <select id="mkt-platform" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+              <option value="Meta Ads">Meta Ads (Facebook/Instagram)</option>
+              <option value="TikTok Ads">TikTok Ads</option>
+              <option value="Google Ads">Google Ads</option>
+              <option value="LinkedIn Ads">LinkedIn Ads</option>
+              <option value="Lainnya">Lainnya</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Tanggal</label>
+            <input type="date" id="mkt-date" required class="w-full p-2 border border-slate-300 rounded-lg">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Nama Kampanye</label>
+          <input type="text" id="mkt-campaign" placeholder="Contoh: September Brand Awareness - Kopi Sore" class="w-full p-2 border border-slate-300 rounded-lg">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Budget (Rp)</label>
+            <input type="number" id="mkt-budget" placeholder="Anggaran total" class="w-full p-2 border border-slate-300 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Terpakai (Rp)</label>
+            <input type="number" id="mkt-spent" placeholder="Realisasi aktual" class="w-full p-2 border border-slate-300 rounded-lg">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Leads Dihasilkan</label>
+            <input type="number" id="mkt-leads" placeholder="Jumlah leads dari iklan ini" class="w-full p-2 border border-slate-300 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Catatan</label>
+            <input type="text" id="mkt-notes" placeholder="Opsional" class="w-full p-2 border border-slate-300 rounded-lg">
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-marketing')" class="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg font-semibold">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-pink-600 text-white rounded-lg font-semibold hover:bg-pink-700">Simpan Campaign</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Memory -->
+  <div id="modal-memory" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50 pillar-riset">
+    <div class="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-heading font-bold text-slate-900 text-base">Tambah Catatan Business Memory</h3>
+        <button onclick="closeModal('modal-memory')" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa fa-times"></i></button>
+      </div>
+      <form onsubmit="submitMemory(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Kategori</label>
+          <select id="mem-category" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+            <option value="Strategi Penawaran">Strategi Penawaran</option>
+            <option value="Evaluasi Iklan">Evaluasi Iklan & Leads</option>
+            <option value="SOP Produksi">SOP Produksi</option>
+            <option value="Ide Pengembangan">Ide Pengembangan</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Judul Catatan</label>
+          <input type="text" id="mem-title" required placeholder="Contoh: Pola Closing Paket 8 Juta" class="w-full p-2 border border-slate-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Isi Pelajaran / Insight</label>
+          <textarea id="mem-content" rows="4" required placeholder="Tuliskan pengalaman atau strategi yang berhasil..." class="w-full p-2 border border-slate-300 rounded-lg"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-memory')" class="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg font-semibold">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700">Simpan Memory</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-16 md:bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-xl text-xs font-semibold opacity-0 pointer-events-none transition-all duration-300 z-50 flex items-center gap-2">
+    <i id="toast-icon" class="fa fa-check-circle text-emerald-400"></i>
+    <span id="toast-msg">Pesan</span>
+  </div>
+
+  <script>
+
+    const DB_KEY = 'csk_business_os_db';
+    let db = {
+      leads: [
+        { id: '1', date: '2026-09-01', name: 'Bpk. Hendra (Kopi Sore)', phone: '081234567890', source: 'Instagram Ads', value: 8000000, status: 'won', notes: 'Paket Branding Lengkap 8 Juta' },
+        { id: '2', date: '2026-09-03', name: 'Ibu Maya (Fashion Hijab)', phone: '081398765432', source: 'WhatsApp', value: 1500000, status: 'nego', notes: 'Tanya logo UMKM 1.5jt' },
+        { id: '3', date: '2026-09-05', name: 'Dr. Dimas (Klinik Gigi)', phone: '082155667788', source: 'Referensi', value: 5000000, status: 'new', notes: 'Tertarik manajemen ads Meta bulanan' }
+      ],
+      clients: [
+        { id: '1', name: 'Bpk. Hendra (Kopi Sore)', phone: '081234567890', projectsCount: 1, totalSpend: 8000000, notes: 'Klien loyal paket premium branding', rating: 5, review: 'Sangat puas dengan hasilnya!' }
+      ],
+      projects: [
+        { id: '1', title: 'Branding Identity Kopi Sore', client: 'Bpk. Hendra (Kopi Sore)', value: 8000000, status: 'ongoing', deadline: '2026-09-20', notes: 'Tahap penyusunan brand guidelines', sopChecklist: 'Brief:1;Produksi:1;Review:0;Revisi:0;Delivery:0' }
+      ],
+      finance: [
+        { id: '1', date: '2026-09-02', type: 'income', category: 'DP Proyek', amount: 4000000, description: 'DP 50% Branding Kopi Sore' },
+        { id: '2', date: '2026-09-04', type: 'expense', category: 'Biaya Iklan Meta/TikTok', amount: 500000, description: 'Topup Meta Ads kampanye September' },
+        { id: '3', date: '2026-09-05', type: 'expense', category: 'Tool/Software', amount: 250000, description: 'Langganan tool desain' }
+      ],
+      memory: [
+        { id: '1', date: '2026-09-02', category: 'Strategi Penawaran', title: 'Formula 2 Paket: 1.5 Juta vs 8 Juta', content: 'Calon klien UMKM ditawarkan logo mulai 1.5jt. Untuk bisnis mapan, tawarkan paket 8jt (Logo, guidelines, stationery, mockup, editable file). Ini membuat klien merasa punya opsi jelas.' }
+      ],
+      marketingSpend: [
+        { id: '1', date: '2026-09-04', platform: 'Meta Ads', campaign: 'September Brand Awareness - Kopi Sore', budget: 1000000, spent: 500000, leadsGenerated: 8, notes: '' }
+      ],
+      settings: {
+        googleSheetUrl: 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec',
+        lastSync: ''
+      },
+      role: 'owner'
+    };
+
+    // ============== CORE STATE ==============
+
+    function loadDB() {
+      const saved = localStorage.getItem(DB_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          // Merge safely: ensure all arrays exist
+          db.leads          = parsed.leads          || [];
+          db.clients        = parsed.clients        || [];
+          db.projects       = parsed.projects       || [];
+          db.finance        = parsed.finance        || [];
+          db.memory         = parsed.memory         || [];
+          db.marketingSpend = parsed.marketingSpend || [];
+          db.settings       = parsed.settings       || { googleSheetUrl: '', lastSync: '' };
+          db.role           = parsed.role           || 'owner';
+        } catch (e) {
+          console.error("Gagal membaca database lokal.");
+        }
+      }
+      if (!db.settings) db.settings = { googleSheetUrl: 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec', lastSync: '' };
+      if (!db.settings.googleSheetUrl) db.settings.googleSheetUrl = 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec';
+      document.getElementById('setting-google-url').value = db.settings.googleSheetUrl || '';
+      // Set role selector
+      document.getElementById('role-select').value = db.role || 'owner';
+      const mobSel = document.getElementById('role-select-mob');
+      if (mobSel) mobSel.value = db.role || 'owner';
+      updateCloudIndicator();
+      applyRoleUI();
+    }
+
+    function saveDB() {
+      localStorage.setItem(DB_KEY, JSON.stringify(db));
+      renderAll();
+      // Auto-sync in background if cloud URL is active
+      if (db.settings && db.settings.googleSheetUrl) {
+        syncWithGoogle(true);
+      }
+    }
+
+    function formatRp(num) {
+      return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
+    }
+
+    function showToast(msg, isError) {
+      const t = document.getElementById('toast');
+      const icon = document.getElementById('toast-icon');
+      document.getElementById('toast-msg').innerText = msg;
+      icon.className = isError ? 'fa fa-exclamation-circle text-red-400' : 'fa fa-check-circle text-emerald-400';
+      t.classList.remove('opacity-0', 'pointer-events-none');
+      setTimeout(() => t.classList.add('opacity-0', 'pointer-events-none'), 3000);
+    }
+
+    // ============== ROLE-BASED ACCESS ==============
+
+    function onRoleChange(role) {
+      db.role = role;
+      localStorage.setItem(DB_KEY, JSON.stringify(db));
+      applyRoleUI();
+      showToast(role === 'owner' ? 'Mode Owner aktif — akses penuh.' : 'Mode Tim/Admin — menu keuangan & riset disembunyikan.');
+    }
+
+    function applyRoleUI() {
+      const isTeam = db.role !== 'owner';
+      const selectors = ['.pillar-finance', '.pillar-marketing', '.pillar-riset', '.pillar-marketing-mob'];
+      selectors.forEach(sel => {
+        document.querySelectorAll(sel).forEach(el => {
+          el.style.display = isTeam ? 'none' : '';
+        });
+      });
+      // Hide mobile nav items for team
+      document.querySelectorAll('.pillar-marketing-mob').forEach(el => {
+        el.closest('nav')?.querySelectorAll('.mob-btn').forEach(btn => {
+          // We'll hide specific buttons by checking their onclick
+        });
+      });
+      // More targeted: hide mobile nav buttons for finance/marketing/riset
+      document.querySelectorAll('.mob-btn').forEach(btn => {
+        const onclick = btn.getAttribute('onclick') || '';
+        let hidden = false;
+        if (isTeam && (onclick.includes("'finance'") || onclick.includes("'marketing'") || onclick.includes("'analysis'") || onclick.includes("'memory'"))) {
+          hidden = true;
+        }
+        btn.closest('nav').style.display = ''; // keep nav visible
+        if (hidden) btn.style.display = 'none';
+        else btn.style.display = '';
+      });
+      // Show/hide settings subsections
+      document.querySelectorAll('.pillar-finance').forEach(el => el.style.display = isTeam ? 'none' : '');
+      document.querySelectorAll('.pillar-marketing').forEach(el => el.style.display = isTeam ? 'none' : '');
+      document.querySelectorAll('.pillar-riset').forEach(el => el.style.display = isTeam ? 'none' : '');
+      const mktMobNav = document.querySelector('.pillar-marketing-mob');
+      if (mktMobNav) mktMobNav.style.display = isTeam ? 'none' : '';
+    }
+
+    // ============== NAVIGATION ==============
+
+    function nav(page) {
+      document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
+      const target = document.getElementById('page-' + page);
+      if (target) target.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        const isCurrent = btn.getAttribute('onclick').includes(page);
+        btn.classList.toggle('bg-slate-800', isCurrent);
+        btn.classList.toggle('text-white', isCurrent);
+      });
+
+      document.querySelectorAll('.mob-btn').forEach(btn => {
+        const isCurrent = btn.getAttribute('onclick').includes(page);
+        btn.classList.toggle('text-amber-500', isCurrent);
+        btn.classList.toggle('text-slate-400', !isCurrent);
+      });
+
+      window.scrollTo(0, 0);
+    }
+
+    // ============== MODAL HELPERS ==============
+
+    function openModal(id) {
+      const m = document.getElementById(id);
+      if (m) {
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+      }
+      if (id === 'modal-finance') {
+        document.getElementById('fin-date').value = new Date().toISOString().slice(0,10);
+        updateFinanceCategories();
+      }
+      if (id === 'modal-marketing') {
+        document.getElementById('mkt-date').value = new Date().toISOString().slice(0,10);
+      }
+      if (id === 'modal-client') {
+        resetStarPicker();
+      }
+    }
+
+    function closeModal(id) {
+      const m = document.getElementById(id);
+      if (m) {
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+      }
+    }
+
+    // ============== STAR RATING ==============
+
+    function initStarPicker(containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.querySelectorAll('i').forEach(star => {
+        star.addEventListener('click', () => {
+          const val = parseInt(star.dataset.val);
+          document.getElementById('client-rating').value = val;
+          container.querySelectorAll('i').forEach(s => {
+            s.classList.toggle('active', parseInt(s.dataset.val) <= val);
+            s.classList.toggle('inactive', parseInt(s.dataset.val) > val);
+          });
+        });
+        star.addEventListener('mouseenter', () => {
+          const val = parseInt(star.dataset.val);
+          container.querySelectorAll('i').forEach(s => {
+            s.style.color = parseInt(s.dataset.val) <= val ? '#F59E0B' : '#CBD5E1';
+          });
+        });
+        star.addEventListener('mouseleave', () => {
+          const current = parseInt(document.getElementById('client-rating').value || 0);
+          container.querySelectorAll('i').forEach(s => {
+            s.style.color = '';
+            s.classList.toggle('active', parseInt(s.dataset.val) <= current);
+            s.classList.toggle('inactive', parseInt(s.dataset.val) > current);
+          });
+        });
+      });
+    }
+
+    function resetStarPicker() {
+      document.getElementById('client-rating').value = '0';
+      const container = document.getElementById('client-star-picker');
+      if (!container) return;
+      container.querySelectorAll('i').forEach(s => {
+        s.classList.remove('active');
+        s.classList.add('inactive');
+        s.style.color = '';
+      });
+    }
+
+    function renderStars(rating) {
+      const r = Math.round(Number(rating) || 0);
+      let html = '<span class="text-amber-400 text-sm">';
+      for (let i = 1; i <= 5; i++) {
+        html += i <= r ? '<i class="fa fa-star"></i>' : '<i class="fa fa-star-o text-slate-300"></i>';
+      }
+      html += '</span>';
+      return html;
+    }
+
+    // ============== RENDER ALL ==============
+
+    function renderAll() {
+      renderDashboard();
+      renderLeads();
+      renderClients();
+      renderProjects();
+      renderFinance();
+      renderMarketing();
+      renderMemory();
+      renderAnalysis();
+      applyRoleUI();
+    }
+
+    // ============== DASHBOARD ==============
+
+    function renderDashboard() {
+      const totalLeads = db.leads.length;
+      const activeLeads = db.leads.filter(l => l.status !== 'won' && l.status !== 'lost').length;
+      const wonLeads = db.leads.filter(l => l.status === 'won').length;
+      const winRate = totalLeads ? Math.round((wonLeads / totalLeads) * 100) : 0;
+
+      const totalIncome = db.finance.filter(f => f.type === 'income').reduce((a, b) => a + Number(b.amount || 0), 0);
+      const totalExpense = db.finance.filter(f => f.type === 'expense').reduce((a, b) => a + Number(b.amount || 0), 0);
+      const netProfit = totalIncome - totalExpense;
+      const marginPct = totalIncome ? Math.round((netProfit / totalIncome) * 100) : 0;
+
+      document.getElementById('stat-total-leads').innerText = totalLeads;
+      document.getElementById('stat-active-leads').innerText = activeLeads;
+      document.getElementById('stat-won-leads').innerText = wonLeads;
+      document.getElementById('stat-win-rate').innerText = winRate + '%';
+      document.getElementById('stat-total-income').innerText = formatRp(totalIncome);
+      document.getElementById('stat-net-profit').innerText = formatRp(netProfit);
+      document.getElementById('stat-margin-pct').innerText = marginPct + '%';
+
+      // Marketing summary
+      const totalBudget = db.marketingSpend.reduce((a, b) => a + Number(b.budget || 0), 0);
+      const totalSpent = db.marketingSpend.reduce((a, b) => a + Number(b.spent || 0), 0);
+      const totalMktLeads = db.marketingSpend.reduce((a, b) => a + Number(b.leadsGenerated || 0), 0);
+      const cpl = totalMktLeads > 0 ? Math.round(totalSpent / totalMktLeads) : 0;
+      const roas = totalSpent > 0 ? (totalIncome / totalSpent).toFixed(1) : '—';
+
+      document.getElementById('stat-mkt-spend').innerText = formatRp(totalSpent);
+      document.getElementById('mkt-total-budget').innerText = formatRp(totalBudget);
+      document.getElementById('mkt-spent').innerText = formatRp(totalSpent);
+      document.getElementById('mkt-total-leads').innerText = totalMktLeads;
+      document.getElementById('mkt-cpl').innerText = 'Rp ' + cpl.toLocaleString('id-ID');
+
+      // Active projects on dashboard
+      const activeProj = db.projects.filter(p => p.status !== 'done').slice(0, 4);
+      const dashProjEl = document.getElementById('dash-projects-list');
+      if (activeProj.length === 0) {
+        dashProjEl.innerHTML = '<div class="text-xs text-slate-400 py-3 text-center">Belum ada proyek berjalan.</div>';
+      } else {
+        dashProjEl.innerHTML = activeProj.map(p =>
+          '<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">' +
+            '<div>' +
+              '<div class="text-xs font-bold text-slate-800">' + p.title + '</div>' +
+              '<div class="text-[11px] text-slate-500">' + p.client + ' &bull; Deadline: ' + (p.deadline || '-') + '</div>' +
+            '</div>' +
+            '<span class="badge ' + (p.status === 'ongoing' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800') + '">' +
+              (p.status === 'ongoing' ? 'Pengerjaan' : 'Review') +
+            '</span>' +
+          '</div>'
+        ).join('');
+      }
+
+      // Recent leads
+      const recentLeads = db.leads.filter(l => l.status !== 'won' && l.status !== 'lost').slice(0, 4);
+      const dashLeadsEl = document.getElementById('dash-leads-list');
+      if (recentLeads.length === 0) {
+        dashLeadsEl.innerHTML = '<div class="text-xs text-slate-400 py-3 text-center">Tidak ada lead yang perlu follow up.</div>';
+      } else {
+        dashLeadsEl.innerHTML = recentLeads.map(l =>
+          '<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">' +
+            '<div>' +
+              '<div class="text-xs font-bold text-slate-800">' + l.name + '</div>' +
+              '<div class="text-[11px] text-slate-500">' + l.source + ' &bull; ' + formatRp(l.value) + '</div>' +
+            '</div>' +
+            '<div class="flex items-center gap-1.5">' +
+              (l.phone ? '<a href="https://wa.me/' + cleanPhone(l.phone) + '" target="_blank" class="p-1.5 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200 text-xs"><i class="fa fa-whatsapp"></i> Chat</a>' : '') +
+              '<button onclick="convertLeadToWon(\'' + l.id + '\')" class="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs font-semibold">Deal</button>' +
+            '</div>' +
+          '</div>'
+        ).join('');
+      }
+    }
+
+    // ============== LEADS ==============
+
+    let currentLeadFilter = 'all';
+    function filterLeads(filter) {
+      currentLeadFilter = filter;
+      document.querySelectorAll('.lead-filter-btn').forEach(b => {
+        const active = b.dataset.filter === filter;
+        b.className = active ? 'lead-filter-btn px-3 py-1.5 rounded-full bg-slate-900 text-white' : 'lead-filter-btn px-3 py-1.5 rounded-full bg-white text-slate-600 border border-slate-200';
+      });
+      renderLeads();
+    }
+
+    function renderLeads() {
+      const container = document.getElementById('leads-container');
+      const filtered = currentLeadFilter === 'all' ? db.leads : db.leads.filter(l => l.status === currentLeadFilter);
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="bg-white p-8 rounded-xl border border-slate-200 text-center text-xs text-slate-400">Belum ada leads dalam kategori ini.</div>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(l => {
+        const badgeColor = {
+          'new': 'bg-blue-100 text-blue-800',
+          'contacted': 'bg-purple-100 text-purple-800',
+          'nego': 'bg-amber-100 text-amber-800',
+          'won': 'bg-emerald-100 text-emerald-800',
+          'lost': 'bg-red-100 text-red-800'
+        }[l.status] || 'bg-slate-100 text-slate-800';
+
+        const statusLabel = {
+          'new': 'Baru',
+          'contacted': 'Dihubungi',
+          'nego': 'Negosiasi',
+          'won': 'Deal (Won)',
+          'lost': 'Batal'
+        }[l.status] || l.status;
+
+        return '<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">' +
+          '<div class="space-y-1">' +
+            '<div class="flex items-center gap-2">' +
+              '<span class="font-heading font-bold text-sm text-slate-800">' + l.name + '</span>' +
+              '<span class="badge ' + badgeColor + '">' + statusLabel + '</span>' +
+            '</div>' +
+            '<div class="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">' +
+              '<span><i class="fa fa-tag text-slate-400"></i> ' + (l.source || 'Sumber tidak dicatat') + '</span>' +
+              '<span><i class="fa fa-money text-slate-400"></i> ' + formatRp(l.value) + '</span>' +
+              (l.date ? '<span><i class="fa fa-calendar text-slate-400"></i> ' + l.date + '</span>' : '') +
+            '</div>' +
+            (l.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + l.notes + '</div>' : '') +
+          '</div>' +
+          '<div class="flex items-center gap-2 self-end sm:self-center">' +
+            (l.phone ? '<a href="https://wa.me/' + cleanPhone(l.phone) + '" target="_blank" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"><i class="fa fa-whatsapp"></i> WA</a>' : '') +
+            (l.status !== 'won' ? '<button onclick="convertLeadToWon(\'' + l.id + '\')" title="Tandai Deal" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Deal</button>' : '<span class="badge bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">✓ Deal</span>') +
+            '<button onclick="deleteLead(\'' + l.id + '\')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    // ============== CLIENTS (with Rating & Review) ==============
+
+    function renderClients() {
+      const container = document.getElementById('clients-container');
+      if (db.clients.length === 0) {
+        container.innerHTML = '<div class="col-span-full bg-white p-8 rounded-xl border border-slate-200 text-center text-xs text-slate-400">Belum ada klien tersimpan.</div>';
+        return;
+      }
+      container.innerHTML = db.clients.map(c => {
+        const avgRating = Math.round(Number(c.rating) || 0);
+        const reviewText = c.review || c.ratingReview || '';
+        return '<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">' +
+          '<div class="flex items-start justify-between">' +
+            '<div>' +
+              '<div class="font-heading font-bold text-sm text-slate-800">' + c.name + '</div>' +
+              '<div class="text-xs text-slate-500">' + (c.phone || '-') + '</div>' +
+            '</div>' +
+            '<button onclick="deleteClient(\'' + c.id + '\')" class="text-slate-400 hover:text-red-600 text-xs p-1"><i class="fa fa-trash"></i></button>' +
+          '</div>' +
+          '<div class="flex items-center gap-2">' +
+            renderStars(avgRating) +
+            '<span class="text-xs text-slate-500">' + avgRating + '/5</span>' +
+          '</div>' +
+          (reviewText ? '<p class="text-xs text-slate-600 italic bg-slate-50 p-2 rounded border border-slate-100">"' + reviewText + '"</p>' : '') +
+          '<div class="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg text-xs">' +
+            '<div>' +
+              '<div class="text-[10px] text-slate-400 font-semibold uppercase">Total Proyek</div>' +
+              '<div class="font-bold text-slate-800">' + (c.projectsCount || 0) + ' Proyek</div>' +
+            '</div>' +
+            '<div>' +
+              '<div class="text-[10px] text-slate-400 font-semibold uppercase">LTV Total</div>' +
+              '<div class="font-bold text-emerald-600">' + formatRp(c.totalSpend || 0) + '</div>' +
+            '</div>' +
+          '</div>' +
+          (c.notes ? '<p class="text-xs text-slate-600">' + c.notes + '</p>' : '') +
+          (c.phone ? '<a href="https://wa.me/' + cleanPhone(c.phone) + '" target="_blank" class="block w-full text-center py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded text-xs transition"><i class="fa fa-whatsapp text-emerald-600"></i> Hubungi Klien</a>' : '') +
+        '</div>';
+      }).join('');
+    }
+
+    // ============== PROJECTS (with SOP Checklist) ==============
+
+    const SOP_STAGES = ['Brief', 'Produksi', 'Review', 'Revisi', 'Delivery'];
+
+    function parseSOP(sopStr) {
+      if (!sopStr) return SOP_STAGES.map(() => 0);
+      const parts = String(sopStr).split(';');
+      return parts.map((p, i) => {
+        const kv = p.split(':');
+        return kv.length === 2 ? (kv[1] === '1' ? 1 : 0) : 0;
+      });
+    }
+
+    function renderSOPChecklist(project) {
+      const values = parseSOP(project.sopChecklist);
+      let html = '<div class="mt-2 pt-2 border-t border-slate-100">';
+      html += '<div class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5">SOP Checklist</div>';
+      html += '<div class="space-y-1">';
+      SOP_STAGES.forEach((stage, i) => {
+        const checked = values[i] === 1;
+        html += '<div class="sop-item flex items-center gap-2 text-xs">' +
+          '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleSOP(\'' + project.id + '\', ' + i + ', this.checked)" class="rounded">' +
+          '<label class="' + (checked ? 'text-emerald-700 font-semibold' : 'text-slate-600') + '">' + stage + '</label>' +
+          '</div>';
+      });
+      html += '</div></div>';
+      return html;
+    }
+
+    function toggleSOP(projectId, stageIndex, checked) {
+      const proj = db.projects.find(p => p.id === projectId);
+      if (!proj) return;
+      const values = parseSOP(proj.sopChecklist);
+      values[stageIndex] = checked ? 1 : 0;
+      proj.sopChecklist = SOP_STAGES.map((s, i) => s + ':' + values[i]).join(';');
+      saveDB();
+    }
+
+    function renderProjects() {
+      const container = document.getElementById('projects-container');
+      if (db.projects.length === 0) {
+        container.innerHTML = '<div class="bg-white p-8 rounded-xl border border-slate-200 text-center text-xs text-slate-400">Belum ada proyek berjalan.</div>';
+        return;
+      }
+      container.innerHTML = db.projects.map(p => {
+        const badgeColor = {
+          'plan': 'bg-blue-100 text-blue-800',
+          'ongoing': 'bg-amber-100 text-amber-800',
+          'review': 'bg-purple-100 text-purple-800',
+          'done': 'bg-emerald-100 text-emerald-800'
+        }[p.status] || 'bg-slate-100 text-slate-800';
+
+        const statusLabel = {
+          'plan': 'Perencanaan',
+          'ongoing': 'Pengerjaan',
+          'review': 'Review Klien',
+          'done': 'Selesai'
+        }[p.status] || p.status;
+
+        return '<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-start justify-between gap-3">' +
+          '<div class="space-y-1 flex-1">' +
+            '<div class="flex items-center gap-2">' +
+              '<span class="font-heading font-bold text-sm text-slate-800">' + p.title + '</span>' +
+              '<span class="badge ' + badgeColor + '">' + statusLabel + '</span>' +
+            '</div>' +
+            '<div class="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">' +
+              '<span><i class="fa fa-user text-slate-400"></i> Klien: ' + p.client + '</span>' +
+              '<span><i class="fa fa-money text-slate-400"></i> ' + formatRp(p.value) + '</span>' +
+              '<span><i class="fa fa-clock-o text-slate-400"></i> Deadline: ' + (p.deadline || '-') + '</span>' +
+            '</div>' +
+            (p.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + p.notes + '</div>' : '') +
+            renderSOPChecklist(p) +
+          '</div>' +
+          '<div class="flex items-center gap-2 self-end sm:self-center shrink-0">' +
+            (p.status !== 'done' ? '<button onclick="markProjectDone(\'' + p.id + '\')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Selesai</button>' : '') +
+            '<button onclick="deleteProject(\'' + p.id + '\')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    // ============== FINANCE ==============
+
+    function renderFinance() {
+      const income = db.finance.filter(f => f.type === 'income').reduce((a, b) => a + Number(b.amount || 0), 0);
+      const expense = db.finance.filter(f => f.type === 'expense').reduce((a, b) => a + Number(b.amount || 0), 0);
+      document.getElementById('fin-income').innerText = formatRp(income);
+      document.getElementById('fin-expense').innerText = formatRp(expense);
+      document.getElementById('fin-balance').innerText = formatRp(income - expense);
+
+      const tableEl = document.getElementById('finance-table');
+      if (db.finance.length === 0) {
+        tableEl.innerHTML = '<div class="p-6 text-center text-xs text-slate-400">Belum ada transaksi tercatat.</div>';
+        return;
+      }
+      tableEl.innerHTML = db.finance.slice().reverse().map(f =>
+        '<div class="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition">' +
+          '<div class="space-y-0.5">' +
+            '<div class="font-bold text-slate-800">' + f.description + '</div>' +
+            '<div class="text-[11px] text-slate-400">' + f.date + ' &bull; ' + f.category + '</div>' +
+          '</div>' +
+          '<div class="flex items-center gap-3">' +
+            '<span class="font-heading font-bold ' + (f.type === 'income' ? 'text-teal-600' : 'text-red-600') + '">' +
+              (f.type === 'income' ? '+' : '-') + ' ' + formatRp(f.amount) +
+            '</span>' +
+            '<button onclick="deleteFinance(\'' + f.id + '\')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
+          '</div>' +
+        '</div>'
+      ).join('');
+    }
+
+    function updateFinanceCategories() {
+      const type = document.getElementById('fin-type').value;
+      const catSelect = document.getElementById('fin-category');
+      if (type === 'income') {
+        catSelect.innerHTML =
+          '<option value="DP Proyek">DP Proyek</option>' +
+          '<option value="Pelunasan Proyek">Pelunasan Proyek</option>' +
+          '<option value="Retainer Iklan Bulanan">Retainer Iklan Bulanan</option>' +
+          '<option value="Pendapatan Lainnya">Pendapatan Lainnya</option>';
+      } else {
+        catSelect.innerHTML =
+          '<option value="Biaya Iklan Meta/TikTok">Biaya Iklan Meta/TikTok</option>' +
+          '<option value="Tool/Software">Tool & Software Desain</option>' +
+          '<option value="Operasional Kantor">Operasional & Internet</option>' +
+          '<option value="Freelance / Produksi">Freelance & Produksi</option>' +
+          '<option value="Pengeluaran Lainnya">Pengeluaran Lainnya</option>';
+      }
+    }
+
+    // ============== MARKETING SPEND (Pilar 5) ==============
+
+    function renderMarketing() {
+      const totalBudget = db.marketingSpend.reduce((a, b) => a + Number(b.budget || 0), 0);
+      const totalSpent = db.marketingSpend.reduce((a, b) => a + Number(b.spent || 0), 0);
+      const totalLeads = db.marketingSpend.reduce((a, b) => a + Number(b.leadsGenerated || 0), 0);
+      const cpl = totalLeads > 0 ? Math.round(totalSpent / totalLeads) : 0;
+
+      document.getElementById('mk-total-budget').innerText = formatRp(totalBudget);
+      document.getElementById('mk-spent').innerText = formatRp(totalSpent);
+      document.getElementById('mk-leads').innerText = totalLeads;
+      document.getElementById('mk-cpl').innerText = 'Rp ' + cpl.toLocaleString('id-ID');
+
+      // ROAS per platform
+      const platforms = {};
+      db.marketingSpend.forEach(m => {
+        const plat = m.platform || 'Lainnya';
+        if (!platforms[plat]) platforms[plat] = { spent: 0, budget: 0, leads: 0 };
+        platforms[plat].spent += Number(m.spent) || 0;
+        platforms[plat].budget += Number(m.budget) || 0;
+        platforms[plat].leads += Number(m.leadsGenerated) || 0;
+      });
+
+      const roasEl = document.getElementById('mk-roas-table');
+      const entries = Object.entries(platforms);
+      if (entries.length === 0) {
+        roasEl.innerHTML = '<div class="text-xs text-slate-400 text-center py-3">Belum ada data campaign.</div>';
+      } else {
+        const totalIncome = db.finance.filter(f => f.type === 'income').reduce((a, b) => a + Number(b.amount || 0), 0);
+        const wonLeads = db.leads.filter(l => l.status === 'won');
+        const wonValue = wonLeads.reduce((a, b) => a + Number(b.value || 0), 0);
+        const overallRoas = totalSpent > 0 ? (wonValue / totalSpent).toFixed(2) : '—';
+
+        let roasHtml = '<div class="grid grid-cols-2 gap-2 mb-3">';
+        roasHtml += '<div class="bg-pink-50 p-2 rounded text-center"><div class="text-[10px] text-slate-500">Total RoAS</div><div class="font-bold text-pink-700 text-sm">' + overallRoas + 'x</div></div>';
+        roasHtml += '<div class="bg-pink-50 p-2 rounded text-center"><div class="text-[10px] text-slate-500">CPL Global</div><div class="font-bold text-pink-700 text-sm">' + formatRp(cpl) + '</div></div>';
+        roasHtml += '</div>';
+
+        roasHtml += '<div class="space-y-2">';
+        entries.forEach(([plat, data]) => {
+          const platRoas = data.spent > 0 ? (wonValue / data.spent).toFixed(1) : '—';
+          const platCpl = data.leads > 0 ? Math.round(data.spent / data.leads) : 0;
+          roasHtml += '<div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-xs">' +
+            '<div><span class="font-semibold text-slate-700">' + plat + '</span> <span class="text-slate-400">| Budget: ' + formatRp(data.budget) + '</span></div>' +
+            '<div class="flex gap-3">' +
+              '<span class="text-slate-500">CPL: <b class="text-slate-700">' + formatRp(platCpl) + '</b></span>' +
+              '<span class="text-slate-500">Leads: <b class="text-slate-700">' + data.leads + '</b></span>' +
+            '</div>' +
+          '</div>';
+        });
+        roasHtml += '</div>';
+        roasEl.innerHTML = roasHtml;
+      }
+
+      // Table
+      const tableEl = document.getElementById('marketing-table');
+      if (db.marketingSpend.length === 0) {
+        tableEl.innerHTML = '<div class="p-6 text-center text-xs text-slate-400">Belum ada campaign iklan tercatat.</div>';
+        return;
+      }
+      tableEl.innerHTML = db.marketingSpend.slice().reverse().map(m =>
+        '<div class="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition">' +
+          '<div class="space-y-0.5">' +
+            '<div class="font-bold text-slate-800">' + m.campaign + '</div>' +
+            '<div class="text-[11px] text-slate-400">' + m.date + ' &bull; ' + m.platform + ' &bull; Budget: ' + formatRp(m.budget) + '</div>' +
+          '</div>' +
+          '<div class="flex items-center gap-4">' +
+            '<span class="text-slate-500">Terpakai: <b class="text-slate-700">' + formatRp(m.spent) + '</b></span>' +
+            '<span class="text-slate-500">Leads: <b class="text-slate-700">' + (m.leadsGenerated || 0) + '</b></span>' +
+            '<button onclick="deleteMarketing(\'' + m.id + '\')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
+          '</div>' +
+        '</div>'
+      ).join('');
+    }
+
+    // ============== MEMORY ==============
+
+    function renderMemory() {
+      const container = document.getElementById('memory-container');
+      if (db.memory.length === 0) {
+        container.innerHTML = '<div class="col-span-full bg-white p-8 rounded-xl border border-slate-200 text-center text-xs text-slate-400">Belum ada catatan strategi bisnis.</div>';
+        return;
+      }
+      container.innerHTML = db.memory.map(m =>
+        '<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-2 border-l-4 border-l-amber-500">' +
+          '<div class="flex items-center justify-between text-xs text-slate-400">' +
+            '<span class="font-semibold text-amber-600">' + m.category + '</span>' +
+            '<div class="flex items-center gap-2">' +
+              '<span>' + m.date + '</span>' +
+              '<button onclick="deleteMemory(\'' + m.id + '\')" class="hover:text-red-600"><i class="fa fa-trash"></i></button>' +
+            '</div>' +
+          '</div>' +
+          '<h4 class="font-heading font-bold text-sm text-slate-800">' + m.title + '</h4>' +
+          '<p class="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">' + m.content + '</p>' +
+        '</div>'
+      ).join('');
+    }
+
+    // ============== ANALYSIS ==============
+
+    function renderAnalysis() {
+      const wonLeads = db.leads.filter(l => l.status === 'won');
+      const totalWonVal = wonLeads.reduce((a, b) => a + Number(b.value || 0), 0);
+      const avgDeal = wonLeads.length ? Math.round(totalWonVal / wonLeads.length) : 0;
+
+      const totalIncome = db.finance.filter(f => f.type === 'income').reduce((a, b) => a + Number(b.amount || 0), 0);
+      const adSpend = db.finance.filter(f => f.type === 'expense' && f.category && f.category.includes('Iklan')).reduce((a, b) => a + Number(b.amount || 0), 0);
+      const totalMktSpend = db.marketingSpend.reduce((a, b) => a + Number(b.spent || 0), 0);
+      const adRatio = totalIncome ? Math.round(((adSpend + totalMktSpend) / totalIncome) * 100) : 0;
+
+      const netProfit = totalIncome - (db.finance.filter(f => f.type === 'expense').reduce((a, b) => a + Number(b.amount || 0), 0) + totalMktSpend);
+      const marginPct = totalIncome ? Math.round((netProfit / totalIncome) * 100) : 0;
+      const healthLabel = marginPct >= 50 ? 'Sangat Sehat' : marginPct >= 30 ? 'Cukup Sehat' : 'Perlu Perhatian';
+      const healthColor = marginPct >= 50 ? 'text-emerald-600' : marginPct >= 30 ? 'text-amber-600' : 'text-red-600';
+
+      const totalSpentAds = totalMktSpend + adSpend;
+      const roas = totalSpentAds > 0 ? (totalIncome / totalSpentAds).toFixed(2) + 'x' : '—';
+
+      document.getElementById('ana-avg-deal').innerText = formatRp(avgDeal);
+      document.getElementById('ana-adspend-ratio').innerText = adRatio + '%';
+      const healthEl = document.getElementById('ana-health');
+      healthEl.innerText = healthLabel;
+      healthEl.className = 'text-2xl font-bold mt-2 ' + healthColor;
+      document.getElementById('ana-roas').innerText = roas;
+    }
+
+    // ============== SUBMIT HANDLERS ==============
+
+    function submitLead(e) {
+      e.preventDefault();
+      const lead = {
+        id: Date.now().toString(),
+        date: new Date().toISOString().slice(0, 10),
+        name: document.getElementById('lead-name').value,
+        phone: document.getElementById('lead-phone').value,
+        source: document.getElementById('lead-source').value,
+        value: Number(document.getElementById('lead-value').value || 0),
+        status: document.getElementById('lead-status').value,
+        notes: document.getElementById('lead-notes').value
+      };
+      db.leads.unshift(lead);
+      saveDB();
+      closeModal('modal-lead');
+      e.target.reset();
+      showToast('Lead baru berhasil ditambahkan!');
+    }
+
+    function convertLeadToWon(id) {
+      const lead = db.leads.find(l => l.id === id);
+      if (!lead) return;
+      lead.status = 'won';
+
+      if (!db.clients.some(c => c.name.toLowerCase() === lead.name.toLowerCase())) {
+        db.clients.unshift({
+          id: Date.now().toString(),
+          name: lead.name,
+          phone: lead.phone,
+          projectsCount: 1,
+          totalSpend: lead.value,
+          notes: 'Dikonversi dari Lead (' + lead.source + ')',
+          rating: 0,
+          review: ''
+        });
+      }
+
+      db.projects.unshift({
+        id: Date.now().toString(),
+        title: 'Proyek ' + lead.name,
+        client: lead.name,
+        value: lead.value,
+        status: 'plan',
+        deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+        notes: lead.notes || 'Hasil konversi Deal',
+        sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
+      });
+
+      saveDB();
+      showToast('Lead ditandai DEAL & otomatis masuk ke Klien, Proyek, dan jurnal Keuangan!');
+    }
+
+    function deleteLead(id) {
+      if (confirm('Yakin ingin menghapus lead ini?')) {
+        db.leads = db.leads.filter(l => l.id !== id);
+        saveDB();
+        showToast('Lead dihapus.');
+      }
+    }
+
+    function submitClient(e) {
+      e.preventDefault();
+      const client = {
+        id: Date.now().toString(),
+        name: document.getElementById('client-name').value,
+        phone: document.getElementById('client-phone').value,
+        projectsCount: 0,
+        totalSpend: 0,
+        notes: '',
+        rating: Number(document.getElementById('client-rating').value) || 0,
+        review: document.getElementById('client-review').value
+      };
+      db.clients.unshift(client);
+      saveDB();
+      closeModal('modal-client');
+      e.target.reset();
+      resetStarPicker();
+      showToast('Klien baru berhasil ditambahkan!');
+    }
+
+    function deleteClient(id) {
+      if (confirm('Hapus klien ini?')) {
+        db.clients = db.clients.filter(c => c.id !== id);
+        saveDB();
+        showToast('Klien dihapus.');
+      }
+    }
+
+    function submitProject(e) {
+      e.preventDefault();
+      const proj = {
+        id: Date.now().toString(),
+        title: document.getElementById('proj-title').value,
+        client: document.getElementById('proj-client').value,
+        value: Number(document.getElementById('proj-value').value || 0),
+        deadline: document.getElementById('proj-deadline').value,
+        status: document.getElementById('proj-status').value,
+        notes: document.getElementById('proj-notes').value,
+        sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
+      };
+      db.projects.unshift(proj);
+      saveDB();
+      closeModal('modal-project');
+      e.target.reset();
+      showToast('Proyek baru berhasil disimpan!');
+    }
+
+    function markProjectDone(id) {
+      const p = db.projects.find(x => x.id === id);
+      if (p) {
+        p.status = 'done';
+        // Mark all SOP stages as done
+        p.sopChecklist = SOP_STAGES.map(() => '1').join(';');
+        saveDB();
+        showToast('Proyek ditandai selesai!');
+      }
+    }
+
+    function deleteProject(id) {
+      if (confirm('Hapus proyek ini?')) {
+        db.projects = db.projects.filter(p => p.id !== id);
+        saveDB();
+        showToast('Proyek dihapus.');
+      }
+    }
+
+    function submitFinance(e) {
+      e.preventDefault();
+      const fin = {
+        id: Date.now().toString(),
+        type: document.getElementById('fin-type').value,
+        date: document.getElementById('fin-date').value,
+        category: document.getElementById('fin-category').value,
+        amount: Number(document.getElementById('fin-amount').value || 0),
+        description: document.getElementById('fin-desc').value
+      };
+      db.finance.unshift(fin);
+      saveDB();
+      closeModal('modal-finance');
+      e.target.reset();
+      showToast('Transaksi berhasil dicatat!');
+    }
+
+    function deleteFinance(id) {
+      if (confirm('Hapus transaksi ini?')) {
+        db.finance = db.finance.filter(f => f.id !== id);
+        saveDB();
+        showToast('Transaksi dihapus.');
+      }
+    }
+
+    function submitMarketing(e) {
+      e.preventDefault();
+      const mkt = {
+        id: Date.now().toString(),
+        date: document.getElementById('mkt-date').value,
+        platform: document.getElementById('mkt-platform').value,
+        campaign: document.getElementById('mkt-campaign').value,
+        budget: Number(document.getElementById('mkt-budget').value || 0),
+        spent: Number(document.getElementById('mkt-spent').value || 0),
+        leadsGenerated: Number(document.getElementById('mkt-leads').value || 0),
+        notes: document.getElementById('mkt-notes').value
+      };
+      db.marketingSpend.unshift(mkt);
+      saveDB();
+      closeModal('modal-marketing');
+      e.target.reset();
+      showToast('Campaign iklan berhasil dicatat!');
+    }
+
+    function deleteMarketing(id) {
+      if (confirm('Hapus campaign ini?')) {
+        db.marketingSpend = db.marketingSpend.filter(m => m.id !== id);
+        saveDB();
+        showToast('Campaign dihapus.');
+      }
+    }
+
+    function submitMemory(e) {
+      e.preventDefault();
+      const mem = {
+        id: Date.now().toString(),
+        date: new Date().toISOString().slice(0, 10),
+        category: document.getElementById('mem-category').value,
+        title: document.getElementById('mem-title').value,
+        content: document.getElementById('mem-content').value
+      };
+      db.memory.unshift(mem);
+      saveDB();
+      closeModal('modal-memory');
+      e.target.reset();
+      showToast('Catatan Memory berhasil disimpan!');
+    }
+
+    function deleteMemory(id) {
+      if (confirm('Hapus catatan ini?')) {
+        db.memory = db.memory.filter(m => m.id !== id);
+        saveDB();
+        showToast('Catatan dihapus.');
+      }
+    }
+
+    function cleanPhone(phone) {
+      let p = String(phone).replace(/[^0-9]/g, '');
+      if (p.startsWith('0')) p = '62' + p.slice(1);
+      return p;
+    }
+
+    // ============== SYNC & DATA MANAGEMENT ==============
+
+    function saveGoogleUrl() {
+      const url = document.getElementById('setting-google-url').value.trim();
+      db.settings.googleSheetUrl = url;
+      localStorage.setItem(DB_KEY, JSON.stringify(db));
+      updateCloudIndicator();
+      showToast('URL Google Sheets berhasil disimpan!');
+    }
+
+    function updateCloudIndicator() {
+      const dot = document.getElementById('cloud-indicator');
+      const text = document.getElementById('cloud-status-text');
+      const isCloud = !!(db.settings && db.settings.googleSheetUrl);
+      if (dot) dot.className = isCloud ? 'w-2.5 h-2.5 rounded-full bg-emerald-500' : 'w-2.5 h-2.5 rounded-full bg-slate-500';
+      if (text) text.innerText = isCloud ? 'Tersambung Google' : 'Lokal Offline';
+    }
+
+    async function syncWithGoogle(isSilent = false) {
+      const url = db.settings && db.settings.googleSheetUrl;
+      if (!url) {
+        if (!isSilent) {
+          alert('URL Google Sheets belum disetel!');
+          nav('settings');
+        }
+        return;
+      }
+
+      if (!isSilent) showToast('Mengirim data ke Google Sheets...');
+      try {
+        const payload = {
+          action: 'sync_all',
+          leads: db.leads,
+          clients: db.clients,
+          projects: db.projects,
+          finance: db.finance,
+          memory: db.memory,
+          marketingSpend: db.marketingSpend
+        };
+
+        await fetch(url, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        db.settings.lastSync = new Date().toLocaleString('id-ID');
+        localStorage.setItem(DB_KEY, JSON.stringify(db));
+        updateCloudIndicator();
+        if (!isSilent) showToast('Data berhasil dikirim ke Google Sheets!');
+      } catch (err) {
+        if (!isSilent) showToast('Gagal sinkron: ' + err.message, true);
+      }
+    }
+
+    /**
+     * Tarik data dari server Google Sheets dan timpa penyimpanan lokal.
+     * Server overwrites local — pastikan Anda sudah menyimpan perubahan penting sebelum menarik.
+     */
+    async function pullData() {
+      const url = db.settings && db.settings.googleSheetUrl;
+      if (!url) {
+        alert('URL Google Sheets belum disetel! Buka Pengaturan dulu.');
+        nav('settings');
+        return;
+      }
+      if (!confirm('Tarik data dari Google Sheets?\n\nTindakan ini akan MENIMPA data lokal Anda dengan data terbaru dari server.\nData yang hanya ada di HP/laptop ini dan belum pernah disinkronkan akan hilang.\n\nLanjutkan?')) return;
+
+      showToast('Mengambil data dari cloud...');
+      try {
+        const resp = await fetch(url);
+        const json = await resp.json();
+        if (json.status !== 'success' || !json.data) throw new Error('Respon tidak valid dari server.');
+
+        const d = json.data;
+        db.leads          = d.leads          || [];
+        db.clients        = d.clients        || [];
+        db.projects       = d.projects       || [];
+        db.finance        = d.finance        || [];
+        db.memory         = d.memory         || [];
+        db.marketingSpend = d.marketingSpend || [];
+        db.settings.lastSync = d.lastSynced || new Date().toISOString();
+
+        localStorage.setItem(DB_KEY, JSON.stringify(db));
+        updateCloudIndicator();
+        renderAll();
+        showToast('Data berhasil ditarik dari cloud! (' + new Date().toLocaleTimeString('id-ID') + ')');
+      } catch (err) {
+        showToast('Gagal menarik data: ' + err.message, true);
+      }
+    }
+
+    function exportData() {
+      const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'backup-business-os-' + new Date().toISOString().slice(0, 10) + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Cadangan data berhasil diunduh!');
+    }
+
+    function importData(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const parsed = JSON.parse(evt.target.result);
+          if (parsed && parsed.leads && parsed.finance) {
+            // Restore all fields including new marketingSpend
+            db = parsed;
+            if (!db.marketingSpend) db.marketingSpend = [];
+            if (!db.role) db.role = 'owner';
+            saveDB();
+            showToast('Data berhasil dipulihkan!');
+          } else {
+            alert('Format file cadangan tidak sesuai!');
+          }
+        } catch (err) {
+          alert('Gagal membaca file backup!');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // ============== INIT ==============
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW failed:', err));
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadDB();
+      renderAll();
+      initStarPicker('client-star-picker');
+    });
+  </script>
+</body>
+</html>
