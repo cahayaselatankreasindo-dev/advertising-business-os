@@ -10,6 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Business OS">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
@@ -234,6 +235,26 @@
             <div class="text-center p-3 bg-pink-50 rounded-lg">
               <div class="text-[10px] text-slate-500 font-semibold uppercase">CPL Rata-rata</div>
               <div id="mkt-cpl" class="text-lg font-bold text-pink-700 mt-1">Rp 0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart Visualisasi ROAS & CPL -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pillar-marketing">
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+              <i class="fa fa-line-chart text-amber-500"></i> Tren ROAS (Return on Ad Spend)
+            </h3>
+            <div style="height: 220px; position: relative;">
+              <canvas id="chartRoas"></canvas>
+            </div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+              <i class="fa fa-bar-chart text-blue-500"></i> Tren CPL (Cost per Lead) — Rp
+            </h3>
+            <div style="height: 220px; position: relative;">
+              <canvas id="chartCpl"></canvas>
             </div>
           </div>
         </div>
@@ -1037,6 +1058,7 @@
       renderMemory();
       renderAnalysis();
       applyRoleUI();
+      renderMarketingCharts(db.marketingSpend, db.finance);
     }
 
     // ============== DASHBOARD ==============
@@ -1805,6 +1827,143 @@
         }
       };
       reader.readAsText(file);
+    }
+
+    // ============== CHART VISUALISASI ROAS & CPL ==============
+    let chartRoasInstance = null;
+    let chartCplInstance = null;
+
+    /**
+     * renderMarketingCharts(marketingData, financeData)
+     * Mengelompokkan data kampanye per bulan, menghitung ROAS & CPL bulanan,
+     * lalu merender dua grafik: garis ROAS (amber) dan batang CPL (blue).
+     * Memakai Chart.js v4 dengan pola destroy-before-render agar tidak tumpang tindih.
+     */
+    function renderMarketingCharts(marketingData, financeData) {
+      if (!marketingData || marketingData.length === 0) {
+        // Kosongkan grafik jika tidak ada data
+        ['chartRoas', 'chartCpl'].forEach(id => {
+          const canvas = document.getElementById(id);
+          if (!canvas) return;
+          const existing = Chart.getChart(canvas);
+          if (existing) existing.destroy();
+        });
+        return;
+      }
+
+      // Kelompokkan per bulan (format YYYY-MM)
+      const monthlyMap = {};
+      marketingData.forEach(m => {
+        const monthKey = m.date ? m.date.substring(0, 7) : 'unknown';
+        if (!monthlyMap[monthKey]) monthlyMap[monthKey] = { spent: 0, leads: 0, budget: 0 };
+        monthlyMap[monthKey].spent += Number(m.spent) || 0;
+        monthlyMap[monthKey].leads += Number(m.leadsGenerated) || 0;
+        monthlyMap[monthKey].budget += Number(m.budget) || 0;
+      });
+      const sortedMonths = Object.keys(monthlyMap).sort();
+      const labels = sortedMonths.map(m => {
+        const [y, mon] = m.split('-');
+        return ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'][parseInt(mon)-1] + ' ' + y;
+      });
+      const spentByMonth = sortedMonths.map(m => monthlyMap[m].spent);
+      const leadsByMonth = sortedMonths.map(m => monthlyMap[m].leads);
+
+      // Hitung ROAS & CPL per bulan
+      const totalIncome = (financeData || []).filter(f => f.type === 'income').reduce((a, b) => a + Number(b.amount || 0), 0);
+      // ROAS global per bulan = total income / cumulative spent (running total)
+      const roasByMonth = [];
+      let cumSpent = 0;
+      for (let i = 0; i < sortedMonths.length; i++) {
+        cumSpent += spentByMonth[i];
+        roasByMonth.push(cumSpent > 0 ? (totalIncome / cumSpent).toFixed(2) : '—');
+      }
+      // CPL per bulan
+      const cplByMonth = leadsByMonth.map((l, i) => l > 0 ? Math.round(spentByMonth[i] / l) : 0);
+
+      // === DESTROY instances lama sebelum render baru ===
+      const roasCanvas = document.getElementById('chartRoas');
+      const cplCanvas = document.getElementById('chartCpl');
+
+      if (chartRoasInstance) { chartRoasInstance.destroy(); chartRoasInstance = null; }
+      if (chartCplInstance) { chartCplInstance.destroy(); chartCplInstance = null; }
+
+      const gridColor = 'rgba(148, 163, 184, 0.2)';
+      const tickColor = '#64748B';
+
+      // Chart ROAS — garis (line)
+      if (roasCanvas) {
+        const ctxRoas = roasCanvas.getContext('2d');
+        chartRoasInstance = new Chart(ctxRoas, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'ROAS',
+              data: roasByMonth.map(v => typeof v === 'number' ? v : parseFloat(v) || 0),
+              borderColor: '#D97706',
+              backgroundColor: 'rgba(217, 119, 6, 0.1)',
+              borderWidth: 2.5,
+              fill: true,
+              tension: 0.35,
+              pointBackgroundColor: '#D97706',
+              pointRadius: 4,
+              pointHoverRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: ctx => 'ROAS: ' + ctx.parsed.y + 'x'
+                }
+              }
+            },
+            scales: {
+              x: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } },
+              y: { ticks: { color: tickColor, callback: v => v + 'x' }, grid: { color: gridColor }, beginAtZero: true }
+            }
+          }
+        });
+      }
+
+      // Chart CPL — batang (bar)
+      if (cplCanvas) {
+        const ctxCpl = cplCanvas.getContext('2d');
+        chartCplInstance = new Chart(ctxCpl, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'CPL (Rp)',
+              data: cplByMonth,
+              backgroundColor: 'rgba(59, 130, 246, 0.75)',
+              borderColor: '#3B82F6',
+              borderWidth: 1,
+              borderRadius: 6,
+              barPercentage: 0.6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: ctx => 'CPL: ' + formatRp(ctx.parsed.y)
+                }
+              }
+            },
+            scales: {
+              x: { ticks: { color: tickColor, font: { size: 11 } }, grid: { display: false } },
+              y: { ticks: { color: tickColor, callback: v => 'Rp ' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) }, grid: { color: gridColor }, beginAtZero: true }
+            }
+          }
+        });
+      }
     }
 
     // ============== INIT ==============
