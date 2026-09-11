@@ -1,4 +1,4 @@
-const CACHE_NAME = 'csk-business-os-v2.1';
+const CACHE_NAME = 'csk-business-os-v2.2';
 const ASSETS = [
   './',
   './index.html',

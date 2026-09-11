@@ -258,6 +258,16 @@
             </div>
           </div>
         </div>
+
+        <!-- Owner only: Workload Balancing Chart -->
+        <div id="owner-workload-card" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mt-4">
+          <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+            <i class="fa fa-tasks text-red-500"></i> Beban Kerja Tim (Jumlah Proyek Aktif per PIC)
+          </h3>
+          <div class="relative w-full" style="max-height: 300px;">
+            <canvas id="chartWorkload"></canvas>
+          </div>
+        </div>
       </section>
 
       <!-- 2. LEADS (Pilar 1 — CRM) -->
@@ -919,6 +929,9 @@
           el.style.display = isTeam ? 'none' : '';
         });
       });
+      // Owner-only card: workload chart
+      const workloadCard = document.getElementById('owner-workload-card');
+      if (workloadCard) workloadCard.style.display = isTeam ? 'none' : 'block';
       // Hide mobile nav items for team
       document.querySelectorAll('.pillar-marketing-mob').forEach(el => {
         el.closest('nav')?.querySelectorAll('.mob-btn').forEach(btn => {
@@ -1059,6 +1072,7 @@
       renderAnalysis();
       applyRoleUI();
       renderMarketingCharts(db.marketingSpend, db.finance);
+      renderWorkloadChart(db.projects);
     }
 
     // ============== DASHBOARD ==============
@@ -1832,6 +1846,7 @@
     // ============== CHART VISUALISASI ROAS & CPL ==============
     let chartRoasInstance = null;
     let chartCplInstance = null;
+    let chartWorkloadInstance = null;
 
     /**
      * renderMarketingCharts(marketingData, financeData)
@@ -1964,6 +1979,88 @@
           }
         });
       }
+    }
+
+    // ============== CHART VISUALISASI BEBAN KERJA TIM (WORKLOAD) ==============
+    /**
+     * renderWorkloadChart(projectsData)
+     * Menghitung jumlah proyek aktif per PIC dari tab Projects,
+     * lalu merender horizontal bar chart (red) untuk visualisasi workload tim.
+     * Dipanggil otomatis di renderAll() setelah setiap sinkronisasi data.
+     */
+    function renderWorkloadChart(projectsData) {
+      const canvas = document.getElementById('chartWorkload');
+      if (!canvas) return;
+
+      // Destroy instance lama sebelum render baru
+      if (chartWorkloadInstance) { chartWorkloadInstance.destroy(); chartWorkloadInstance = null; }
+
+      if (!projectsData || projectsData.length === 0) {
+        chartWorkloadInstance = new Chart(canvas.getContext('2d'), {
+          type: 'bar',
+          data: { labels: ['—'], datasets: [{ data: [0], backgroundColor: '#E2E8F0' }] },
+          options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { ticks: { color: '#94A3B8' } } } }
+        });
+        return;
+      }
+
+      // Filter hanya proyek aktif (bukan done/selesai)
+      const ACTIVE_STATUSES = ['plan', 'ongoing', 'review'];
+      const activeProjects = projectsData.filter(p => ACTIVE_STATUSES.includes((p.status || '').toLowerCase()));
+
+      // Kelompok & hitung per PIC_Tim
+      const countMap = {};
+      activeProjects.forEach(p => {
+        const pic = (p.pic || p.pic_tim || '').trim();
+        const label = pic === '' ? 'Belum Ditugaskan' : pic;
+        countMap[label] = (countMap[label] || 0) + 1;
+      });
+
+      // Sort descending
+      const sorted = Object.entries(countMap).sort((a, b) => b[1] - a[1]);
+      const labels = sorted.map(([name]) => name);
+      const counts = sorted.map(([, count]) => count);
+
+      chartWorkloadInstance = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Proyek Aktif',
+            data: counts,
+            backgroundColor: 'rgba(239, 68, 68, 0.75)',
+            borderColor: '#EF4444',
+            borderWidth: 1,
+            borderRadius: 6,
+            barPercentage: 0.7
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => 'Proyek Aktif: ' + ctx.parsed.x + ' buah'
+              }
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: { color: '#64748B', stepSize: 1 },
+              grid: { color: 'rgba(148,163,184,0.2)' },
+              title: { display: true, text: 'Jumlah Proyek', color: '#94A3B8', font: { size: 11 } }
+            },
+            y: {
+              ticks: { color: '#64748B', font: { size: 12, weight: '600' } },
+              grid: { display: false }
+            }
+          }
+        }
+      });
     }
 
     // ============== INIT ==============
