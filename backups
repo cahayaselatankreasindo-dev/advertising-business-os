@@ -1,0 +1,146 @@
+function myFunction() {
+  
+}
+/**
+ * =====================================================================
+ * CSK BUSINESS OS - GOOGLE APPS SCRIPT BACKEND
+ * =====================================================================
+ * Skrip ini berfungsi sebagai jembatan (API) gratis untuk menghubungkan
+ * aplikasi Advertising Business OS di HP/Laptop Anda ke Google Sheets.
+ *
+ * CARA PEMASANGAN (HANYA 2 MENIT):
+ * 1. Buat Google Spreadsheet baru di Google Drive Anda (Beri nama: "Database CSK Business OS").
+ * 2. Klik menu "Extensions" (Ekstensi) -> "Apps Script".
+ * 3. Hapus semua kode yang ada di editor Apps Script, lalu PASTE seluruh kode ini.
+ * 4. Klik tombol simpan (ikon disket / Ctrl+S).
+ * 5. Jalankan fungsi "setupSheet" sekali dengan memilih "setupSheet" di dropdown atas, lalu klik "Run".
+ *    (Berikan izin akses akun Google Anda jika diminta).
+ * 6. Klik tombol "Deploy" (Terapkan) di kanan atas -> "New deployment" (Penerapan baru).
+ * 7. Pilih tipe: "Web app" (Aplikasi Web).
+ * 8. Konfigurasi:
+ *    - Description: "CSK OS API"
+ *    - Execute as: "Me" (Email Google Anda)
+ *    - Who has access: "Anyone" (Siapa saja)
+ * 9. Klik "Deploy", lalu SALIN URL Web App yang dihasilkan.
+ * 10. Buka aplikasi CSK Business OS -> Menu Settings -> Tempelkan URL tersebut ke kolom "Google Sheets Web App URL".
+ * =====================================================================
+ */
+
+function setupSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  const sheets = [
+    {
+      name: "Leads",
+      headers: ["ID", "Tanggal", "Nama", "WhatsApp", "Sumber", "EstimasiNilai", "Status", "Catatan"]
+    },
+    {
+      name: "Clients",
+      headers: ["ID", "NamaKlien", "WhatsApp", "TotalProyek", "TotalBelanja", "Catatan"]
+    },
+    {
+      name: "Projects",
+      headers: ["ID", "NamaProyek", "Klien", "NilaiProyek", "Status", "Deadline", "Catatan"]
+    },
+    {
+      name: "Finance",
+      headers: ["ID", "Tanggal", "Tipe", "Kategori", "Nominal", "Keterangan"]
+    },
+    {
+      name: "Memory",
+      headers: ["ID", "Tanggal", "Kategori", "Judul", "Isi"]
+    }
+  ];
+
+  sheets.forEach(s => {
+    let sheet = ss.getSheetByName(s.name);
+    if (!sheet) {
+      sheet = ss.insertSheet(s.name);
+    }
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow(s.headers);
+      sheet.getRange(1, 1, 1, s.headers.length).setFontWeight("bold").setBackground("#1C2333").setFontColor("#FFFFFF");
+      sheet.setFrozenRows(1);
+    }
+  });
+
+  const defaultSheet = ss.getSheetByName("Sheet1") || ss.getSheetByName("Sheet 1");
+  if (defaultSheet && defaultSheet.getLastRow() === 0 && ss.getSheets().length > 1) {
+    ss.deleteSheet(defaultSheet);
+  }
+}
+
+function doGet(e) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const result = {
+      leads: readSheetData(ss, "Leads"),
+      clients: readSheetData(ss, "Clients"),
+      projects: readSheetData(ss, "Projects"),
+      finance: readSheetData(ss, "Finance"),
+      memory: readSheetData(ss, "Memory"),
+      lastSynced: new Date().toISOString()
+    };
+
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", data: result }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doPost(e) {
+  try {
+    const payload = JSON.parse(e.postData.contents);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    if (payload.action === "sync_all") {
+      if (payload.leads) overwriteSheet(ss, "Leads", payload.leads, ["id", "date", "name", "phone", "source", "value", "status", "notes"]);
+      if (payload.clients) overwriteSheet(ss, "Clients", payload.clients, ["id", "name", "phone", "projectsCount", "totalSpend", "notes"]);
+      if (payload.projects) overwriteSheet(ss, "Projects", payload.projects, ["id", "title", "client", "value", "status", "deadline", "notes"]);
+      if (payload.finance) overwriteSheet(ss, "Finance", payload.finance, ["id", "date", "type", "category", "amount", "description"]);
+      if (payload.memory) overwriteSheet(ss, "Memory", payload.memory, ["id", "date", "category", "title", "content"]);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Data tersinkronisasi ke Google Sheets" }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function readSheetData(ss, sheetName) {
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+  
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0];
+  const rows = values.slice(1);
+
+  return rows.map(r => {
+    let obj = {};
+    headers.forEach((h, idx) => {
+      let key = h.toLowerCase();
+      obj[key] = r[idx];
+    });
+    return obj;
+  });
+}
+
+function overwriteSheet(ss, sheetName, items, keys) {
+  let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+  }
+  
+  if (sheet.getLastRow() > 1) {
+    sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+  }
+
+  if (items && items.length > 0) {
+    const rows = items.map(item => keys.map(k => item[k] !== undefined ? item[k] : ""));
+    sheet.getRange(2, 1, rows.length, keys.length).setValues(rows);
+  }
+}
