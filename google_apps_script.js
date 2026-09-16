@@ -40,6 +40,89 @@
  * =====================================================================
  */
 
+// ============== KONTRAK MAPPING (Tahap 3) ==============
+// Single source of truth: header Sheet (hasil Tahap 1-2) <-> field HTML.
+// - headers: urutan kolom persis seperti di Sheet (jangan diubah manual).
+// - fields:  nama field yang dipakai index.html (camelCase).
+// - rating/review digabung ke SATU kolom Sheet "Rating_Review" format "N | teks".
+var FIELD_MAP = {
+  Leads: {
+    headers: ["ID", "Tanggal", "Nama", "WhatsApp", "Sumber", "EstimasiNilai", "Status", "Catatan"],
+    fields:  ["id", "date", "name", "phone", "source", "value", "status", "notes"]
+  },
+  Clients: {
+    headers: ["ID", "NamaKlien", "WhatsApp", "TotalProyek", "TotalBelanja", "Catatan", "Rating_Review"],
+    fields:  ["id", "name", "phone", "projectsCount", "totalSpend", "notes", "rating", "review"]
+    // NB: fields 8 item vs headers 7 kolom — rating+review digabung ke Rating_Review.
+  },
+  Projects: {
+    headers: ["ID", "NamaProyek", "Klien", "NilaiProyek", "Status", "Deadline", "Catatan", "SOP_Checklist", "PIC_Tim"],
+    fields:  ["id", "title", "client", "value", "status", "deadline", "notes", "sopChecklist", "pic"]
+  },
+  Finance: {
+    headers: ["ID", "Tanggal", "Tipe", "Kategori", "Nominal", "Keterangan"],
+    fields:  ["id", "date", "type", "category", "amount", "description"]
+  },
+  Memory: {
+    headers: ["ID", "Tanggal", "Kategori", "Judul", "Isi"],
+    fields:  ["id", "date", "category", "title", "content"]
+  },
+  Marketing_Spend: {
+    headers: ["ID", "Tanggal", "Platform", "Kampanye", "Budget", "Terpakai", "LeadsDihasilkan", "Catatan"],
+    fields:  ["id", "date", "platform", "campaign", "budget", "spent", "leadsGenerated", "notes"]
+  }
+};
+var RATING_REVIEW_SEP = " | ";
+
+// Pecah "N | teks" -> {rating, review}. Tahan: kosong, tanpa separator, rating non-angka.
+function splitRatingReview(cell) {
+  var s = String(cell == null ? "" : cell);
+  var i = s.indexOf(RATING_REVIEW_SEP);
+  if (i === -1) {
+    var n = parseInt(s, 10);
+    return { rating: isNaN(n) ? 0 : n, review: (s && isNaN(n)) ? s : "" };
+  }
+  var num = parseInt(s.slice(0, i).trim(), 10);
+  return { rating: isNaN(num) ? 0 : num, review: s.slice(i + RATING_REVIEW_SEP.length).trim() };
+}
+
+function joinRatingReview(rating, review) {
+  var n = Number(rating) || 0;
+  var t = String(review == null ? "" : review).trim();
+  return n + RATING_REVIEW_SEP + t;
+}
+
+// Sheet row (array, urutan header Sheet) -> objek field HTML.
+function rowToRecord(sheetName, row) {
+  var map = FIELD_MAP[sheetName];
+  var rec = {};
+  if (!map) return rec;
+  if (sheetName === "Clients") {
+    rec.id = row[0]; rec.name = row[1]; rec.phone = row[2];
+    rec.projectsCount = row[3]; rec.totalSpend = row[4]; rec.notes = row[5];
+    var rr = splitRatingReview(row[6]);
+    rec.rating = rr.rating; rec.review = rr.review;
+    return rec;
+  }
+  map.fields.forEach(function (f, idx) { rec[f] = row[idx]; });
+  return rec;
+}
+
+// Objek field HTML -> array urutan header Sheet (siap setValues/appendRow).
+function recordToRow(sheetName, obj) {
+  var map = FIELD_MAP[sheetName];
+  if (!map) return [];
+  obj = obj || {};
+  if (sheetName === "Clients") {
+    return [obj.id, obj.name, obj.phone, obj.projectsCount, obj.totalSpend, obj.notes,
+      joinRatingReview(obj.rating, obj.review)];
+  }
+  return map.fields.map(function (f) {
+    var v = obj[f];
+    return (v === undefined || v === null) ? "" : v;
+  });
+}
+
 // ============== BANTUAN SETUP & HELPER ==============
 
 function setupSheet() {
@@ -115,13 +198,13 @@ function readSheetData(ss, sheetName) {
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() <= 1) return [];
   const values = sheet.getDataRange().getValues();
-  const headers = values[0];
   const rows = values.slice(1);
+  // Tab kontrak: pakai FIELD_MAP agar key persis field HTML (Tahap 3).
+  if (FIELD_MAP[sheetName]) return rows.map(r => rowToRecord(sheetName, r));
+  const headers = values[0];
   return rows.map(r => {
     const obj = {};
-    headers.forEach((h, idx) => {
-      obj[h.toLowerCase()] = r[idx];
-    });
+    headers.forEach((h, idx) => { obj[String(h).toLowerCase()] = r[idx]; });
     return obj;
   });
 }
@@ -160,12 +243,12 @@ function doPost(e) {
 
       // --- sync_all (kompatibel dengan aplikasi lama) ---
       case "sync_all":
-        if (payload.leads)         overwriteSheet(ss, "Leads",          payload.leads,         ["id","date","name","phone","source","value","status","notes"]);
-        if (payload.clients)       overwriteSheet(ss, "Clients",        payload.clients,        ["id","name","phone","projectsCount","totalSpend","notes","ratingReview"]);
-        if (payload.projects)      overwriteSheet(ss, "Projects",       payload.projects,       ["id","title","client","value","status","deadline","notes","sopChecklist"]);
-        if (payload.finance)       overwriteSheet(ss, "Finance",        payload.finance,        ["id","date","type","category","amount","description"]);
-        if (payload.memory)        overwriteSheet(ss, "Memory",         payload.memory,         ["id","date","category","title","content"]);
-        if (payload.marketingSpend)overwriteSheet(ss, "Marketing_Spend", payload.marketingSpend, ["id","date","platform","campaign","budget","spent","leadsGenerated","notes"]);
+        if (payload.leads)         overwriteSheet(ss, "Leads",           payload.leads,         FIELD_MAP.Leads.fields);
+        if (payload.clients)       overwriteSheet(ss, "Clients",         payload.clients,       null); // Clients: rating+review digabung via recordToRow
+        if (payload.projects)      overwriteSheet(ss, "Projects",        payload.projects,      FIELD_MAP.Projects.fields);
+        if (payload.finance)       overwriteSheet(ss, "Finance",         payload.finance,       FIELD_MAP.Finance.fields);
+        if (payload.memory)        overwriteSheet(ss, "Memory",          payload.memory,        FIELD_MAP.Memory.fields);
+        if (payload.marketingSpend)overwriteSheet(ss, "Marketing_Spend",  payload.marketingSpend, FIELD_MAP.Marketing_Spend.fields);
         // Setelah sinkronisasi, cek apakah ada lead baru yang won
         autoTriggerPillars(ss);
         break;
@@ -177,13 +260,16 @@ function doPost(e) {
         if (!sheetName || !data.id) {
           throw new Error("Parameter sheet dan data.id diperlukan untuk aksi insert.");
         }
-        const sheet = ensureSheet(ss, sheetName, []);
-        // Ambil header jika sheet baru saja dibuat (kosong), atau gunakan header yang ada
-        const headers = sheet.getLastRow() >= 1
-          ? sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
-          : Object.keys(data);
-        const row = headers.map(h => data[h.toLowerCase()] !== undefined ? data[h.toLowerCase()] : "");
-        sheet.appendRow(row);
+        ensureSheet(ss, sheetName, FIELD_MAP[sheetName] ? FIELD_MAP[sheetName].headers : []);
+        if (FIELD_MAP[sheetName]) {
+          insertRecord(ss, sheetName, data);
+        } else {
+          // Tab di luar kontrak: ikut header Sheet apa adanya.
+          const sheet = ss.getSheetByName(sheetName);
+          const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+          const row = headers.map(h => data[String(h).toLowerCase()] !== undefined ? data[String(h).toLowerCase()] : "");
+          sheet.appendRow(row);
+        }
         return jsonResponse({ status: "success", message: "Baris berhasil disisipkan di " + sheetName, id: data.id });
       }
 
@@ -200,7 +286,7 @@ function doPost(e) {
         // Kolom Status adalah kolom ke-7 untuk Leads, Projects — umum di kolom terakhir sebelum catatan
         // Kita cari indeks header "status" (case-insensitive)
         const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-        let statusCol = headers.findIndex(h => h.toLowerCase() === "status");
+        let statusCol = headers.findIndex(h => String(h).toLowerCase() === "status");
         if (statusCol === -1) statusCol = 6; // fallback kolom G (index 7)
         sheet.getRange(rowNum, statusCol + 1).setValue(status);
         // Jika status berubah jadi deal menang → jalankan otomasi
@@ -303,26 +389,44 @@ function isDealMenang(status) {
 }
 
 function insertRecord(ss, sheetName, recordObj, keyOrder) {
+  // Tab kontrak: tulis persis urutan header Sheet via recordToRow (Tahap 3).
+  if (FIELD_MAP[sheetName]) {
+    ensureSheet(ss, sheetName, FIELD_MAP[sheetName].headers);
+    ss.getSheetByName(sheetName).appendRow(recordToRow(sheetName, recordObj));
+    return;
+  }
   const sheet = ensureSheet(ss, sheetName, []);
   const headers = sheet.getLastRow() >= 1
     ? sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
     : keyOrder || Object.keys(recordObj);
   const row = headers.map(h => {
-    const val = recordObj[h.toLowerCase()];
+    const val = recordObj[String(h).toLowerCase()];
     return val !== undefined && val !== null ? val : "";
   });
   sheet.appendRow(row);
 }
 
 function overwriteSheet(ss, sheetName, items, keys) {
+  // Tab kontrak: header dipaksa sesuai FIELD_MAP agar kolom tak pernah bergeser.
   let sheet = ss.getSheetByName(sheetName);
-  if (!sheet) sheet = ss.insertSheet(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    if (FIELD_MAP[sheetName]) {
+      sheet.appendRow(FIELD_MAP[sheetName].headers);
+      sheet.getRange(1, 1, 1, FIELD_MAP[sheetName].headers.length)
+        .setFontWeight("bold").setBackground("#1C2333").setFontColor("#FFFFFF");
+      sheet.setFrozenRows(1);
+    }
+  }
   if (sheet.getLastRow() > 1) {
     sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
   }
   if (items && items.length > 0) {
-    const rows = items.map(item => keys.map(k => item[k] !== undefined ? item[k] : ""));
-    sheet.getRange(2, 1, rows.length, keys.length).setValues(rows);
+    // Tab kontrak selalu ditulis via recordToRow (termasuk gabungan Rating_Review).
+    const rows = FIELD_MAP[sheetName]
+      ? items.map(item => recordToRow(sheetName, item))
+      : items.map(item => keys.map(k => item[k] !== undefined ? item[k] : ""));
+    sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
   }
 }
 
