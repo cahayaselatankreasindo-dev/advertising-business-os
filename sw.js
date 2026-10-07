@@ -1,8 +1,9 @@
-const CACHE_NAME = 'csk-business-os-v2.2';
+const CACHE_NAME = 'csk-business-os-v2.3';
 const ASSETS = [
   './',
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  './logo-horizontal.svg'
 ];
 
 self.addEventListener('install', event => {
