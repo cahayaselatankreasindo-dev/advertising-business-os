@@ -296,8 +296,37 @@ function doPost(e) {
         return jsonResponse({ status: "success", message: "Status diperbarui di " + sheetName, row: rowNum });
       }
 
+      // --- send_cold_email: kirim outreach resmi via Gmail ---
+      case "send_cold_email": {
+        const toEmail = (payload.toEmail || "").trim();
+        const name = (payload.name || "Kak").trim();
+        const brand = (payload.brand || "Brand").trim();
+
+        if (!toEmail) throw new Error("Email tujuan tidak boleh kosong");
+
+        const subject = "Vendor Produksi Booth & Display POSM — Cahaya Selatan Kreasindo";
+        const body = "Halo Kak " + name + " / Tim " + brand + ",\n\n" +
+          "Salam kenal, saya Zefry dari Cahaya Selatan Kreasindo (CSK).\n\n" +
+          "Kebetulan workshop fabrikasi kami di Serpong spesialis handle:\n" +
+          "- Booth pameran, backdrop event, & sewa equipment\n" +
+          "- POSM, rak display, & akrilik custom\n\n" +
+          "Beberapa project sebelumnya kami support untuk brand seperti J&T Cargo, Hanasui, Line Friends, sampai Teh Pucuk.\n\n" +
+          "Kalau di " + brand + " lagi ada agenda event, pameran, atau kebutuhan display toko yang butuh vendor produksi langsung tangan pertama, boleh saya kirimkan PDF portfolio ringkas kami?\n\n" +
+          "Terima kasih, Kak.\n\n" +
+          "Zefry Dany\n" +
+          "Cahaya Selatan Kreasindo\n" +
+          "WhatsApp: 0888-8533-488\n" +
+          "Portofolio: cahayaselatankreasindo.my.id";
+
+        GmailApp.sendEmail(toEmail, subject, body, {
+          name: "Zefry Dany (Cahaya Selatan Kreasindo)"
+        });
+
+        return jsonResponse({ status: "success", message: "Cold email berhasil terkirim ke " + toEmail });
+      }
+
       default:
-        throw new Error("Aksi tidak dikenal: " + action + ". Gunakan: sync_all, insert, update_status.");
+        throw new Error("Aksi tidak dikenal: " + action + ". Gunakan: sync_all, insert, update_status, send_cold_email.");
     }
 
     return jsonResponse({ status: "success", message: "Data tersinkronisasi ke Google Sheets" });
