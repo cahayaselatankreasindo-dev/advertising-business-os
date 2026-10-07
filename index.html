@@ -1545,11 +1545,19 @@
         return;
       }
 
-      if (!confirm('Kirim cold email resmi dari Gmail CSK ke ' + lead.email + ' (' + lead.name + ')?')) {
+      // Cek counter lokal harian (maks 50)
+      const todayKey = 'csk_cold_email_' + new Date().toISOString().slice(0, 10);
+      const sentCount = parseInt(localStorage.getItem(todayKey) || '0', 10);
+      if (sentCount >= 50) {
+        showToast('Batas aman harian tercapai (50/50 email hari ini). Lanjutkan besok.', true);
         return;
       }
 
-      showToast('Mengirim cold email...');
+      if (!confirm('Kirim cold email resmi dari Gmail CSK ke ' + lead.email + ' (' + lead.name + ')?\n[Terkirim hari ini: ' + sentCount + '/50]')) {
+        return;
+      }
+
+      showToast('Mengirim cold email (' + (sentCount + 1) + '/50)...');
       try {
         const res = await fetch(db.settings.googleSheetUrl, {
           method: 'POST',
@@ -1563,13 +1571,16 @@
           })
         });
 
+        // Simpan increment counter lokal
+        localStorage.setItem(todayKey, String(sentCount + 1));
+
         // Tandai status jadi contacted jika sebelumnya new
         if (lead.status === 'new') {
           lead.status = 'contacted';
         }
-        lead.notes = (lead.notes ? lead.notes + ' | ' : '') + 'Cold email terkirim ' + new Date().toISOString().slice(0, 10);
+        lead.notes = (lead.notes ? lead.notes + ' | ' : '') + 'Cold email terkirim (' + (sentCount + 1) + '/50) ' + new Date().toISOString().slice(0, 10);
         saveDB();
-        showToast('Cold email berhasil dikirim ke ' + lead.email + '!');
+        showToast('Cold email berhasil dikirim ke ' + lead.email + ' (' + (sentCount + 1) + '/50 hari ini)!');
       } catch (err) {
         console.error(err);
         showToast('Gagal mengirim email: ' + err.message, true);
