@@ -2160,6 +2160,45 @@
       }
     }
 
+    /**
+     * Tarik data dari cloud lalu GABUNGKAN dengan data lokal (bukan menimpa).
+     * Aman: data lokal & data cloud sama-sama dipertahankan, digabung by ID.
+     * Dipanggil otomatis saat aplikasi dibuka.
+     */
+    async function pullAndMerge() {
+      const url = db.settings && db.settings.googleSheetUrl;
+      if (!url) return;
+      try {
+        const resp = await fetch(url);
+        const json = await resp.json();
+        if (json.status !== 'success' || !json.data) return;
+        const d = json.data;
+
+        // Gabungkan: cloud + lokal, dedupe by id (lokal menang jika sama)
+        const mergeById = (cloudArr, localArr) => {
+          const map = new Map();
+          (cloudArr || []).forEach(x => { if (x && x.id !== undefined) map.set(String(x.id), x); });
+          (localArr || []).forEach(x => { if (x && x.id !== undefined) map.set(String(x.id), x); });
+          return Array.from(map.values());
+        };
+
+        db.leads          = mergeById(d.leads, db.leads);
+        db.clients        = mergeById(d.clients, db.clients);
+        db.projects       = mergeById(d.projects, db.projects);
+        db.finance        = mergeById(d.finance, db.finance);
+        db.memory         = mergeById(d.memory, db.memory);
+        db.marketingSpend = mergeById(d.marketingSpend, db.marketingSpend);
+        db.settings.lastSync = d.lastSynced || new Date().toISOString();
+
+        localStorage.setItem(DB_KEY, JSON.stringify(db));
+        renderAll();
+        updateCloudIndicator();
+      } catch (err) {
+        // Diamkan — offline tidak boleh mengganggu aplikasi
+        console.warn('pullAndMerge gagal (offline?):', err.message);
+      }
+    }
+
     function exportData() {
       const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -2427,6 +2466,8 @@
       loadDB();
       renderAll();
       initStarPicker('client-star-picker');
+      // Saat aplikasi dibuka: tarik & gabungkan data dari cloud (AMAN, tidak menimpa)
+      pullAndMerge();
     });
   </script>
 </body>

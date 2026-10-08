@@ -241,17 +241,20 @@ function doPost(e) {
 
     switch (action) {
 
-      // --- sync_all (kompatibel dengan aplikasi lama) ---
-      case "sync_all":
-        if (payload.leads)         overwriteSheet(ss, "Leads",           payload.leads,         FIELD_MAP.Leads.fields);
-        if (payload.clients)       overwriteSheet(ss, "Clients",         payload.clients,       null); // Clients: rating+review digabung via recordToRow
-        if (payload.projects)      overwriteSheet(ss, "Projects",        payload.projects,      FIELD_MAP.Projects.fields);
-        if (payload.finance)       overwriteSheet(ss, "Finance",         payload.finance,       FIELD_MAP.Finance.fields);
-        if (payload.memory)        overwriteSheet(ss, "Memory",          payload.memory,        FIELD_MAP.Memory.fields);
-        if (payload.marketingSpend)overwriteSheet(ss, "Marketing_Spend",  payload.marketingSpend, FIELD_MAP.Marketing_Spend.fields);
+      // --- sync_all (MERGE / UPSERT — tidak pernah menghapus data lama) ---
+      // Aman: lead yang sudah ada di Sheets tetap tersimpan; hanya ditambah/diupdate.
+      case "sync_all": {
+        var mergeSummary = {};
+        if (payload.leads)          mergeSummary.Leads           = mergeSheet(ss, "Leads",           payload.leads);
+        if (payload.clients)        mergeSummary.Clients         = mergeSheet(ss, "Clients",         payload.clients);
+        if (payload.projects)       mergeSummary.Projects        = mergeSheet(ss, "Projects",        payload.projects);
+        if (payload.finance)        mergeSummary.Finance         = mergeSheet(ss, "Finance",         payload.finance);
+        if (payload.memory)         mergeSummary.Memory          = mergeSheet(ss, "Memory",          payload.memory);
+        if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
         // Setelah sinkronisasi, cek apakah ada lead baru yang won
         autoTriggerPillars(ss);
-        break;
+        return jsonResponse({ status: "success", message: "Data di-merge (tidak ada yang dihapus)", summary: mergeSummary });
+      }
 
       // --- insert: tambahkan 1 baris ke tab tertentu ---
       case "insert": {
@@ -632,6 +635,90 @@ function installDailyOutreachTrigger() {
 }
 
 // ============== UTILITAS RESPONS ==============
+
+/**
+ * MERGE (UPSERT) — aman, tidak pernah menghapus data lama.
+ * - Baris dengan ID yang sudah ada  -> diupdate (hanya jika berubah).
+ * - Baris dengan ID baru            -> ditambahkan di bawah.
+ * - Baris lama yang tidak dikirim   -> DIBIARKAN (tidak dihapus).
+ *
+ * Mengembalikan ringkasan { inserted, updated, skipped, total }.
+ */
+function mergeSheet(ss, sheetName, items) {
+  var map = FIELD_MAP[sheetName];
+  var sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    if (map) {
+      sheet.appendRow(map.headers);
+      sheet.getRange(1, 1, 1, map.headers.length)
+        .setFontWeight("bold").setBackground("#1C2333").setFontColor("#FFFFFF");
+      sheet.setFrozenRows(1);
+    }
+  }
+
+  items = items || [];
+  var result = { inserted: 0, updated: 0, skipped: 0, total: items.length };
+  if (items.length === 0) return result;
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+
+  // Bangun indeks ID -> nomor baris (ID selalu kolom 1)
+  var idToRow = {};
+  if (lastRow > 1) {
+    var idValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (var i = 0; i < idValues.length; i++) {
+      var key = String(idValues[i][0]).trim();
+      if (key !== "") idToRow[key] = i + 2;
+    }
+  }
+
+  // Ambil seluruh data sekali (untuk perbandingan & update)
+  var dataRange = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues() : [];
+
+  var rowsToAppend = [];
+  var seenNewIds = {}; // cegah duplikat ID di dalam 1 payload
+
+  items.forEach(function (item) {
+    var id = String(item.id === undefined || item.id === null ? "" : item.id).trim();
+    if (id === "") { result.skipped++; return; }
+
+    var newRow = recordToRow(sheetName, item);
+
+    if (idToRow[id]) {
+      // Baris sudah ada di sheet -> update HANYA kolom yang berubah
+      var rowIdx = idToRow[id] - 2; // index di dataRange
+      var oldRow = dataRange[rowIdx] || [];
+      var changed = false;
+      for (var c = 0; c < newRow.length; c++) {
+        // Normalisasi angka vs string agar tidak update palsu
+        if (String(oldRow[c]) !== String(newRow[c])) { changed = true; break; }
+      }
+      if (changed) {
+        sheet.getRange(idToRow[id], 1, 1, newRow.length).setValues([newRow]);
+        result.updated++;
+      } else {
+        result.skipped++;
+      }
+    } else if (seenNewIds[id]) {
+      // Duplikat ID di dalam payload yang sama -> cukup sekali
+      result.skipped++;
+    } else {
+      seenNewIds[id] = true;
+      rowsToAppend.push(newRow);
+      result.inserted++;
+    }
+  });
+
+  if (rowsToAppend.length > 0) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAppend.length, rowsToAppend[0].length)
+      .setValues(rowsToAppend);
+  }
+
+  return result;
+}
 
 function jsonResponse(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))

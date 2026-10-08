@@ -49,11 +49,19 @@ function makeSheet(headers) {
           return out;
         },
         setValues(vals) {
-          for (let i = 0; i < vals.length; i++)
+          // Tiru Google Sheets asli: range di luar data otomatis memperluas sheet.
+          for (let i = 0; i < vals.length; i++) {
+            const rowIdx = r - 1 + i;
+            if (!self.rows[rowIdx]) self.rows[rowIdx] = [];
             for (let j = 0; j < vals[i].length; j++)
-              self.rows[r - 1 + i][c - 1 + j] = vals[i][j];
+              self.rows[rowIdx][c - 1 + j] = vals[i][j];
+          }
         },
-        setValue(v) { self.rows[r - 1][c - 1] = v; },
+        setValue(v) {
+          const rowIdx = r - 1;
+          if (!self.rows[rowIdx]) self.rows[rowIdx] = [];
+          self.rows[rowIdx][c - 1] = v;
+        },
         clearContent() { return this; },
         setFontWeight() { return this; },
         setBackground() { return this; },
@@ -164,11 +172,12 @@ if (got.status === 'success') {
   eq(got.data.marketingSpend[0].leadsGenerated, 8, 'doGet Marketing LeadsDihasilkan -> leadsGenerated');
 }
 
-// ---------- 7. Tes TULIS (sync_all): field HTML -> kolom Sheet yang benar ----------
+// ---------- 7. Tes TULIS (sync_all): MERGE — tidak menghapus data lama ----------
 function callDoPost(payload) {
   const out = sandbox.doPost({ postData: { contents: JSON.stringify(payload) } });
   return JSON.parse(out._t);
 }
+const leadsBefore = sheets['Leads'].rows.length;
 const postRes = callDoPost({
   action: 'sync_all',
   leads: [{ id: 'L9', date: '2026-09-10', name: 'Sari', phone: '082', source: 'WA', value: 1500000, status: 'new', notes: 'n' }],
@@ -179,19 +188,50 @@ const postRes = callDoPost({
   marketingSpend: [{ id: 'K9', date: '2026-09-10', platform: 'TikTok Ads', campaign: 'k', budget: 200000, spent: 100000, leadsGenerated: 5, notes: '' }],
 });
 eq(postRes.status, 'success', 'sync_all status success');
-// Baris 2 (index 1) tiap sheet harus berisi value di kolom yang tepat:
-eq(sheets['Leads'].rows[1][2], 'Sari', 'sync Leads: Nama di kolom C');
-eq(sheets['Leads'].rows[1][6], 'new', 'sync Leads: Status di kolom G');
-eq(sheets['Clients'].rows[1][6], '4 | Bagus', 'sync Clients: rating+review digabung ke Rating_Review (kolom G)');
-eq(sheets['Projects'].rows[1][7], 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0', 'sync Projects: SOP di kolom H');
-eq(sheets['Projects'].rows[1][8], 'Beni', 'sync Projects: pic di kolom I (PIC_Tim)');
-eq(sheets['Finance'].rows[1][4], 100000, 'sync Finance: Nominal di kolom E');
-eq(sheets['Marketing_Spend'].rows[1][6], 5, 'sync Marketing: LeadsDihasilkan di kolom G');
+
+// (a) Data LAMA harus tetap ada (ini inti fix — tidak boleh terhapus)
+eq(sheets['Leads'].rows.length, leadsBefore + 1, 'sync_all MERGE: data lama dipertahankan, baris baru ditambah');
+eq(sheets['Leads'].rows[1][2], 'Budi', 'sync_all MERGE: lead lama (Budi) tidak terhapus');
+
+// (b) Baris BARU ditulis di kolom yang tepat (cari by ID — autoTrigger bisa menambah baris lain)
+const findRow = (sheetName, id) => sheets[sheetName].rows.find(r => String(r[0]) === id);
+const newLeadRow = findRow('Leads', 'L9');
+eq(newLeadRow[0], 'L9', 'sync new Lead: ID di kolom A');
+eq(newLeadRow[2], 'Sari', 'sync new Lead: Nama di kolom C');
+eq(newLeadRow[6], 'new', 'sync new Lead: Status di kolom G');
+
+const newClientRow = findRow('Clients', 'C9');
+eq(newClientRow[6], '4 | Bagus', 'sync new Client: rating+review digabung ke Rating_Review (kolom G)');
+
+const newProjRow = findRow('Projects', 'P9');
+eq(newProjRow[7], 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0', 'sync new Project: SOP di kolom H');
+eq(newProjRow[8], 'Beni', 'sync new Project: pic di kolom I (PIC_Tim)');
+
+const newFinRow = findRow('Finance', 'F9');
+eq(newFinRow[4], 100000, 'sync new Finance: Nominal di kolom E');
+
+const newMkRow = findRow('Marketing_Spend', 'K9');
+eq(newMkRow[6], 5, 'sync new Marketing: LeadsDihasilkan di kolom G');
+
+// (c) sync_all ID yang SUDAH ADA -> diupdate, bukan diduplikasi
+const leadsBefore2 = sheets['Leads'].rows.length;
+callDoPost({ action: 'sync_all', leads: [{ id: 'L1', date: '2026-09-01', name: 'Budi Updated', phone: '081', source: 'IG', value: 8000000, status: 'won', notes: 'ok' }] });
+eq(sheets['Leads'].rows.length, leadsBefore2, 'sync_all UPSERT: ID lama diupdate, tidak menambah baris');
+eq(sheets['Leads'].rows[1][2], 'Budi Updated', 'sync_all UPSERT: nilai lead lama benar-benar terupdate');
+
+// (d) Duplikat ID dalam SATU payload -> hanya ditulis sekali
+const leadsBefore3 = sheets['Leads'].rows.length;
+callDoPost({ action: 'sync_all', leads: [
+  { id: 'LDUP', date: '2026-09-12', name: 'Dup', phone: '0', source: 'x', value: 1, status: 'new', notes: '' },
+  { id: 'LDUP', date: '2026-09-12', name: 'Dup', phone: '0', source: 'x', value: 1, status: 'new', notes: '' },
+] });
+eq(sheets['Leads'].rows.length, leadsBefore3 + 1, 'sync_all: ID duplikat dalam 1 payload hanya ditulis sekali');
 
 // ---------- 8. Tes update_status tetap jalan ----------
 const upd = callDoPost({ action: 'update_status', sheet: 'Leads', id: 'L9', status: 'nego' });
 eq(upd.status, 'success', 'update_status nego success');
-eq(sheets['Leads'].rows[1][6], 'nego', 'update_status menulis kolom Status yang benar');
+const l9Row = sheets['Leads'].rows.find(r => String(r[0]) === 'L9');
+eq(l9Row[6], 'nego', 'update_status menulis kolom Status yang benar');
 
 // ---------- 9. Tes insert memakai header Sheet ----------
 const ins = callDoPost({ action: 'insert', sheet: 'Memory', data: { id: 'M10', date: '2026-09-11', category: 'Ide', title: 'x', content: 'y' } });
