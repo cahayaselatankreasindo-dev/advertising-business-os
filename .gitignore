@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+
+# Kredensial clasp (JANGAN commit - berisi token akses Google)
+.clasprc.json
+**/.clasprc.json
+
+# File sementara
+*.log
+__pycache__/
+*.pyc
