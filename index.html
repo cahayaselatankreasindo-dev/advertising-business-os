@@ -1843,10 +1843,31 @@
       showToast('Lead ditandai DEAL & otomatis masuk ke Klien, Proyek, dan jurnal Keuangan!');
     }
 
+    /**
+     * Hapus 1 baris di cloud (Sheets) berdasarkan ID.
+     * Wajib dipanggil setiap kali user menghapus item, supaya data tidak
+     * "muncul lagi" dari cloud saat app dibuka (karena sync memakai merge).
+     */
+    async function deleteOnCloud(sheetName, id) {
+      const url = db.settings && db.settings.googleSheetUrl;
+      if (!url) return;
+      try {
+        await fetch(url, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', sheet: sheetName, id: id })
+        });
+      } catch (err) {
+        console.warn('Gagal hapus di cloud:', err.message);
+      }
+    }
+
     function deleteLead(id) {
       if (confirm('Yakin ingin menghapus lead ini?')) {
         db.leads = db.leads.filter(l => l.id !== id);
         saveDB();
+        deleteOnCloud('Leads', id);
         showToast('Lead dihapus.');
       }
     }
@@ -1875,6 +1896,7 @@
       if (confirm('Hapus klien ini?')) {
         db.clients = db.clients.filter(c => c.id !== id);
         saveDB();
+        deleteOnCloud('Clients', id);
         showToast('Klien dihapus.');
       }
     }
@@ -1913,6 +1935,7 @@
       if (confirm('Hapus proyek ini?')) {
         db.projects = db.projects.filter(p => p.id !== id);
         saveDB();
+        deleteOnCloud('Projects', id);
         showToast('Proyek dihapus.');
       }
     }

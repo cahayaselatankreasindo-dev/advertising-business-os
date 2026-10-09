@@ -70,6 +70,7 @@ function makeSheet(headers) {
     },
     appendRow(row) { this.rows.push(row.slice()); },
     clear() { this.rows.length = 0; },
+    deleteRow(r) { this.rows.splice(r - 1, 1); },
     setFrozenRows() {},
   };
 }
@@ -324,6 +325,16 @@ eq(capsRow[idx('skorprioritas')], 90, 'CAPS: SkorPrioritas masuk kolom SkorPrior
 const gotCaps = callDoGet().data.leads.find(l => String(l.id) === 'L-CAPS');
 eq(gotCaps.email, 'pic@testcaps.co.id', 'CAPS doGet: email terbaca benar');
 eq(gotCaps.picTitle, 'Store Dev Manager', 'CAPS doGet: picTitle terbaca benar');
+
+// ---------- 9d. Tes action 'delete' (tombol hapus di app) ----------
+const beforeDel = sheets['Leads'].rows.length;
+const delRes = callDoPost({ action: 'delete', sheet: 'Leads', id: 'L-CAPS' });
+eq(delRes.status, 'success', "delete: status success");
+eq(sheets['Leads'].rows.find(r => String(r[0]) === 'L-CAPS'), undefined, 'delete: baris L-CAPS benar-benar terhapus');
+eq(sheets['Leads'].rows.length, beforeDel - 1, 'delete: jumlah baris berkurang 1');
+// Hapus ID yang tidak ada -> tidak error
+const delRes2 = callDoPost({ action: 'delete', sheet: 'Leads', id: 'TIDAK-ADA-XYZ' });
+eq(delRes2.status, 'success', 'delete: ID tidak ada tetap success (idempoten)');
 
 // ---------- 10. Ringkasan ----------
 console.log(`\nmapping.test.js: ${pass} lolos, ${fail} gagal`);

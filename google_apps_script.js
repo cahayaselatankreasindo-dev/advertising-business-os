@@ -370,6 +370,21 @@ function doPost(e) {
         return jsonResponse({ status: "success", message: "Data di-merge (tidak ada yang dihapus)", summary: mergeSummary });
       }
 
+      // --- delete: hapus 1 baris berdasarkan ID (dipakai tombol hapus di app) ---
+      case "delete": {
+        const sheetName = payload.sheet || "Leads";
+        const delId = payload.id;
+        if (!delId) throw new Error("Parameter id diperlukan untuk aksi delete.");
+        const sheet = ss.getSheetByName(sheetName);
+        if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
+        const rowNum = findRowById(sheet, delId);
+        if (rowNum === -1) {
+          return jsonResponse({ status: "success", message: "Baris " + delId + " tidak ada (sudah terhapus)." });
+        }
+        sheet.deleteRow(rowNum);
+        return jsonResponse({ status: "success", message: "Baris " + delId + " dihapus dari " + sheetName });
+      }
+
       // --- insert: tambahkan 1 baris ke tab tertentu ---
       case "insert": {
         const sheetName = payload.sheet;
