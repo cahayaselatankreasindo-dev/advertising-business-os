@@ -239,6 +239,43 @@ eq(ins.status, 'success', 'insert Memory success');
 const lastMem = sheets['Memory'].rows[sheets['Memory'].rows.length - 1];
 eq(lastMem[3], 'x', 'insert Memory: Judul di kolom D (ikut header Sheet, bukan keyOrder lama)');
 
+// ---------- 9b. Tes KOLOM B2B BARU (migrasi skema + tulis by-name) ----------
+// Setelah sync, sheet Leads harus punya kolom B2B baru di kanan (tidak menggeser kolom lama).
+const leadHeaders = sheets['Leads'].rows[0].map(h => String(h).trim());
+['Email', 'Website', 'Industri', 'PIC', 'JabatanPIC', 'LinkedIn', 'SkorPrioritas'].forEach(h => {
+  eq(leadHeaders.indexOf(h) !== -1, true, `migrasi: kolom '${h}' otomatis ditambahkan ke Leads`);
+});
+// Kolom lama tidak bergeser posisinya
+eq(leadHeaders[0], 'ID', 'migrasi: kolom A tetap ID');
+eq(leadHeaders[2], 'Nama', 'migrasi: kolom C tetap Nama');
+eq(leadHeaders[7], 'Catatan', 'migrasi: kolom H tetap Catatan');
+
+// Tulis lead dengan field B2B -> harus masuk ke kolom yang BENAR (by name)
+callDoPost({ action: 'sync_all', leads: [{
+  id: 'LB2B', date: '2026-10-09', name: 'PT Mayora Indah', phone: '', source: 'IndoBuildTech',
+  value: 0, status: 'new', notes: 'FMCG',
+  email: 'vendor@mayora.co.id', website: 'https://www.mayoraindah.co.id', industry: 'FMCG',
+  pic: 'Budi Santoso', picTitle: 'Procurement Manager', linkedin: 'https://linkedin.com/in/budi', score: 85
+}] });
+const b2bRow = findRow('Leads', 'LB2B');
+const colOf = (name) => leadHeaders.indexOf(name);
+eq(b2bRow[colOf('Email')], 'vendor@mayora.co.id', 'B2B: Email masuk kolom Email');
+eq(b2bRow[colOf('Website')], 'https://www.mayoraindah.co.id', 'B2B: Website masuk kolom Website');
+eq(b2bRow[colOf('Industri')], 'FMCG', 'B2B: Industri masuk kolom Industri');
+eq(b2bRow[colOf('PIC')], 'Budi Santoso', 'B2B: PIC masuk kolom PIC');
+eq(b2bRow[colOf('JabatanPIC')], 'Procurement Manager', 'B2B: JabatanPIC masuk kolom JabatanPIC');
+eq(b2bRow[colOf('LinkedIn')], 'https://linkedin.com/in/budi', 'B2B: LinkedIn masuk kolom LinkedIn');
+eq(b2bRow[colOf('SkorPrioritas')], 85, 'B2B: SkorPrioritas masuk kolom SkorPrioritas');
+
+// doGet harus mengembalikan field B2B sebagai camelCase
+const gotB2B = callDoGet().data.leads.find(l => String(l.id) === 'LB2B');
+eq(gotB2B.email, 'vendor@mayora.co.id', 'doGet: Email -> email');
+eq(gotB2B.website, 'https://www.mayoraindah.co.id', 'doGet: Website -> website');
+eq(gotB2B.industry, 'FMCG', 'doGet: Industri -> industry');
+eq(gotB2B.pic, 'Budi Santoso', 'doGet: PIC -> pic');
+eq(gotB2B.picTitle, 'Procurement Manager', 'doGet: JabatanPIC -> picTitle');
+eq(gotB2B.score, 85, 'doGet: SkorPrioritas -> score');
+
 // ---------- 10. Ringkasan ----------
 console.log(`\nmapping.test.js: ${pass} lolos, ${fail} gagal`);
 failures.forEach(f => console.log(f));

@@ -47,8 +47,12 @@
 // - rating/review digabung ke SATU kolom Sheet "Rating_Review" format "N | teks".
 var FIELD_MAP = {
   Leads: {
-    headers: ["ID", "Tanggal", "Nama", "WhatsApp", "Sumber", "EstimasiNilai", "Status", "Catatan"],
-    fields:  ["id", "date", "name", "phone", "source", "value", "status", "notes"]
+    headers: ["ID", "Tanggal", "Nama", "WhatsApp", "Sumber", "EstimasiNilai", "Status", "Catatan",
+              "Email", "Website", "Industri", "PIC", "JabatanPIC", "LinkedIn", "SkorPrioritas"],
+    fields:  ["id", "date", "name", "phone", "source", "value", "status", "notes",
+              "email", "website", "industry", "pic", "picTitle", "linkedin", "score"]
+    // 8 kolom pertama = skema lama (posisi TIDAK berubah agar data lama aman).
+    // 7 kolom baru (Email..SkorPrioritas) khusus data B2B / prospecting.
   },
   Clients: {
     headers: ["ID", "NamaKlien", "WhatsApp", "TotalProyek", "TotalBelanja", "Catatan", "Rating_Review"],
@@ -149,6 +153,12 @@ function setupSheet() {
   const marketingHeaders = ["ID", "Tanggal", "Platform", "Kampanye", "Budget", "Terpakai", "LeadsDihasilkan", "Catatan"];
   ensureSheet(ss, "Marketing_Spend", marketingHeaders);
 
+  // Migrasi skema: pastikan semua kolom kontrak FIELD_MAP ada di tiap tab
+  // (mis. kolom B2B baru di Leads: Email, Website, Industri, PIC, JabatanPIC, LinkedIn, SkorPrioritas).
+  Object.keys(FIELD_MAP).forEach(function (name) {
+    ensureAllHeaders(ss, name);
+  });
+
   // Hapus sheet kosong bawaan Google (Sheet1 / Sheet 1) bila masih ada
   const defaultSheet = ss.getSheetByName("Sheet1") || ss.getSheetByName("Sheet 1");
   if (defaultSheet && defaultSheet.getLastRow() === 0 && ss.getSheets().length > 1) {
@@ -182,6 +192,34 @@ function ensureColumn(ss, sheetName, columnName) {
     .setFontWeight("bold")
     .setBackground("#1C2333")
     .setFontColor("#FFFFFF");
+}
+
+/**
+ * Pastikan SEMUA header di FIELD_MAP[sheetName].headers ada di sheet.
+ * Kolom lama TIDAK digeser; kolom baru hanya ditambahkan di KANAN.
+ * Aman untuk sheet yang sudah berisi data (migrasi skema).
+ */
+function ensureAllHeaders(ss, sheetName) {
+  var map = FIELD_MAP[sheetName];
+  if (!map) return;
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() === 0) return;
+
+  var current = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    .map(function (h) { return String(h).trim(); });
+
+  // Cek apakah urutan awal sudah cocok; kalau ya, tinggal tambah yang kurang.
+  map.headers.forEach(function (h) {
+    if (current.indexOf(h) === -1) {
+      var col = sheet.getLastColumn() + 1;
+      sheet.getRange(1, col).setValue(h);
+      sheet.getRange(1, col)
+        .setFontWeight("bold")
+        .setBackground("#1C2333")
+        .setFontColor("#FFFFFF");
+      current.push(h);
+    }
+  });
 }
 
 function findRowById(sheet, id) {
@@ -641,6 +679,8 @@ function installDailyOutreachTrigger() {
  * - Baris dengan ID yang sudah ada  -> diupdate (hanya jika berubah).
  * - Baris dengan ID baru            -> ditambahkan di bawah.
  * - Baris lama yang tidak dikirim   -> DIBIARKAN (tidak dihapus).
+ * - Header-aware: nilai ditulis ke kolom sesuai NAMA header, bukan posisi.
+ *   Kolom baru (mis. Email/Website/Industri) otomatis ditambahkan bila belum ada.
  *
  * Mengembalikan ringkasan { inserted, updated, skipped, total }.
  */
@@ -658,12 +698,19 @@ function mergeSheet(ss, sheetName, items) {
     }
   }
 
+  // Pastikan semua kolom kontrak ada (migrasi skema: kolom baru ditambah di kanan)
+  if (map) ensureAllHeaders(ss, sheetName);
+
   items = items || [];
   var result = { inserted: 0, updated: 0, skipped: 0, total: items.length };
   if (items.length === 0) return result;
 
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
+
+  // Header aktual sheet -> posisi kolom
+  var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+    .map(function (h) { return String(h).trim(); });
 
   // Bangun indeks ID -> nomor baris (ID selalu kolom 1)
   var idToRow = {};
@@ -678,6 +725,15 @@ function mergeSheet(ss, sheetName, items) {
   // Ambil seluruh data sekali (untuk perbandingan & update)
   var dataRange = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues() : [];
 
+  // Ubah record -> array nilai SEJAJAR dengan header AKTUAL sheet (by name)
+  function buildRow(item) {
+    var contractRow = recordToRow(sheetName, item); // sejajar FIELD_MAP.headers
+    return headerRow.map(function (h) {
+      var pos = map ? map.headers.indexOf(h) : -1;
+      return pos === -1 ? "" : contractRow[pos];
+    });
+  }
+
   var rowsToAppend = [];
   var seenNewIds = {}; // cegah duplikat ID di dalam 1 payload
 
@@ -685,7 +741,7 @@ function mergeSheet(ss, sheetName, items) {
     var id = String(item.id === undefined || item.id === null ? "" : item.id).trim();
     if (id === "") { result.skipped++; return; }
 
-    var newRow = recordToRow(sheetName, item);
+    var newRow = buildRow(item);
 
     if (idToRow[id]) {
       // Baris sudah ada di sheet -> update HANYA kolom yang berubah
