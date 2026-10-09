@@ -69,6 +69,7 @@ function makeSheet(headers) {
       };
     },
     appendRow(row) { this.rows.push(row.slice()); },
+    clear() { this.rows.length = 0; },
     setFrozenRows() {},
   };
 }
@@ -79,6 +80,8 @@ const SpreadsheetAppStub = {
     return {
       getSheetByName(name) { return sheets[name] || null; },
       insertSheet(name) { sheets[name] = makeSheet([]); return sheets[name]; },
+      getSheets() { return Object.keys(sheets).map(k => sheets[k]); },
+      deleteSheet(s) { /* noop di stub */ },
     };
   },
 };
@@ -90,6 +93,7 @@ const ContentServiceStub = {
   },
 };
 const ScriptAppStub = { getProjectTriggers() { return []; } };
+const LoggerStub = { log() {} };
 
 // ---------- 2. Muat google_apps_script.js ke sandbox ----------
 const src = fs.readFileSync(path.join(__dirname, 'google_apps_script.js'), 'utf8');
@@ -97,6 +101,7 @@ const sandbox = {
   SpreadsheetApp: SpreadsheetAppStub,
   ContentService: ContentServiceStub,
   ScriptApp: ScriptAppStub,
+  Logger: LoggerStub,
   console,
 };
 vm.createContext(sandbox);
@@ -275,6 +280,50 @@ eq(gotB2B.industry, 'FMCG', 'doGet: Industri -> industry');
 eq(gotB2B.pic, 'Budi Santoso', 'doGet: PIC -> pic');
 eq(gotB2B.picTitle, 'Procurement Manager', 'doGet: JabatanPIC -> picTitle');
 eq(gotB2B.score, 85, 'doGet: SkorPrioritas -> score');
+
+// ---------- 9c. Kasus NYATA: header HURUF BESAR + kolom duplikat ----------
+// Ganti sheet "Leads" dengan versi header HURUF BESAR + kolom duplikat
+// (persis kondisi sheet user). Sistem harus: dedupe + tetap tulis kolom benar.
+sheets['Leads'] = makeSheet([
+  'ID','TANGGAL','Nama','Whatsapp','SUMBER','ESTIMASINILAI','STATUS','CATATAN',   // asli (HURUF BESAR)
+  'Tanggal','WhatsApp','Sumber','EstimasiNilai','Status','Catatan',               // duplikat (campur)
+  'Email','Website','Industri','PIC','JabatanPIC','LinkedIn','SkorPrioritas'      // B2B
+]);
+sheets['Leads'].appendRow(['L-OLD','2026-09-01','Budi','081','IG',8000000,'won','ok','','','','','','','','','','','','','']);
+
+// Paksa dedupe + migrasi lewat setupSheet (pakai SpreadsheetApp stub yg sama)
+sandbox.setupSheet();
+
+const h2 = sheets['Leads'].rows[0].map(h => String(h).trim().toLowerCase());
+const dupCount = h2.filter(x => x === 'tanggal').length;
+eq(dupCount, 1, 'dedupe: kolom "TANGGAL/Tanggal" jadi 1 (tidak duplikat)');
+eq(h2.filter(x => x === 'sumber').length, 1, 'dedupe: kolom "SUMBER/Sumber" jadi 1');
+eq(h2.filter(x => x === 'whatsapp').length, 1, 'dedupe: kolom "WhatsApp" jadi 1');
+
+// Data lama harus tetap ada setelah dedupe
+const oldRow2 = sheets['Leads'].rows.find(r => String(r[0]) === 'L-OLD');
+eq(!!oldRow2, true, 'dedupe: baris lama L-OLD tetap ada');
+eq(oldRow2[2], 'Budi', 'dedupe: data kolom Nama tidak rusak');
+
+// Tulis lead baru dgn header HURUF BESAR -> harus masuk kolom yang benar
+callDoPost({ action: 'sync_all', leads: [{
+  id: 'L-CAPS', date: '2026-10-09', name: 'PT Test Caps', phone: '0899',
+  source: 'Referral', value: 5000000, status: 'new', notes: 'catatan caps',
+  email: 'pic@testcaps.co.id', website: 'https://testcaps.co.id', industry: 'Retail',
+  pic: 'Siti', picTitle: 'Store Dev Manager', linkedin: 'https://linkedin.com/in/siti', score: 90
+}] });
+const capsRow = sheets['Leads'].rows.find(r => String(r[0]) === 'L-CAPS');
+const idx = (n) => h2.indexOf(n);
+eq(capsRow[idx('email')], 'pic@testcaps.co.id', 'CAPS: Email masuk kolom Email (header huruf besar)');
+eq(capsRow[idx('website')], 'https://testcaps.co.id', 'CAPS: Website masuk kolom Website');
+eq(capsRow[idx('industri')], 'Retail', 'CAPS: Industri masuk kolom Industri');
+eq(capsRow[idx('pic')], 'Siti', 'CAPS: PIC masuk kolom PIC');
+eq(capsRow[idx('skorprioritas')], 90, 'CAPS: SkorPrioritas masuk kolom SkorPrioritas');
+
+// doGet harus baca benar meski header huruf besar
+const gotCaps = callDoGet().data.leads.find(l => String(l.id) === 'L-CAPS');
+eq(gotCaps.email, 'pic@testcaps.co.id', 'CAPS doGet: email terbaca benar');
+eq(gotCaps.picTitle, 'Store Dev Manager', 'CAPS doGet: picTitle terbaca benar');
 
 // ---------- 10. Ringkasan ----------
 console.log(`\nmapping.test.js: ${pass} lolos, ${fail} gagal`);

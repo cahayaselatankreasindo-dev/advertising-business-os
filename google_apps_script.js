@@ -97,18 +97,47 @@ function joinRatingReview(rating, review) {
 }
 
 // Sheet row (array, urutan header Sheet) -> objek field HTML.
-function rowToRecord(sheetName, row) {
+// Header-aware: memetakan berdasarkan NAMA kolom (tahan beda huruf besar/kecil
+// dan tahan kolom yang urutannya bergeser).
+function rowToRecord(sheetName, row, headerRow) {
   var map = FIELD_MAP[sheetName];
   var rec = {};
   if (!map) return rec;
-  if (sheetName === "Clients") {
-    rec.id = row[0]; rec.name = row[1]; rec.phone = row[2];
-    rec.projectsCount = row[3]; rec.totalSpend = row[4]; rec.notes = row[5];
-    var rr = splitRatingReview(row[6]);
-    rec.rating = rr.rating; rec.review = rr.review;
+
+  // Tanpa headerRow (mis. dipanggil tanpa header) -> fallback ke urutan FIELD_MAP.
+  if (!headerRow) {
+    if (sheetName === "Clients") {
+      rec.id = row[0]; rec.name = row[1]; rec.phone = row[2];
+      rec.projectsCount = row[3]; rec.totalSpend = row[4]; rec.notes = row[5];
+      var rr = splitRatingReview(row[6]);
+      rec.rating = rr.rating; rec.review = rr.review;
+      return rec;
+    }
+    map.fields.forEach(function (f, idx) { rec[f] = row[idx]; });
     return rec;
   }
-  map.fields.forEach(function (f, idx) { rec[f] = row[idx]; });
+
+  // Peta header Sheet (lowercase) -> index kolom
+  var idxByName = {};
+  headerRow.forEach(function (h, i) {
+    var key = String(h).trim().toLowerCase();
+    if (!(key in idxByName)) idxByName[key] = i; // ambil kemunculan PERTAMA saja
+  });
+
+  map.headers.forEach(function (sheetHeader, fi) {
+    var field = map.fields[fi];
+    if (field === undefined) return;
+    var col = idxByName[String(sheetHeader).trim().toLowerCase()];
+    rec[field] = (col === undefined) ? "" : row[col];
+  });
+
+  // Clients: rating+review digabung di kolom Rating_Review
+  if (sheetName === "Clients") {
+    var raw = rec.rating; // sementara berisi isi kolom Rating_Review
+    var rr2 = splitRatingReview(raw);
+    rec.rating = rr2.rating;
+    rec.review = rr2.review;
+  }
   return rec;
 }
 
@@ -153,8 +182,11 @@ function setupSheet() {
   const marketingHeaders = ["ID", "Tanggal", "Platform", "Kampanye", "Budget", "Terpakai", "LeadsDihasilkan", "Catatan"];
   ensureSheet(ss, "Marketing_Spend", marketingHeaders);
 
-  // Migrasi skema: pastikan semua kolom kontrak FIELD_MAP ada di tiap tab
-  // (mis. kolom B2B baru di Leads: Email, Website, Industri, PIC, JabatanPIC, LinkedIn, SkorPrioritas).
+  // Migrasi skema: rapi-kan dulu kolom duplikat, lalu pastikan kolom kontrak ada.
+  // Urutan penting: dedupe dulu (mis. "TANGGAL" & "Tanggal" dobel), baru tambah yang kurang.
+  Object.keys(FIELD_MAP).forEach(function (name) {
+    dedupeHeaders(ss, name);
+  });
   Object.keys(FIELD_MAP).forEach(function (name) {
     ensureAllHeaders(ss, name);
   });
@@ -197,6 +229,7 @@ function ensureColumn(ss, sheetName, columnName) {
 /**
  * Pastikan SEMUA header di FIELD_MAP[sheetName].headers ada di sheet.
  * Kolom lama TIDAK digeser; kolom baru hanya ditambahkan di KANAN.
+ * Pencocokan TIDAK case-sensitive (TANGGAL == Tanggal == tanggal).
  * Aman untuk sheet yang sudah berisi data (migrasi skema).
  */
 function ensureAllHeaders(ss, sheetName) {
@@ -206,20 +239,61 @@ function ensureAllHeaders(ss, sheetName) {
   if (!sheet || sheet.getLastRow() === 0) return;
 
   var current = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
-    .map(function (h) { return String(h).trim(); });
+    .map(function (h) { return String(h).trim().toLowerCase(); });
 
-  // Cek apakah urutan awal sudah cocok; kalau ya, tinggal tambah yang kurang.
   map.headers.forEach(function (h) {
-    if (current.indexOf(h) === -1) {
+    if (current.indexOf(h.toLowerCase()) === -1) {
       var col = sheet.getLastColumn() + 1;
       sheet.getRange(1, col).setValue(h);
       sheet.getRange(1, col)
         .setFontWeight("bold")
         .setBackground("#1C2333")
         .setFontColor("#FFFFFF");
-      current.push(h);
+      current.push(h.toLowerCase());
     }
   });
+}
+
+// Bersihkan kolom HEADER DUPLIKAT (mis. "Tanggal" & "TANGGAL" muncul 2x).
+// Menyimpan kemunculan PERTAMA saja; kolom duplikat dihapus.
+// Sekaligus merapikan urutan jadi persis FIELD_MAP.headers (jika tab kontrak).
+// Aman: data kolom yang dipertahankan ikut dipindah, isi tidak hilang.
+function dedupeHeaders(ss, sheetName) {
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() === 0) return 0;
+
+  var lastCol = sheet.getLastColumn();
+  if (lastCol <= 1) return 0;
+
+  var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var seen = {};
+  var keepCols = []; // index kolom (0-based) yang dipertahankan
+
+  headerRow.forEach(function (h, i) {
+    var key = String(h).trim().toLowerCase();
+    if (key === "") return;                 // kolom tanpa judul -> buang
+    if (seen[key]) return;                  // duplikat -> buang
+    seen[key] = true;
+    keepCols.push(i);
+  });
+
+  if (keepCols.length === lastCol) return 0; // tidak ada duplikat
+
+  // Ambil seluruh data, lalu tulis ulang hanya kolom yang dipertahankan.
+  var data = sheet.getDataRange().getValues();
+  var newRows = data.map(function (r) {
+    return keepCols.map(function (i) { return r[i]; });
+  });
+
+  sheet.clear();
+  sheet.getRange(1, 1, newRows.length, newRows[0].length).setValues(newRows);
+  sheet.getRange(1, 1, 1, newRows[0].length)
+    .setFontWeight("bold").setBackground("#1C2333").setFontColor("#FFFFFF");
+  sheet.setFrozenRows(1);
+
+  var removed = lastCol - keepCols.length;
+  Logger.log("dedupeHeaders[" + sheetName + "]: hapus " + removed + " kolom duplikat.");
+  return removed;
 }
 
 function findRowById(sheet, id) {
@@ -236,9 +310,11 @@ function readSheetData(ss, sheetName) {
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() <= 1) return [];
   const values = sheet.getDataRange().getValues();
+  const headerRow = values[0];
   const rows = values.slice(1);
   // Tab kontrak: pakai FIELD_MAP agar key persis field HTML (Tahap 3).
-  if (FIELD_MAP[sheetName]) return rows.map(r => rowToRecord(sheetName, r));
+  // Header-aware: kolom dipetakan berdasarkan NAMA, bukan posisi.
+  if (FIELD_MAP[sheetName]) return rows.map(r => rowToRecord(sheetName, r, headerRow));
   const headers = values[0];
   return rows.map(r => {
     const obj = {};
@@ -698,8 +774,12 @@ function mergeSheet(ss, sheetName, items) {
     }
   }
 
-  // Pastikan semua kolom kontrak ada (migrasi skema: kolom baru ditambah di kanan)
-  if (map) ensureAllHeaders(ss, sheetName);
+  // Rapikan kolom duplikat dulu (mis. "TANGGAL" & "Tanggal"), lalu pastikan
+  // semua kolom kontrak ada (kolom baru ditambah di kanan).
+  if (map) {
+    dedupeHeaders(ss, sheetName);
+    ensureAllHeaders(ss, sheetName);
+  }
 
   items = items || [];
   var result = { inserted: 0, updated: 0, skipped: 0, total: items.length };
@@ -725,12 +805,18 @@ function mergeSheet(ss, sheetName, items) {
   // Ambil seluruh data sekali (untuk perbandingan & update)
   var dataRange = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues() : [];
 
-  // Ubah record -> array nilai SEJAJAR dengan header AKTUAL sheet (by name)
+  // Peta nama header kontrak (lowercase) -> posisi di FIELD_MAP.headers
+  var contractPos = {};
+  if (map) {
+    map.headers.forEach(function (h, i) { contractPos[h.toLowerCase()] = i; });
+  }
+
+  // Ubah record -> array nilai SEJAJAR dengan header AKTUAL sheet (by name, case-insensitive)
   function buildRow(item) {
     var contractRow = recordToRow(sheetName, item); // sejajar FIELD_MAP.headers
     return headerRow.map(function (h) {
-      var pos = map ? map.headers.indexOf(h) : -1;
-      return pos === -1 ? "" : contractRow[pos];
+      var pos = contractPos[String(h).trim().toLowerCase()];
+      return pos === undefined ? "" : contractRow[pos];
     });
   }
 
