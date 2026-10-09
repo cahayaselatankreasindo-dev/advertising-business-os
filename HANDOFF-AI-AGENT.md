@@ -41,8 +41,7 @@ Script ini: copy `google_apps_script.js` → `apps-script/Code.gs`, `clasp push`
 Prasyarat (sekali): `clasp login` sudah pernah dijalankan sebagai
 `<email-akun-csk>`. Kredensial di `~/.clasprc.json` (jangan commit).
 
-**Script ID:** `1eUjEvbe4dGsAIT32P3vLVdf1CKIsk0swleiJg1FHX0OugYddNYWbB3qC`
-**Deployment ID (URL tetap):** `AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA`
+**Script ID & Deployment ID:** lihat `apps-script/.clasp.json` (jangan disebar ke luar).
 
 ### 2.2 ⚠️ BUG YANG SUDAH DIFIX — JANGAN DIKEMBALIKAN
 
@@ -113,33 +112,48 @@ Test ini memuat `google_apps_script.js` ke sandbox Node dengan stub SpreadsheetA
 
 ---
 
-## 5. Isu Terbuka (belum dikerjakan)
+## 5. Isu & Status (per 9 Okt 2026, sesi lanjutan)
 
-### 5.1 🔴 Keamanan — URL Apps Script bocor di repo publik
+### 5.1 🟢 Keamanan URL — SOLUSI SUDAH DIBUAT
 
-Repo publik → URL Web App (`.../exec`) bisa dibaca siapa saja. URL juga ada di
-git history (`9011874`). Celah paling bahaya: orang bisa spam email via Gmail CSK
-(fitur `send_cold_email`).
+Repo publik → URL Apps Script di `index.html` (3 tempat) bisa dibaca siapa saja.
 
-Status: **DITUNDA**, belum diputuskan. Opsi: (A) hapus dari index.html + setting
-manual, (B) tambah secret token, (C) ganti URL + `.gitignore`, (D) biarkan.
+**Fix (commit `466a419`):** token API opsional.
+- Backend: `setupApiToken()` + `isAuthorized()` — token di Script Properties (bukan kode)
+- Frontend: field **Token Akses** di Pengaturan, dikirim di semua request
+- **Mode kompatibel:** token belum diset → sistem jalan normal (tidak memutus app)
+- Aktifkan: jalankan `setupApiToken()` (ganti nilai token dulu) → paste token di app → semua perangkat
 
-### 5.2 🟡 Lead tidak muncul di app
+### 5.2 🟢 Lead tidak muncul — SUDAH DIFIX
 
-Backend normal (258 lead). Kalau app tidak menampilkan, kemungkinan app perlu
-klik **"Tarik Data dari Cloud"** manual, atau cache service worker (`sw.js`).
+`sw.js` cache-first bikin app nyangkut di `index.html` versi lama.
+Fix: **network-first** untuk HTML + bump cache `v2.4` (commit `466a419`).
 
-### 5.3 ⚪ Apollo PIC enrichment
+### 5.3 🟢 `deploy-backend.ps1` — 2 bug difix
+
+- `$PSScriptRoot` salah hitung → file tidak ketemu
+- regex ambil deployment `@HEAD` (read-only) → kini ambil yang berversi (`@N`)
+- Deploy terakhir berhasil: `@12`
+
+### 5.4 ⚪ Apollo PIC enrichment
 
 Apollo API key di env masih placeholder (`key-lu`), belum valid. Belum dikerjakan.
 
 ---
 
-## 6. Catatan Jujur
+## 6. Test
 
-- **Vault Obsidian:** agen lain menyebut vault 30 note + `.kanban`. Saya **tidak
-  menemukannya**. Vault di `E:\Document\Obsidian Vault` cuma 3 file kosong.
-  Kalau vault itu ada di tempat lain, tolong konfirmasi ke user.
+```powershell
+cd "E:\THE SCALES ADVERTISING\advertising-business-os"
+node mapping.test.js    # 81 test, harus 0 gagal
+```
+
+---
+
+## 7. Catatan Jujur
+
+- **Vault Obsidian:** vault CSK ADA di **`G:\My Drive\CSK-Vault`** (31 note).
+  BUKAN `E:\Document\Obsidian Vault` (itu vault kosong milik orang lain).
 - **Jangan asumsi** file/fitur ada tanpa verifikasi. Selalu cek dulu.
 - **Jangan push ke Sheets** tanpa menampilkan list ke user dulu (user pernah marah
   karena 247 lead di-push tanpa konfirmasi).
