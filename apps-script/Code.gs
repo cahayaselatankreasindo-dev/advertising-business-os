@@ -323,10 +323,52 @@ function readSheetData(ss, sheetName) {
   });
 }
 
+// ============== KEAMANAN: TOKEN API ==============
+// Token disimpan di Script Properties (BUKAN di kode/repo).
+// Set sekali lewat menu editor: jalankan fungsi setupApiToken().
+// Selama token belum diset, sistem berjalan TANPA proteksi (mode kompatibel).
+function getApiToken() {
+  return PropertiesService.getScriptProperties().getProperty("API_TOKEN") || "";
+}
+
+/**
+ * Set/ubah token API. Jalankan sekali dari editor Apps Script.
+ * Ganti nilai di bawah dengan token rahasia Anda (minimal 20 karakter acak).
+ */
+function setupApiToken() {
+  var token = "GANTI-DENGAN-TOKEN-RAHASIA-ANDA";
+  PropertiesService.getScriptProperties().setProperty("API_TOKEN", token);
+  Logger.log("API_TOKEN diset. Simpan token ini di app (Pengaturan → Token Akses).");
+}
+
+/**
+ * Cek token dari request. Return true jika valid ATAU token belum diset
+ * (mode kompatibel agar tidak memutus app lama).
+ */
+function isAuthorized(payloadOrEvent, tokenParam) {
+  var expected = getApiToken();
+  if (expected === "") return true; // belum diaktifkan -> izinkan (kompatibel)
+
+  var provided = "";
+  if (payloadOrEvent && typeof payloadOrEvent === "object") {
+    provided = payloadOrEvent.token || "";
+  }
+  if (!provided && tokenParam) provided = tokenParam;
+  return String(provided) === String(expected);
+}
+
+function unauthorizedResponse() {
+  return jsonResponse({ status: "error", message: "Tidak diizinkan: token akses salah atau kosong." });
+}
+
 // ============== GET — TARIK DATA SEMUA TAB ==============
 
 function doGet(e) {
   try {
+    // Proteksi token (via query string ?token=...)
+    var tokenParam = (e && e.parameter) ? e.parameter.token : "";
+    if (!isAuthorized(null, tokenParam)) return unauthorizedResponse();
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const result = {
       leads: readSheetData(ss, "Leads"),
@@ -350,6 +392,10 @@ function doGet(e) {
 function doPost(e) {
   try {
     const payload = JSON.parse(e.postData.contents);
+
+    // Proteksi token (via field payload.token)
+    if (!isAuthorized(payload)) return unauthorizedResponse();
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const action = (payload.action || "").toLowerCase();
 

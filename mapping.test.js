@@ -95,6 +95,18 @@ const ContentServiceStub = {
 };
 const ScriptAppStub = { getProjectTriggers() { return []; } };
 const LoggerStub = { log() {} };
+// Stub PropertiesService (in-memory) untuk fitur token API
+const _props = {};
+const PropertiesServiceStub = {
+  getScriptProperties() {
+    return {
+      getProperty(k) { return (k in _props) ? _props[k] : null; },
+      setProperty(k, v) { _props[k] = v; },
+    };
+  },
+};
+const MailAppStub = { getRemainingDailyQuota() { return 100; }, sendEmail() {} };
+const UtilitiesStub = { formatDate() { return '2026-10-09'; } };
 
 // ---------- 2. Muat google_apps_script.js ke sandbox ----------
 const src = fs.readFileSync(path.join(__dirname, 'google_apps_script.js'), 'utf8');
@@ -103,6 +115,9 @@ const sandbox = {
   ContentService: ContentServiceStub,
   ScriptApp: ScriptAppStub,
   Logger: LoggerStub,
+  PropertiesService: PropertiesServiceStub,
+  MailApp: MailAppStub,
+  Utilities: UtilitiesStub,
   console,
 };
 vm.createContext(sandbox);
@@ -335,6 +350,33 @@ eq(sheets['Leads'].rows.length, beforeDel - 1, 'delete: jumlah baris berkurang 1
 // Hapus ID yang tidak ada -> tidak error
 const delRes2 = callDoPost({ action: 'delete', sheet: 'Leads', id: 'TIDAK-ADA-XYZ' });
 eq(delRes2.status, 'success', 'delete: ID tidak ada tetap success (idempoten)');
+
+// ---------- 9e. Tes KEAMANAN: token API ----------
+// Mode 1: token belum diset -> semua request diizinkan (kompatibel)
+eq(sandbox.isAuthorized({ action: 'sync_all' }), true, 'auth: token belum diset -> diizinkan (kompatibel)');
+
+// Mode 2: token diset -> request tanpa token DITOLAK
+sandbox.setupApiToken && null; // pastikan fungsi ada
+_props['API_TOKEN'] = 'RAHASIA123';
+eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: token diset, request tanpa token -> DITOLAK');
+eq(sandbox.isAuthorized({ action: 'sync_all', token: 'SALAH' }), false, 'auth: token salah -> DITOLAK');
+eq(sandbox.isAuthorized({ action: 'sync_all', token: 'RAHASIA123' }), true, 'auth: token benar -> DIIZINKAN');
+eq(sandbox.isAuthorized(null, 'RAHASIA123'), true, 'auth: token via query string (GET) -> DIIZINKAN');
+eq(sandbox.isAuthorized(null, ''), false, 'auth: GET tanpa token -> DITOLAK');
+
+// Mode 3: doPost tanpa token -> balasan error, TIDAK mengubah data
+const beforeAuth = sheets['Leads'].rows.length;
+const authRes = callDoPost({ action: 'sync_all', leads: [{ id: 'HACK-1', name: 'Hacker' }] });
+eq(authRes.status, 'error', 'auth: doPost tanpa token -> status error');
+eq(sheets['Leads'].rows.length, beforeAuth, 'auth: doPost tanpa token TIDAK mengubah data');
+
+// doPost dengan token benar -> berhasil
+const okRes = callDoPost({ action: 'sync_all', token: 'RAHASIA123', leads: [{ id: 'OKAUTH-1', date: '2026-10-09', name: 'Authorized', phone: '', source: 'x', value: 0, status: 'new', notes: '' }] });
+eq(okRes.status, 'success', 'auth: doPost dengan token benar -> success');
+eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'OKAUTH-1'), true, 'auth: data dengan token benar tersimpan');
+
+// Kembalikan ke mode kompatibel untuk test berikutnya
+delete _props['API_TOKEN'];
 
 // ---------- 10. Ringkasan ----------
 console.log(`\nmapping.test.js: ${pass} lolos, ${fail} gagal`);

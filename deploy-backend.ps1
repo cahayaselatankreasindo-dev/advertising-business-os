@@ -4,7 +4,8 @@
 # Prasyarat (sekali saja): jalankan `clasp login` di folder apps-script.
 
 $ErrorActionPreference = "Stop"
-$root = Split-Path -Parent $PSScriptRoot   # folder advertising-business-os
+# $PSScriptRoot = folder tempat script ini berada (root repo)
+$root = $PSScriptRoot
 $src  = Join-Path $root "google_apps_script.js"
 $gas  = Join-Path $root "apps-script"
 $dst  = Join-Path $gas  "Code.gs"
@@ -36,14 +37,15 @@ try {
     $deployments = clasp deployments 2>&1 | Out-String
     Write-Host $deployments
 
-    # Ambil deployment ID pertama yang berformat AKfy...
-    $m = [regex]::Match($deployments, "(AKfycb[\w-]+)")
+    # Ambil deployment yang PUNYA NOMOR VERSI (@1, @2, ...), bukan @HEAD (read-only).
+    # Format baris: "- <DEPLOYMENT_ID> @<version> - <desc>"
+    $m = [regex]::Match($deployments, "(AKfycb[\w-]+)\s+@\d+")
     if ($m.Success) {
         $depId = $m.Groups[1].Value
         clasp deploy --deploymentId $depId --description "auto $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
         Write-Host "Deployment diupdate: $depId" -ForegroundColor Green
     } else {
-        Write-Host "[!] Tidak menemukan deployment ID. Cek 'clasp deployments' manual." -ForegroundColor Yellow
+        Write-Host "[!] Tidak menemukan deployment berversi (@1,@2,...). Cek 'clasp deployments' manual." -ForegroundColor Yellow
     }
 }
 finally {

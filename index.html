@@ -503,6 +503,12 @@
             <input type="url" id="setting-google-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-amber-500 font-mono">
           </div>
 
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Token Akses (opsional, untuk keamanan):</label>
+            <input type="password" id="setting-api-token" placeholder="Token rahasia dari setupApiToken()" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-amber-500 font-mono">
+            <p class="text-[11px] text-slate-500 mt-1">Isi ini agar URL yang bocor tidak bisa dipakai orang lain. Jalankan <code>setupApiToken()</code> sekali di Apps Script, lalu paste token-nya di sini.</p>
+          </div>
+
           <div class="flex flex-wrap gap-2 pt-1">
             <button onclick="saveGoogleUrl()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition flex items-center gap-1.5">
               <i class="fa fa-save"></i> Simpan URL
@@ -1091,6 +1097,8 @@
       if (!db.settings) db.settings = { googleSheetUrl: 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec', lastSync: '' };
       if (!db.settings.googleSheetUrl) db.settings.googleSheetUrl = 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec';
       document.getElementById('setting-google-url').value = db.settings.googleSheetUrl || '';
+      const tokenEl = document.getElementById('setting-api-token');
+      if (tokenEl) tokenEl.value = db.settings.apiToken || '';
       // Set role selector
       document.getElementById('role-select').value = db.role || 'owner';
       const mobSel = document.getElementById('role-select-mob');
@@ -1788,6 +1796,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'send_cold_email',
+            token: getApiToken(),
             toEmail: lead.email,
             name: lead.name,
             brand: lead.name
@@ -1856,7 +1865,7 @@
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'delete', sheet: sheetName, id: id })
+          body: JSON.stringify({ action: 'delete', sheet: sheetName, id: id, token: getApiToken() })
         });
       } catch (err) {
         console.warn('Gagal hapus di cloud:', err.message);
@@ -2151,10 +2160,17 @@
 
     function saveGoogleUrl() {
       const url = document.getElementById('setting-google-url').value.trim();
+      const token = (document.getElementById('setting-api-token')?.value || '').trim();
       db.settings.googleSheetUrl = url;
+      db.settings.apiToken = token;
       localStorage.setItem(DB_KEY, JSON.stringify(db));
       updateCloudIndicator();
-      showToast('URL Google Sheets berhasil disimpan!');
+      showToast('URL & token berhasil disimpan!');
+    }
+
+    /** Helper: ambil token akses (untuk disisipkan ke request). */
+    function getApiToken() {
+      return (db.settings && db.settings.apiToken) || '';
     }
 
     function updateCloudIndicator() {
@@ -2179,6 +2195,7 @@
       try {
         const payload = {
           action: 'sync_all',
+          token: getApiToken(),
           leads: db.leads,
           clients: db.clients,
           projects: db.projects,
@@ -2218,7 +2235,7 @@
 
       showToast('Mengambil data dari cloud...');
       try {
-        const resp = await fetch(url);
+        const resp = await fetch(url + '?token=' + encodeURIComponent(getApiToken()));
         const json = await resp.json();
         if (json.status !== 'success' || !json.data) throw new Error('Respon tidak valid dari server.');
 
@@ -2249,7 +2266,7 @@
       const url = db.settings && db.settings.googleSheetUrl;
       if (!url) return;
       try {
-        const resp = await fetch(url);
+        const resp = await fetch(url + '?token=' + encodeURIComponent(getApiToken()));
         const json = await resp.json();
         if (json.status !== 'success' || !json.data) return;
         const d = json.data;
