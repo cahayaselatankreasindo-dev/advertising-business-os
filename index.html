@@ -2204,6 +2204,8 @@
         db.settings.lastSync = result.verifiedAt;
         localStorage.setItem(DB_KEY, JSON.stringify(db));
         if (!isSilent) showToast('Perubahan terverifikasi tersimpan di Google Sheets.');
+        // Ada edit baru saat request masih berjalan: lanjutkan antrean berikutnya.
+        if (result.pending > 0) scheduleCloudSync();
       } else if (result.status === 'clean') {
         if (!isSilent) showToast('Tidak ada perubahan lokal yang perlu dikirim.');
       } else if (result.status === 'conflict') {
