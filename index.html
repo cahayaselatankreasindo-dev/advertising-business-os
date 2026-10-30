@@ -1041,9 +1041,20 @@
     <span id="toast-msg">Pesan</span>
   </div>
 
+  <script src="./sync-safe.js"></script>
   <script>
 
     const DB_KEY = 'csk_business_os_db';
+    let safeSync = null;
+    let autoSyncTimer = null;
+    function scheduleCloudSync() {
+      if (!db.settings || !db.settings.googleSheetUrl || !safeSync) return;
+      if (autoSyncTimer) clearTimeout(autoSyncTimer);
+      autoSyncTimer = setTimeout(() => {
+        autoSyncTimer = null;
+        syncWithGoogle(true);
+      }, 1200);
+    }
     let db = {
       leads: [
         { id: '1', date: '2026-09-01', name: 'Bpk. Hendra (Kopi Sore)', phone: '081234567890', source: 'Instagram Ads', value: 8000000, status: 'won', notes: 'Paket Branding Lengkap 8 Juta' },
@@ -1103,17 +1114,20 @@
       document.getElementById('role-select').value = db.role || 'owner';
       const mobSel = document.getElementById('role-select-mob');
       if (mobSel) mobSel.value = db.role || 'owner';
-      updateCloudIndicator();
       applyRoleUI();
+      // Initial state is read without sending older local records to the cloud.
+      safeSync = window.CSKSafeSync.createEngine(localStorage);
+      safeSync.init(db);
+      updateCloudIndicator();
     }
 
-    function saveDB() {
+    function saveDB(options = {}) {
+      // Save locally first, including a persistent queue of changed/deleted records.
       localStorage.setItem(DB_KEY, JSON.stringify(db));
+      if (safeSync) safeSync.track(db);
       renderAll();
-      // Auto-sync in background if cloud URL is active
-      if (db.settings && db.settings.googleSheetUrl) {
-        syncWithGoogle(true);
-      }
+      updateCloudIndicator();
+      if (!options.skipAutoSync) scheduleCloudSync();
     }
 
     function formatRp(num) {
@@ -1761,7 +1775,7 @@
       saveDB();
       closeModal('modal-lead');
       e.target.reset();
-      showToast('Lead baru berhasil ditambahkan!');
+      showToast('Lead tersimpan di perangkat; cloud menyusul setelah verifikasi.');
     }
 
     async function sendColdEmailLead(id) {
@@ -1857,27 +1871,11 @@
      * Wajib dipanggil setiap kali user menghapus item, supaya data tidak
      * "muncul lagi" dari cloud saat app dibuka (karena sync memakai merge).
      */
-    async function deleteOnCloud(sheetName, id) {
-      const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) return;
-      try {
-        await fetch(url, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'delete', sheet: sheetName, id: id, token: getApiToken() })
-        });
-      } catch (err) {
-        console.warn('Gagal hapus di cloud:', err.message);
-      }
-    }
-
     function deleteLead(id) {
       if (confirm('Yakin ingin menghapus lead ini?')) {
         db.leads = db.leads.filter(l => l.id !== id);
         saveDB();
-        deleteOnCloud('Leads', id);
-        showToast('Lead dihapus.');
+        showToast('Lead dihapus lokal; penghapusan cloud menunggu verifikasi.');
       }
     }
 
@@ -1898,15 +1896,14 @@
       closeModal('modal-client');
       e.target.reset();
       resetStarPicker();
-      showToast('Klien baru berhasil ditambahkan!');
+      showToast('Klien tersimpan di perangkat; cloud menunggu verifikasi.');
     }
 
     function deleteClient(id) {
       if (confirm('Hapus klien ini?')) {
         db.clients = db.clients.filter(c => c.id !== id);
         saveDB();
-        deleteOnCloud('Clients', id);
-        showToast('Klien dihapus.');
+        showToast('Klien dihapus lokal; cloud menunggu verifikasi.');
       }
     }
 
@@ -1926,7 +1923,7 @@
       saveDB();
       closeModal('modal-project');
       e.target.reset();
-      showToast('Proyek baru berhasil disimpan!');
+      showToast('Proyek tersimpan di perangkat; cloud menunggu verifikasi.');
     }
 
     function markProjectDone(id) {
@@ -1944,8 +1941,7 @@
       if (confirm('Hapus proyek ini?')) {
         db.projects = db.projects.filter(p => p.id !== id);
         saveDB();
-        deleteOnCloud('Projects', id);
-        showToast('Proyek dihapus.');
+        showToast('Proyek dihapus lokal; cloud menunggu verifikasi.');
       }
     }
 
@@ -2088,14 +2084,14 @@
       saveDB();
       closeModal('modal-finance');
       e.target.reset();
-      showToast('Transaksi berhasil dicatat!');
+      showToast('Transaksi tercatat di perangkat; cloud menunggu verifikasi.');
     }
 
     function deleteFinance(id) {
       if (confirm('Hapus transaksi ini?')) {
         db.finance = db.finance.filter(f => f.id !== id);
         saveDB();
-        showToast('Transaksi dihapus.');
+        showToast('Transaksi dihapus lokal; cloud menunggu verifikasi.');
       }
     }
 
@@ -2115,14 +2111,14 @@
       saveDB();
       closeModal('modal-marketing');
       e.target.reset();
-      showToast('Campaign iklan berhasil dicatat!');
+      showToast('Campaign tercatat di perangkat; cloud menunggu verifikasi.');
     }
 
     function deleteMarketing(id) {
       if (confirm('Hapus campaign ini?')) {
         db.marketingSpend = db.marketingSpend.filter(m => m.id !== id);
         saveDB();
-        showToast('Campaign dihapus.');
+        showToast('Campaign dihapus lokal; cloud menunggu verifikasi.');
       }
     }
 
@@ -2139,14 +2135,14 @@
       saveDB();
       closeModal('modal-memory');
       e.target.reset();
-      showToast('Catatan Memory berhasil disimpan!');
+      showToast('Catatan tersimpan di perangkat; cloud menunggu verifikasi.');
     }
 
     function deleteMemory(id) {
       if (confirm('Hapus catatan ini?')) {
         db.memory = db.memory.filter(m => m.id !== id);
         saveDB();
-        showToast('Catatan dihapus.');
+        showToast('Catatan dihapus lokal; cloud menunggu verifikasi.');
       }
     }
 
@@ -2175,124 +2171,91 @@
 
     function updateCloudIndicator() {
       const dot = document.getElementById('cloud-indicator');
-      const text = document.getElementById('cloud-status-text');
-      const isCloud = !!(db.settings && db.settings.googleSheetUrl);
-      if (dot) dot.className = isCloud ? 'w-2.5 h-2.5 rounded-full bg-emerald-500' : 'w-2.5 h-2.5 rounded-full bg-slate-500';
-      if (text) text.innerText = isCloud ? 'Tersambung Google' : 'Lokal Offline';
+      const label = document.getElementById('cloud-status-text');
+      const connected = !!(db.settings && db.settings.googleSheetUrl);
+      const count = safeSync ? safeSync.countPending() : 0;
+      let text = 'Lokal offline';
+      let color = 'bg-slate-500';
+      if (connected && count) {
+        text = count + ' perubahan menunggu verifikasi';
+        color = 'bg-amber-500';
+      } else if (connected && safeSync && safeSync.verifiedAt) {
+        text = 'Cloud terverifikasi';
+        color = 'bg-emerald-500';
+      } else if (connected) {
+        text = 'Cloud belum terverifikasi';
+        color = 'bg-slate-500';
+      }
+      if (dot) dot.className = 'w-2.5 h-2.5 rounded-full ' + color;
+      if (label) label.innerText = text;
     }
 
     async function syncWithGoogle(isSilent = false) {
       const url = db.settings && db.settings.googleSheetUrl;
       if (!url) {
-        if (!isSilent) {
-          alert('URL Google Sheets belum disetel!');
-          nav('settings');
-        }
+        if (!isSilent) { showToast('URL Google Sheets belum disetel.', true); nav('settings'); }
         return;
       }
-
-      if (!isSilent) showToast('Mengirim data ke Google Sheets...');
-      try {
-        const payload = {
-          action: 'sync_all',
-          token: getApiToken(),
-          leads: db.leads,
-          clients: db.clients,
-          projects: db.projects,
-          finance: db.finance,
-          memory: db.memory,
-          marketingSpend: db.marketingSpend
-        };
-
-        await fetch(url, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        db.settings.lastSync = new Date().toLocaleString('id-ID');
+      if (!safeSync) return;
+      if (autoSyncTimer) { clearTimeout(autoSyncTimer); autoSyncTimer = null; }
+      if (!isSilent) showToast('Memverifikasi perubahan di Google Sheets...');
+      const result = await safeSync.flush(url, getApiToken());
+      if (result.status === 'verified') {
+        db.settings.lastSync = result.verifiedAt;
         localStorage.setItem(DB_KEY, JSON.stringify(db));
-        updateCloudIndicator();
-        if (!isSilent) showToast('Data berhasil dikirim ke Google Sheets!');
-      } catch (err) {
-        if (!isSilent) showToast('Gagal sinkron: ' + err.message, true);
+        if (!isSilent) showToast('Perubahan terverifikasi tersimpan di Google Sheets.');
+      } else if (result.status === 'clean') {
+        if (!isSilent) showToast('Tidak ada perubahan lokal yang perlu dikirim.');
+      } else if (result.status === 'conflict') {
+        showToast('Ada konflik data antarperangkat. Cloud tidak ditimpa; cek sebelum lanjut.', true);
+      } else if (result.status === 'unverified') {
+        showToast('Data belum terverifikasi di Google Sheets; tetap masuk antrean.', true);
+      } else if (result.status === 'error' && !isSilent) {
+        showToast('Belum tersimpan di cloud: ' + result.message, true);
       }
+      updateCloudIndicator();
+      return result;
     }
 
     /**
-     * Tarik data dari server Google Sheets dan timpa penyimpanan lokal.
-     * Server overwrites local — pastikan Anda sudah menyimpan perubahan penting sebelum menarik.
+     * Tarik dari cloud secara eksplisit. Perubahan lokal yang belum terkirim
+     * memerlukan persetujuan, dan snapshot pemulihan dibuat sebelum mengganti.
      */
     async function pullData() {
       const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) {
-        alert('URL Google Sheets belum disetel! Buka Pengaturan dulu.');
-        nav('settings');
-        return;
-      }
-      if (!confirm('Tarik data dari Google Sheets?\n\nTindakan ini akan MENIMPA data lokal Anda dengan data terbaru dari server.\nData yang hanya ada di HP/laptop ini dan belum pernah disinkronkan akan hilang.\n\nLanjutkan?')) return;
-
-      showToast('Mengambil data dari cloud...');
+      if (!url) { showToast('URL Google Sheets belum disetel.', true); nav('settings'); return; }
+      if (!confirm('Tarik data dari Google Sheets dan ganti data lokal?\n\nPerubahan yang belum tersinkron akan dikesampingkan. Buat backup dahulu.')) return;
       try {
-        const resp = await fetch(url + '?token=' + encodeURIComponent(getApiToken()));
-        const json = await resp.json();
-        if (json.status !== 'success' || !json.data) throw new Error('Respon tidak valid dari server.');
-
-        const d = json.data;
-        db.leads          = d.leads          || [];
-        db.clients        = d.clients        || [];
-        db.projects       = d.projects       || [];
-        db.finance        = d.finance        || [];
-        db.memory         = d.memory         || [];
-        db.marketingSpend = d.marketingSpend || [];
-        db.settings.lastSync = d.lastSynced || new Date().toISOString();
-
+        const remote = await safeSync.readCloud(url, getApiToken());
+        localStorage.setItem('csk_business_os_before_manual_pull', JSON.stringify(db));
+        safeSync.replaceFromCloud(remote, db);
+        db.settings.lastSync = new Date().toISOString();
         localStorage.setItem(DB_KEY, JSON.stringify(db));
-        updateCloudIndicator();
         renderAll();
-        showToast('Data berhasil ditarik dari cloud! (' + new Date().toLocaleTimeString('id-ID') + ')');
+        updateCloudIndicator();
+        showToast('Data cloud berhasil ditarik. Salinan data lokal sebelumnya disimpan.');
       } catch (err) {
         showToast('Gagal menarik data: ' + err.message, true);
       }
     }
 
     /**
-     * Tarik data dari cloud lalu GABUNGKAN dengan data lokal (bukan menimpa).
-     * Aman: data lokal & data cloud sama-sama dipertahankan, digabung by ID.
-     * Dipanggil otomatis saat aplikasi dibuka.
+     * Pada startup: cloud menang untuk record yang tidak diubah; record dengan
+     * perubahan lokal yang pending tetap dipertahankan. Tanpa auto-upload massal.
      */
     async function pullAndMerge() {
       const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) return;
+      if (!url || !safeSync) return;
       try {
-        const resp = await fetch(url + '?token=' + encodeURIComponent(getApiToken()));
-        const json = await resp.json();
-        if (json.status !== 'success' || !json.data) return;
-        const d = json.data;
-
-        // Gabungkan: cloud + lokal, dedupe by id (lokal menang jika sama)
-        const mergeById = (cloudArr, localArr) => {
-          const map = new Map();
-          (cloudArr || []).forEach(x => { if (x && x.id !== undefined) map.set(String(x.id), x); });
-          (localArr || []).forEach(x => { if (x && x.id !== undefined) map.set(String(x.id), x); });
-          return Array.from(map.values());
-        };
-
-        db.leads          = mergeById(d.leads, db.leads);
-        db.clients        = mergeById(d.clients, db.clients);
-        db.projects       = mergeById(d.projects, db.projects);
-        db.finance        = mergeById(d.finance, db.finance);
-        db.memory         = mergeById(d.memory, db.memory);
-        db.marketingSpend = mergeById(d.marketingSpend, db.marketingSpend);
-        db.settings.lastSync = d.lastSynced || new Date().toISOString();
-
+        const remote = await safeSync.readCloud(url, getApiToken());
+        safeSync.merge(remote, db);
         localStorage.setItem(DB_KEY, JSON.stringify(db));
         renderAll();
         updateCloudIndicator();
+        if (safeSync.countPending()) scheduleCloudSync();
       } catch (err) {
-        // Diamkan — offline tidak boleh mengganggu aplikasi
-        console.warn('pullAndMerge gagal (offline?):', err.message);
+        console.warn('Tarik data gagal, perubahan lokal tetap aman:', err.message);
+        updateCloudIndicator();
       }
     }
 
@@ -2319,8 +2282,8 @@
             db = parsed;
             if (!db.marketingSpend) db.marketingSpend = [];
             if (!db.role) db.role = 'owner';
-            saveDB();
-            showToast('Data berhasil dipulihkan!');
+            saveDB({ skipAutoSync: true });
+            showToast('Data cadangan dipulihkan lokal. Periksa sebelum sinkronisasi.');
           } else {
             alert('Format file cadangan tidak sesuai!');
           }
@@ -2565,6 +2528,9 @@
       initStarPicker('client-star-picker');
       // Saat aplikasi dibuka: tarik & gabungkan data dari cloud (AMAN, tidak menimpa)
       pullAndMerge();
+      window.addEventListener('online', () => {
+        if (safeSync && safeSync.countPending()) scheduleCloudSync();
+      });
     });
   </script>
 </body>
