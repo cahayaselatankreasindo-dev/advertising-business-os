@@ -1,0 +1,27 @@
+name: Check Business OS safe sync
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'sync-safe.js'
+      - 'sync-safe.test.js'
+      - 'sw.js'
+      - 'mapping.test.js'
+      - '.github/workflows/safe-sync-check.yml'
+  workflow_dispatch:
+jobs:
+  safe-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate scripts
+        run: |
+          node --check sync-safe.js
+          node --check sync-safe.test.js
+          node sync-safe.test.js
+      - name: Validate existing sheet mapping
+        run: node mapping.test.js
