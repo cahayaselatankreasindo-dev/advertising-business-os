@@ -264,3 +264,48 @@ test('LAB gateway guard refuses execution against production spreadsheet', () =>
     action:'delete',token:'TEST_TOKEN_ONLY',sheet:'Leads',id:'TEST-LEAD-001'
   }), /DIBATALKAN/);
 });
+
+
+test('standalone Android LAB HTML loads the bundled engine and completes six browser scenarios', async () => {
+  const html=fs.readFileSync(path.join(__dirname,'lab-frontend-smoke.html'),'utf8');
+  assert.doesNotMatch(html, /<script[^>]+src\s*=/i,
+    'offline LAB HTML must not request external JavaScript');
+  const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)]
+    .map(match=>match[1]);
+  assert.equal(scripts.length,2,'inline engine and inline browser harness expected');
+
+  const controls={
+    '#run': {disabled:false, addEventListener(type,callback){
+      assert.equal(type,'click');
+      this.click=callback;
+    }},
+    '#results': {innerHTML:'',children:[],appendChild(el){this.children.push(el)}},
+    '#raw': {textContent:''}
+  };
+  const doc={
+    querySelector(selector){
+      assert.ok(selector in controls,'unexpected document selector '+selector);
+      return controls[selector];
+    },
+    createElement(type) {
+      assert.ok(['div','strong','small'].includes(type),'unexpected element '+type);
+      return {
+        type,className:'',textContent:'',children:[],
+        append(...items){this.children.push(...items)}
+      };
+    }
+  };
+  const context={document:doc};
+  context.window=context;
+  vm.createContext(context);
+  for(const script of scripts)vm.runInContext(script,context);
+  assert.equal(typeof context.CSKSafeSync.createEngine,'function');
+  await controls['#run'].click();
+  assert.equal(controls['#results'].children.length,6,
+    controls['#raw'].textContent);
+  for(const card of controls['#results'].children){
+    assert.match(card.className,/case ok/,controls['#raw'].textContent);
+  }
+  assert.match(controls['#raw'].textContent,/6\/6 LULUS/);
+  assert.equal(controls['#run'].disabled,false);
+});
