@@ -309,3 +309,43 @@ test('standalone Android LAB HTML loads the bundled engine and completes six bro
   assert.match(controls['#raw'].textContent,/6\/6 LULUS/);
   assert.equal(controls['#run'].disabled,false);
 });
+
+
+test('LAB real doGet/doPost wiring check rejects invalid delete without altering dummy rows',()=>{
+  const api=createBackend(),ctx=api.sandbox;
+  const backendPath=path.join(__dirname,'google_apps_script.js');
+  let source=fs.readFileSync(backendPath,'utf8');
+  const getAnchor='function doGet(e) {\n  try {';
+  const postAnchor='const payload = JSON.parse(e.postData.contents);';
+  assert.ok(source.includes(getAnchor),'GET handler anchor missing');
+  assert.ok(source.includes(postAnchor),'POST handler anchor missing');
+  source=source.replace(getAnchor,getAnchor+'\n    cskLabGuardRead_();');
+  source=source.replace(postAnchor,postAnchor+'\n    cskLabGuardPost_(payload);');
+  vm.runInContext(source,ctx);
+  for(const file of ['LabSelfTest.gs','LabRequestGuard.gs','LabHandlerVerification.gs']){
+    vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script',file),'utf8'),ctx);
+  }
+  ctx.PropertiesService.getScriptProperties().setProperty('API_TOKEN',
+    'LAB-SYNTHETIC-TOKEN-FOR-EMULATOR-ONLY');
+  const leadRows=api.tables.Leads.rows.length;
+  const result=ctx.cskLabVerifyActiveHandlers();
+  assert.equal(result.status,'LAB_HANDLER_GUARD_PASS');
+  assert.equal(result.guardReadWired,true);
+  assert.equal(result.guardPostWired,true);
+  assert.equal(result.unsafeDeleteRejectedByLiveHandler,true);
+  assert.equal(result.leadRowCountUnchanged,true);
+  assert.equal(api.tables.Leads.rows.length,leadRows);
+  assert.equal(api.sent.length,0);
+});
+
+test('LAB handler wiring check fails closed if Code.gs has not been guarded',()=>{
+  const api=createBackend(),ctx=api.sandbox;
+  for(const file of ['LabSelfTest.gs','LabRequestGuard.gs','LabHandlerVerification.gs']){
+    vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script',file),'utf8'),ctx);
+  }
+  ctx.PropertiesService.getScriptProperties().setProperty('API_TOKEN',
+    'LAB-SYNTHETIC-TOKEN-FOR-EMULATOR-ONLY');
+  assert.throws(()=>ctx.cskLabVerifyActiveHandlers(),
+    /LAB_HANDLER_GUARD_FAIL: doGet\/doPost belum memanggil guard/);
+  assert.equal(api.sent.length,0);
+});
