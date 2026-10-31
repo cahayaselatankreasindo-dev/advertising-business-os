@@ -200,3 +200,62 @@ test('LAB smoke test rejects a production spreadsheet ID before any write', () =
   assert.throws(() => api.sandbox.cskLabRunIsolatedSmokeTest(), /DIBATALKAN/);
   assert.equal(api.sent.length,0);
 });
+
+
+test('LAB gateway guard allows only authorized synthetic data', () => {
+  const api=createBackend();
+  const ctx=api.sandbox;
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script','LabSelfTest.gs'),'utf8'),ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script','LabRequestGuard.gs'),'utf8'),ctx);
+  const secret = 'LAB-TEST-SECURE-TOKEN-ONLY-DO-NOT-REUSE';
+  ctx.PropertiesService.getScriptProperties().setProperty('API_TOKEN', secret);
+  assert.equal(ctx.cskLabGuardRead_().getId(),
+    '19le34ltpZCMIHmjw2n_JbEvrtZBWNTKd61U-xEAoR5Y');
+
+  const accepted = {
+    action:'sync_all',token:secret,leads:[
+      {id:'TEST-QA-NEW-1',date:'2026-10-31',name:'Dummy',status:'new'}
+    ],
+    finance:[{id:'QA-LAB-FIN-1',date:'2026-10-31',type:'expense',amount:175000}]
+  };
+  assert.doesNotThrow(()=>ctx.cskLabGuardPost_(accepted));
+  assert.doesNotThrow(()=>ctx.cskLabGuardPost_({
+    action:'delete',token:secret,sheet:'Leads',id:'TEST-QA-NEW-1'
+  }));
+
+  const invalid = [
+    {...accepted,token:'WRONG'},
+    {...accepted,action:'send_email'},
+    {...accepted,action:'insert'},
+    {...accepted,foo:true},
+    {...accepted,leads:[{id:'REAL-LEAD-1',status:'new'}]},
+    {...accepted,leads:[{id:'TEST-WON-1',status:'won'}]},
+    {...accepted,leads:[{id:'TEST-BAD-1',status:'deal menang'}]},
+    {...accepted,leads:[{id:'TEST-NEST-1',status:'new'}], finance:'not-array'},
+    {...accepted,leads:[] ,finance:[]},
+    {action:'delete',token:secret,sheet:'Private',id:'TEST-1'},
+    {action:'delete',token:secret,sheet:'Leads',id:'SECRET-REAL-1'},
+    {action:'delete',token:secret,sheet:'Leads',id:'TEST-1',extra:'any'}
+  ];
+  for (const payload of invalid) {
+    assert.throws(()=>ctx.cskLabGuardPost_(payload),
+      /LAB guard:/,
+      'invalid request should be blocked: '+JSON.stringify(payload).slice(0,90));
+  }
+  assert.equal(api.sent.length, 0, 'guard validation performs no network writes');
+});
+
+test('LAB gateway guard refuses execution against production spreadsheet', () => {
+  const api=createBackend();
+  const ctx=api.sandbox;
+  ctx.SpreadsheetApp.getActiveSpreadsheet=()=>({
+    getId:()=> '11fJC3i9jEcch8Gk_XPgWeilnQCzW4UXS3gWMIH-hqY8',
+    getName:()=> 'CSK BUSINESS OS - DATABASE UTAMA - AKTIF - JANGAN HAPUS'
+  });
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script','LabSelfTest.gs'),'utf8'),ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script','LabRequestGuard.gs'),'utf8'),ctx);
+  assert.throws(()=>ctx.cskLabGuardRead_(), /DIBATALKAN/);
+  assert.throws(()=>ctx.cskLabGuardPost_({
+    action:'delete',token:'TEST_TOKEN_ONLY',sheet:'Leads',id:'TEST-LEAD-001'
+  }), /DIBATALKAN/);
+});
