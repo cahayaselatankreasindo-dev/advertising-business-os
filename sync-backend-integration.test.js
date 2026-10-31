@@ -211,6 +211,11 @@ test('LAB gateway guard allows only authorized synthetic data', () => {
   ctx.PropertiesService.getScriptProperties().setProperty('API_TOKEN', secret);
   assert.equal(ctx.cskLabGuardRead_().getId(),
     '19le34ltpZCMIHmjw2n_JbEvrtZBWNTKd61U-xEAoR5Y');
+  const guardSmoke = ctx.cskLabRunGuardNegativeTests();
+  assert.equal(guardSmoke.status,'LAB_GUARD_PASS');
+  assert.equal(guardSmoke.blockedUnsafeRequests,12);
+  assert.equal(guardSmoke.databaseWritesPerformed,0);
+  assert.equal(guardSmoke.emailSendsPerformed,0);
 
   const accepted = {
     action:'sync_all',token:secret,leads:[
