@@ -177,7 +177,7 @@ test('backend rejected POST but browser opaque: no success claim', async () => {
 
 test('LAB-only internal smoke test safely creates/updates/deletes dummy via REAL backend', () => {
   const api = createBackend();
-  const before = api.read().data.leads.length;
+  const before = api.tables.Leads.rows.length;
   const vmContext = api.sandbox;
   vm.runInContext(fs.readFileSync(path.join(__dirname, 'apps-script', 'LabSelfTest.gs'), 'utf8'), vmContext);
   const readiness = vmContext.cskLabCheckReadiness();
@@ -188,7 +188,7 @@ test('LAB-only internal smoke test safely creates/updates/deletes dummy via REAL
   assert.equal(result.updated, true);
   assert.equal(result.deleted, true);
   assert.equal(result.verified, true);
-  assert.equal(api.read().data.leads.length, before, 'temporary LAB record cleaned up');
+  assert.equal(api.tables.Leads.rows.length, before, 'temporary LAB record cleaned up');
 });
 test('LAB smoke test rejects a production spreadsheet ID before any write', () => {
   const api = createBackend();
