@@ -63,19 +63,21 @@ function createBackend() {
   const backend = {
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ({
+        getId: () => '19le34ltpZCMIHmjw2n_JbEvrtZBWNTKd61U-xEAoR5Y',
+        getName: () => 'TEST ONLY - CSK BUSINESS OS - DATA DUMMY - JANGAN PAKAI PRODUKSI',
         getSheetByName: key => tables[key] || null,
         insertSheet: key => tables[key] = sheet([]),
         getSheets: () => Object.values(tables),
         deleteSheet: () => {}
       })
     },
-    ContentService: { MimeType: { JSON: 'JSON' }, createTextOutput: text => ({ text, setMimeType(){ return this; } }) },
+    ContentService: { MimeType: { JSON: 'JSON' }, createTextOutput: text => ({ text, getContent(){return this.text;}, setMimeType(){ return this; } }) },
     PropertiesService: { getScriptProperties: () => ({
       getProperty: key => props[key] || null, setProperty: (key,val) => {props[key]=val;}
     }) },
     ScriptApp: { getProjectTriggers: () => [] },
     MailApp: { getRemainingDailyQuota: () => 100, sendEmail: () => {} },
-    Utilities: { formatDate: () => '2026-10-31' },
+    Utilities: { formatDate: () => '2026-10-31', getUuid: () => '0e53d4f6-137d-4bdc-86c2-67fa792a5237' },
     Logger: { log() {} },
     console
   };
@@ -102,7 +104,7 @@ function createBackend() {
       };
     }
   };
-  return server;
+  return {...server, sandbox:backend};
 }
 function localStorageStub() {
   const values = {};
@@ -171,4 +173,30 @@ test('backend rejected POST but browser opaque: no success claim', async () => {
   assert.equal(result.status,'unverified');
   assert.equal(engine.countPending(),1);
   assert.equal(api.read().data.projects.length,0);
+});
+
+test('LAB-only internal smoke test safely creates/updates/deletes dummy via REAL backend', () => {
+  const api = createBackend();
+  const before = api.read().data.leads.length;
+  const vmContext = api.sandbox;
+  vm.runInContext(fs.readFileSync(path.join(__dirname, 'apps-script', 'LabSelfTest.gs'), 'utf8'), vmContext);
+  const readiness = vmContext.cskLabCheckReadiness();
+  assert.equal(readiness.labIdVerified, true);
+  assert.equal(readiness.backendPresent, true);
+  const result = vmContext.cskLabRunIsolatedSmokeTest();
+  assert.equal(result.inserted, true);
+  assert.equal(result.updated, true);
+  assert.equal(result.deleted, true);
+  assert.equal(result.verified, true);
+  assert.equal(api.read().data.leads.length, before, 'temporary LAB record cleaned up');
+});
+test('LAB smoke test rejects a production spreadsheet ID before any write', () => {
+  const api = createBackend();
+  api.sandbox.SpreadsheetApp.getActiveSpreadsheet = () => ({
+    getId: () => '11fJC3i9jEcch8Gk_XPgWeilnQCzW4UXS3gWMIH-hqY8',
+    getName: () => 'CSK BUSINESS OS - DATABASE UTAMA - AKTIF - JANGAN HAPUS'
+  });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, 'apps-script', 'LabSelfTest.gs'), 'utf8'), api.sandbox);
+  assert.throws(() => api.sandbox.cskLabRunIsolatedSmokeTest(), /DIBATALKAN/);
+  assert.equal(api.sent.length,0);
 });
