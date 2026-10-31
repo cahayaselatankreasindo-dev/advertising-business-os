@@ -100,3 +100,87 @@ function cskLabGuardPost_(payload) {
     throw new Error("LAB guard: expected 1-40 dummy records.");
   }
 }
+
+
+/**
+ * Manual LAB-only negative tests. Non-mutating:
+ * calls the request GUARD directly, never doPost or MailApp.
+ * Rejected actions are simulated without invoking backend handlers.
+ */
+function cskLabRunGuardNegativeTests() {
+  var ss = cskLabGuardRead_();
+  var token = getApiToken();
+  var beforeRows = {};
+  var areas = Object.keys(CSK_LAB_WRITE_KEYS_);
+  areas.forEach(function (area) {
+    var name = CSK_LAB_WRITE_KEYS_[area];
+    beforeRows[name] = ss.getSheetByName(name).getLastRow();
+  });
+
+  // Accepted request shapes are validated, but never submitted.
+  cskLabGuardPost_({
+    action: "sync_all", token: token,
+    leads: [{
+      id: "QA-LAB-GUARD-PASS", date: "2026-10-31",
+      name: "LAB GUARD DRY RUN", status: "new"
+    }]
+  });
+  cskLabGuardPost_({
+    action: "delete", token: token,
+    sheet: "Leads", id: "QA-LAB-GUARD-PASS"
+  });
+
+  var forbidden = [
+    { action: "send_email", token: token },
+    { action: "update_status", token: token, id: "TEST-LEAD-001" },
+    { action: "insert", token: token, sheet: "Leads" },
+    { action: "sync_all", token: "" ,
+      leads: [{id:"QA-LAB-INVALID-TOKEN", status:"new"}] },
+    { action: "sync_all", token: token,
+      leads: [{id:"REAL-CLIENT-123", status:"new"}] },
+    { action: "sync_all", token: token,
+      leads: [{id:"QA-LAB-FORBIDDEN-WON", status:"won"}] },
+    { action: "sync_all", token: token,
+      leads: [{id:"QA-LAB-FORBIDDEN-DEAL", status:"Deal Menang"}] },
+    { action: "sync_all", token: token,
+      leads: [{id:"QA-LAB-OK", status:"new"}],
+      extra: "not_allowed" },
+    { action: "delete", token: token, sheet:"Unknown",
+      id: "QA-LAB-OK" },
+    { action: "delete", token: token, sheet:"Leads",
+      id: "REAL-CLIENT-123" },
+    { action: "delete", token: token, sheet:"Leads",
+      id: "QA-LAB-OK", extra: "not_allowed" },
+    { action: "sync_all", token: token, leads: [] }
+  ];
+  var blocked = 0;
+  forbidden.forEach(function (payload, index) {
+    var denied = false;
+    try {
+      // No network, email or sheet mutations are made in this test.
+      cskLabGuardPost_(payload);
+    } catch (err) {
+      denied = true;
+    }
+    if (!denied) {
+      throw new Error("LAB GUARD GAGAL: kasus berbahaya tidak ditolak #" +
+        (index + 1));
+    }
+    blocked++;
+  });
+  areas.forEach(function (area) {
+    var name = CSK_LAB_WRITE_KEYS_[area];
+    if (ss.getSheetByName(name).getLastRow() !== beforeRows[name]) {
+      throw new Error("LAB GUARD GAGAL: jumlah baris berubah pada " + name);
+    }
+  });
+  var result = {
+    status: "LAB_GUARD_PASS",
+    labIdVerified: ss.getId() === CSK_LAB_SHEET_ID,
+    blockedUnsafeRequests: blocked,
+    databaseWritesPerformed: 0,
+    emailSendsPerformed: 0
+  };
+  Logger.log(JSON.stringify(result));
+  return result;
+}
