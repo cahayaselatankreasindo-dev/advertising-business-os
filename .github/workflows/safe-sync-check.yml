@@ -7,6 +7,7 @@ on:
       - 'sync-safe.test.js'
       - 'sync-backend-integration.test.js'
       - 'apps-script/LabSelfTest.gs'
+      - 'apps-script/LabRequestGuard.gs'
       - 'sw.js'
       - 'mapping.test.js'
       - '.github/workflows/safe-sync-check.yml'
