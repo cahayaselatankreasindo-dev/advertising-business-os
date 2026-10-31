@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CSK Business OS — Uji Frontend Offline</title>
+<style>
+:root{font-family:Inter,Montserrat,Arial,sans-serif;color:#f8f7f4;background:#0b0b0b}
+*{box-sizing:border-box}body{margin:0 auto;max-width:830px;padding:32px 20px}
+h1{font-size:26px;line-height:1.25;margin:0 0 10px}h2{font-size:18px;margin:24px 0 10px}
+p{line-height:1.65;color:#c4c4c4}.label{letter-spacing:.08em;text-transform:uppercase;color:#ff8a3d;font-size:12px;font-weight:700}
+.warning{border:1px solid #61513e;background:#2b2015;border-radius:10px;padding:14px 16px;color:#f1dfc7}
+button{border:0;background:#ff8a3d;color:#0b0b0b;padding:12px 20px;border-radius:8px;font-weight:800;cursor:pointer;font-size:15px}
+button:disabled{opacity:.6;cursor:wait}
+#results{display:grid;gap:10px;margin-top:18px}
+.case{border:1px solid #343434;padding:13px 16px;border-radius:10px;background:#181818}
+.case strong{display:block;margin-bottom:6px}
+.case small{color:#a9a9a9;line-height:1.5}
+.ok{border-color:#237c5c}.bad{border-color:#a13b3b}
+#raw{white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid #343434;background:#111;padding:16px;border-radius:10px;font-size:12px;line-height:1.6;color:#d1d1d1}
+a{color:#ff8a3d}
+</style>
+</head>
+<body>
+<div class="label">CSK BUSINESS OS · LAB QA · OFFLINE</div>
+<h1>Pengujian frontend Safe Sync</h1>
+<p>Halaman ini menjalankan <code>sync-safe.js</code> asli dari branch PR #2, tetapi seluruh komunikasi API diganti simulator dalam memori. Data dummy <strong>tidak pernah</strong> dikirim ke Google Sheets.</p>
+<div class="warning"><strong>Simulasi saja — bukan pengujian HTTP langsung.</strong>
+  Tidak ada koneksi ke Web App, tidak ada token API, dan tidak ada perubahan database produksi maupun LAB. Jangan menganggap hasil PASS di sini sebagai bukti CORS atau autentikasi endpoint yang sudah ter-deploy.</div>
+<p><button id="run">Jalankan 6 skenario</button></p>
+<div id="results" aria-live="polite"></div>
+<h2>Catatan pengujian</h2><pre id="raw">Belum dijalankan.</pre>
+<script src="./sync-safe.js"></script>
+<script>
+(function(){
+  'use strict';
+  const button=document.querySelector('#run');
+  const results=document.querySelector('#results');
+  const log=document.querySelector('#raw');
+  const LABELS=[
+    'Buat lead: perubahan antre lokal hingga terverifikasi',
+    'Ubah lead: hanya record yang berubah dikirim',
+    'Hapus lead: perubahan diverifikasi di cloud simulasi',
+    'Konflik dua perangkat: perubahan cloud tidak ditimpa diam-diam',
+    'Mode offline: antrean perubahan dipertahankan',
+    'Tidak ada koneksi eksternal atau token rahasia'
+  ];
+  const rows=()=>Object.fromEntries(Object.keys(CSKSafeSync.DATA).map(k=>[k,[]]));
+  const copy=x=>JSON.parse(JSON.stringify(x));
+  const storage=()=>{
+    const map=new Map();
+    return {
+      getItem:k=>map.has(k)?map.get(k):null,
+      setItem:(k,v)=>map.set(k,String(v)),
+      removeItem:k=>map.delete(k)
+    };
+  };
+  async function scenario(){
+    const outcome=[];
+    let cloud=rows(),db=rows(),sent=0,networkCalls=0;
+    let blockedNetwork=true;
+    const fakeEndpoint='https://lab.invalid/exec';
+    async function mockFetch(url,opts={}){
+      networkCalls++;
+      if(!String(url).startsWith(fakeEndpoint)) throw Error('URL eksternal diblokir.');
+      if(opts.method==='POST'){
+        const body=JSON.parse(opts.body||'{}');
+        if(body.action==='delete'){
+          const area=Object.keys(CSKSafeSync.DATA).find(k=>CSKSafeSync.DATA[k].sheet===body.sheet);
+          if(!area) throw Error('Area invalid');
+          cloud[area]=cloud[area].filter(x=>String(x.id)!==String(body.id));
+        }else if(body.action==='sync_all'){
+          Object.keys(CSKSafeSync.DATA).forEach(area=>{
+            (body[area]||[]).forEach(record=>{
+              const idx=cloud[area].findIndex(x=>String(x.id)===String(record.id));
+              if(idx<0)cloud[area].push(copy(record));else cloud[area][idx]=copy(record);
+            });
+          });
+        } else throw Error('Action tidak valid');
+        sent++;
+        return {type:'opaque'};
+      }
+      return {ok:true,json:async()=>({status:'success',data:copy(cloud)})};
+    }
+    const engine=CSKSafeSync.createEngine(storage(),mockFetch);
+    engine.init(db);
+    engine.merge(cloud,db);
+    const record={
+      id:'QA-LAB-FRONTEND-1',date:'2026-10-31',name:'Simulasi Brand',
+      phone:'000',source:'LAB',value:100,status:'new',notes:'test'
+    };
+    function check(name,valid,detail){
+      outcome.push({name,valid:Boolean(valid),detail});
+      if(!valid)throw Error(name+': '+detail);
+    }
+    db.leads.push(copy(record));engine.track(db);
+    const pendingBefore=engine.countPending();
+    const first=await engine.flush(fakeEndpoint,'MOCK_ONLY_NO_SECRET');
+    check(LABELS[0],pendingBefore===1&&first.status==='verified'&&cloud.leads.length===1&&engine.countPending()===0,
+      'antrean awal='+pendingBefore+', status='+first.status);
+
+    db.leads[0].name='Simulasi Brand Diperbarui';engine.track(db);
+    const changed=await engine.flush(fakeEndpoint,'MOCK_ONLY_NO_SECRET');
+    check(LABELS[1],changed.status==='verified'&&cloud.leads[0].name==='Simulasi Brand Diperbarui',
+      'status='+changed.status);
+
+    db.leads=[];engine.track(db);
+    const deleted=await engine.flush(fakeEndpoint,'MOCK_ONLY_NO_SECRET');
+    check(LABELS[2],deleted.status==='verified'&&cloud.leads.length===0,
+      'status='+deleted.status+', sisa='+cloud.leads.length);
+
+    cloud.leads.push({...record,id:'QA-LAB-CONFLICT-1',name:'Perangkat A'});
+    engine.merge(copy(cloud),db);
+    db.leads[0].name='Perangkat B';engine.track(db);
+    cloud.leads[0].name='Perangkat A mengubah ulang';
+    const beforeConflictPost=sent;
+    const conflict=await engine.flush(fakeEndpoint,'MOCK_ONLY_NO_SECRET');
+    check(LABELS[3],conflict.status==='conflict'&&sent===beforeConflictPost&&cloud.leads[0].name==='Perangkat A mengubah ulang',
+      'status='+conflict.status+', POST saat konflik='+(sent-beforeConflictPost));
+
+    const pending=engine.countPending();
+    const offline=await engine.flush('','MOCK_ONLY_NO_SECRET');
+    check(LABELS[4],offline.status==='offline'&&engine.countPending()===pending&&pending>0,
+      'status='+offline.status+', pending='+pending);
+    check(LABELS[5],blockedNetwork&&networkCalls>0&&sent===3,
+      'seluruh '+networkCalls+' operasi API dimock; '+sent+' POST dummy; 0 request HTTP eksternal');
+    return outcome;
+  }
+  button.addEventListener('click',async()=>{
+    button.disabled=true;results.innerHTML='';log.textContent='Menjalankan simulasi...';
+    try{
+      if(typeof window.CSKSafeSync?.createEngine!=='function')
+        throw Error('File sync-safe.js tidak ditemukan. Letakkan di folder yang sama dengan HTML ini.');
+      const all=await scenario();
+      all.forEach(item=>{
+        const div=document.createElement('div');
+        div.className='case '+(item.valid?'ok':'bad');
+        const title=document.createElement('strong');
+        title.textContent=(item.valid?'LULUS — ':'GAGAL — ')+item.name;
+        const detail=document.createElement('small');detail.textContent=item.detail;
+        div.append(title,detail);results.appendChild(div);
+      });
+      log.textContent='HASIL: '+all.length+'/'+all.length+' LULUS\n\n'+all.map((x,i)=>(i+1)+'. '+x.name+'\n   '+x.detail).join('\n\n')+
+        '\n\nCATATAN: Simulasi browser tanpa koneksi Google. Uji HTTP live dilakukan terpisah.';
+    }catch(err){
+      const div=document.createElement('div');div.className='case bad';
+      div.textContent='GAGAL: '+(err&&err.message||err);
+      results.appendChild(div);log.textContent=String(err&&err.stack||err);
+    }finally{button.disabled=false;}
+  });
+})();
+</script>
+</body>
+</html>
