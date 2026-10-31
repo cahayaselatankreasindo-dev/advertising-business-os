@@ -5,6 +5,7 @@ on:
       - 'index.html'
       - 'sync-safe.js'
       - 'sync-safe.test.js'
+      - 'sync-backend-integration.test.js'
       - 'sw.js'
       - 'mapping.test.js'
       - '.github/workflows/safe-sync-check.yml'
@@ -23,5 +24,6 @@ jobs:
           node --check sync-safe.js
           node --check sync-safe.test.js
           node sync-safe.test.js
+          node sync-backend-integration.test.js
       - name: Validate existing sheet mapping
         run: node mapping.test.js
