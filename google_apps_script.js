@@ -14,11 +14,9 @@
  *    + kolom Rating_Review otomatis ditambahkan
  * 5. Marketing_Spend-> Pilar Pemasaran (Biaya & Performa Iklan) — TAB BARU
  *
- * OTOMATISASI PILLAR (autoTriggerPillars):
- * - Dipicu setelah setiap sync_all atau update_status 'won'/'Deal Menang'
- * - Menulis baris Pendapatan ke Finance (kategori DP Proyek, token [LEAD-{id}])
- * - Menulis baris Antrean ke Projects (status plan, token [LEAD-{id}])
- * - Idempoten: tidak membuat duplikat jika dijalankan berulang
+ * NOTA KEAMANAN: STATUS DEAL MENANG BUKAN BUKTI UANG MASUK.
+ * Jurnal DP hanya dibuat dari transaksi yang benar-benar diterima.
+ * Draft proyek otomatis nonaktif secara default; bisa diaktifkan sengaja.
  *
  * CARA PEMASANGAN (HANYA 2 MENIT):
  * 1. Buat Google Spreadsheet baru di Google Drive Anda (Beri nama: "Database CSK Business OS").
@@ -323,36 +321,30 @@ function readSheetData(ss, sheetName) {
   });
 }
 
-// ============== KEAMANAN: TOKEN API ==============
-// Token disimpan di Script Properties (BUKAN di kode/repo).
-// Set sekali lewat menu editor: jalankan fungsi setupApiToken().
-// Selama token belum diset, sistem berjalan TANPA proteksi (mode kompatibel).
+// ============== KEAMANAN: TOKEN API (STAGED / NOT YET DEPLOYED) ==============
+// FAIL CLOSED: no configured secret -> no GET/POST access.
+// For production use an authenticated backend, not an openly shared static app.
 function getApiToken() {
   return PropertiesService.getScriptProperties().getProperty("API_TOKEN") || "";
 }
 
-/**
- * Set/ubah token API. Jalankan sekali dari editor Apps Script.
- * Ganti nilai di bawah dengan token rahasia Anda (minimal 20 karakter acak).
- */
+/** Generate a random token in Script Properties; never print it to logs. */
 function setupApiToken() {
-  var token = "GANTI-DENGAN-TOKEN-RAHASIA-ANDA";
+  var existing = getApiToken();
+  if (existing && existing.length >= 20 && existing !== "GANTI-DENGAN-TOKEN-RAHASIA-ANDA") {
+    return "Token sudah ada; lihat Script Properties (jangan kirim lewat chat).";
+  }
+  var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
   PropertiesService.getScriptProperties().setProperty("API_TOKEN", token);
-  Logger.log("API_TOKEN diset. Simpan token ini di app (Pengaturan → Token Akses).");
+  Logger.log("API_TOKEN baru disimpan pada Script Properties. Jangan bagikan token.");
+  return "Token dibuat di Script Properties. Buka Project Settings untuk menyalinnya sendiri.";
 }
 
-/**
- * Cek token dari request. Return true jika valid ATAU token belum diset
- * (mode kompatibel agar tidak memutus app lama).
- */
 function isAuthorized(payloadOrEvent, tokenParam) {
   var expected = getApiToken();
-  if (expected === "") return true; // belum diaktifkan -> izinkan (kompatibel)
-
+  if (!expected || expected.length < 20 || expected === "GANTI-DENGAN-TOKEN-RAHASIA-ANDA") return false;
   var provided = "";
-  if (payloadOrEvent && typeof payloadOrEvent === "object") {
-    provided = payloadOrEvent.token || "";
-  }
+  if (payloadOrEvent && typeof payloadOrEvent === "object") provided = payloadOrEvent.token || "";
   if (!provided && tokenParam) provided = tokenParam;
   return String(provided) === String(expected);
 }
@@ -549,66 +541,37 @@ function doPost(e) {
 // ============== OTOMATISASI PILLAR ==============
 
 /**
- * autoTriggerPillars()
- * Menelusuri tab Leads untuk baris dengan status 'won' / 'Deal Menang' yang
- * belum pernah ditandai dengan token [LEAD-{id}]. Baris tersebut akan:
- *   1. Ditulis sebagai Pendapatan di tab Finance (kategori "DP Proyek")
- *   2. Ditulis sebagai antrean proyek baru di tab Projects (status "plan")
- * Fungsi ini IDEMPOTEN: baris yang sudah punya token tidak akan diduplikasi.
+ * Auto-create a PROJECT draft only when explicitly enabled through
+ * Script Properties: AUTO_PROJECT_FROM_WON=true. Never create Finance income.
+ * A signed deal is not proof of payment (DP).
  */
 function autoTriggerPillars(ss, forceLeadId) {
+  if (PropertiesService.getScriptProperties().getProperty("AUTO_PROJECT_FROM_WON") !== "true") {
+    return { financeCreated: 0, projectCreated: 0, disabled: true };
+  }
   const leadsSheet = ss.getSheetByName("Leads");
   if (!leadsSheet || leadsSheet.getLastRow() <= 1) return { financeCreated: 0, projectCreated: 0 };
-
   const leads = readSheetData(ss, "Leads");
-  let financeCreated = 0;
   let projectCreated = 0;
-
   leads.forEach(lead => {
     if (!isDealMenang(lead.status)) return;
-    // Lewati jika ini bukan baris yang difokuskan (kalau forceLeadId diberikan)
     if (forceLeadId && String(lead.id).trim() !== String(forceLeadId).trim()) return;
-
     const refToken = "[LEAD-" + lead.id + "]";
-
-    // Cek duplikat di Finance
-    const financeAlreadyExists = hasTokenInSheet(ss, "Finance", refToken);
-    // Cek duplikat di Projects
-    const projectAlreadyExists = hasTokenInSheet(ss, "Projects", refToken);
-
-    // Tulis ke Finance jika belum ada
-    if (!financeAlreadyExists) {
-      const financeRow = {
-        id: "AUTO-FIN-" + Date.now(),
-        date: new Date().toISOString().slice(0, 10),
-        type: "income",
-        category: "DP Proyek",
-        amount: Number(lead.value) || 0,
-        description: "Auto (Deal Menang) " + (lead.name || "") + " " + refToken
-      };
-      insertRecord(ss, "Finance", financeRow, ["id","date","type","category","amount","description"]);
-      financeCreated++;
-    }
-
-    // Tulis ke Projects jika belum ada
-    if (!projectAlreadyExists) {
-      const deadlineDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
-      const projectRow = {
-        id: "AUTO-PRJ-" + Date.now(),
-        title: "Proyek " + (lead.name || ""),
-        client: lead.name || "",
-        value: Number(lead.value) || 0,
-        status: "plan",
-        deadline: deadlineDate,
-        notes: "Antrean otomatis dari Lead [LEAD-" + lead.id + "]",
-        sopChecklist: "Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0"
-      };
-      insertRecord(ss, "Projects", projectRow, ["id","title","client","value","status","deadline","notes","sopChecklist"]);
-      projectCreated++;
-    }
+    if (hasTokenInSheet(ss, "Projects", refToken)) return;
+    const projectRow = {
+      id: "AUTO-PRJ-" + Date.now() + "-" + String(lead.id),
+      title: "Proyek " + (lead.name || ""),
+      client: lead.name || "",
+      value: Number(lead.value) || 0,
+      status: "plan",
+      deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+      notes: "Antrean otomatis dari Lead " + refToken,
+      sopChecklist: "Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0"
+    };
+    insertRecord(ss, "Projects", projectRow, ["id","title","client","value","status","deadline","notes","sopChecklist"]);
+    projectCreated++;
   });
-
-  return { financeCreated: financeCreated, projectCreated: projectCreated };
+  return { financeCreated: 0, projectCreated: projectCreated };
 }
 
 function hasTokenInSheet(ss, sheetName, token) {
