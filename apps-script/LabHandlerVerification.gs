@@ -34,6 +34,7 @@ function cskLabVerifyActiveHandlers() {
   var body = {
     action: "delete",
     token: token,
+    protocolVersion: 2,
     sheet: "Leads",
     id: impossibleId
   };
