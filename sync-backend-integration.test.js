@@ -59,7 +59,7 @@ function createBackend() {
     Memory: sheet(['ID','Tanggal','Kategori','Judul','Isi']),
     Marketing_Spend: sheet(['ID','Tanggal','Platform','Kampanye','Budget','Terpakai','LeadsDihasilkan','Catatan'])
   };
-  const props = { API_TOKEN: 'TEST_TOKEN_ONLY' };
+  const props = { API_TOKEN: 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE' };
   const backend = {
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ({
@@ -87,7 +87,7 @@ function createBackend() {
   let ignorePosts = false;
   const server = {
     tables, sent,
-    read() { return JSON.parse(backend.doGet({ parameter: { token: 'TEST_TOKEN_ONLY' } }).text); },
+    read() { return JSON.parse(backend.doGet({ parameter: { token: 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE' } }).text); },
     post(data) { return JSON.parse(backend.doPost({ postData: { contents: JSON.stringify(data) } }).text); },
     suppressPosts(value) { ignorePosts = value; },
     fetch: async (url, opts = {}) => {
@@ -114,7 +114,7 @@ function localStorageStub() {
 test('real backend + real frontend delta: edit -> POST -> GET readback', async () => {
   const api = createBackend();
   const original = { id:'TEST-1', date:'2026-10-31', name:'Dummy A', phone:'0', source:'QA', value:1, status:'new', notes:'',email:'',website:'',industry:'',pic:'',picTitle:'',linkedin:'',score:0 };
-  assert.equal(api.post({action:'sync_all',token:'TEST_TOKEN_ONLY',leads:[original]}).status, 'success');
+  assert.equal(api.post({action:'sync_all',token:'TEST_ONLY_LAB_API_TOKEN_2026_SAFE',leads:[original]}).status, 'success');
   const local = api.read().data;
   const engine = createEngine(localStorageStub(),api.fetch);
   engine.init(local);
@@ -122,7 +122,7 @@ test('real backend + real frontend delta: edit -> POST -> GET readback', async (
   local.leads[0].name='Dummy B';
   engine.track(local);
   assert.equal(engine.countPending(),1);
-  const result = await engine.flush('https://example.test/exec','TEST_TOKEN_ONLY');
+  const result = await engine.flush('https://example.test/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
   assert.equal(result.status,'verified');
   assert.equal(engine.countPending(),0);
   assert.equal(api.read().data.leads.find(x=>x.id==='TEST-1').name,'Dummy B');
@@ -132,14 +132,14 @@ test('real backend + real frontend delta: edit -> POST -> GET readback', async (
 test('real backend + frontend: delete -> GET confirms missing', async () => {
   const api=createBackend();
   const finance={id:'FIN-DEL',date:'2026-10-31',type:'expense',category:'QA',amount:175000,description:'Dummy'};
-  assert.equal(api.post({action:'sync_all',token:'TEST_TOKEN_ONLY',finance:[finance]}).status,'success');
+  assert.equal(api.post({action:'sync_all',token:'TEST_ONLY_LAB_API_TOKEN_2026_SAFE',finance:[finance]}).status,'success');
   const local=api.read().data;
   const engine=createEngine(localStorageStub(),api.fetch);
   engine.init(local);
   engine.merge(api.read().data,local);
   local.finance=[];
   engine.track(local);
-  const result=await engine.flush('https://example.test/exec','TEST_TOKEN_ONLY');
+  const result=await engine.flush('https://example.test/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
   assert.equal(result.status,'verified');
   assert.equal(api.read().data.finance.length,0);
   assert.equal(api.sent[0].action,'delete');
@@ -147,15 +147,15 @@ test('real backend + frontend: delete -> GET confirms missing', async () => {
 test('real backend + frontend: two-client edit conflicts without writing', async () => {
   const api=createBackend();
   const initial={id:'TEST-2',date:'2026-10-31',name:'Server old',phone:'',source:'QA',value:0,status:'new',notes:'',email:'',website:'',industry:'',pic:'',picTitle:'',linkedin:'',score:0};
-  api.post({action:'sync_all',token:'TEST_TOKEN_ONLY',leads:[initial]});
+  api.post({action:'sync_all',token:'TEST_ONLY_LAB_API_TOKEN_2026_SAFE',leads:[initial]});
   const local=api.read().data;
   const engine=createEngine(localStorageStub(),api.fetch);
   engine.init(local);
   engine.merge(api.read().data,local);
   local.leads[0].name='Phone edit';
   engine.track(local);
-  api.post({action:'sync_all',token:'TEST_TOKEN_ONLY',leads:[{...initial,name:'PC edit'}]});
-  const result=await engine.flush('https://example.test/exec','TEST_TOKEN_ONLY');
+  api.post({action:'sync_all',token:'TEST_ONLY_LAB_API_TOKEN_2026_SAFE',leads:[{...initial,name:'PC edit'}]});
+  const result=await engine.flush('https://example.test/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
   assert.equal(result.status,'conflict');
   assert.equal(api.read().data.leads[0].name,'PC edit');
   assert.equal(api.sent.length,0);
@@ -169,7 +169,7 @@ test('backend rejected POST but browser opaque: no success claim', async () => {
   local.projects.push({id:'P-TEST',title:'Dummy Project',client:'Dummy',value:5000000,status:'plan',deadline:'2026-11-15',notes:'',sopChecklist:'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0',pic:''});
   engine.track(local);
   api.suppressPosts(true);
-  const result=await engine.flush('https://example.test/exec','TEST_TOKEN_ONLY');
+  const result=await engine.flush('https://example.test/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
   assert.equal(result.status,'unverified');
   assert.equal(engine.countPending(),1);
   assert.equal(api.read().data.projects.length,0);
@@ -261,7 +261,7 @@ test('LAB gateway guard refuses execution against production spreadsheet', () =>
   vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script','LabRequestGuard.gs'),'utf8'),ctx);
   assert.throws(()=>ctx.cskLabGuardRead_(), /DIBATALKAN/);
   assert.throws(()=>ctx.cskLabGuardPost_({
-    action:'delete',token:'TEST_TOKEN_ONLY',sheet:'Leads',id:'TEST-LEAD-001'
+    action:'delete',token:'TEST_ONLY_LAB_API_TOKEN_2026_SAFE',sheet:'Leads',id:'TEST-LEAD-001'
   }), /DIBATALKAN/);
 });
 
