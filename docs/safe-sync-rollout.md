@@ -8,7 +8,7 @@ Branch `main` lama menyinkronkan seluruh tabel dan menyatakan POST `no-cors` ber
 
 ## Yang sudah ditambahkan di source staging
 
-1. `sync-safe.js`: antrean perubahan per ID, snapshot awal, preflight konflik dasar, POST hanya perubahan, GET readback sebelum menandai terverifikasi, serta penanganan offline/retry yang mempertahankan queue lokal.
+1. `sync-safe.js`: antrean perubahan per ID, snapshot awal, preflight konflik, POST hanya perubahan, GET readback sebelum menandai terverifikasi, serta penanganan offline/retry yang mempertahankan queue lokal. Setiap upsert mengirim `expectedRecords` per sheet/ID; delete mengirim `expectedFingerprint`.
 2. Penggabungan startup menjaga perubahan lokal pending dan memakai cloud untuk record yang tidak berubah. Tidak melakukan upload massal data lama dari perangkat.
 3. Tarik manual ditolak bila queue belum kosong. Backup JSON membuang API URL/token sebelum diunduh, namun file masih memuat data bisnis sensitif. Restore hanya lokal, memutus koneksi cloud dan tidak mengirim backup sebagai perubahan baru.
 4. Status UX tetap terlihat: perangkat lokal, belum tersetel, token/config salah, offline, antrean, error/konflik, dan tanggal verifikasi terakhir. Data demo dan endpoint produksi tidak dibundel pada fresh install.
@@ -19,13 +19,13 @@ Branch `main` lama menyinkronkan seluruh tabel dan menyatakan POST `no-cors` ber
 9. ROAS yang tidak memiliki atribusi campaign dihapus, CPL tetap tersedia. Ringkasan keuangan secara eksplisit hanya menunjukkan selisih kas tercatat, bukan laba bersih.
 10. Cold email POST opaque tidak lagi diklaim otomatis sukses atau menaikkan status lead. Teks yang berasal dari calon klien/Google Sheets di-escape pada UI.
 11. Automated tests memvalidasi simulasi mesin antrean, backend emulator SpreadsheetApp, dan mapping data; **bukan** bukti koneksi HTTP ke Web App aktif.
-12. Kontrak API protocol 2 wajib pada GET dan POST. Backend staging menolak request tanpa versi atau dari PWA lama; frontend juga menolak backend yang tidak mengembalikan versi yang cocok. Ini mencegah stale client memakai kontrak full-sync lama, tetapi **bukan** autentikasi pengguna maupun kontrol concurrency.
+12. Kontrak API protocol 2 wajib pada GET dan POST. Backend staging menolak request tanpa versi atau dari PWA lama; frontend juga menolak backend yang tidak mengembalikan versi yang cocok. Ini mencegah stale client memakai kontrak full-sync lama, tetapi **bukan** autentikasi pengguna.
 
 ## Gate yang masih HARUS diselesaikan
 
 - **LAB handler guard:** file `apps-script/LabRequestGuard.gs` dan `apps-script/LabHandlerVerification.gs` di GitHub tidak otomatis terpasang. Jalankan verifikasi bahwa fungsi `doGet/doPost` LAB benar-benar memakai guard; butuh hasil `LAB_HANDLER_GUARD_PASS`.
 - **Browser HTTP/CORS:** uji autentikasi, GET/POST, retry, offline, dan verifikasi data dummy pada browser sungguhan yang memakai backend staging khusus. Tidak boleh membuka database utama demi uji.
-- **Atomic concurrency:** preflight GET diikuti POST masih rentan race condition; butuh LockService, expectedVersion/revision pada backend, dan conflict resolution UI.
+- **Atomic concurrency:** source backend kini memakai `LockService` untuk mengunci GET/POST dan membandingkan `expectedRecords`/`expectedFingerprint` sebelum menulis. Emulator sudah menguji stale update/delete dan dua perangkat; UI menahan antrean serta memberi peringatan konflik, tetapi belum menyediakan alur resolusi konflik terpandu. Verifikasi multi-device pada endpoint staging yang benar-benar ter-deploy masih wajib.
 - **Stale PWA:** source-level protocol gate sudah ditambahkan untuk menolak request versi lama; tetap perlu uji live pada endpoint staging untuk memastikan backend yang ter-deploy benar-benar menolak GET/POST tanpa protocol 2.
 - **Server access control:** dropdown role owner/tim hanya untuk tampilan, tanpa otorisasi server. Pengaturan Finance/Marketing harus dilindungi menggunakan autentikasi/role nyata sebelum akses tim dibuka.
 - **Backup/rollout:** backup produksi dan pemulihannya harus diuji, lalu uji perangkat Android/iPhone/desktop dan rencana rollback serta pengawasan pasca-rilis. Tidak ada hard-coded secret di repo.
@@ -45,4 +45,4 @@ Jangan menyamakan status PASS dari pengujian ini dengan akses aman di jaringan p
 
 ## Kebijakan deployment
 
-**Jangan deploy branch PR #2 ke produksi atau mengubah Apps Script live sekarang.** Kode baru akan memutus kompatibilitas bila backend masih versi lama atau token belum dikonfigurasi, dan pembatasan akses serta concurrency belum tervalidasi. Rilis hanya setelah seluruh release gate dipenuhi dan disetujui.
+**Jangan deploy branch PR #2 ke produksi atau mengubah Apps Script live sekarang.** Kode baru akan memutus kompatibilitas bila backend masih versi lama atau token belum dikonfigurasi. Source-level concurrency sudah diuji di emulator, tetapi endpoint staging yang ter-deploy, autentikasi/otorisasi server, backup/restore, dan QA perangkat nyata belum tervalidasi. Rilis hanya setelah seluruh release gate dipenuhi dan disetujui.
