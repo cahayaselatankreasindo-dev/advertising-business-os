@@ -270,7 +270,7 @@
       try {
         const work = JSON.parse(JSON.stringify(queue));
         const remote = await readCloud(url, token);
-        const conflicts = [];
+        const foundConflicts = [];
         const nothingToDelete = [];
         Object.keys(DATA).forEach(area => {
           const onServer = byId(remote[area]);
@@ -280,12 +280,12 @@
             const prior = base[id];
             // Unknown server record or changed record -> never overwrite silently.
             if ((now && (!prior || stableFingerprint(now) !== prior)) ||
-                (!now && !!prior)) conflicts.push(area + '/' + id);
+                (!now && !!prior)) foundConflicts.push(area + '/' + id);
             if (!now && work[area].deletes[id]) nothingToDelete.push([area, id]);
           });
         });
-        if (conflicts.length) {
-          conflicts = Array.from(new Set(conflicts));
+        if (foundConflicts.length) {
+          conflicts = Array.from(new Set(foundConflicts));
           lastError = conflicts.length + ' konflik cloud ditemukan. Tidak ada data cloud yang diubah.';
           persist();
           return { status: 'conflict', conflicts: conflicts.slice(), pending: countPending() };
