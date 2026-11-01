@@ -111,13 +111,15 @@ function validatePhoto_(payload) {
   const caption = String(payload.caption || '').trim();
   const mime = String(payload.mime || '');
   const base64 = String(payload.base64 || '');
+  const requestId = String(payload.requestId || '').trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) throw new Error('Identitas unggahan tidak valid.');
   const originalName = String(payload.originalName || 'foto').replace(/[\x00-\x1F\x7F]/g, '').slice(0, 120);
   if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/.test(projectId)) throw new Error('ID proyek tidak valid.');
   if (!PHOTO_LAB.stages.includes(stage)) throw new Error('Tahap proyek tidak dikenal.');
   if (!caption || caption.length > 500 || /[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(caption)) throw new Error('Catatan wajib diisi (maksimal 500 karakter).');
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(mime)) throw new Error('Tipe gambar tidak diperbolehkan.');
   if (!base64 || base64.length > Math.ceil(PHOTO_LAB.maxBytes / 3) * 4 + 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) throw new Error('Foto terlalu besar atau rusak.');
-  return {projectId, stage, caption, mime, base64, originalName};
+  return {requestId, projectId, stage, caption, mime, base64, originalName};
 }
 
 function verifyImageBytes_(bytes, mime) {
@@ -147,10 +149,21 @@ function uploadPhoto(payload) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(15000)) throw new Error('Server sedang sibuk. Coba kembali.');
   try {
-    const id = Utilities.getUuid();
+    const id = data.requestId;
+    // Stable upload ID avoids creating another Drive file after a timed-out response.
+    const existing = sheet.getDataRange().getValues().slice(1).find(r => String(r[0]) === id);
+    if (existing) {
+      if (String(existing[2]) !== data.projectId || String(existing[7]) !== data.mime) throw new Error('Identitas unggahan sudah dipakai untuk proyek lain.');
+      return {ok:true, id, fileId:String(existing[5]), duplicate:true, message:'Foto ini sudah tercatat; tidak diunggah ulang.'};
+    }
     const extension = {'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[data.mime];
     const date = new Date().toISOString();
-    const name = 'LAB-' + data.projectId.replace(/[^A-Za-z0-9_-]/g, '_') + '-' + date.replace(/[^0-9]/g, '').slice(0, 14) + '-' + id + '.' + extension;
+    const name = 'LAB-' + id + '.' + extension;
+    const orphaned = folder.getFilesByName(name);
+    if (orphaned.hasNext()) {
+      const orphan = orphaned.next();
+      return {ok:false, needsReview:true, fileId:orphan.getId(), message:'Foto sudah ada di Drive LAB tetapi metadata belum tercatat. Periksa sebelum mencoba lagi.'};
+    }
     const blob = Utilities.newBlob(bytes, data.mime, name);
     const file = folder.createFile(blob); // File inherits private folder; NEVER set public link sharing.
     try {
