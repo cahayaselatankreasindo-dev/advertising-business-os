@@ -540,19 +540,27 @@ function doPost(e) {
           status: "error", code: "INVALID_SHEET", protocolVersion: CSK_API_PROTOCOL_VERSION,
           message: "Penghapusan hanya diizinkan untuk tab Business OS yang terdaftar."
         });
+        const sheet = ss.getSheetByName(sheetName);
+        if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
+        const rowNum = findRowById(sheet, delId);
+        // Idempotent delete: if another device already removed this record, no write is needed.
+        if (rowNum === -1) {
+          return jsonResponse({
+            status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION,
+            message: "Baris " + delId + " tidak ada (sudah terhapus)."
+          });
+        }
+        // For an existing row, require the exact baseline fingerprint before deleting.
         var deleteCheck = validateExpectedDelete_(ss, sheetName, delId, payload.expectedFingerprint);
         if (!deleteCheck.ok) return jsonResponse({
           status: "error", code: deleteCheck.code, protocolVersion: CSK_API_PROTOCOL_VERSION,
           message: deleteCheck.message, conflicts: deleteCheck.conflicts || []
         });
-        const sheet = ss.getSheetByName(sheetName);
-        if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
-        const rowNum = findRowById(sheet, delId);
-        if (rowNum === -1) {
-          return jsonResponse({ status: "success", message: "Baris " + delId + " tidak ada (sudah terhapus)." });
-        }
         sheet.deleteRow(rowNum);
-        return jsonResponse({ status: "success", message: "Baris " + delId + " dihapus dari " + sheetName });
+        return jsonResponse({
+          status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Baris " + delId + " dihapus dari " + sheetName
+        });
       }
 
       // --- insert: tambahkan 1 baris ke tab tertentu ---
