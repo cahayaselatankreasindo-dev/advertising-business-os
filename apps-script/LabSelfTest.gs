@@ -134,10 +134,12 @@ function cskLabRunIsolatedSmokeTest() {
     picTitle: "", linkedin: "", score: 0
   };
   var done = {inserted:false, updated:false, deleted:false, verified:false};
+  var firstVersions = {}; firstVersions[id] = null;
   try {
     cskLabParseOutput_(doPost({
       postData: { contents: JSON.stringify({
-        action: "sync_all", token: token, protocolVersion: 2, leads: [first]
+        action: "sync_all", token: token, protocolVersion: 2,
+        expectedRecords: {Leads: firstVersions}, leads: [first]
       }) }
     }));
     var afterInsert = cskLabParseOutput_(doGet({
@@ -152,9 +154,11 @@ function cskLabRunIsolatedSmokeTest() {
     Object.keys(first).forEach(function (key) { updated[key] = first[key]; });
     updated.name = "QA LAB GENERATED - DIPERBARUI";
     updated.notes = "QA LAB UPDATE TEST";
+    var updateVersions = {}; updateVersions[id] = stableRecordFingerprint_(afterInsert[0]);
     cskLabParseOutput_(doPost({
       postData: { contents: JSON.stringify({
-        action: "sync_all", token: token, protocolVersion: 2, leads: [updated]
+        action: "sync_all", token: token, protocolVersion: 2,
+        expectedRecords: {Leads: updateVersions}, leads: [updated]
       }) }
     }));
     var afterUpdate = cskLabParseOutput_(doGet({
@@ -168,7 +172,8 @@ function cskLabRunIsolatedSmokeTest() {
 
     cskLabParseOutput_(doPost({
       postData: { contents: JSON.stringify({
-        action: "delete", token: token, protocolVersion: 2, sheet: "Leads", id: id
+        action: "delete", token: token, protocolVersion: 2, sheet: "Leads", id: id,
+        expectedFingerprint: stableRecordFingerprint_(afterUpdate[0])
       }) }
     }));
     var afterDelete = cskLabParseOutput_(doGet({
