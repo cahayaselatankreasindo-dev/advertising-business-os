@@ -243,6 +243,15 @@
 
       <!-- 1. DASHBOARD -->
       <section id="page-dashboard" class="page-content space-y-6">
+        <div id="first-run-guide" class="hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-5 shadow-sm md:p-7">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-amber-700">Mulai menggunakan CSK Business OS</p>
+          <h2 class="mt-2 text-xl font-bold text-slate-900">Catat pekerjaan pertama, tanpa pengaturan rumit.</h2>
+          <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-700">Data tersimpan di perangkat ini. Tambahkan prospek, catat proyek, dan buat backup lokal. Sinkronisasi cloud belum aman untuk data asli sebelum pengujian backend dinyatakan lulus.</p>
+          <div class="mt-5 flex flex-wrap gap-3">
+            <button type="button" onclick="openModal('modal-lead')" class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-bold text-white hover:bg-slate-800"><i class="fa fa-plus" aria-hidden="true"></i> Tambah prospek</button>
+            <button type="button" onclick="openModal('modal-project')" class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">Catat proyek</button>
+          </div>
+        </div>
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 class="text-2xl md:text-3xl font-bold font-heading text-slate-900">Dashboard Bisnis</h1>
@@ -1399,6 +1408,12 @@
     // ============== DASHBOARD ==============
 
     function renderDashboard() {
+      const firstRun = document.getElementById('first-run-guide');
+      if (firstRun) {
+        const empty = ['leads', 'clients', 'projects', 'finance', 'memory', 'marketingSpend']
+          .every(area => Array.isArray(db[area]) && db[area].length === 0);
+        firstRun.classList.toggle('hidden', !empty);
+      }
       const totalLeads = db.leads.length;
       const activeLeads = db.leads.filter(l => l.status !== 'won' && l.status !== 'lost').length;
       const wonLeads = db.leads.filter(l => l.status === 'won').length;
