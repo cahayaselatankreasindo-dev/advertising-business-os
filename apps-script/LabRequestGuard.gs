@@ -154,7 +154,7 @@ function cskLabRunGuardNegativeTests() {
       id: "REAL-CLIENT-123" },
     { action: "delete", protocolVersion: 2, token: token, sheet:"Leads",
       id: "QA-LAB-OK", extra: "not_allowed" },
-    { action: "sync_all", protocolVersion: 2, token: token, leads: [] }
+    { action: "sync_all", protocolVersion: 2, token: token, leads: [] },
     { action: "sync_all", token: token, leads: [{id:"QA-LAB-MISSING-VERSION", status:"new"}] }
   ];
   var blocked = 0;
