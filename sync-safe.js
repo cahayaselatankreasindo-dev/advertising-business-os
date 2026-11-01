@@ -58,9 +58,10 @@
     let snapshot = {};
     let busy = false;
     let lastError = '';
+    let conflicts = [];
 
     function persist() {
-      storage.setItem(STATE_KEY, JSON.stringify({ queue, baseline, verifiedAt }));
+      storage.setItem(STATE_KEY, JSON.stringify({ queue, baseline, verifiedAt, conflicts }));
     }
     function countPending() {
       return Object.keys(DATA).reduce((sum, area) =>
@@ -91,6 +92,11 @@
           });
           baseline = raw.baseline || {};
           verifiedAt = raw.verifiedAt || '';
+          conflicts = Array.isArray(raw.conflicts) ? raw.conflicts.filter(key => {
+            if (typeof key !== 'string') return false;
+            const split = key.indexOf('/');
+            return split > 0 && Object.prototype.hasOwnProperty.call(DATA, key.slice(0, split));
+          }) : [];
         } else if (!storage.getItem(LEGACY_BACKUP_KEY)) {
           // Before first migration, retain an independent recovery copy of the local DB.
           storage.setItem(LEGACY_BACKUP_KEY, JSON.stringify(db));
@@ -182,6 +188,55 @@
       snapshot = takeSnapshot(db);
       persist();
     }
+    function resolveConflict(area, id, strategy, remote, db) {
+      if (busy) throw new Error('Tidak bisa menyelesaikan konflik saat sinkronisasi berlangsung.');
+      if (!Object.prototype.hasOwnProperty.call(DATA, area)) throw new Error('Area konflik tidak dikenal.');
+      if (strategy !== 'cloud' && strategy !== 'local') throw new Error('Pilihan penyelesaian konflik tidak valid.');
+      const key = area + '/' + String(id);
+      if (!conflicts.includes(key)) throw new Error('Konflik ini sudah tidak aktif. Periksa ulang status sinkronisasi.');
+      const recordId = String(id);
+      const cloudRows = Array.isArray(remote && remote[area]) ? remote[area] : [];
+      const cloudRecord = byId(cloudRows)[recordId] || null;
+      if (!baseline[area]) baseline[area] = {};
+      const localRows = Array.isArray(db[area]) ? db[area] : (db[area] = []);
+      const localIndex = localRows.findIndex(item => item && String(item.id) === recordId);
+      const hasUpsert = Object.prototype.hasOwnProperty.call(queue[area].upserts, recordId);
+      const hasDelete = Object.prototype.hasOwnProperty.call(queue[area].deletes, recordId);
+      if (!hasUpsert && !hasDelete) throw new Error('Perubahan lokal untuk konflik ini tidak ditemukan.');
+
+      if (strategy === 'cloud') {
+        delete queue[area].upserts[recordId];
+        delete queue[area].deletes[recordId];
+        if (cloudRecord) {
+          if (localIndex >= 0) localRows[localIndex] = cloudRecord;
+          else localRows.push(cloudRecord);
+          baseline[area][recordId] = stableFingerprint(cloudRecord);
+        } else {
+          if (localIndex >= 0) localRows.splice(localIndex, 1);
+          delete baseline[area][recordId];
+        }
+      } else {
+        // Explicitly keep the local version, but rebase its compare-and-set
+        // expectation to the fresh cloud snapshot supplied by the UI.
+        if (hasUpsert) {
+          const currentLocal = localIndex >= 0 ? localRows[localIndex] : queue[area].upserts[recordId];
+          queue[area].upserts[recordId] = currentLocal;
+          if (localIndex < 0) localRows.push(currentLocal);
+        }
+        // If cloud already deleted a record that this device also meant to
+        // delete, the desired state is already achieved; do not retry delete.
+        if (hasDelete && !cloudRecord) delete queue[area].deletes[recordId];
+        if (cloudRecord) baseline[area][recordId] = stableFingerprint(cloudRecord);
+        else delete baseline[area][recordId];
+      }
+
+      conflicts = conflicts.filter(item => item !== key);
+      lastError = conflicts.length ? conflicts.length + ' konflik cloud masih perlu ditinjau.' : '';
+      snapshot = takeSnapshot(db);
+      persist();
+      return { strategy, pending: countPending(), conflicts: conflicts.slice() };
+    }
+
     async function readCloud(url, token) {
       const separator = url.includes('?') ? '&' : '?';
       const address = url + separator + 'token=' + encodeURIComponent(token || '') +
@@ -230,9 +285,12 @@
           });
         });
         if (conflicts.length) {
+          conflicts = Array.from(new Set(conflicts));
           lastError = conflicts.length + ' konflik cloud ditemukan. Tidak ada data cloud yang diubah.';
-          return { status: 'conflict', conflicts, pending: countPending() };
+          persist();
+          return { status: 'conflict', conflicts: conflicts.slice(), pending: countPending() };
         }
+        conflicts = [];
         for (const [area, id] of nothingToDelete) {
           if (queue[area].deletes[id]) delete queue[area].deletes[id];
         }
@@ -242,7 +300,9 @@
             const expectedFingerprint = (baseline[area] || {})[id];
             if (typeof expectedFingerprint !== 'string' || !expectedFingerprint) {
               lastError = 'Versi dasar untuk penghapusan ' + area + '/' + id + ' tidak tersedia. Tarik ulang data sebelum mencoba lagi.';
-              return { status: 'conflict', conflicts: [area + '/' + id], pending: countPending() };
+              conflicts = [area + '/' + id];
+              persist();
+              return { status: 'conflict', conflicts: conflicts.slice(), pending: countPending() };
             }
             await send(url, { action: 'delete', sheet: DATA[area].sheet, id, token, expectedFingerprint });
           }
@@ -304,8 +364,9 @@
           });
           if (racedConflicts.length) {
             lastError = 'Konflik terdeteksi saat penyimpanan. Tidak ada perubahan cloud yang ditimpa; periksa record yang ditandai.';
+            conflicts = Array.from(new Set(racedConflicts));
             persist();
-            return { status: 'conflict', conflicts: Array.from(new Set(racedConflicts)), pending: countPending() };
+            return { status: 'conflict', conflicts: conflicts.slice(), pending: countPending() };
           }
           lastError = 'Data dikirim, tetapi belum terverifikasi di Google Sheets. Perubahan tetap mengantre.';
           persist();
@@ -328,6 +389,7 @@
           });
           rebaseline(area, confirmed[area]);
         });
+        conflicts = [];
         verifiedAt = new Date().toISOString();
         persist();
         return { status: 'verified', pending: countPending(), verifiedAt };
@@ -339,7 +401,8 @@
       }
     }
     return {
-      init, track, merge, replaceFromCloud, restoreLocalOnly, readCloud, flush, countPending,
+      init, track, merge, replaceFromCloud, restoreLocalOnly, readCloud, flush, countPending, resolveConflict,
+      get conflicts() { return conflicts.slice(); },
       get verifiedAt() { return verifiedAt; },
       get lastError() { return lastError; },
       get busy() { return busy; }
