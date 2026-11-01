@@ -22,6 +22,7 @@ const ctx = {
   },
   GmailApp: {sendEmail:()=>{sends++;throw Error('An email was sent');}},
   MailApp: {sendEmail:()=>{sends++;throw Error('An email was sent');}},
+  LockService: { getScriptLock:()=>({waitLock(){},releaseLock(){}}) },
   ScriptApp: {
     getProjectTriggers:()=>triggers,
     deleteTrigger:trigger=>deletions.push(trigger.id),
