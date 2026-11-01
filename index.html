@@ -1190,6 +1190,23 @@
     function formatRp(num) {
       return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
     }
+    // Treat all Sheets / imported records as untrusted input.
+    function escapeHTML(value) {
+      return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[char]);
+    }
+    function safeInlineId(value) {
+      const id = String(value ?? '');
+      return /^[A-Za-z0-9_-]{1,120}$/.test(id) ? id : '';
+    }
+    function safeExternalHref(value) {
+      try {
+        const url = new URL(String(value), 'https://invalid.example/');
+        return ['https:', 'http:'].includes(url.protocol) && url.hostname !== 'invalid.example'
+          ? escapeHTML(url.href) : '#';
+      } catch (_) { return '#'; }
+    }
 
     let toastTimeout = null;
     function showToast(msg, isError) {
@@ -1422,8 +1439,8 @@
         dashProjEl.innerHTML = activeProj.map(p =>
           '<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">' +
             '<div>' +
-              '<div class="text-xs font-bold text-slate-800">' + p.title + '</div>' +
-              '<div class="text-[11px] text-slate-500">' + p.client + ' &bull; Deadline: ' + (p.deadline || '-') + '</div>' +
+              '<div class="text-xs font-bold text-slate-800">' + escapeHTML(p.title) + '</div>' +
+              '<div class="text-[11px] text-slate-500">' + escapeHTML(p.client) + ' &bull; Deadline: ' + (p.deadline || '-') + '</div>' +
             '</div>' +
             '<span class="badge ' + (p.status === 'ongoing' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800') + '">' +
               (p.status === 'ongoing' ? 'Pengerjaan' : 'Review') +
@@ -1441,12 +1458,12 @@
         dashLeadsEl.innerHTML = recentLeads.map(l =>
           '<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">' +
             '<div>' +
-              '<div class="text-xs font-bold text-slate-800">' + l.name + '</div>' +
-              '<div class="text-[11px] text-slate-500">' + l.source + ' &bull; ' + formatRp(l.value) + '</div>' +
+              '<div class="text-xs font-bold text-slate-800">' + escapeHTML(l.name) + '</div>' +
+              '<div class="text-[11px] text-slate-500">' + escapeHTML(l.source) + ' &bull; ' + formatRp(l.value) + '</div>' +
             '</div>' +
             '<div class="flex items-center gap-1.5">' +
               (l.phone ? '<a href="https://wa.me/' + cleanPhone(l.phone) + '" target="_blank" class="p-1.5 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200 text-xs"><i class="fa fa-whatsapp"></i> Chat</a>' : '') +
-              '<button onclick="convertLeadToWon(\'' + l.id + '\')" class="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs font-semibold">Deal</button>' +
+              '<button onclick="convertLeadToWon(\'' + safeInlineId(l.id) + '\')" class="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs font-semibold">Deal</button>' +
             '</div>' +
           '</div>'
         ).join('');
@@ -1494,31 +1511,31 @@
         return '<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">' +
           '<div class="space-y-1">' +
             '<div class="flex items-center gap-2">' +
-              '<span class="font-heading font-bold text-sm text-slate-800">' + l.name + '</span>' +
-              '<span class="badge ' + badgeColor + '">' + statusLabel + '</span>' +
+              '<span class="font-heading font-bold text-sm text-slate-800">' + escapeHTML(l.name) + '</span>' +
+              '<span class="badge ' + badgeColor + '">' + escapeHTML(statusLabel) + '</span>' +
             '</div>' +
             '<div class="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">' +
               '<span><i class="fa fa-tag text-slate-400"></i> ' + (l.source || 'Sumber tidak dicatat') + '</span>' +
               '<span><i class="fa fa-money text-slate-400"></i> ' + formatRp(l.value) + '</span>' +
-              (l.date ? '<span><i class="fa fa-calendar text-slate-400"></i> ' + l.date + '</span>' : '') +
+              (l.date ? '<span><i class="fa fa-calendar text-slate-400"></i> ' + escapeHTML(l.date) + '</span>' : '') +
             '</div>' +
-            (l.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + l.notes + '</div>' : '') +
-            (l.email ? '<div class="text-[11px] text-blue-600 font-mono mt-0.5"><i class="fa fa-envelope-o"></i> ' + l.email + '</div>' : '') +
+            (l.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + escapeHTML(l.notes) + '</div>' : '') +
+            (l.email ? '<div class="text-[11px] text-blue-600 font-mono mt-0.5"><i class="fa fa-envelope-o"></i> ' + escapeHTML(l.email) + '</div>' : '') +
             // ===== Data B2B (tampil bila ada) =====
             ((l.industry || l.pic || l.picTitle || l.website || l.score) ?
               '<div class="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 pt-1 border-t border-slate-100">' +
-                (l.industry ? '<span><i class="fa fa-industry text-slate-400"></i> ' + l.industry + '</span>' : '') +
-                (l.website ? '<a href="' + l.website + '" target="_blank" class="text-blue-600 hover:underline"><i class="fa fa-globe text-slate-400"></i> ' + String(l.website).replace(/^https?:\/\//,'') + '</a>' : '') +
-                (l.pic ? '<span><i class="fa fa-user text-slate-400"></i> ' + l.pic + (l.picTitle ? ' (' + l.picTitle + ')' : '') + '</span>' : '') +
-                (l.linkedin ? '<a href="' + l.linkedin + '" target="_blank" class="text-blue-600 hover:underline"><i class="fa fa-linkedin-square text-slate-400"></i> LinkedIn</a>' : '') +
+                (l.industry ? '<span><i class="fa fa-industry text-slate-400"></i> ' + escapeHTML(l.industry) + '</span>' : '') +
+                (l.website ? '<a href="' + safeExternalHref(l.website) + '" rel="noopener noreferrer" target="_blank" class="text-blue-600 hover:underline"><i class="fa fa-globe text-slate-400"></i> ' + escapeHTML(String(l.website).replace(/^https?:\/\//,'')) + '</a>' : '') +
+                (l.pic ? '<span><i class="fa fa-user text-slate-400"></i> ' + l.pic + (l.picTitle ? ' (' + escapeHTML(l.picTitle) + ')' : '') + '</span>' : '') +
+                (l.linkedin ? '<a href="' + safeExternalHref(l.linkedin) + '" rel="noopener noreferrer" target="_blank" class="text-blue-600 hover:underline"><i class="fa fa-linkedin-square text-slate-400"></i> LinkedIn</a>' : '') +
                 (l.score ? '<span class="badge bg-amber-100 text-amber-800"><i class="fa fa-star"></i> Skor ' + l.score + '</span>' : '') +
               '</div>' : '') +
           '</div>' +
           '<div class="flex items-center gap-1.5 self-end sm:self-center flex-wrap">' +
-            (l.email ? '<button onclick="sendColdEmailLead(\'' + l.id + '\')" title="Kirim Cold Email Outreach via Gmail CSK" class="px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-paper-plane"></i> Email</button>' : '') +
+            (l.email ? '<button onclick="sendColdEmailLead(\'' + safeInlineId(l.id) + '\')" title="Kirim Cold Email Outreach via Gmail CSK" class="px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-paper-plane"></i> Email</button>' : '') +
             (l.phone ? '<a href="https://wa.me/' + cleanPhone(l.phone) + '" target="_blank" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"><i class="fa fa-whatsapp"></i> WA</a>' : '') +
-            (l.status !== 'won' ? '<button onclick="convertLeadToWon(\'' + l.id + '\')" title="Tandai Deal" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Deal</button>' : '<span class="badge bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">✓ Deal</span>') +
-            '<button onclick="deleteLead(\'' + l.id + '\')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
+            (l.status !== 'won' ? '<button onclick="convertLeadToWon(\'' + safeInlineId(l.id) + '\')" title="Tandai Deal" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Deal</button>' : '<span class="badge bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">✓ Deal</span>') +
+            '<button onclick="deleteLead(\'' + safeInlineId(l.id) + '\')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -1538,16 +1555,16 @@
         return '<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">' +
           '<div class="flex items-start justify-between">' +
             '<div>' +
-              '<div class="font-heading font-bold text-sm text-slate-800">' + c.name + '</div>' +
+              '<div class="font-heading font-bold text-sm text-slate-800">' + escapeHTML(c.name) + '</div>' +
               '<div class="text-xs text-slate-500">' + (c.phone || '-') + '</div>' +
             '</div>' +
-            '<button onclick="deleteClient(\'' + c.id + '\')" class="text-slate-400 hover:text-red-600 text-xs p-1"><i class="fa fa-trash"></i></button>' +
+            '<button onclick="deleteClient(\'' + safeInlineId(c.id) + '\')" class="text-slate-400 hover:text-red-600 text-xs p-1"><i class="fa fa-trash"></i></button>' +
           '</div>' +
           '<div class="flex items-center gap-2">' +
             renderStars(avgRating) +
             '<span class="text-xs text-slate-500">' + avgRating + '/5</span>' +
           '</div>' +
-          (reviewText ? '<p class="text-xs text-slate-600 italic bg-slate-50 p-2 rounded border border-slate-100">"' + reviewText + '"</p>' : '') +
+          (reviewText ? '<p class="text-xs text-slate-600 italic bg-slate-50 p-2 rounded border border-slate-100">"' + escapeHTML(reviewText) + '"</p>' : '') +
           '<div class="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg text-xs">' +
             '<div>' +
               '<div class="text-[10px] text-slate-400 font-semibold uppercase">Total Proyek</div>' +
@@ -1558,7 +1575,7 @@
               '<div class="font-bold text-emerald-600">' + formatRp(c.totalSpend || 0) + '</div>' +
             '</div>' +
           '</div>' +
-          (c.notes ? '<p class="text-xs text-slate-600">' + c.notes + '</p>' : '') +
+          (c.notes ? '<p class="text-xs text-slate-600">' + escapeHTML(c.notes) + '</p>' : '') +
           (c.phone ? '<a href="https://wa.me/' + cleanPhone(c.phone) + '" target="_blank" class="block w-full text-center py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded text-xs transition"><i class="fa fa-whatsapp text-emerald-600"></i> Hubungi Klien</a>' : '') +
         '</div>';
       }).join('');
@@ -1585,7 +1602,7 @@
       SOP_STAGES.forEach((stage, i) => {
         const checked = values[i] === 1;
         html += '<div class="sop-item flex items-center gap-2 text-xs">' +
-          '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleSOP(\'' + project.id + '\', ' + i + ', this.checked)" class="rounded">' +
+          '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleSOP(\'' + safeInlineId(project.id) + '\', ' + i + ', this.checked)" class="rounded">' +
           '<label class="' + (checked ? 'text-emerald-700 font-semibold' : 'text-slate-600') + '">' + stage + '</label>' +
           '</div>';
       });
@@ -1626,21 +1643,21 @@
         return '<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-start justify-between gap-3">' +
           '<div class="space-y-1 flex-1">' +
             '<div class="flex items-center gap-2">' +
-              '<span class="font-heading font-bold text-sm text-slate-800">' + p.title + '</span>' +
-              '<span class="badge ' + badgeColor + '">' + statusLabel + '</span>' +
+              '<span class="font-heading font-bold text-sm text-slate-800">' + escapeHTML(p.title) + '</span>' +
+              '<span class="badge ' + badgeColor + '">' + escapeHTML(statusLabel) + '</span>' +
             '</div>' +
             '<div class="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">' +
-              '<span><i class="fa fa-user text-slate-400"></i> Klien: ' + p.client + '</span>' +
+              '<span><i class="fa fa-user text-slate-400"></i> Klien: ' + escapeHTML(p.client) + '</span>' +
               '<span><i class="fa fa-money text-slate-400"></i> ' + formatRp(p.value) + '</span>' +
               '<span><i class="fa fa-clock-o text-slate-400"></i> Deadline: ' + (p.deadline || '-') + '</span>' +
             '</div>' +
-            (p.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + p.notes + '</div>' : '') +
+            (p.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + escapeHTML(p.notes) + '</div>' : '') +
             renderSOPChecklist(p) +
           '</div>' +
           '<div class="flex items-center gap-1.5 self-end sm:self-center shrink-0 flex-wrap">' +
-            '<button onclick="openInvoiceModal(\'' + p.id + '\')" title="Buat Invoice / Penawaran Resmi CSK" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm"><i class="fa fa-file-text-o"></i> Invoice</button>' +
-            (p.status !== 'done' ? '<button onclick="markProjectDone(\'' + p.id + '\')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Selesai</button>' : '') +
-            '<button onclick="deleteProject(\'' + p.id + '\')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
+            '<button onclick="openInvoiceModal(\'' + safeInlineId(p.id) + '\')" title="Buat Invoice / Penawaran Resmi CSK" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm"><i class="fa fa-file-text-o"></i> Invoice</button>' +
+            (p.status !== 'done' ? '<button onclick="markProjectDone(\'' + safeInlineId(p.id) + '\')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Selesai</button>' : '') +
+            '<button onclick="deleteProject(\'' + safeInlineId(p.id) + '\')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -1663,14 +1680,14 @@
       tableEl.innerHTML = db.finance.slice().reverse().map(f =>
         '<div class="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition">' +
           '<div class="space-y-0.5">' +
-            '<div class="font-bold text-slate-800">' + f.description + '</div>' +
-            '<div class="text-[11px] text-slate-400">' + f.date + ' &bull; ' + f.category + '</div>' +
+            '<div class="font-bold text-slate-800">' + escapeHTML(f.description) + '</div>' +
+            '<div class="text-[11px] text-slate-400">' + escapeHTML(f.date) + ' &bull; ' + escapeHTML(f.category) + '</div>' +
           '</div>' +
           '<div class="flex items-center gap-3">' +
             '<span class="font-heading font-bold ' + (f.type === 'income' ? 'text-teal-600' : 'text-red-600') + '">' +
               (f.type === 'income' ? '+' : '-') + ' ' + formatRp(f.amount) +
             '</span>' +
-            '<button onclick="deleteFinance(\'' + f.id + '\')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
+            '<button onclick="deleteFinance(\'' + safeInlineId(f.id) + '\')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
           '</div>' +
         '</div>'
       ).join('');
@@ -1745,13 +1762,13 @@
       tableEl.innerHTML = db.marketingSpend.slice().reverse().map(m =>
         '<div class="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition">' +
           '<div class="space-y-0.5">' +
-            '<div class="font-bold text-slate-800">' + m.campaign + '</div>' +
-            '<div class="text-[11px] text-slate-400">' + m.date + ' &bull; ' + m.platform + ' &bull; Budget: ' + formatRp(m.budget) + '</div>' +
+            '<div class="font-bold text-slate-800">' + escapeHTML(m.campaign) + '</div>' +
+            '<div class="text-[11px] text-slate-400">' + escapeHTML(m.date) + ' &bull; ' + escapeHTML(m.platform) + ' &bull; Budget: ' + formatRp(m.budget) + '</div>' +
           '</div>' +
           '<div class="flex items-center gap-4">' +
             '<span class="text-slate-500">Terpakai: <b class="text-slate-700">' + formatRp(m.spent) + '</b></span>' +
             '<span class="text-slate-500">Leads: <b class="text-slate-700">' + (m.leadsGenerated || 0) + '</b></span>' +
-            '<button onclick="deleteMarketing(\'' + m.id + '\')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
+            '<button onclick="deleteMarketing(\'' + safeInlineId(m.id) + '\')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
           '</div>' +
         '</div>'
       ).join('');
@@ -1768,14 +1785,14 @@
       container.innerHTML = db.memory.map(m =>
         '<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-2 border-l-4 border-l-amber-500">' +
           '<div class="flex items-center justify-between text-xs text-slate-400">' +
-            '<span class="font-semibold text-amber-600">' + m.category + '</span>' +
+            '<span class="font-semibold text-amber-600">' + escapeHTML(m.category) + '</span>' +
             '<div class="flex items-center gap-2">' +
-              '<span>' + m.date + '</span>' +
-              '<button onclick="deleteMemory(\'' + m.id + '\')" class="hover:text-red-600"><i class="fa fa-trash"></i></button>' +
+              '<span>' + escapeHTML(m.date) + '</span>' +
+              '<button onclick="deleteMemory(\'' + safeInlineId(m.id) + '\')" class="hover:text-red-600"><i class="fa fa-trash"></i></button>' +
             '</div>' +
           '</div>' +
-          '<h4 class="font-heading font-bold text-sm text-slate-800">' + m.title + '</h4>' +
-          '<p class="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">' + m.content + '</p>' +
+          '<h4 class="font-heading font-bold text-sm text-slate-800">' + escapeHTML(m.title) + '</h4>' +
+          '<p class="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">' + escapeHTML(m.content) + '</p>' +
         '</div>'
       ).join('');
     }
@@ -2077,8 +2094,8 @@
 
       tbody.innerHTML = '<tr>' +
         '<td class="py-3 px-3 font-semibold text-slate-900">' +
-          '<div>' + itemTitle + '</div>' +
-          (p.notes ? '<div class="text-[11px] font-normal text-slate-500 mt-0.5">' + p.notes + '</div>' : '') +
+          '<div>' + escapeHTML(itemTitle) + '</div>' +
+          (p.notes ? '<div class="text-[11px] font-normal text-slate-500 mt-0.5">' + escapeHTML(p.notes) + '</div>' : '') +
           '<div class="text-[10px] text-amber-700 mt-1">&bull; Termasuk fabrikasi, perakitan, dan quality-control standar workshop CSK Serpong</div>' +
         '</td>' +
         '<td class="py-3 px-3 text-center text-slate-600 font-semibold">1 Lot</td>' +
@@ -2102,8 +2119,8 @@
       const waText = 
         '*' + docType.toUpperCase() + ' — CAHAYA SELATAN KREASINDO*\n' +
         'No: ' + docNo + '\n' +
-        'Klien: ' + p.client + '\n' +
-        'Pekerjaan: ' + p.title + '\n' +
+        'Klien: ' + escapeHTML(p.client) + '\n' +
+        'Pekerjaan: ' + escapeHTML(p.title) + '\n' +
         '------------------------------------\n' +
         (isDP ? 'Total Nilai Proyek: ' + formatRp(totalVal) + '\n' : '') +
         '*Jumlah Tagihan: ' + formatRp(billAmount) + '*\n' +
