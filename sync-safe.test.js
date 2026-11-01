@@ -268,6 +268,8 @@ test('staged app starts without demo customers or baked-in production endpoint',
   assert.match(html, /id="sync-conflict-review-btn"/);
   assert.match(html, /function reviewSyncConflicts\(\)/);
   assert.match(html, /function resolveSyncConflictChoice\(/);
+  assert.match(html, /conflictRecovery,/);
+  assert.match(html, /csk_business_os_conflict_recovery_v1/);
   assert.doesNotMatch(html, /user-scalable=no/);
   assert.match(html, /if \(pending > 0\) \{/);
   assert.match(html, /safeSync\.restoreLocalOnly\(db\)/);
