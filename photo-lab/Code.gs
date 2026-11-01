@@ -55,8 +55,18 @@ function labSheet_(folder) {
   if (ss.getName() !== PHOTO_LAB.spreadsheetName || !marker || marker.getRange('A1').getValue() !== PHOTO_LAB.marker || !report) {
     throw new Error('Sheet bukan metadata LAB resmi; penulisan diblokir.');
   }
-  if (!isInFolder_(DriveApp.getFileById(id), folder)) {
+  const sheetFile = DriveApp.getFileById(id);
+  if (!isInFolder_(sheetFile, folder)) {
     throw new Error('Sheet metadata tidak berada dalam folder LAB.');
+  }
+  // The file can be shared directly even when the folder is private.
+  if (sheetFile.getSharingAccess() !== DriveApp.Access.PRIVATE ||
+      sheetFile.getViewers().length || sheetFile.getEditors().length) {
+    throw new Error('Sheet metadata LAB harus privat dan hanya owner yang memiliki akses.');
+  }
+  const header = report.getRange(1, 1, 1, PHOTO_LAB.headers.length).getValues()[0];
+  if (!PHOTO_LAB.headers.every((name, index) => String(header[index]) === name)) {
+    throw new Error('Kolom metadata LAB berubah. Penulisan dihentikan hingga diperbaiki.');
   }
   return report;
 }
@@ -153,16 +163,30 @@ function uploadPhoto(payload) {
     // Stable upload ID avoids creating another Drive file after a timed-out response.
     const existing = sheet.getDataRange().getValues().slice(1).find(r => String(r[0]) === id);
     if (existing) {
-      if (String(existing[2]) !== data.projectId || String(existing[7]) !== data.mime) throw new Error('Identitas unggahan sudah dipakai untuk proyek lain.');
+      if (String(existing[2]) !== data.projectId ||
+          String(existing[3]) !== data.stage ||
+          String(existing[4]) !== safeCell_(data.caption) ||
+          String(existing[6]) !== safeCell_(data.originalName) ||
+          String(existing[7]) !== data.mime ||
+          Number(existing[8]) !== bytes.length) {
+        throw new Error('Identitas unggahan sudah digunakan untuk data foto berbeda.');
+      }
+      const existingFile = DriveApp.getFileById(String(existing[5]));
+      if (!isInFolder_(existingFile, folder)) {
+        throw new Error('Foto sebelumnya tidak lagi berada di folder LAB. Periksa secara manual.');
+      }
       return {ok:true, id, fileId:String(existing[5]), duplicate:true, message:'Foto ini sudah tercatat; tidak diunggah ulang.'};
     }
     const extension = {'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[data.mime];
     const date = new Date().toISOString();
     const name = 'LAB-' + id + '.' + extension;
-    const orphaned = folder.getFilesByName(name);
-    if (orphaned.hasNext()) {
-      const orphan = orphaned.next();
-      return {ok:false, needsReview:true, fileId:orphan.getId(), message:'Foto sudah ada di Drive LAB tetapi metadata belum tercatat. Periksa sebelum mencoba lagi.'};
+    // Check all supported extensions; changing MIME must not bypass an orphan.
+    for (const ext of ['jpg', 'png', 'webp']) {
+      const orphaned = folder.getFilesByName('LAB-' + id + '.' + ext);
+      if (orphaned.hasNext()) {
+        const orphan = orphaned.next();
+        return {ok:false, needsReview:true, fileId:orphan.getId(), message:'Foto sudah ada di Drive LAB tetapi metadata belum tercatat. Periksa sebelum mencoba lagi.'};
+      }
     }
     const blob = Utilities.newBlob(bytes, data.mime, name);
     const file = folder.createFile(blob); // File inherits private folder; NEVER set public link sharing.
