@@ -20,6 +20,9 @@ function fixture(name='Original') {
   };
 }
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
+function fingerprint(record) {
+  return JSON.stringify(Object.keys(record).sort().map(key => [key, record[key]]));
+}
 function fakeCloud(initial, writeEnabled=true) {
   const rows = clone(initial);
   const calls = [];
@@ -31,16 +34,31 @@ function fakeCloud(initial, writeEnabled=true) {
         calls.push(body);
         if (!writeEnabled) return { type: 'opaque' };
         if (body.action === 'sync_all') {
+          const pending = [];
+          let valid = true;
           for (const col of columns) {
+            const sheet = Object.keys(sheetKey).find(key => sheetKey[key] === col);
+            const versions = body.expectedRecords && body.expectedRecords[sheet];
             for (const record of body[col] || []) {
-              const index = rows[col].findIndex(x=>String(x.id)===String(record.id));
-              if (index < 0) rows[col].push(record);
-              else rows[col][index]=record;
+              const id = String(record.id);
+              const index = rows[col].findIndex(x=>String(x.id)===id);
+              const expected = versions && Object.prototype.hasOwnProperty.call(versions, id) ? versions[id] : undefined;
+              const current = index < 0 ? null : rows[col][index];
+              if (expected === undefined ||
+                  (expected === null ? !!current : (!current || fingerprint(current) !== expected))) valid = false;
+              pending.push({col,record,index});
             }
           }
+          if (valid) pending.forEach(({col,record,index}) => {
+            if (index < 0) rows[col].push(record);
+            else rows[col][index]=record;
+          });
         } else if (body.action === 'delete') {
           const col=sheetKey[body.sheet];
-          rows[col]=rows[col].filter(x=>String(x.id)!==String(body.id));
+          const current=rows[col].find(x=>String(x.id)===String(body.id));
+          if (current && fingerprint(current) === body.expectedFingerprint) {
+            rows[col]=rows[col].filter(x=>String(x.id)!==String(body.id));
+          }
         }
         return { type:'opaque' };
       }
@@ -62,7 +80,7 @@ test('send ONLY changed lead and confirm real cloud state', async ()=>{
   assert.equal(result.status,'verified');
   assert.equal(engine.countPending(),0);
   assert.equal(cloud.rows.leads[0].name,'Updated');
-  assert.deepEqual(Object.keys(cloud.calls[0]).sort(),['action','leads','protocolVersion','token']);
+  assert.deepEqual(Object.keys(cloud.calls[0]).sort(),['action','expectedRecords','leads','protocolVersion','token']);
 });
 
 test('new client refuses a backend with a different protocol version', async () => {
@@ -96,6 +114,26 @@ test('delete is queued, verified, and does not resurrect record on pull',async()
   const result=await engine.flush('https://example.test/exec','');
   assert.equal(result.status,'verified');
   assert.equal(cloud.rows.leads.length,0);
+  assert.equal(typeof cloud.calls[0].expectedFingerprint, 'string');
+});
+
+test('server-side version check catches an edit racing after client preflight', async () => {
+  const cloud = fakeCloud(fixture());
+  const db = fixture();
+  const raceFetcher = async (url, opts = {}) => {
+    if (opts.method === 'POST') cloud.rows.leads[0].name = 'Edited on second device';
+    return cloud.fetch(url, opts);
+  };
+  const engine = createEngine(store(), raceFetcher);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads[0].name = 'Edited on first device';
+  engine.track(db);
+  const result = await engine.flush('https://example.test/exec', '');
+  assert.equal(result.status, 'conflict');
+  assert.deepEqual(result.conflicts, ['leads/lead-1']);
+  assert.equal(cloud.rows.leads[0].name, 'Edited on second device');
+  assert.equal(engine.countPending(), 1);
 });
 
 test('conflicting remote edit stops all cloud writes',async()=>{
