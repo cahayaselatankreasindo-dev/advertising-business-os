@@ -1,7 +1,7 @@
 // Service Worker — CSK Business OS
 // Strategi: NETWORK-FIRST untuk HTML (biar update app langsung kepakai),
 // cache-first untuk aset statis (logo, manifest).
-const CACHE_NAME = 'csk-business-os-v2.8-hpp-staging';
+const CACHE_NAME = 'csk-business-os-v2.9-email-staging';
 const ASSETS = [
   './',
   './index.html',
@@ -9,6 +9,8 @@ const ASSETS = [
   './sync-safe.js',
   './hpp-calculator.js',
   './hpp-ui.js',
+  './email-marketing.js',
+  './email-marketing-ui.js',
   './logo-horizontal.svg'
 ];
 
