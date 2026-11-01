@@ -44,7 +44,7 @@ function fakeCloud(initial, writeEnabled=true) {
         }
         return { type:'opaque' };
       }
-      return { ok: true, json: async ()=>({ status:'success', data:clone(rows) }) };
+      return { ok: true, json: async ()=>({ status:'success', protocolVersion:2, data:clone(rows) }) };
     }
   };
 }
@@ -62,7 +62,7 @@ test('send ONLY changed lead and confirm real cloud state', async ()=>{
   assert.equal(result.status,'verified');
   assert.equal(engine.countPending(),0);
   assert.equal(cloud.rows.leads[0].name,'Updated');
-  assert.deepEqual(Object.keys(cloud.calls[0]).sort(),['action','leads','token']);
+  assert.deepEqual(Object.keys(cloud.calls[0]).sort(),['action','leads','protocolVersion','token']);
 });
 
 test('delete is queued, verified, and does not resurrect record on pull',async()=>{
