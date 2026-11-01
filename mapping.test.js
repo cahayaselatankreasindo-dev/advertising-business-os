@@ -178,7 +178,7 @@ if (FIELD_MAP) {
 
 // ---------- 6. Tes BACA (doGet): Sheet -> field HTML ----------
 function callDoGet() {
-  const out = sandbox.doGet({ parameter: { token: _props.API_TOKEN } });
+  const out = sandbox.doGet({ parameter: { token: _props.API_TOKEN, protocolVersion: 2 } });
   return JSON.parse(out._t);
 }
 const got = callDoGet();
@@ -196,7 +196,9 @@ if (got.status === 'success') {
 
 // ---------- 7. Tes TULIS (sync_all): MERGE — tidak menghapus data lama ----------
 function callDoPost(payload, rawUnauthenticated = false) {
-  const body = rawUnauthenticated ? payload : { token: _props.API_TOKEN, ...payload };
+  const body = rawUnauthenticated
+    ? { protocolVersion: 2, ...payload }
+    : { protocolVersion: 2, token: _props.API_TOKEN, ...payload };
   const out = sandbox.doPost({ postData: { contents: JSON.stringify(body) } });
   return JSON.parse(out._t);
 }
