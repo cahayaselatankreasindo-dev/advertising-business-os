@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Advertising Business OS — The Scales / CSK</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1C2333">
@@ -75,9 +75,35 @@
       }
       .no-print { display: none !important; }
     }
+      /* Accessibility + compact mobile-first operational status */
+    *, *::before, *::after { box-sizing: border-box; }
+    :focus-visible { outline: 3px solid #F97316; outline-offset: 3px; }
+    .skip-link { position: fixed; z-index: 100; top: -80px; left: 16px; padding: 12px 18px; color: white; background: #1C2333; border-radius: 12px; }
+    .skip-link:focus { top: 12px; }
+    .sync-health { background: #F8FAFC; color: #334155; }
+    .sync-health[data-state="verified"] { background: #ECFDF5; border-color: #A7F3D0; }
+    .sync-health[data-state="verified"] .sync-health-dot { background: #059669; }
+    .sync-health[data-state="pending"], .sync-health[data-state="warning"] { background: #FFFBEB; border-color: #FDE68A; }
+    .sync-health[data-state="pending"] .sync-health-dot, .sync-health[data-state="warning"] .sync-health-dot { background: #D97706; }
+    .sync-health[data-state="error"] { background: #FEF2F2; border-color: #FECACA; }
+    .sync-health[data-state="error"] .sync-health-dot { background: #DC2626; }
+    .sync-health-dot { background: #64748B; width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+    .sync-health-actions button { min-height: 40px; }
+    .mob-btn { min-height: 48px; min-width: 44px; justify-content: center; gap: 2px; }
+    #toast { max-width: min(92vw, 540px); line-height: 1.55; }
+    @media (max-width: 767px) {
+      .pillar-mobile-nav { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+      .sync-health { padding: 10px 14px; }
+      .sync-health-actions button { min-height: 42px; }
+      input, select, textarea { font-size: 16px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
   </style>
 </head>
-<body class="h-screen flex flex-col md:flex-row overflow-hidden select-none">
+<body class="h-screen flex flex-col md:flex-row overflow-hidden">
+  <a class="skip-link" href="#main-content">Langsung ke konten utama</a>
 
   <!-- SIDEBAR (DESKTOP) -->
   <aside class="hidden md:flex flex-col w-64 bg-slate-900 text-slate-300 border-r border-slate-800 flex-shrink-0">
@@ -91,14 +117,15 @@
 
     <!-- Role Dropdown -->
     <div class="px-4 py-3 border-b border-slate-800">
-      <label class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block mb-1">Hak Akses</label>
+      <label for="role-select" class="text-[11px] text-slate-300 font-semibold uppercase tracking-wider block mb-1">Mode tampilan</label>
+      <p class="mb-2 text-[11px] leading-snug text-slate-400">Hanya menyembunyikan menu; bukan login atau pembatasan akses data.</p>
       <select id="role-select" onchange="onRoleChange(this.value)" class="w-full text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-amber-500">
         <option value="owner">Owner</option>
         <option value="team">Tim Kreatif / Admin</option>
       </select>
     </div>
 
-    <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
+    <nav aria-label="Navigasi utama" class="flex-1 p-3 space-y-1 overflow-y-auto">
       <button onclick="nav('dashboard')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition active">
         <i class="fa fa-tachometer w-5 text-amber-500"></i> Dasbor
       </button>
@@ -147,21 +174,35 @@
       </div>
       <div class="flex items-center gap-2">
         <!-- Role selector (mobile) -->
-        <select id="role-select-mob" onchange="onRoleChange(this.value)" class="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 rounded px-1.5 py-1">
+        <select id="role-select-mob" aria-label="Mode tampilan (bukan otorisasi)" title="Mode tampilan, bukan keamanan data" onchange="onRoleChange(this.value)" class="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 rounded px-1.5 py-1">
           <option value="owner">👤 Owner</option>
           <option value="team">👥 Tim</option>
         </select>
-        <button onclick="syncWithGoogle()" class="text-xs bg-slate-800 text-amber-400 px-2 py-1 rounded-md border border-slate-700 flex items-center gap-1.5">
+        <button type="button" onclick="syncWithGoogle()" aria-label="Periksa sinkronisasi cloud" class="text-xs bg-slate-800 text-amber-400 px-3 py-2 rounded-md border border-slate-700 flex items-center gap-1.5 min-h-11">
           <i class="fa fa-refresh"></i> Sync
         </button>
-        <button onclick="nav('settings')" class="text-slate-400 hover:text-white p-1">
+        <button type="button" onclick="nav('settings')" aria-label="Buka pengaturan" class="text-slate-400 hover:text-white p-2 min-w-11 min-h-11">
           <i class="fa fa-cog fa-lg"></i>
         </button>
       </div>
     </header>
 
+    <!-- Always-visible, truthful state of THIS device (not an authentication badge) -->
+    <div id="sync-banner" class="sync-health flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-200 px-4 py-3 md:px-8" data-state="warning">
+      <div class="flex min-w-0 items-center gap-3" role="status" aria-live="polite" aria-atomic="true">
+        <span class="sync-health-dot" aria-hidden="true"></span>
+        <div class="min-w-0">
+          <p id="sync-banner-title" class="text-sm font-bold leading-snug">Memeriksa penyimpanan…</p>
+          <p id="sync-banner-detail" class="text-xs leading-relaxed">Perubahan lokal belum tentu tersimpan di Google Sheets.</p>
+        </div>
+      </div>
+      <div class="sync-health-actions flex items-center gap-2">
+        <button type="button" onclick="exportData()" class="rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-100">Unduh backup</button>
+        <button type="button" onclick="nav('settings')" class="rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-700">Pengaturan cloud</button>
+      </div>
+    </div>
     <!-- Scrollable Content -->
-    <main class="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
+    <main id="main-content" tabindex="-1" aria-label="Konten Business OS" class="flex-1 overflow-y-auto p-4 md:p-8 pb-28 md:pb-8">
 
       <!-- 1. DASHBOARD -->
       <section id="page-dashboard" class="page-content space-y-6">
@@ -548,7 +589,7 @@
     </main>
 
     <!-- BOTTOM NAVIGATION (MOBILE) -->
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 flex justify-around py-2 z-40 pillar-mobile-nav">
+    <nav aria-label="Navigasi cepat seluler" class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 flex justify-around py-2 z-40 pillar-mobile-nav">
       <button onclick="nav('dashboard')" class="mob-btn flex flex-col items-center text-[10px] text-amber-500 active">
         <i class="fa fa-tachometer text-base mb-0.5"></i>Dasbor
       </button>
@@ -1036,7 +1077,7 @@
   </div>
 
   <!-- Toast Notification -->
-  <div id="toast" class="fixed bottom-16 md:bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-xl text-xs font-semibold opacity-0 pointer-events-none transition-all duration-300 z-50 flex items-center gap-2">
+  <div id="toast" role="status" aria-live="polite" aria-atomic="true" class="fixed bottom-16 md:bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-xl text-xs font-semibold opacity-0 pointer-events-none transition-all duration-300 z-50 flex items-center gap-2">
     <i id="toast-icon" class="fa fa-check-circle text-emerald-400"></i>
     <span id="toast-msg">Pesan</span>
   </div>
