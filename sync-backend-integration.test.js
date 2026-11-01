@@ -349,3 +349,27 @@ test('LAB handler wiring check fails closed if Code.gs has not been guarded',()=
     /LAB_HANDLER_GUARD_FAIL: doGet\/doPost belum memanggil guard/);
   assert.equal(api.sent.length,0);
 });
+
+test('won status never fabricates an incoming DP or project by default', () => {
+  const api = createBackend();
+  const lead = { id: 'TEST-WON-CHECK', date:'2026-11-02', name:'Test Account', phone:'',
+    source:'QA', value:4500000, status:'won', notes:'' };
+  const response = api.post({ action:'sync_all', token:'TEST_ONLY_LAB_API_TOKEN_2026_SAFE', leads:[lead] });
+  assert.equal(response.status, 'success');
+  assert.equal(api.read().data.leads.find(l => l.id === lead.id).status, 'won');
+  assert.equal(api.read().data.finance.length, 0, 'deal is not a cash deposit');
+  assert.equal(api.read().data.projects.length, 0, 'project creation is opt-in on backend');
+});
+
+test('missing backend API token rejects reads and writes (fail closed)', () => {
+  const api = createBackend();
+  api.sandbox.PropertiesService.getScriptProperties().setProperty('API_TOKEN','');
+  const attempted = api.post({
+    action:'sync_all', token:'TEST_ONLY_LAB_API_TOKEN_2026_SAFE',
+    leads:[{ id:'TEST-UNAUTHORIZED', name:'Should Never Save', status:'new' }]
+  });
+  assert.equal(attempted.status, 'error');
+  assert.equal(api.tables.Leads.getLastRow(), 1);
+  const read = api.read();
+  assert.equal(read.status, 'error', 'tokenless server cannot disclose cloud rows');
+});
