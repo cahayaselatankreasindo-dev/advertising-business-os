@@ -42,6 +42,9 @@ function cskLabGuardPost_(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new Error("LAB guard: invalid request body.");
   }
+  if (Number(payload.protocolVersion) !== 2) {
+    throw new Error("LAB guard: client protocol version unsupported.");
+  }
   if (!isAuthorized(payload)) {
     throw new Error("LAB guard: missing or incorrect API token.");
   }
@@ -53,7 +56,7 @@ function cskLabGuardPost_(payload) {
   }
   if (action === "delete") {
     Object.keys(payload).forEach(function(k) {
-      if (["action", "token", "sheet", "id"].indexOf(k) === -1) {
+      if (["action", "token", "protocolVersion", "sheet", "id"].indexOf(k) === -1) {
         throw new Error("LAB guard: unknown delete field.");
       }
     });
@@ -67,7 +70,7 @@ function cskLabGuardPost_(payload) {
   }
 
   // sync_all: write only six known domains; never allow opaque extra actions.
-  var permittedKeys = ["action", "token"].concat(Object.keys(CSK_LAB_WRITE_KEYS_));
+  var permittedKeys = ["action", "token", "protocolVersion"].concat(Object.keys(CSK_LAB_WRITE_KEYS_));
   Object.keys(payload).forEach(function(k) {
     if (permittedKeys.indexOf(k) === -1) {
       throw new Error("LAB guard: unknown sync payload key.");
@@ -119,39 +122,40 @@ function cskLabRunGuardNegativeTests() {
 
   // Accepted request shapes are validated, but never submitted.
   cskLabGuardPost_({
-    action: "sync_all", token: token,
+    action: "sync_all", token: token, protocolVersion: 2,
     leads: [{
       id: "QA-LAB-GUARD-PASS", date: "2026-10-31",
       name: "LAB GUARD DRY RUN", status: "new"
     }]
   });
   cskLabGuardPost_({
-    action: "delete", token: token,
+    action: "delete", token: token, protocolVersion: 2,
     sheet: "Leads", id: "QA-LAB-GUARD-PASS"
   });
 
   var forbidden = [
-    { action: "send_email", token: token },
-    { action: "update_status", token: token, id: "TEST-LEAD-001" },
-    { action: "insert", token: token, sheet: "Leads" },
-    { action: "sync_all", token: "" ,
+    { action: "send_email", protocolVersion: 2, token: token },
+    { action: "update_status", protocolVersion: 2, token: token, id: "TEST-LEAD-001" },
+    { action: "insert", protocolVersion: 2, token: token, sheet: "Leads" },
+    { action: "sync_all", protocolVersion: 2, token: "" ,
       leads: [{id:"QA-LAB-INVALID-TOKEN", status:"new"}] },
-    { action: "sync_all", token: token,
+    { action: "sync_all", protocolVersion: 2, token: token,
       leads: [{id:"REAL-CLIENT-123", status:"new"}] },
-    { action: "sync_all", token: token,
+    { action: "sync_all", protocolVersion: 2, token: token,
       leads: [{id:"QA-LAB-FORBIDDEN-WON", status:"won"}] },
-    { action: "sync_all", token: token,
+    { action: "sync_all", protocolVersion: 2, token: token,
       leads: [{id:"QA-LAB-FORBIDDEN-DEAL", status:"Deal Menang"}] },
-    { action: "sync_all", token: token,
+    { action: "sync_all", protocolVersion: 2, token: token,
       leads: [{id:"QA-LAB-OK", status:"new"}],
       extra: "not_allowed" },
-    { action: "delete", token: token, sheet:"Unknown",
+    { action: "delete", protocolVersion: 2, token: token, sheet:"Unknown",
       id: "QA-LAB-OK" },
-    { action: "delete", token: token, sheet:"Leads",
+    { action: "delete", protocolVersion: 2, token: token, sheet:"Leads",
       id: "REAL-CLIENT-123" },
-    { action: "delete", token: token, sheet:"Leads",
+    { action: "delete", protocolVersion: 2, token: token, sheet:"Leads",
       id: "QA-LAB-OK", extra: "not_allowed" },
-    { action: "sync_all", token: token, leads: [] }
+    { action: "sync_all", protocolVersion: 2, token: token, leads: [] }
+    { action: "sync_all", token: token, leads: [{id:"QA-LAB-MISSING-VERSION", status:"new"}] }
   ];
   var blocked = 0;
   forbidden.forEach(function (payload, index) {
