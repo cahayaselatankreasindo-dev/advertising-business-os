@@ -14,6 +14,7 @@ CSK Business OS adalah aplikasi internal Cahaya Selatan Kreasindo untuk CRM B2B,
 - Pengujian **backend LAB** yang dikonfirmasi owner: `LAB_TEST_PASS`, `LAB_GUARD_PASS` (12 request terlarang ditolak), `LAB_HANDLER_GUARD_PASS`.
 - Pengujian browser frontend dummy: **6/6 PASS**, semua request dimock, tidak ada permintaan API luar.
 - Workflow CI menjalankan test safe sync, integrasi backend emulator, mapping dan pemeriksaan brand preview.
+- Jalur backend lama pengiriman cold email dan instalasi trigger otomatis sudah dinonaktifkan **hanya dalam source PR draft**, dilindungi tes regresi. Deployment yang sudah ada tidak berubah.
 
 ## Layanan penting dan pemisahan data
 - **PRODUKSI**: GitHub Pages dari branch produksi + Google Sheets/database aktif + Apps Script utama. Jangan diubah tanpa backup dan release gate.
