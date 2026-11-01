@@ -147,7 +147,7 @@ test('recovery restores local snapshot without queuing old records to cloud', ()
 
 test('staged app starts without demo customers or baked-in production endpoint', () => {
   const html = fs.readFileSync('index.html', 'utf8');
-  assert.match(html, /let db = \{\s*\/\/[^\n]*\n\s*leads: \[\]/);
+  assert.match(html, /let db = \{\s*leads: \[\]/);
   assert.doesNotMatch(html, /AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_/);
   assert.match(html, /id="sync-banner"/);
   assert.doesNotMatch(html, /user-scalable=no/);
