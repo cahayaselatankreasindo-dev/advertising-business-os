@@ -14,6 +14,7 @@ on:
       - 'operations-core.js'
       - 'operations-ui.js'
       - 'operations.test.js'
+      - 'operations-photo-lab.browser.test.cjs'
       - 'photo-lab/Code.gs'
       - 'photo-lab/Index.html'
       - 'photo-lab/appsscript.json'
@@ -37,7 +38,7 @@ on:
 jobs:
   safe-sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -82,3 +83,17 @@ jobs:
           node photo-lab.test.js
       - name: Validate existing sheet mapping
         run: node mapping.test.js
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Browser test private photo LAB project handoff
+        run: node operations-photo-lab.browser.test.cjs
+      - name: Upload browser preview screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: csk-photo-lab-browser-preview
+          path: artifacts/*.png
+          if-no-files-found: ignore
+          retention-days: 7
