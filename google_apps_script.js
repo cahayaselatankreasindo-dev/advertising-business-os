@@ -320,7 +320,20 @@ function readSheetData(ss, sheetName) {
   });
 }
 
-// ============== KEAMANAN: TOKEN API (STAGED / NOT YET DEPLOYED) ==============
+// ============== KEAMANAN: TOKEN + PROTOKOL API (STAGED / NOT YET DEPLOYED) ==============
+// Protocol 2 rejects stale PWA clients that still send the legacy full-sync contract.
+// This is a compatibility guard, NOT user authentication or concurrency control.
+var CSK_API_PROTOCOL_VERSION = 2;
+
+function protocolMismatchResponse() {
+  return jsonResponse({
+    status: "error",
+    code: "CLIENT_PROTOCOL_MISMATCH",
+    protocolVersion: CSK_API_PROTOCOL_VERSION,
+    message: "Versi aplikasi tidak didukung. Muat ulang CSK Business OS sebelum sinkronisasi."
+  });
+}
+
 // FAIL CLOSED: no configured secret -> no GET/POST access.
 // For production use an authenticated backend, not an openly shared static app.
 function getApiToken() {
@@ -349,13 +362,16 @@ function isAuthorized(payloadOrEvent, tokenParam) {
 }
 
 function unauthorizedResponse() {
-  return jsonResponse({ status: "error", message: "Tidak diizinkan: token akses salah atau kosong." });
+  return jsonResponse({ status: "error", code: "UNAUTHORIZED", protocolVersion: CSK_API_PROTOCOL_VERSION, message: "Tidak diizinkan: token akses salah atau kosong." });
 }
 
 // ============== GET — TARIK DATA SEMUA TAB ==============
 
 function doGet(e) {
   try {
+    // Reject stale clients before exposing any cloud data.
+    var requestedProtocol = (e && e.parameter) ? e.parameter.protocolVersion : "";
+    if (Number(requestedProtocol) !== CSK_API_PROTOCOL_VERSION) return protocolMismatchResponse();
     // Proteksi token (via query string ?token=...)
     var tokenParam = (e && e.parameter) ? e.parameter.token : "";
     if (!isAuthorized(null, tokenParam)) return unauthorizedResponse();
@@ -370,7 +386,7 @@ function doGet(e) {
       marketingSpend: readSheetData(ss, "Marketing_Spend"),
       lastSynced: new Date().toISOString()
     };
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", data: result }))
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION, data: result }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
@@ -383,6 +399,8 @@ function doGet(e) {
 function doPost(e) {
   try {
     const payload = JSON.parse(e.postData.contents);
+    // Reject legacy/stale write contracts before any sheet mutation.
+    if (Number(payload.protocolVersion) !== CSK_API_PROTOCOL_VERSION) return protocolMismatchResponse();
 
     // Proteksi token (via field payload.token)
     if (!isAuthorized(payload)) return unauthorizedResponse();
