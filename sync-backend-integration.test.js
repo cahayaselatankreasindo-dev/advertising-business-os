@@ -87,8 +87,11 @@ function createBackend() {
   let ignorePosts = false;
   const server = {
     tables, sent,
-    read() { return JSON.parse(backend.doGet({ parameter: { token: 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE' } }).text); },
-    post(data) { return JSON.parse(backend.doPost({ postData: { contents: JSON.stringify(data) } }).text); },
+    read() { return JSON.parse(backend.doGet({ parameter: { token: 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE', protocolVersion: 2 } }).text); },
+    post(data) {
+      const payload = Object.assign({ protocolVersion: 2 }, data);
+      return JSON.parse(backend.doPost({ postData: { contents: JSON.stringify(payload) } }).text);
+    },
     suppressPosts(value) { ignorePosts = value; },
     fetch: async (url, opts = {}) => {
       if (opts.method === 'POST') {
@@ -97,10 +100,12 @@ function createBackend() {
         if (!ignorePosts) server.post(payload);
         return { type: 'opaque' }; // Apps Script POST CORS can't be inspected
       }
-      const token = new URL(url).searchParams.get('token');
+      const query = new URL(url).searchParams;
+      const token = query.get('token');
+      const protocolVersion = query.get('protocolVersion');
       return {
         ok: true,
-        json: async () => JSON.parse(backend.doGet({ parameter: { token } }).text)
+        json: async () => JSON.parse(backend.doGet({ parameter: { token, protocolVersion } }).text)
       };
     }
   };
@@ -127,7 +132,7 @@ test('real backend + real frontend delta: edit -> POST -> GET readback', async (
   assert.equal(engine.countPending(),0);
   assert.equal(api.read().data.leads.find(x=>x.id==='TEST-1').name,'Dummy B');
   assert.equal(api.sent.length,1);
-  assert.deepEqual(Object.keys(api.sent[0]).sort(),['action','leads','token']);
+  assert.deepEqual(Object.keys(api.sent[0]).sort(),['action','leads','protocolVersion','token']);
 });
 test('real backend + frontend: delete -> GET confirms missing', async () => {
   const api=createBackend();
@@ -213,19 +218,19 @@ test('LAB gateway guard allows only authorized synthetic data', () => {
     '19le34ltpZCMIHmjw2n_JbEvrtZBWNTKd61U-xEAoR5Y');
   const guardSmoke = ctx.cskLabRunGuardNegativeTests();
   assert.equal(guardSmoke.status,'LAB_GUARD_PASS');
-  assert.equal(guardSmoke.blockedUnsafeRequests,12);
+  assert.equal(guardSmoke.blockedUnsafeRequests,13);
   assert.equal(guardSmoke.databaseWritesPerformed,0);
   assert.equal(guardSmoke.emailSendsPerformed,0);
 
   const accepted = {
-    action:'sync_all',token:secret,leads:[
+    action:'sync_all',token:secret,protocolVersion:2,leads:[
       {id:'TEST-QA-NEW-1',date:'2026-10-31',name:'Dummy',status:'new'}
     ],
     finance:[{id:'QA-LAB-FIN-1',date:'2026-10-31',type:'expense',amount:175000}]
   };
   assert.doesNotThrow(()=>ctx.cskLabGuardPost_(accepted));
   assert.doesNotThrow(()=>ctx.cskLabGuardPost_({
-    action:'delete',token:secret,sheet:'Leads',id:'TEST-QA-NEW-1'
+    action:'delete',token:secret,protocolVersion:2,sheet:'Leads',id:'TEST-QA-NEW-1'
   }));
 
   const invalid = [
@@ -348,6 +353,20 @@ test('LAB handler wiring check fails closed if Code.gs has not been guarded',()=
   assert.throws(()=>ctx.cskLabVerifyActiveHandlers(),
     /LAB_HANDLER_GUARD_FAIL: doGet\/doPost belum memanggil guard/);
   assert.equal(api.sent.length,0);
+});
+
+test('backend rejects stale clients that omit protocol version on both read and write', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const legacyRead = JSON.parse(api.sandbox.doGet({ parameter: { token } }).text);
+  assert.equal(legacyRead.code, 'CLIENT_PROTOCOL_MISMATCH');
+  const beforeRows = api.tables.Leads.getLastRow();
+  const legacyWrite = JSON.parse(api.sandbox.doPost({ postData: { contents: JSON.stringify({
+    action: 'sync_all', token,
+    leads: [{ id: 'TEST-STALE-CLIENT', name: 'Must be rejected', status: 'new' }]
+  }) } }).text);
+  assert.equal(legacyWrite.code, 'CLIENT_PROTOCOL_MISMATCH');
+  assert.equal(api.tables.Leads.getLastRow(), beforeRows, 'legacy client must not mutate Sheets');
 });
 
 test('won status never fabricates an incoming DP or project by default', () => {
