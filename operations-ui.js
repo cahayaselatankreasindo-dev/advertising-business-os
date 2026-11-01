@@ -2,6 +2,11 @@
 (function(root){
 'use strict';
 const PANELS={followups:'Follow-up',quotes:'Penawaran & RAB',suppliers:'Supplier & Material',invoices:'Invoice & DP',qc:'QC Produksi',attribution:'Atribusi Marketing'};
+const PHOTO_URL_KEY='csk_photo_lab_uploader_url_v1';
+function validPhotoLabUrl(value){
+ try{const u=new URL(String(value||''));return u.origin==='https://script.google.com'&&!u.username&&!u.password&&/^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(u.pathname)&&!u.search&&!u.hash}
+ catch(error){return false}
+}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function rp(n){return 'Rp '+Number(n||0).toLocaleString('id-ID',{maximumFractionDigits:2})}
 function opt(value,label){return '<option value="'+esc(value)+'">'+esc(label)+'</option>'}
@@ -104,9 +109,14 @@ function mount(el,engine,read,hppEngine){
   const form='<form data-form="qc" class="ops-form">'+sel('Proyek dari CRM','projectId',projectSelect(read))+sel('Tahap produksi','stage',stages)+
    sel('Hasil','status',opt('pending','Belum selesai')+opt('done','Selesai / lulus QC')+opt('issue','Ada kendala / revisi'))+
    field('Tanggal pemeriksaan','date','date','required value="'+engine.today()+'"')+area('Catatan QC / bukti pekerjaan','note')+submit('Catat Progres / QC')+'</form>';
+  const savedPhotoUrl=localStorage.getItem(PHOTO_URL_KEY)||'';
+  const photoBox='<p class="ops-hint">Foto disimpan di Google Drive privat melalui aplikasi Apps Script LAB khusus owner, bukan di browser ini. Pilih proyek dan tahap di formulir QC, lalu buka uploader. Belum tersambung sampai URL LAB dikonfigurasi dan diuji.</p>'+
+   '<form data-form="photo-settings" class="ops-form"><label>URL uploader Apps Script LAB (khusus owner)<input name="uploaderUrl" type="url" autocomplete="off" spellcheck="false" required placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(savedPhotoUrl)+'"></label>'+submit('Simpan URL Uploader LAB')+'</form>'+
+   '<button type="button" class="ops-primary" data-action="photo-upload">Buka Upload Foto Proyek Privat</button>'+
+   '<p class="ops-hint">Jangan masukkan URL Apps Script produksi. Foto dan riwayatnya dapat dilihat dari uploader privat; progres QC lokal tidak otomatis berubah setelah unggah.</p>';
   const projects=(read().projects||[]).map(p=>{const x=engine.projectProgress(state,p.id);return '<div class="ops-progress"><strong>'+esc(p.name||p.projectName||p.id)+'</strong><span>'+x.done+'/'+x.total+' tahap · '+x.percent+'% · '+x.issues+' kendala</span><div class="ops-bar"><i style="width:'+x.percent+'%"></i></div></div>'}).join('');
   const list=[...state.qc].reverse().map(x=>'<div class="ops-record"><div><strong>'+esc(x.projectName)+' · '+esc(x.stage)+'</strong><small>'+esc(x.status)+' · '+esc(x.date)+'</small><p>'+esc(x.note||'Tanpa catatan')+'</p></div><button type="button" data-action="delete" data-kind="qc" data-id="'+esc(x.id)+'">Hapus</button></div>').join('');
-  return box('Catat tahap & QC proyek',form)+box('Progress proyek',projects||empty('Belum ada proyek pada CRM.'))+box('Log QC',list||empty('Belum ada catatan tahapan produksi.'));
+  return box('Catat tahap & QC proyek',form)+box('Foto Laporan Proyek · Google Drive Privat (LAB)',photoBox)+box('Progress proyek',projects||empty('Belum ada proyek pada CRM.'))+box('Log QC',list||empty('Belum ada catatan tahapan produksi.'));
  }
  function renderAttribution(){
   const channels=['Meta Ads','Google Ads','Website Organik','WhatsApp','Referral','Event','Lainnya'].map(x=>opt(x,x)).join('');
@@ -156,6 +166,15 @@ function mount(el,engine,read,hppEngine){
    message('Backup dibuat di perangkat. Simpan di lokasi pribadi; berisi data bisnis.');return;
   }
   if(act==='import'){$('#ops-import-file').click();return}
+  if(act==='photo-upload'){
+   const qcForm=$('[data-form="qc"]'),projectId=qcForm?.elements.projectId.value,stage=qcForm?.elements.stage.value;
+   if(!findProject(projectId)||!engine.STAGES.includes(stage))return message('Pilih proyek CRM dan tahap QC yang valid terlebih dahulu.',true);
+   const configured=localStorage.getItem(PHOTO_URL_KEY)||'';
+   if(!validPhotoLabUrl(configured))return message('URL uploader LAB belum diatur atau formatnya tidak valid.',true);
+   const url=new URL(configured);url.searchParams.set('projectId',projectId);url.searchParams.set('stage',stage);
+   window.open(url.toString(),'_blank','noopener,noreferrer');
+   return message('Uploader LAB diminta dibuka pada tab baru. Masuk dengan akun owner CSK; tidak ada foto yang dikirim oleh halaman ini.');
+  }
   if(act==='done')return apply(()=>engine.update(state,'followups',id,{status:'done'}),'Follow-up ditandai selesai.');
   if(act==='delete'){
    const kind=btn.dataset.kind;
@@ -179,6 +198,12 @@ function mount(el,engine,read,hppEngine){
  el.addEventListener('submit',e=>{
   const form=e.target.closest('form[data-form]');if(!form)return;
   e.preventDefault();const kind=form.dataset.form,data=formValues(form);
+  if(kind==='photo-settings'){
+   if(!validPhotoLabUrl(data.uploaderUrl))return message('Gunakan URL HTTPS Apps Script LAB berakhiran /exec tanpa parameter. URL produksi dilarang.',true);
+   try{localStorage.setItem(PHOTO_URL_KEY,data.uploaderUrl);draw();message('Alamat uploader LAB disimpan di browser ini; belum membuktikan koneksi, privasi, atau keberhasilan unggah.')}
+   catch(error){message('Gagal menyimpan pengaturan URL pada browser.',true)}
+   return;
+  }
   if(kind==='followups'||kind==='attribution'){
    const lead=findLead(data.leadId);if(!lead)return message('Lead tidak tersedia pada CRM.',true);
    data.leadName=lead.name||lead.brand||lead.id;
@@ -213,7 +238,7 @@ function mount(el,engine,read,hppEngine){
  draw();
  return {refresh:draw,exportState:()=>state};
 }
-const API={mount,esc,rp};
+const API={mount,esc,rp,validPhotoLabUrl};
 root.CSKOperationsUI=API;
 if(typeof module!=='undefined'&&module.exports)module.exports=API;
 })(typeof window!=='undefined'?window:globalThis);

@@ -101,10 +101,12 @@ test('backup merges IDs without overwriting existing records and protects relati
  assert.throws(()=>ops.load({...ops.empty(),schemaVersion:999}),/Versi backup/);
  assert.throws(()=>ops.mergeBackup(ops.empty(),{...ops.empty(),invoices:[{quoteId:'missing',number:'INV',issued:'2026-11-02',due:'2026-11-03',amount:10}]}),/tanpa penawaran/);
 });
-test('UI remains local-only and escapes untrusted text',()=>{
+test('UI keeps Operations data local and opens only an explicit owner-controlled LAB uploader',()=>{
  assert.equal(ui.esc('<img src=x onerror=alert(1)>'),'&lt;img src=x onerror=alert(1)&gt;');
  const source=fs.readFileSync(require.resolve('./operations-ui.js'),'utf8');
- assert.doesNotMatch(source,/\bfetch\s*\(|\bXMLHttpRequest\b|MailApp|GmailApp|script\.google\.com/);
+ assert.doesNotMatch(source,/\bfetch\s*\(|\bXMLHttpRequest\b|MailApp|GmailApp|google\.script\.run/);
+ assert.match(source,/validPhotoLabUrl/);
+ assert.match(source,/Buka Upload Foto Proyek Privat/);
  assert.match(source,/RAB Internal JSON/);
  assert.match(source,/Print → Save as PDF/);
  assert.doesNotMatch(source,/Subtotal biaya<\/th>/);

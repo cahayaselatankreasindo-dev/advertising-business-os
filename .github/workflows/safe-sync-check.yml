@@ -14,6 +14,11 @@ on:
       - 'operations-core.js'
       - 'operations-ui.js'
       - 'operations.test.js'
+      - 'photo-lab/Code.gs'
+      - 'photo-lab/Index.html'
+      - 'photo-lab/appsscript.json'
+      - 'photo-lab.test.js'
+      - 'docs/photo-reports-staging.md'
       - 'preview/CSK-Email-Marketing-Offline.html'
       - 'sync-safe.js'
       - 'sync-safe.test.js'
@@ -63,5 +68,10 @@ jobs:
           node --check operations-core.js
           node --check operations-ui.js
           node operations.test.js
+      - name: Test owner-only private Drive photo LAB guards (mock, not live upload)
+        run: |
+          node --check --input-type=commonjs < photo-lab/Code.gs
+          node --check photo-lab.test.js
+          node photo-lab.test.js
       - name: Validate existing sheet mapping
         run: node mapping.test.js
