@@ -33,7 +33,7 @@ function safeRow(lead){
  const l=lead&&typeof lead==='object'?lead:{};
  return {
   id:clean(l.id,120),
-  brand:clean(l.name,160),
+  brand:clean(l.name??l.brand,160),
   email:normalEmail(l.email),
   pic:clean(l.pic,120),
   picTitle:clean(l.picTitle,100),
@@ -99,7 +99,7 @@ function compose(lead,ledger,subject,body){
 }
 function draftUrl(mail){
  if(!mail||!validEmail(mail.to))throw Error('Draft tidak valid.');
- return 'mailto:'+encodeURIComponent(mail.to)+'?subject='+encodeURIComponent(mail.subject)+'&body='+encodeURIComponent(mail.body);
+ return 'mailto:'+encodeURIComponent(mail.to).replace('%40','@')+'?subject=+encodeURIComponent(mail.subject)+'&body='+encodeURIComponent(mail.body);
 }
 function csvCell(v){
  let s=String(v??'').replace(/\r\n?/g,'\n');
