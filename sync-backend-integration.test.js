@@ -157,7 +157,7 @@ test('real backend + real frontend delta: edit -> POST -> GET readback', async (
   assert.equal(engine.countPending(),0);
   assert.equal(api.read().data.leads.find(x=>x.id==='TEST-1').name,'Dummy B');
   assert.equal(api.sent.length,1);
-  assert.deepEqual(Object.keys(api.sent[0]).sort(),['action','leads','protocolVersion','token']);
+  assert.deepEqual(Object.keys(api.sent[0]).sort(),['action','expectedRecords','leads','protocolVersion','token']);
 });
 test('real backend + frontend: delete -> GET confirms missing', async () => {
   const api=createBackend();
