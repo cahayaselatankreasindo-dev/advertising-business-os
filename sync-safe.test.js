@@ -126,3 +126,38 @@ test('browser inline script still parses',()=>{
   assert.ok(scripts.length>0,'inline script present');
   assert.doesNotThrow(()=>new vm.Script(scripts[scripts.length-1][1],{filename:'index.html'}));
 });
+
+
+test('recovery restores local snapshot without queuing old records to cloud', () => {
+  const storage = store();
+  const db = fixture();
+  const engine = createEngine(storage, fakeCloud(fixture()).fetch);
+  engine.init(db);
+  db.leads[0].name = 'Pending edit';
+  engine.track(db);
+  assert.equal(engine.countPending(), 1);
+  const restored = fixture('Backup-only');
+  engine.restoreLocalOnly(restored);
+  assert.equal(engine.countPending(), 0);
+  assert.equal(engine.verifiedAt, '');
+  const reopened = createEngine(storage, fakeCloud(fixture()).fetch);
+  reopened.init(restored);
+  assert.equal(reopened.countPending(), 0, 'old backup must not auto-upload after reload');
+});
+
+test('staged app starts without demo customers or baked-in production endpoint', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.match(html, /let db = \{\s*\/\/[^\n]*\n\s*leads: \[\]/);
+  assert.doesNotMatch(html, /AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_/);
+  assert.match(html, /id="sync-banner"/);
+  assert.doesNotMatch(html, /user-scalable=no/);
+  assert.match(html, /if \(pending > 0\) \{/);
+  assert.match(html, /safeSync\.restoreLocalOnly\(db\)/);
+});
+
+test('staged backend never treats a won lead as a cash deposit', () => {
+  const source = fs.readFileSync('google_apps_script.js', 'utf8');
+  assert.doesNotMatch(source, /id:\s*"AUTO-FIN-/);
+  assert.match(source, /AUTO_PROJECT_FROM_WON/);
+  assert.match(source, /if \(!expected \|\| expected\.length < 20/);
+});
