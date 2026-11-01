@@ -19,11 +19,12 @@ function labHarness() {
     CSK_PHOTO_LAB_SPREADSHEET_ID:'ABCDEFGHIJKLMNOPQRSTUVWXYZ9876',
     CSK_PHOTO_ENABLE_WRITE:'true'
   };
-  const state={active:'owner@example.com',effective:'owner@example.com',folderName:'LAB - Foto Laporan Proyek Business OS (DRAFT)',private:true,created:0,rows:[],marker:'CSK_PHOTO_LAB_ONLY_V1',folderEditors:[],folderViewers:[],failMetadata:false};
+  const state={active:'owner@example.com',effective:'owner@example.com',folderName:'LAB - Foto Laporan Proyek Business OS (DRAFT)',private:true,created:0,rows:[],marker:'CSK_PHOTO_LAB_ONLY_V1',folderEditors:[],folderViewers:[],failMetadata:false,orphanNames:new Map()};
   const folder={
     getId:()=>config.CSK_PHOTO_LAB_FOLDER_ID,getName:()=>state.folderName,
     getSharingAccess:()=>state.private?'PRIVATE':'ANYONE',getEditors:()=>state.folderEditors,getViewers:()=>state.folderViewers,
-    createFile:()=>{state.created++;return{getId:()=>`LABFILE_${state.created}`}}
+    getFilesByName:name=>({hasNext:()=>state.orphanNames.has(name),next:()=>({getId:()=>state.orphanNames.get(name)})}),
+    createFile:blob=>{state.created++;const id=`LABFILE_${state.created}`;state.orphanNames.set(blob.name,id);return{getId:()=>id}}
   };
   const report={
     getLastRow:()=>1+state.rows.length,
@@ -45,7 +46,7 @@ function labHarness() {
   });
   vm.runInContext(code,ctx,{filename:'Code.gs'});
   const call=(name,...args)=>vm.runInContext(name,ctx)(...args);
-  const payload={projectId:'PRJ-001',stage:'Fabrikasi',caption:'Rangka selesai',mime:'image/png',base64:png.toString('base64'),originalName:'bukti.png'};
+  const payload={projectId:'PRJ-001',stage:'Fabrikasi',caption:'Rangka selesai',mime:'image/png',base64:png.toString('base64'),originalName:'bukti.png',requestId:'11111111-1111-4111-8111-111111111111'};
   return {config,state,payload,call};
 }
 
@@ -97,7 +98,7 @@ test('Caption awalan formula diamankan saat tersimpan di Sheets',()=>{
   const h=labHarness();h.call('uploadPhoto',{...h.payload,caption:'=HYPERLINK("evil")'});assert.equal(h.state.rows[0][4],'\'=HYPERLINK("evil")');
 });
 test('Daftar foto dibatasi hanya untuk ID proyek yang diminta',()=>{
-  const h=labHarness();h.call('uploadPhoto',h.payload);h.call('uploadPhoto',{...h.payload,projectId:'PRJ-002'});
+  const h=labHarness();h.call('uploadPhoto',h.payload);h.call('uploadPhoto',{...h.payload,projectId:'PRJ-002',requestId:'22222222-2222-4222-8222-222222222222'});
   const rows=h.call('listProjectPhotos','PRJ-001');assert.equal(rows.length,1);assert.match(rows[0].fileUrl,/LABFILE_1/);
 });
 test('Kegagalan metadata tidak mengklaim sukses penuh dan tidak menghapus file',()=>{
@@ -105,6 +106,25 @@ test('Kegagalan metadata tidak mengklaim sukses penuh dan tidak menghapus file',
   const result=h.call('uploadPhoto',h.payload);
   assert.equal(result.ok,false);assert.equal(result.needsReview,true);
   assert.equal(h.state.created,1);assert.equal(result.fileId,'LABFILE_1');
+});
+test('Retry dengan requestId sama tidak mencipta file atau metadata duplikat',()=>{
+  const h=labHarness();const first=h.call('uploadPhoto',h.payload);const retry=h.call('uploadPhoto',h.payload);
+  assert.equal(first.ok,true);assert.equal(retry.ok,true);assert.equal(retry.duplicate,true);
+  assert.equal(h.state.created,1);assert.equal(h.state.rows.length,1);
+});
+test('Retry orphan metadata gagal ditahan tanpa membuat file kedua',()=>{
+  const h=labHarness();h.state.failMetadata=true;
+  const first=h.call('uploadPhoto',h.payload);const retry=h.call('uploadPhoto',h.payload);
+  assert.equal(first.needsReview,true);assert.equal(retry.needsReview,true);
+  assert.equal(h.state.created,1);assert.equal(h.state.rows.length,0);
+});
+test('ID unggahan sama untuk proyek berbeda ditolak',()=>{
+  const h=labHarness();h.call('uploadPhoto',h.payload);
+  assert.throws(()=>h.call('uploadPhoto',{...h.payload,projectId:'PRJ-OTHER'}),/Identitas unggahan/);
+});
+test('Identitas unggahan hilang atau tidak valid ditolak',()=>{
+  const h=labHarness();for(const requestId of ['', 'not-a-uuid'])assert.throws(()=>h.call('uploadPhoto',{...h.payload,requestId}),/Identitas unggahan/);
+  assert.equal(h.state.created,0);
 });
 test('Unggah batch menampilkan jumlah yang sukses sebelum gagal dan memuat ulang riwayat tanpa menghapus status',()=>{
   assert.match(html,/let saved=0/);
