@@ -511,12 +511,12 @@
           <div class="flex items-center gap-2 text-amber-400 font-bold font-heading text-sm uppercase tracking-wider">
             <i class="fa fa-compass"></i> Pedoman Strategis Bisnis CSK
           </div>
-          <ul class="text-xs text-slate-300 space-y-2 list-disc list-inside">
-            <li><strong>Paket UMKM:</strong> Mulai Rp 1.500.000 (Desain Logo Saja) untuk perputaran cash cepat.</li>
-            <li><strong>Paket Menengah ke Atas:</strong> Mulai Rp 8.000.000 (Logo + Brand Guidelines + Stationery + Vector Editable) untuk margin tinggi.</li>
-            <li><strong>Siklus Kas:</strong> Selalu terapkan sistem DP minimal 50% sebelum proyek produksi dimulai.</li>
-            <li><strong>Product-Market Fit:</strong> Gunakan rating bintang di tab Klien untuk melacak kepuasan dan repeat order potential.</li>
-            <li><strong>Marketing ROI:</strong> Catat setiap iklan di tab Marketing. Bandingkan CPL vs nilai deal ratarata untuk evaluasi efisiensi.</li>
+          <ul class="text-sm text-slate-300 space-y-2 list-disc pl-5">
+            <li><strong>Penjualan B2B:</strong> Catat kebutuhan, lokasi pemasangan, estimasi nilai, dan tanggal follow-up untuk setiap prospek.</li>
+            <li><strong>Produksi:</strong> Pastikan gambar kerja, ukuran, material, revisi, dan tenggat sudah disepakati sebelum pengerjaan.</li>
+            <li><strong>Keuangan:</strong> Pisahkan nilai deal, invoice, dan uang yang benar-benar diterima; jangan anggap deal sebagai DP.</li>
+            <li><strong>Pengadaan:</strong> Susun HPP dan biaya pemasangan sebelum menentukan harga penawaran produk custom.</li>
+            <li><strong>Pemasaran:</strong> Ukur CPL dari biaya dan lead aktual. ROAS baru valid bila penjualan ditautkan ke iklan yang menghasilkan transaksi.</li>
           </ul>
         </div>
       </section>
@@ -1747,28 +1747,26 @@
 
     function renderAnalysis() {
       const wonLeads = db.leads.filter(l => l.status === 'won');
-      const totalWonVal = wonLeads.reduce((a, b) => a + Number(b.value || 0), 0);
+      const totalWonVal = wonLeads.reduce((n, l) => n + (Number(l.value) || 0), 0);
       const avgDeal = wonLeads.length ? Math.round(totalWonVal / wonLeads.length) : 0;
-
-      const totalIncome = db.finance.filter(f => f.type === 'income').reduce((a, b) => a + Number(b.amount || 0), 0);
-      const adSpend = db.finance.filter(f => f.type === 'expense' && f.category && f.category.includes('Iklan')).reduce((a, b) => a + Number(b.amount || 0), 0);
-      const totalMktSpend = db.marketingSpend.reduce((a, b) => a + Number(b.spent || 0), 0);
-      const adRatio = totalIncome ? Math.round(((adSpend + totalMktSpend) / totalIncome) * 100) : 0;
-
-      const netProfit = totalIncome - (db.finance.filter(f => f.type === 'expense').reduce((a, b) => a + Number(b.amount || 0), 0) + totalMktSpend);
-      const marginPct = totalIncome ? Math.round((netProfit / totalIncome) * 100) : 0;
-      const healthLabel = marginPct >= 50 ? 'Sangat Sehat' : marginPct >= 30 ? 'Cukup Sehat' : 'Perlu Perhatian';
-      const healthColor = marginPct >= 50 ? 'text-emerald-600' : marginPct >= 30 ? 'text-amber-600' : 'text-red-600';
-
-      const totalSpentAds = totalMktSpend + adSpend;
-      const roas = totalSpentAds > 0 ? (totalIncome / totalSpentAds).toFixed(2) + 'x' : '—';
-
-      document.getElementById('ana-avg-deal').innerText = formatRp(avgDeal);
-      document.getElementById('ana-adspend-ratio').innerText = adRatio + '%';
-      const healthEl = document.getElementById('ana-health');
-      healthEl.innerText = healthLabel;
-      healthEl.className = 'text-2xl font-bold mt-2 ' + healthColor;
-      document.getElementById('ana-roas').innerText = roas;
+      const receipts = db.finance.filter(f => f.type === 'income').reduce((n, f) => n + (Number(f.amount) || 0), 0);
+      const expenses = db.finance.filter(f => f.type === 'expense').reduce((n, f) => n + (Number(f.amount) || 0), 0);
+      const recordedCashDifference = receipts - expenses;
+      const adsRecorded = db.marketingSpend.reduce((n, m) => n + (Number(m.spent) || 0), 0);
+      // Marketing spend and Finance expense can refer to the SAME transaction:
+      // never add both tables as if they were independent expenses.
+      const recordedAdsRatio = receipts > 0 ? Math.round(adsRecorded / receipts * 100) : null;
+      const cashLabel = db.finance.length === 0 ? 'Belum ada data'
+        : recordedCashDifference >= 0 ? 'Kas tercatat positif' : 'Kas tercatat negatif';
+      const cashColor = db.finance.length === 0 ? 'text-slate-700'
+        : recordedCashDifference >= 0 ? 'text-emerald-700' : 'text-red-700';
+      document.getElementById('ana-avg-deal').textContent = formatRp(avgDeal);
+      document.getElementById('ana-adspend-ratio').textContent =
+        recordedAdsRatio === null ? '—' : recordedAdsRatio + '%';
+      const statusEl = document.getElementById('ana-health');
+      statusEl.textContent = cashLabel;
+      statusEl.className = 'text-xl font-bold mt-2 ' + cashColor;
+      document.getElementById('ana-roas').textContent = 'Belum terukur';
     }
 
     // ============== SUBMIT HANDLERS ==============
