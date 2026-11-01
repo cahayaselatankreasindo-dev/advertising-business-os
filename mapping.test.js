@@ -94,6 +94,7 @@ const ContentServiceStub = {
   },
 };
 const ScriptAppStub = { getProjectTriggers() { return []; } };
+const LockServiceStub = { getScriptLock() { return { waitLock() {}, releaseLock() {} }; } };
 const LoggerStub = { log() {} };
 // Stub PropertiesService (in-memory) untuk fitur token API
 const TEST_API_TOKEN = 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET';
@@ -115,6 +116,7 @@ const sandbox = {
   SpreadsheetApp: SpreadsheetAppStub,
   ContentService: ContentServiceStub,
   ScriptApp: ScriptAppStub,
+  LockService: LockServiceStub,
   Logger: LoggerStub,
   PropertiesService: PropertiesServiceStub,
   MailApp: MailAppStub,
@@ -199,6 +201,30 @@ function callDoPost(payload, rawUnauthenticated = false) {
   const body = rawUnauthenticated
     ? { protocolVersion: 2, ...payload }
     : { protocolVersion: 2, token: _props.API_TOKEN, ...payload };
+  if (body.action === 'sync_all' && !body.expectedRecords) {
+    body.expectedRecords = {};
+    const areaSheets = {
+      leads: 'Leads', clients: 'Clients', projects: 'Projects',
+      finance: 'Finance', memory: 'Memory', marketingSpend: 'Marketing_Spend'
+    };
+    Object.keys(areaSheets).forEach(area => {
+      if (!Array.isArray(body[area]) || !body[area].length) return;
+      const sheetName = areaSheets[area];
+      const current = sandbox.readSheetData(sandbox.SpreadsheetApp.getActiveSpreadsheet(), sheetName);
+      const versions = {};
+      body[area].forEach(record => {
+        const id = String(record.id);
+        const existing = current.find(row => String(row.id) === id);
+        versions[id] = existing ? sandbox.stableRecordFingerprint_(existing) : null;
+      });
+      body.expectedRecords[sheetName] = versions;
+    });
+  }
+  if (body.action === 'delete' && body.expectedFingerprint === undefined) {
+    const current = sandbox.readSheetData(sandbox.SpreadsheetApp.getActiveSpreadsheet(), body.sheet || 'Leads')
+      .find(row => String(row.id) === String(body.id));
+    body.expectedFingerprint = current ? sandbox.stableRecordFingerprint_(current) : 'NO_BASELINE';
+  }
   const out = sandbox.doPost({ postData: { contents: JSON.stringify(body) } });
   return JSON.parse(out._t);
 }
