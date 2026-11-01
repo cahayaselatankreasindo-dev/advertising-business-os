@@ -1828,7 +1828,7 @@
 
       showToast('Mengirim cold email (' + (sentCount + 1) + '/50)...');
       try {
-        const res = await fetch(db.settings.googleSheetUrl, {
+        await fetch(db.settings.googleSheetUrl, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
@@ -1841,16 +1841,10 @@
           })
         });
 
-        // Simpan increment counter lokal
+        // no-cors POST is opaque: the browser CANNOT confirm that Gmail sent it.
+        // Count attempts to prevent rapid resubmits, but do not advance CRM status.
         localStorage.setItem(todayKey, String(sentCount + 1));
-
-        // Tandai status jadi contacted jika sebelumnya new
-        if (lead.status === 'new') {
-          lead.status = 'contacted';
-        }
-        lead.notes = (lead.notes ? lead.notes + ' | ' : '') + 'Cold email terkirim (' + (sentCount + 1) + '/50) ' + new Date().toISOString().slice(0, 10);
-        saveDB();
-        showToast('Cold email berhasil dikirim ke ' + lead.email + ' (' + (sentCount + 1) + '/50 hari ini)!');
+        showToast('Permintaan pengiriman telah diajukan, BELUM terverifikasi. Cek folder Terkirim di Gmail sebelum mengulang.', true);
       } catch (err) {
         console.error(err);
         showToast('Gagal mengirim email: ' + err.message, true);
@@ -1860,7 +1854,9 @@
     function convertLeadToWon(id) {
       const lead = db.leads.find(l => l.id === id);
       if (!lead) return;
+      if (lead.status === 'won') { showToast('Lead ini sudah Deal Menang; proyek tidak dibuat ulang.'); return; }
       lead.status = 'won';
+      const projectRef = '[LEAD-' + lead.id + ']';
 
       if (!db.clients.some(c => c.name.toLowerCase() === lead.name.toLowerCase())) {
         db.clients.unshift({
@@ -1875,19 +1871,21 @@
         });
       }
 
-      db.projects.unshift({
-        id: Date.now().toString(),
-        title: 'Proyek ' + lead.name,
-        client: lead.name,
-        value: lead.value,
-        status: 'plan',
-        deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
-        notes: lead.notes || 'Hasil konversi Deal',
-        sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
-      });
+      if (!db.projects.some(p => String(p.notes || '').includes(projectRef))) {
+        db.projects.unshift({
+          id: 'PRJ-' + Date.now() + '-' + String(lead.id),
+          title: 'Proyek ' + lead.name,
+          client: lead.name,
+          value: lead.value,
+          status: 'plan',
+          deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+          notes: (lead.notes ? lead.notes + ' · ' : '') + 'Hasil konversi ' + projectRef,
+          sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
+        });
+      }
 
       saveDB();
-      showToast('Lead ditandai DEAL & otomatis masuk ke Klien, Proyek, dan jurnal Keuangan!');
+      showToast('Deal Menang tercatat dan draft proyek disiapkan. DP belum dianggap diterima; catat pembayaran di Keuangan setelah uang masuk.');
     }
 
     /**
