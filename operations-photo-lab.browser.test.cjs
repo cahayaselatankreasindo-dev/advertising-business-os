@@ -144,7 +144,7 @@ async function main() {
     });
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.locator('.mob-btn').filter({ hasText: /^Ops$/ }).click();
+    await page.locator('.mob-btn').filter({ hasText: 'Ops' }).click();
     assert.equal(await page.locator('#page-ops').isVisible(), true);
     const widths = await page.evaluate(() => ({
       viewport: window.innerWidth,
