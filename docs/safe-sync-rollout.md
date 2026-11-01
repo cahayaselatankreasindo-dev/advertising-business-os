@@ -10,7 +10,7 @@ Branch `main` lama menyinkronkan seluruh tabel dan menyatakan POST `no-cors` ber
 
 1. `sync-safe.js`: antrean perubahan per ID, snapshot awal, preflight konflik, POST hanya perubahan, GET readback sebelum menandai terverifikasi, serta penanganan offline/retry yang mempertahankan queue lokal. Setiap upsert mengirim `expectedRecords` per sheet/ID; delete mengirim `expectedFingerprint`.
 2. Penggabungan startup menjaga perubahan lokal pending dan memakai cloud untuk record yang tidak berubah. Tidak melakukan upload massal data lama dari perangkat.
-3. Tarik manual ditolak bila queue belum kosong. Backup JSON membuang API URL/token sebelum diunduh, namun file masih memuat data bisnis sensitif. Restore hanya lokal, memutus koneksi cloud dan tidak mengirim backup sebagai perubahan baru.
+3. Tarik manual ditolak bila queue belum kosong. Backup JSON membuang API URL/token sebelum diunduh, memuat data bisnis sensitif, dan menyertakan hingga 20 pasangan snapshot konflik (versi lokal/cloud) untuk pemulihan. Restore hanya lokal, memutus koneksi cloud dan tidak mengirim backup sebagai perubahan baru.
 4. Status UX tetap terlihat: perangkat lokal, belum tersetel, token/config salah, offline, antrean, error/konflik, dan tanggal verifikasi terakhir. Data demo dan endpoint produksi tidak dibundel pada fresh install.
 5. Aksesibilitas/mobile: pinch zoom, target tombol lebih besar, label form, dialog, keyboard Escape, focus-visible, screen-reader live status, dan layar kosong yang menunjukkan langkah pertama.
 6. PWA cache tidak mencegat URL Apps Script cross-origin; service worker dibump untuk staged update.
