@@ -21,7 +21,7 @@
 | Finance | Deal Menang tidak mengubah kas masuk otomatis | Test backend emulator; real backend belum |
 | Iklan | CPL tersedia dari data tercatat; ROAS “Belum terukur” tanpa atribusi | Kode tersedia |
 | Role “Tim” | Menu boleh disembunyikan tetapi label tegas bukan kontrol akses | Kode tersedia; server role belum |
-| Stale PWA | Pengguna yang masih membuka JS lama tidak boleh mengirim full-sync ke backend baru | **BELUM** — release blocker |
+| Stale PWA | Pengguna yang masih membuka JS lama tidak boleh membaca atau mengirim full-sync ke backend baru | Source-level protocol gate tersedia; live endpoint test masih wajib |
 | Akses otentik | Pengguna tim tidak dapat membaca/mengubah keuangan dengan request langsung | **BELUM** — release blocker |
 
 ## Release gates (wajib)
@@ -32,7 +32,7 @@
 
 **Gate C: HTTP.** Browser test nyata terhadap endpoint staging terpisah dan terautentikasi; lakukan GET/POST, readback, koneksi timeout, POST blocked, offline, multi-device, rollback, dan cek CORS dengan Google Apps Script. **Belum terpenuhi.**
 
-**Gate D: Concurrency.** Validasi atomik per-record di backend (expectedVersion, LockService, dan revisi saat delete); cek klien PWA versi lama ditolak untuk write yang tidak aman. **Belum terpenuhi.**
+**Gate D: Concurrency.** Validasi atomik di backend (expectedVersion/revision dan LockService) serta conflict resolution UI. Belum terpenuhi. Protocol gate untuk stale PWA sudah ada di source; tetap verifikasi request versi lama ditolak pada endpoint staging.
 
 **Gate E: Server access.** Autentikasi pengguna dan otorisasi Finance, Marketing, user admin, akses ekspor per role; batasi data sensitif dari aplikasi publik. Dropdown role client-only **tidak cukup**. **Belum terpenuhi.**
 
