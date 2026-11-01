@@ -235,6 +235,35 @@
     .em-empty{padding:20px;font-size:12px;color:#888;text-align:center}
     @media(max-width:1050px){.em-layout{grid-template-columns:1fr}.em-contact-list{max-height:400px}}
     @media(max-width:640px){.em-hero{padding:20px;flex-direction:column}.em-card{padding:17px}.em-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.em-stats div{padding:13px}.em-stats strong{font-size:23px}.em-filters{grid-template-columns:1fr 1fr}.em-contact{flex-direction:column;align-items:flex-start}.em-contact-buttons{flex-direction:row}.em-actions button{flex:1}.em-pill{font-size:9px}}
+
+    /* Persona guide: read-only B2B knowledge, no data-sync side effects. */
+    #page-personas{font-family:Montserrat,system-ui,sans-serif}
+    .csk-persona-toolbar{display:grid;grid-template-columns:2fr 1fr;gap:14px;padding:18px;background:#fff;border:1px solid #E6E2DB;border-radius:16px}
+    .csk-persona-toolbar label{display:flex;flex-direction:column;gap:8px;font-size:12px;font-weight:700;color:#333}
+    .csk-persona-toolbar input,.csk-persona-toolbar select{min-width:0;width:100%;font-size:14px;padding:12px;border:1px solid #DCD6CE;border-radius:10px;background:#fff}
+    .csk-persona-count{font-size:12px;color:#5C5751;margin:14px 0;font-weight:700}
+    .csk-persona-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+    .csk-persona-card{background:#fff;border:1px solid #E6E2DB;border-radius:16px;padding:20px;min-width:0;display:flex;flex-direction:column;gap:12px}
+    .csk-persona-cardtop{display:flex;justify-content:space-between;align-items:center;gap:9px;flex-wrap:wrap}
+    .csk-persona-id{font-size:11px;background:#0B0B0B;color:#FF8A3D;border-radius:100px;padding:5px 10px;font-weight:800}
+    .csk-persona-tier{font-size:10px;background:#FFF0E5;color:#8F4C1D;border-radius:100px;padding:5px 9px;font-weight:700}
+    .csk-persona-card h3{font-size:16px;line-height:1.4;font-weight:800;color:#0B0B0B}
+    .csk-persona-card p,.csk-persona-detail{font-size:12px;line-height:1.7;color:#4B4B4B}
+    .csk-persona-card strong{color:#262626}
+    .csk-persona-muted{font-size:11px!important;color:#6C6760!important;line-height:1.7}
+    .csk-persona-card details{border-top:1px solid #EEE8E2;padding-top:13px}
+    .csk-persona-card summary{cursor:pointer;font-size:12px;color:#B35F25;font-weight:800}
+    .csk-persona-detail{padding-top:11px;display:grid;gap:8px}
+    .csk-persona-list{list-style:disc;padding-left:18px}
+    .csk-persona-copy{margin-top:auto;background:#0B0B0B;color:#fff;border:1px solid #0B0B0B;border-radius:11px;padding:12px;font-size:11px;font-weight:800;min-height:44px}
+    .csk-persona-copy:hover{background:#242424}
+    .csk-persona-warning{background:#FFF4E9;border:1px solid #E8C6A5;color:#6C4A2D;border-radius:12px;padding:15px;font-size:12px;line-height:1.8;margin-top:20px}
+    .csk-persona-copybox{margin-top:18px;background:#fff;padding:18px;border:1px solid #E6E2DB;border-radius:15px}
+    .csk-persona-copybox[hidden]{display:none}
+    .csk-persona-copybox label{font-size:12px;font-weight:700}
+    .csk-persona-copybox textarea{display:block;width:100%;margin-top:9px;padding:12px;border:1px solid #DCD6CE;border-radius:9px;font-size:13px}
+    @media(max-width:1150px){.csk-persona-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:660px){.csk-persona-toolbar{grid-template-columns:1fr;padding:15px}.csk-persona-grid{grid-template-columns:1fr}.csk-persona-card{padding:17px}}
   </style>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden">
@@ -266,6 +295,9 @@
       </button>
       <button onclick="nav('leads')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-bullseye w-5 text-blue-400"></i> Pilar 1 · Leads CRM
+      </button>
+      <button onclick="nav('personas')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
+        <i class="fa fa-address-card-o w-5 text-amber-400"></i> Panduan 17 Persona B2B
       </button>
       <button onclick="nav('finance')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition pillar-finance">
         <i class="fa fa-money w-5 text-teal-400"></i> Pilar 2 · Keuangan
@@ -499,7 +531,21 @@
           <button onclick="filterLeads('lost')" class="lead-filter-btn px-3 py-1.5 rounded-full bg-white text-slate-600 border border-slate-200" data-filter="lost">Batal</button>
         </div>
 
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+          <div><p class="font-bold text-sm text-slate-900">Bingung siapa PIC yang harus didekati?</p><p class="text-xs text-slate-600 mt-1">Gunakan 17 hipotesis persona untuk menentukan target, kebutuhan, dan pendekatan. Tidak mengubah database Leads.</p></div>
+          <button type="button" onclick="nav('personas')" class="rounded-lg bg-slate-900 text-white px-4 py-3 min-h-11 text-xs font-bold whitespace-nowrap">Buka Panduan Persona</button>
+        </div>
         <div id="leads-container" class="space-y-3"></div>
+      </section>
+
+
+      <!-- READ-ONLY PERSONA GUIDE: never modifies Leads, Sheets, or local CRM -->
+      <section id="page-personas" class="page-content hidden space-y-5">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+          <div><span class="pillar-badge p1">Pilar 1 · Strategi Prospek</span><h1 class="text-2xl md:text-3xl font-bold font-heading text-slate-900 mt-2">17 Buyer Persona CSK</h1><p class="text-sm text-slate-600 mt-2">Peta jabatan pengambil keputusan, kebutuhan produksi, pemicu pembelian, dan keberatan umum untuk prospek B2B.</p></div>
+          <button type="button" onclick="nav('leads')" class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-xs font-bold min-h-11">Kembali ke Leads CRM</button>
+        </div>
+        <div id="persona-root"><p class="text-sm text-slate-500">Memuat panduan persona…</p></div>
       </section>
 
       <!-- 3. CLIENTS (Pilar 4 — PMF) -->
@@ -1270,6 +1316,8 @@
   <script src="./hpp-ui.js"></script>
   <script src="./email-marketing.js"></script>
   <script src="./email-marketing-ui.js"></script>
+  <script src="./persona-leads.js"></script>
+  <script>window.CSKLeadPersonas?.mount(document.getElementById("persona-root"));</script>
   <script>
 
     const DB_KEY = 'csk_business_os_db';

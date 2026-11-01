@@ -9,6 +9,8 @@ on:
       - 'email-marketing.js'
       - 'email-marketing-ui.js'
       - 'email-marketing.test.js'
+      - 'persona-leads.js'
+      - 'persona-leads.test.js'
       - 'preview/CSK-Email-Marketing-Offline.html'
       - 'sync-safe.js'
       - 'sync-safe.test.js'
@@ -49,5 +51,9 @@ jobs:
           node --check email-marketing.js
           node --check email-marketing-ui.js
           node email-marketing.test.js
+      - name: Test B2B persona reference (no CRM writes)
+        run: |
+          node --check persona-leads.js
+          node persona-leads.test.js
       - name: Validate existing sheet mapping
         run: node mapping.test.js
