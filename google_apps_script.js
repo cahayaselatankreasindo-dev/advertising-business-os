@@ -389,7 +389,7 @@ function doGet(e) {
     return ContentService.createTextOutput(JSON.stringify({ status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION, data: result }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", protocolVersion: CSK_API_PROTOCOL_VERSION, message: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
