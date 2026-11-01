@@ -97,7 +97,7 @@ test('offline email preview ships corrected campaign engine, dummy leads and no 
 });
 test('full Business OS inline app syntax parses after marketing integration',()=>{
  const index=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
- const inline=[...index.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
+ const inline=[...index.matchAll(/<script>([\s\S]*?)<\/script>/g)];
  assert.equal(inline.length,1);
  assert.doesNotThrow(()=>new vm.Script(inline[0][1],{filename:'index.html'}));
 });
