@@ -147,15 +147,19 @@ async function main() {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('.mob-btn').filter({ hasText: 'Ops' }).click();
     assert.equal(await page.locator('#page-ops').isVisible(), true);
+    await page.getByRole('tab', { name: 'QC Produksi' }).click();
+    const mobilePhotoCard = page.locator('#ops-root .ops-card')
+      .filter({ hasText: 'Foto Laporan Proyek' });
+    await mobilePhotoCard.scrollIntoViewIfNeeded();
+    assert.equal(await mobilePhotoCard.isVisible(), true);
     const widths = await page.evaluate(() => ({
       viewport: window.innerWidth,
       document: document.documentElement.scrollWidth
     }));
     assert.ok(widths.document <= widths.viewport + 2,
       'Mobile preview has horizontal overflow: ' + JSON.stringify(widths));
-    await page.screenshot({
-      path: path.join(artifactDir, 'csk-photo-lab-mobile.png'),
-      fullPage: true
+    await mobilePhotoCard.screenshot({
+      path: path.join(artifactDir, 'csk-photo-lab-mobile.png')
     });
 
     await popup.close();
