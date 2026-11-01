@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CSK Business OS — Operasional Cahaya Selatan Kreasindo</title>
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#1C2333">
+  <meta name="theme-color" content="#0B0B0B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Business OS">
@@ -100,6 +100,43 @@
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
     }
+
+    /* CSK DESIGN SYSTEM · aligned with main business website */
+    :root {
+      --ink: #0B0B0B;
+      --ink-soft: #242424;
+      --amber: #FF8A3D;
+      --amber-light: #FFF0E5;
+      --paper: #F8F7F4;
+      --csk-muted: #4B4B4B;
+      --csk-border: #E6E2DB;
+    }
+    body { font-family: 'Montserrat', system-ui, sans-serif; background-color: var(--paper); color:var(--ink); }
+    h1,h2,h3,.font-heading,.font-csk {font-family:'Montserrat',system-ui,sans-serif; letter-spacing:-.028em}
+    aside {background-color:#0B0B0B!important; border-color:#2B2B2B!important}
+    aside .nav-btn {border-radius:12px; font-weight:600; transition:background .16s ease,color .16s ease}
+    aside .nav-btn.active,aside .nav-btn:focus-visible {background:#28221D!important; color:#FF8A3D!important}
+    aside .nav-btn:hover {background:#202020!important}
+    aside .text-amber-500,aside .text-amber-400,.text-amber-500 {color:#FF8A3D!important}
+    aside .bg-slate-800 {background-color:#202020!important}
+    .skip-link {background:#0B0B0B}
+    :focus-visible {outline:3px solid #FF8A3D;outline-offset:3px}
+    button,input,select,textarea {font-family:inherit}
+    input:focus,select:focus,textarea:focus {outline-color:#FF8A3D}
+    main {background-color:#F8F7F4}
+    main .rounded-xl, main .rounded-2xl {border-radius:16px}
+    main .bg-white {background:#FFF!important}
+    main .shadow-sm {box-shadow:0 2px 14px rgba(11,11,11,.045)!important}
+    .sync-health {background:#F5F2EC;color:#3E3E3E}
+    .sync-health[data-state="verified"] {background:#ECF7F0}
+    .sync-health[data-state="pending"],.sync-health[data-state="warning"] {background:#FFF3E6;border-color:#F8CEAC}
+    .sync-health[data-state="error"] {background:#FFF0EF}
+    .sync-health[data-state="verified"] .sync-health-dot {background:#13834F}
+    .sync-health[data-state="pending"] .sync-health-dot {background:#FF8A3D}
+    button.bg-amber-500,button.bg-orange-500,.bg-amber-500,.bg-orange-500 {background-color:#FF8A3D!important}
+    button.bg-amber-500:hover,button.bg-orange-500:hover {background-color:#e8752c!important}
+    @media (max-width:767px){body{background:#F8F7F4}main{scroll-padding-bottom:90px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
   </style>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden">
