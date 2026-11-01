@@ -13,6 +13,7 @@
     memory: { sheet: 'Memory', fields: ['id','date','category','title','content'] },
     marketingSpend: { sheet: 'Marketing_Spend', fields: ['id','date','platform','campaign','budget','spent','leadsGenerated','notes'] }
   };
+  const PROTOCOL_VERSION = 2;
   const STATE_KEY = 'csk_business_os_safe_sync_v1';
   const LEGACY_BACKUP_KEY = 'csk_business_os_legacy_local_backup_v1';
 
@@ -183,11 +184,15 @@
     }
     async function readCloud(url, token) {
       const separator = url.includes('?') ? '&' : '?';
-      const address = url + separator + 'token=' + encodeURIComponent(token || '') + '&_t=' + Date.now();
+      const address = url + separator + 'token=' + encodeURIComponent(token || '') +
+        '&protocolVersion=' + PROTOCOL_VERSION + '&_t=' + Date.now();
       const response = await network(address, { cache: 'no-store' });
       if (!response || !response.ok) throw new Error('Tidak bisa membaca respons Google Sheets.');
       const json = await response.json();
-      if (!json || json.status !== 'success' || !json.data) {
+      if (!json || Number(json.protocolVersion) !== PROTOCOL_VERSION) {
+        throw new Error('Versi backend tidak cocok. Muat ulang aplikasi atau periksa versi Apps Script.');
+      }
+      if (json.status !== 'success' || !json.data) {
         throw new Error((json && json.message) || 'Respons API tidak valid.');
       }
       return json.data;
@@ -198,7 +203,7 @@
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-        body: JSON.stringify(body)
+        body: JSON.stringify(Object.assign({}, body, { protocolVersion: PROTOCOL_VERSION }))
       });
     }
     async function flush(url, token) {
