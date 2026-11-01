@@ -99,7 +99,7 @@ function compose(lead,ledger,subject,body){
 }
 function draftUrl(mail){
  if(!mail||!validEmail(mail.to))throw Error('Draft tidak valid.');
- return 'mailto:'+encodeURIComponent(mail.to).replace('%40','@')+'?subject=+encodeURIComponent(mail.subject)+'&body='+encodeURIComponent(mail.body);
+ return 'mailto:'+encodeURIComponent(mail.to).replace('%40','@')+'?subject='+encodeURIComponent(mail.subject)+'&body='+encodeURIComponent(mail.body);
 }
 function csvCell(v){
  let s=String(v??'').replace(/\r\n?/g,'\n');
