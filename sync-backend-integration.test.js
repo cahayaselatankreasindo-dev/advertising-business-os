@@ -277,19 +277,19 @@ test('LAB gateway guard allows only authorized synthetic data', () => {
     '19le34ltpZCMIHmjw2n_JbEvrtZBWNTKd61U-xEAoR5Y');
   const guardSmoke = ctx.cskLabRunGuardNegativeTests();
   assert.equal(guardSmoke.status,'LAB_GUARD_PASS');
-  assert.equal(guardSmoke.blockedUnsafeRequests,13);
+  assert.equal(guardSmoke.blockedUnsafeRequests,16);
   assert.equal(guardSmoke.databaseWritesPerformed,0);
   assert.equal(guardSmoke.emailSendsPerformed,0);
 
   const accepted = {
-    action:'sync_all',token:secret,protocolVersion:2,leads:[
-      {id:'TEST-QA-NEW-1',date:'2026-10-31',name:'Dummy',status:'new'}
-    ],
+    action:'sync_all',token:secret,protocolVersion:2,
+    expectedRecords:{Leads:{'TEST-QA-NEW-1':null},Finance:{'QA-LAB-FIN-1':null}},
+    leads:[{id:'TEST-QA-NEW-1',date:'2026-10-31',name:'Dummy',status:'new'}],
     finance:[{id:'QA-LAB-FIN-1',date:'2026-10-31',type:'expense',amount:175000}]
   };
   assert.doesNotThrow(()=>ctx.cskLabGuardPost_(accepted));
   assert.doesNotThrow(()=>ctx.cskLabGuardPost_({
-    action:'delete',token:secret,protocolVersion:2,sheet:'Leads',id:'TEST-QA-NEW-1'
+    action:'delete',token:secret,protocolVersion:2,sheet:'Leads',id:'TEST-QA-NEW-1',expectedFingerprint:'LAB-TEST-FINGERPRINT'
   }));
 
   const invalid = [
