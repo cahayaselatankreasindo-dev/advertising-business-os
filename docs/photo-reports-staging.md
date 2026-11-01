@@ -40,3 +40,5 @@
 - Google Drive/Sheets punya kuota dan batas penggunaan. Siapkan audit retensi, backup folder privat, review izin, batas kapasitas, dan pemulihan sebelum operasi resmi.
 - Simpan foto pekerjaan yang pantas; hindari KTP, kartu bank, dokumen kontrak sensitif, dan wajah orang tanpa dasar pemrosesan/izin.
 - PR #2 tetap **draft, tidak merge/deploy**. Gate Safe Sync produksi yang belum lulus tetap berlaku secara terpisah: autentikasi backend, lock/versi atomik, browser HTTP/CORS, stale PWA, backup dan uji mobile.
+
+- Validasi tambahan: spreadsheet metadata harus privat dan kolomnya tetap sesuai skema. Retry memakai ID sama ditolak jika rincian foto berubah; file yang hilang tidak boleh dianggap sukses. Orphan dicari pada seluruh ekstensi gambar yang diizinkan.
