@@ -19,7 +19,7 @@ function labHarness() {
     CSK_PHOTO_LAB_SPREADSHEET_ID:'ABCDEFGHIJKLMNOPQRSTUVWXYZ9876',
     CSK_PHOTO_ENABLE_WRITE:'true'
   };
-  const state={active:'owner@example.com',effective:'owner@example.com',folderName:'LAB - Foto Laporan Proyek Business OS (DRAFT)',private:true,created:0,rows:[],marker:'CSK_PHOTO_LAB_ONLY_V1',folderEditors:[],folderViewers:[],failMetadata:false,orphanNames:new Map()};
+  const state={active:'owner@example.com',effective:'owner@example.com',folderName:'LAB - Foto Laporan Proyek Business OS (DRAFT)',private:true,created:0,rows:[],marker:'CSK_PHOTO_LAB_ONLY_V1',folderEditors:[],folderViewers:[],failMetadata:false,orphanNames:new Map(),sheetShared:false,sheetEditors:[],sheetViewers:[],corruptHeader:false,missingFile:false};
   const folder={
     getId:()=>config.CSK_PHOTO_LAB_FOLDER_ID,getName:()=>state.folderName,
     getSharingAccess:()=>state.private?'PRIVATE':'ANYONE',getEditors:()=>state.folderEditors,getViewers:()=>state.folderViewers,
@@ -28,7 +28,8 @@ function labHarness() {
   };
   const report={
     getLastRow:()=>1+state.rows.length,
-    getRange:()=>({setValues:rows=>{if(state.failMetadata)throw Error('sheet service unavailable');state.rows.push(...rows)}}),
+    getRange:()=>({setValues:rows=>{if(state.failMetadata)throw Error('sheet service unavailable');state.rows.push(...rows);},
+      getValues:()=>[state.corruptHeader?['BROKEN']:['ReportID','UploadedAtUTC','ProjectID','Stage','Caption','DriveFileID','OriginalName','MimeType','Bytes','OwnerEmail']]}),
     getDataRange:()=>({getValues:()=>[['header'],...state.rows]})
   };
   const sheet={
@@ -39,7 +40,11 @@ function labHarness() {
     console:{error(){}},
     PropertiesService:{getScriptProperties:()=>({getProperty:key=>config[key]||'',setProperty:(key,value)=>{config[key]=value}})},
     Session:{getActiveUser:()=>({getEmail:()=>state.active}),getEffectiveUser:()=>({getEmail:()=>state.effective})},
-    DriveApp:{Access:{PRIVATE:'PRIVATE'},getFolderById:()=>folder,getFileById:()=>({getParents:()=>({hasNext:()=>true,next:()=>folder})})},
+    DriveApp:{Access:{PRIVATE:'PRIVATE'},getFolderById:()=>folder,getFileById:id=>({
+      getSharingAccess:()=>state.sheetShared?'ANYONE':'PRIVATE',
+      getViewers:()=>state.sheetViewers,getEditors:()=>state.sheetEditors,
+      getParents:()=>({hasNext:()=>!state.missingFile||!String(id).startsWith('LABFILE_'),next:()=>folder})
+    })},
     SpreadsheetApp:{openById:()=>sheet},
     LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock(){}})},
     Utilities:{base64Decode:b64=>Array.from(Buffer.from(b64,'base64')),getUuid:()=> '00000000-0000-4000-8000-000000000001',newBlob:(bytes,mime,name)=>({bytes,mime,name})}
@@ -117,6 +122,35 @@ test('Retry orphan metadata gagal ditahan tanpa membuat file kedua',()=>{
   const first=h.call('uploadPhoto',h.payload);const retry=h.call('uploadPhoto',h.payload);
   assert.equal(first.needsReview,true);assert.equal(retry.needsReview,true);
   assert.equal(h.state.created,1);assert.equal(h.state.rows.length,0);
+});
+test('Spreadsheet metadata terbagi publik, anggota lain, atau header rusak diblokir',()=>{
+  for(const change of ['sheetShared','sheetEditors','sheetViewers','corruptHeader']){
+    const h=labHarness();
+    if(change==='sheetEditors')h.state.sheetEditors=['outsider@example.com'];
+    else if(change==='sheetViewers')h.state.sheetViewers=['outsider@example.com'];
+    else h.state[change]=true;
+    assert.throws(()=>h.call('uploadPhoto',h.payload),/Sheet metadata|Kolom metadata/);
+    assert.equal(h.state.created,0);
+  }
+});
+test('ID unggahan sama dengan catatan, tahap, atau nama file berbeda ditolak',()=>{
+  for(const change of [{stage:'Finishing'},{caption:'Berbeda'},{originalName:'different.png'}]){
+    const h=labHarness();h.call('uploadPhoto',h.payload);
+    assert.throws(()=>h.call('uploadPhoto',{...h.payload,...change}),/Identitas unggahan/);
+    assert.equal(h.state.created,1);assert.equal(h.state.rows.length,1);
+  }
+});
+test('File yang hilang dari folder tidak boleh diklaim berhasil saat retry',()=>{
+  const h=labHarness();h.call('uploadPhoto',h.payload);h.state.missingFile=true;
+  assert.throws(()=>h.call('uploadPhoto',h.payload),/Foto sebelumnya tidak lagi/);
+  assert.equal(h.state.created,1);
+});
+test('Orphan UUID dengan MIME berbeda tetap diblokir',()=>{
+  const h=labHarness();h.state.failMetadata=true;h.call('uploadPhoto',h.payload);
+  h.state.failMetadata=false;
+  const alternative={...h.payload,mime:'image/jpeg',base64:Buffer.from([255,216,255,0]).toString('base64')};
+  const result=h.call('uploadPhoto',alternative);
+  assert.equal(result.needsReview,true);assert.equal(h.state.created,1);
 });
 test('ID unggahan sama untuk proyek berbeda ditolak',()=>{
   const h=labHarness();h.call('uploadPhoto',h.payload);
