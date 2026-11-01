@@ -101,6 +101,18 @@ test('backup merges IDs without overwriting existing records and protects relati
  assert.throws(()=>ops.load({...ops.empty(),schemaVersion:999}),/Versi backup/);
  assert.throws(()=>ops.mergeBackup(ops.empty(),{...ops.empty(),invoices:[{quoteId:'missing',number:'INV',issued:'2026-11-02',due:'2026-11-03',amount:10}]}),/tanpa penawaran/);
 });
+test('photo LAB launcher resolves the real CRM title and safely carries project ID plus stage',()=>{
+ const project={id:'PRJ-42',title:'Booth Aktivasi Brand',client:'Brand Contoh'};
+ assert.equal(ui.projectDisplayName(project),'Booth Aktivasi Brand');
+ const options=ui.projectSelect(()=>({projects:[project]}));
+ assert.match(options,/Booth Aktivasi Brand/);
+ assert.match(options,/PRJ-42/);
+ const url=ui.buildPhotoLabUrl('https://script.google.com/macros/s/Abc123_-9/exec','PRJ-42','Fabrikasi');
+ assert.equal(new URL(url).searchParams.get('projectId'),'PRJ-42');
+ assert.equal(new URL(url).searchParams.get('stage'),'Fabrikasi');
+ assert.throws(()=>ui.buildPhotoLabUrl('https://example.com/exec','PRJ-42','Fabrikasi'),/URL uploader/);
+ assert.throws(()=>ui.buildPhotoLabUrl('https://script.google.com/macros/s/Abc123_-9/exec','bad id','Fabrikasi'),/ID proyek/);
+});
 test('UI keeps Operations data local and opens only an explicit owner-controlled LAB uploader',()=>{
  assert.equal(ui.esc('<img src=x onerror=alert(1)>'),'&lt;img src=x onerror=alert(1)&gt;');
  const source=fs.readFileSync(require.resolve('./operations-ui.js'),'utf8');
