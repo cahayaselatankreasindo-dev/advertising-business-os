@@ -117,7 +117,7 @@ async function main() {
     await launchForm.locator('button[data-action="photo-upload"]').click();
     const popup = await popupPromise;
     await popup.waitForURL(url =>
-      url.startsWith('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec'),
+      url.toString().startsWith('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec'),
       { timeout: 10000 }
     );
     const popupUrl = new URL(popup.url());
