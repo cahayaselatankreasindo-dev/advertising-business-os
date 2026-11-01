@@ -15,7 +15,7 @@
 | Screen reader | Indikator sinkronisasi dibacakan melalui live region dan modal berlabel | Kode tersedia, pemeriksaan perlu |
 | Offline | Ubah lead → “tersimpan lokal / menunggu verifikasi”, bukan “cloud sukses” | Emulator lulus, browser nyata perlu |
 | Retry | POST opaque tetapi data tidak tersimpan → tetap tertahan di antrean | Emulator lulus, browser nyata perlu |
-| Konflik | Dua perangkat edit ID yang sama → jangan menimpa data diam-diam | Emulator LockService + CAS lulus; live multi-device dan alur resolusi konflik masih perlu |
+| Konflik | Dua perangkat edit ID yang sama → bandingkan versi cloud/perangkat, pilih sumber, lalu retry dengan CAS | Emulator LockService + CAS dan pilihan resolusi lulus; live multi-device masih perlu |
 | Tarik cloud | Tombol Tarik ditolak selama perubahan belum terverifikasi | Kode tersedia; QA perangkat perlu |
 | Backup | Unduh JSON tanpa token/API URL, file bisa dipulihkan lokal | Unit test parsial, QA file browser perlu |
 | Finance | Deal Menang tidak mengubah kas masuk otomatis | Test backend emulator; real backend belum |
@@ -32,7 +32,7 @@
 
 **Gate C: HTTP.** Browser test nyata terhadap endpoint staging terpisah dan terautentikasi; lakukan GET/POST, readback, koneksi timeout, POST blocked, offline, multi-device, rollback, dan cek CORS dengan Google Apps Script. **Belum terpenuhi.**
 
-**Gate D: Concurrency.** Source backend sudah memakai LockService dan compare-and-set (`expectedRecords` untuk upsert, `expectedFingerprint` untuk delete); emulator menguji stale write dan konflik dua perangkat. UI menahan antrean dan memberi peringatan, tetapi belum memiliki alur resolusi konflik terpandu. Verifikasi live multi-device dan protocol gate pada endpoint staging tetap wajib.
+**Gate D: Concurrency.** Source backend memakai LockService dan compare-and-set (`expectedRecords` untuk upsert, `expectedFingerprint` untuk delete); emulator menguji stale write dan konflik dua perangkat. UI menampilkan kedua versi, menyediakan pilihan cloud/perangkat, dan menyimpan recovery lokal sebelum keputusan. Verifikasi live multi-device dan protocol gate pada endpoint staging tetap wajib.
 
 **Gate E: Server access.** Autentikasi pengguna dan otorisasi Finance, Marketing, user admin, akses ekspor per role; batasi data sensitif dari aplikasi publik. Dropdown role client-only **tidak cukup**. **Belum terpenuhi.**
 
