@@ -94,22 +94,31 @@
     const files=Array.from($('photos').files||[]);
     if(!files.length||files.length>6)return status('Pilih antara 1–6 foto.');
     busy=true;$('upload').disabled=true;
+    let saved=0;
     try{
       for(let i=0;i<files.length;i++){
-        status('Menyiapkan dan mengunggah foto '+(i+1)+' dari '+files.length+'...');
+        status('Menyiapkan dan mengunggah foto '+(i+1)+' dari '+files.length+'... ('+saved+' tersimpan)');
         const payload=await processPhoto(files[i]);
         payload.projectId=$('project').value.trim();payload.stage=$('stage').value;payload.caption=$('caption').value.trim();
         const result=await gas('uploadPhoto',payload);
-        if(!result||!result.ok){status(result?.message||'Unggah membutuhkan pemeriksaan.');return}
+        if(!result||!result.ok){
+          status(saved+' dari '+files.length+' foto sudah tersimpan. Foto berikutnya perlu pemeriksaan: '+(result?.message||'Status tidak diketahui.')+' Periksa riwayat proyek sebelum mengulang.');
+          await refresh({preserveStatus:true});
+          return;
+        }
+        saved++;
       }
-      status(files.length+' foto berhasil tersimpan dan tercatat di Drive privat.');
-      $('photos').value='';await refresh();
-    }catch(err){status('Unggah terhenti: '+(err.message||err)+' Periksa riwayat sebelum mengulang agar tidak duplikat.');}
-    finally{busy=false;$('upload').disabled=!ready}
+      $('photos').value='';
+      await refresh({preserveStatus:true});
+      status(saved+' dari '+files.length+' foto berhasil tersimpan dan tercatat di Drive privat.');
+    }catch(err){
+      status(saved+' dari '+files.length+' foto terkonfirmasi tersimpan. Unggah terhenti: '+(err.message||err)+' Periksa riwayat sebelum mengulang agar tidak duplikat.');
+      try{await refresh({preserveStatus:true})}catch(_){}
+    }finally{busy=false;$('upload').disabled=!ready}
   });
-  async function refresh(){
+  async function refresh(options={}){
     const projectId=$('project').value.trim();
-    if(!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/.test(projectId))return status('Isi ID proyek yang valid untuk melihat foto.');
+    if(!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/.test(projectId)){if(!options.preserveStatus)status('Isi ID proyek yang valid untuk melihat foto.');return;}
     try{const rows=await gas('listProjectPhotos',projectId),list=$('reports');list.replaceChildren();
       if(!rows.length){const li=document.createElement('li');li.textContent='Belum ada foto untuk proyek ini.';list.append(li);return}
       rows.forEach(r=>{
@@ -118,7 +127,7 @@
         link.href=url.toString();link.target='_blank';link.rel='noopener noreferrer';link.textContent='Buka foto privat di Drive';
         li.append(document.createTextNode([r.uploadedAt,r.stage,r.caption,r.originalName].join(' · ')+' — '));li.append(link);list.append(li);
       });
-    }catch(err){status('Gagal memuat riwayat: '+(err.message||err))}
+    }catch(err){if(!options.preserveStatus)status('Gagal memuat riwayat: '+(err.message||err))}
   }
   $('refresh').addEventListener('click',refresh);
   check();
