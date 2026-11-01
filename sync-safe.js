@@ -239,16 +239,35 @@
         for (const area of Object.keys(DATA)) {
           for (const id of Object.keys(work[area].deletes)) {
             if (nothingToDelete.some(x => x[0] === area && x[1] === id)) continue;
-            await send(url, { action: 'delete', sheet: DATA[area].sheet, id, token });
+            const expectedFingerprint = (baseline[area] || {})[id];
+            if (typeof expectedFingerprint !== 'string' || !expectedFingerprint) {
+              lastError = 'Versi dasar untuk penghapusan ' + area + '/' + id + ' tidak tersedia. Tarik ulang data sebelum mencoba lagi.';
+              return { status: 'conflict', conflicts: [area + '/' + id], pending: countPending() };
+            }
+            await send(url, { action: 'delete', sheet: DATA[area].sheet, id, token, expectedFingerprint });
           }
         }
         const payload = { action: 'sync_all', token };
+        const expectedRecords = {};
         let hasUpserts = false;
         Object.keys(DATA).forEach(area => {
           const records = Object.values(work[area].upserts);
-          if (records.length) { payload[area] = records; hasUpserts = true; }
+          if (records.length) {
+            payload[area] = records;
+            hasUpserts = true;
+            const versions = {};
+            const prior = baseline[area] || {};
+            records.forEach(record => {
+              const id = String(record.id);
+              versions[id] = Object.prototype.hasOwnProperty.call(prior, id) ? prior[id] : null;
+            });
+            expectedRecords[DATA[area].sheet] = versions;
+          }
         });
-        if (hasUpserts) await send(url, payload);
+        if (hasUpserts) {
+          payload.expectedRecords = expectedRecords;
+          await send(url, payload);
+        }
 
         // A no-cors POST cannot report success. Verify actual record values with GET.
         let confirmed = null;
@@ -265,6 +284,29 @@
           if (allVerified) break;
         }
         if (!allVerified) {
+          const racedConflicts = [];
+          Object.keys(DATA).forEach(area => {
+            const cloud = byId(confirmed[area]);
+            const prior = baseline[area] || {};
+            Object.keys(work[area].upserts).forEach(id => {
+              const now = cloud[id];
+              const expected = work[area].upserts[id];
+              if (now && matchesWrittenRecord(area, expected, now)) return;
+              if ((now && (!prior[id] || stableFingerprint(now) !== prior[id])) ||
+                  (!now && !!prior[id])) racedConflicts.push(area + '/' + id);
+            });
+            Object.keys(work[area].deletes).forEach(id => {
+              const now = cloud[id];
+              if (now && (!prior[id] || stableFingerprint(now) !== prior[id])) {
+                racedConflicts.push(area + '/' + id);
+              }
+            });
+          });
+          if (racedConflicts.length) {
+            lastError = 'Konflik terdeteksi saat penyimpanan. Tidak ada perubahan cloud yang ditimpa; periksa record yang ditandai.';
+            persist();
+            return { status: 'conflict', conflicts: Array.from(new Set(racedConflicts)), pending: countPending() };
+          }
           lastError = 'Data dikirim, tetapi belum terverifikasi di Google Sheets. Perubahan tetap mengantre.';
           persist();
           return { status: 'unverified', pending: countPending() };
