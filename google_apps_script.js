@@ -369,12 +369,12 @@ function unauthorizedResponse() {
 
 function doGet(e) {
   try {
-    // Reject stale clients before exposing any cloud data.
-    var requestedProtocol = (e && e.parameter) ? e.parameter.protocolVersion : "";
-    if (Number(requestedProtocol) !== CSK_API_PROTOCOL_VERSION) return protocolMismatchResponse();
-    // Proteksi token (via query string ?token=...)
+    // Authenticate before disclosing protocol details or reading cloud data.
     var tokenParam = (e && e.parameter) ? e.parameter.token : "";
     if (!isAuthorized(null, tokenParam)) return unauthorizedResponse();
+    // Reject stale clients after authentication, before exposing any cloud data.
+    var requestedProtocol = (e && e.parameter) ? e.parameter.protocolVersion : "";
+    if (Number(requestedProtocol) !== CSK_API_PROTOCOL_VERSION) return protocolMismatchResponse();
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const result = {
@@ -399,11 +399,10 @@ function doGet(e) {
 function doPost(e) {
   try {
     const payload = JSON.parse(e.postData.contents);
+    // Authenticate before disclosing protocol details or processing a write.
+    if (!isAuthorized(payload)) return unauthorizedResponse();
     // Reject legacy/stale write contracts before any sheet mutation.
     if (Number(payload.protocolVersion) !== CSK_API_PROTOCOL_VERSION) return protocolMismatchResponse();
-
-    // Proteksi token (via field payload.token)
-    if (!isAuthorized(payload)) return unauthorizedResponse();
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const action = (payload.action || "").toLowerCase();
