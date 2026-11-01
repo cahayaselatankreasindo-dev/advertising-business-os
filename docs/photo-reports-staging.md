@@ -39,6 +39,7 @@ Business OS **tidak mengirim file foto melalui server atau menyimpan foto dalam 
 ## Status rilis
 
 - Photo LAB: **berhasil untuk uji upload owner** ke Drive privat dan pencatatan metadata.
+- CI browser smoke test Playwright pada desktop dan mobile: **PASS** untuk nama proyek CRM, validasi URL uploader, penerusan `projectId`/`stage`, tidak ada POST foto dari Business OS, dan layout mobile. Tes ini memakai URL Apps Script dummy yang di-stub; **bukan** panggilan HTTP ke deployment LAB sungguhan.
 - Integrasi Business OS: **draft branch PR #2**; launcher memilih proyek CRM, meneruskan ID dan tahap, serta membuka uploader terpisah. Perubahan ini belum di-deploy ke produksi.
 - PR #2 tetap **draft** dan tidak boleh di-merge atau di-deploy sebagai produksi sebelum seluruh gate Safe Sync, backup/restore, autentikasi server-side, dan pengujian mobile yang tercantum pada dokumen rollout selesai.
 - `photo-lab.test.js` tetap merupakan tes unit dengan mock Google Apps Script; hasilnya bukan pengganti uji manual pada Drive dan Spreadsheet sungguhan.
