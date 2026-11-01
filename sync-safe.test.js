@@ -151,6 +151,65 @@ test('conflicting remote edit stops all cloud writes',async()=>{
   assert.equal(engine.countPending(),1);
 });
 
+test('conflict resolution can safely adopt the latest cloud record', async () => {
+  const cloud = fakeCloud(fixture());
+  const db = fixture();
+  const engine = createEngine(store(), cloud.fetch);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads[0].name = 'Edited locally';
+  engine.track(db);
+  cloud.rows.leads[0].name = 'Edited on phone';
+  const conflict = await engine.flush('https://example.test/exec', '');
+  assert.equal(conflict.status, 'conflict');
+  assert.deepEqual(engine.conflicts, ['leads/lead-1']);
+
+  const resolved = engine.resolveConflict('leads', 'lead-1', 'cloud', clone(cloud.rows), db);
+  assert.equal(resolved.pending, 0);
+  assert.deepEqual(resolved.conflicts, []);
+  assert.equal(db.leads[0].name, 'Edited on phone');
+  assert.equal(engine.countPending(), 0);
+  assert.equal(engine.conflicts.length, 0);
+});
+
+test('explicit local conflict choice rebases to the latest cloud version before retry', async () => {
+  const cloud = fakeCloud(fixture());
+  const db = fixture();
+  const engine = createEngine(store(), cloud.fetch);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads[0].name = 'Edited locally';
+  engine.track(db);
+  cloud.rows.leads[0].name = 'Edited on phone';
+  const conflict = await engine.flush('https://example.test/exec', '');
+  assert.equal(conflict.status, 'conflict');
+
+  const resolved = engine.resolveConflict('leads', 'lead-1', 'local', clone(cloud.rows), db);
+  assert.equal(resolved.pending, 1);
+  assert.deepEqual(resolved.conflicts, []);
+  assert.equal(engine.countPending(), 1);
+  const retry = await engine.flush('https://example.test/exec', '');
+  assert.equal(retry.status, 'verified');
+  assert.equal(cloud.rows.leads[0].name, 'Edited locally');
+  assert.equal(engine.countPending(), 0);
+});
+
+test('conflict IDs survive reload until explicitly resolved', async () => {
+  const storage = store();
+  const cloud = fakeCloud(fixture());
+  const db = fixture();
+  const engine = createEngine(storage, cloud.fetch);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads[0].name = 'Local';
+  engine.track(db);
+  cloud.rows.leads[0].name = 'Remote';
+  await engine.flush('https://example.test/exec', '');
+  const reopened = createEngine(storage, cloud.fetch);
+  reopened.init(clone(db));
+  assert.deepEqual(reopened.conflicts, ['leads/lead-1']);
+});
+
 test('a POST without actual server save is never considered verified',async()=>{
   const cloud=fakeCloud(fixture(),false);
   const db=fixture();
