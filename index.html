@@ -1055,33 +1055,16 @@
         syncWithGoogle(true);
       }, 1200);
     }
+    // Fresh install starts EMPTY and DISCONNECTED. Never ship demo customers
+    // or a live production endpoint as defaults. Existing saved data is retained.
     let db = {
-      leads: [
-        { id: '1', date: '2026-09-01', name: 'Bpk. Hendra (Kopi Sore)', phone: '081234567890', source: 'Instagram Ads', value: 8000000, status: 'won', notes: 'Paket Branding Lengkap 8 Juta' },
-        { id: '2', date: '2026-09-03', name: 'Ibu Maya (Fashion Hijab)', phone: '081398765432', source: 'WhatsApp', value: 1500000, status: 'nego', notes: 'Tanya logo UMKM 1.5jt' },
-        { id: '3', date: '2026-09-05', name: 'Dr. Dimas (Klinik Gigi)', phone: '082155667788', source: 'Referensi', value: 5000000, status: 'new', notes: 'Tertarik manajemen ads Meta bulanan' }
-      ],
-      clients: [
-        { id: '1', name: 'Bpk. Hendra (Kopi Sore)', phone: '081234567890', projectsCount: 1, totalSpend: 8000000, notes: 'Klien loyal paket premium branding', rating: 5, review: 'Sangat puas dengan hasilnya!' }
-      ],
-      projects: [
-        { id: '1', title: 'Branding Identity Kopi Sore', client: 'Bpk. Hendra (Kopi Sore)', value: 8000000, status: 'ongoing', deadline: '2026-09-20', notes: 'Tahap penyusunan brand guidelines', sopChecklist: 'Brief:1;Produksi:1;Review:0;Revisi:0;Delivery:0' }
-      ],
-      finance: [
-        { id: '1', date: '2026-09-02', type: 'income', category: 'DP Proyek', amount: 4000000, description: 'DP 50% Branding Kopi Sore' },
-        { id: '2', date: '2026-09-04', type: 'expense', category: 'Biaya Iklan Meta/TikTok', amount: 500000, description: 'Topup Meta Ads kampanye September' },
-        { id: '3', date: '2026-09-05', type: 'expense', category: 'Tool/Software', amount: 250000, description: 'Langganan tool desain' }
-      ],
-      memory: [
-        { id: '1', date: '2026-09-02', category: 'Strategi Penawaran', title: 'Formula 2 Paket: 1.5 Juta vs 8 Juta', content: 'Calon klien UMKM ditawarkan logo mulai 1.5jt. Untuk bisnis mapan, tawarkan paket 8jt (Logo, guidelines, stationery, mockup, editable file). Ini membuat klien merasa punya opsi jelas.' }
-      ],
-      marketingSpend: [
-        { id: '1', date: '2026-09-04', platform: 'Meta Ads', campaign: 'September Brand Awareness - Kopi Sore', budget: 1000000, spent: 500000, leadsGenerated: 8, notes: '' }
-      ],
-      settings: {
-        googleSheetUrl: 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec',
-        lastSync: ''
-      },
+      leads: [],
+      clients: [],
+      projects: [],
+      finance: [],
+      memory: [],
+      marketingSpend: [],
+      settings: { googleSheetUrl: '', apiToken: '', lastSync: '' },
       role: 'owner'
     };
 
@@ -1105,8 +1088,7 @@
           console.error("Gagal membaca database lokal.");
         }
       }
-      if (!db.settings) db.settings = { googleSheetUrl: 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec', lastSync: '' };
-      if (!db.settings.googleSheetUrl) db.settings.googleSheetUrl = 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec';
+      if (!db.settings) db.settings = { googleSheetUrl: '', apiToken: '', lastSync: '' };
       document.getElementById('setting-google-url').value = db.settings.googleSheetUrl || '';
       const tokenEl = document.getElementById('setting-api-token');
       if (tokenEl) tokenEl.value = db.settings.apiToken || '';
