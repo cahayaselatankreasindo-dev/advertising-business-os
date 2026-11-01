@@ -221,6 +221,7 @@ eq(sheets['Leads'].rows[1][2], 'Budi', 'sync_all MERGE: lead lama (Budi) tidak t
 // (b) Baris BARU ditulis di kolom yang tepat (cari by ID — autoTrigger bisa menambah baris lain)
 const findRow = (sheetName, id) => sheets[sheetName].rows.find(r => String(r[0]) === id);
 const newLeadRow = findRow('Leads', 'L9');
+if (!newLeadRow) throw new Error('sync_all did not persist L9. Backend response: ' + JSON.stringify(postRes));
 eq(newLeadRow[0], 'L9', 'sync new Lead: ID di kolom A');
 eq(newLeadRow[2], 'Sari', 'sync new Lead: Nama di kolom C');
 eq(newLeadRow[6], 'new', 'sync new Lead: Status di kolom G');
