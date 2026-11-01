@@ -1,3 +1,4 @@
+// The Apps Script endpoint is stubbed: this browser test never uploads a real photo or contacts the live LAB.
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
