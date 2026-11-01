@@ -81,3 +81,23 @@ test('staging app integrates owner-only marketing nav, safe draft and fresh Lead
  assert.doesNotMatch(index,/async function sendColdEmailLead\(/);
  assert.doesNotMatch(index,/action:\s*'send_cold_email'/);
 });
+
+test('offline email preview ships corrected campaign engine, dummy leads and no API access',()=>{
+ const html=fs.readFileSync(path.join(__dirname,'preview','CSK-Email-Marketing-Offline.html'),'utf8');
+ assert.doesNotMatch(html,/<script[^>]+\bsrc\s*=/i);
+ assert.doesNotMatch(html,/\bfetch\s*\(/i);
+ assert.doesNotMatch(html,/script\.google\.com\/macros\/s\//i);
+ assert.doesNotMatch(html,/https?:\/\/fonts\.googleapis\.com/i);
+ const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
+ assert.equal(scripts.length,3);
+ scripts.forEach((match,i)=>assert.doesNotThrow(()=>new vm.Script(match[1],{filename:'Email-preview-'+i})));
+ assert.equal(scripts[0][1].trim(),fs.readFileSync(path.join(__dirname,'email-marketing.js'),'utf8').trim());
+ assert.ok(html.includes('DEMO-LEAD-01'));
+ assert.ok(html.includes('Offline Lab Preview'));
+});
+test('full Business OS inline app syntax parses after marketing integration',()=>{
+ const index=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
+ const inline=[...index.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
+ assert.equal(inline.length,1);
+ assert.doesNotThrow(()=>new vm.Script(inline[0][1],{filename:'index.html'}));
+});
