@@ -376,7 +376,7 @@ a{color:#ff8a3d}
         sent++;
         return {type:'opaque'};
       }
-      return {ok:true,json:async()=>({status:'success',data:copy(cloud)})};
+      return {ok:true,json:async()=>({status:'success',protocolVersion:2,data:copy(cloud)})};
     }
     const engine=CSKSafeSync.createEngine(storage(),mockFetch);
     engine.init(db);
