@@ -334,6 +334,94 @@ function protocolMismatchResponse() {
   });
 }
 
+var CSK_SYNC_PAYLOAD_AREAS_ = {
+  leads: "Leads", clients: "Clients", projects: "Projects",
+  finance: "Finance", memory: "Memory", marketingSpend: "Marketing_Spend"
+};
+
+function stableRecordFingerprint_(record) {
+  if (!record) return "";
+  var keys = Object.keys(record).sort();
+  return JSON.stringify(keys.map(function (key) { return [key, record[key]]; }));
+}
+
+function findRecordById_(ss, sheetName, id) {
+  var rows = readSheetData(ss, sheetName);
+  var target = String(id);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i].id) === target) return rows[i];
+  }
+  return null;
+}
+
+/**
+ * Compare every sync_all upsert with the record version the client edited.
+ * Must run while holding the script lock, immediately before the write.
+ * A null expected fingerprint means the record must still be absent.
+ */
+function validateExpectedRecords_(ss, payload) {
+  var expectedRecords = payload.expectedRecords;
+  if (!expectedRecords || typeof expectedRecords !== "object" || Array.isArray(expectedRecords)) {
+    return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
+      message: "Sinkronisasi ditolak: expectedRecords wajib dikirim." };
+  }
+  var missing = [];
+  var conflicts = [];
+  Object.keys(CSK_SYNC_PAYLOAD_AREAS_).forEach(function (area) {
+    if (!(area in payload)) return;
+    var items = payload[area];
+    if (!Array.isArray(items)) {
+      missing.push(area + " bukan array");
+      return;
+    }
+    if (!items.length) return;
+    var sheetName = CSK_SYNC_PAYLOAD_AREAS_[area];
+    var versions = expectedRecords[sheetName];
+    if (!versions || typeof versions !== "object" || Array.isArray(versions)) {
+      missing.push(sheetName);
+      return;
+    }
+    items.forEach(function (item) {
+      var id = String(item && item.id != null ? item.id : "").trim();
+      if (!id || !Object.prototype.hasOwnProperty.call(versions, id)) {
+        missing.push(sheetName + "/" + id);
+        return;
+      }
+      var expected = versions[id];
+      var current = findRecordById_(ss, sheetName, id);
+      if (expected === null) {
+        if (current) conflicts.push(sheetName + "/" + id);
+      } else if (typeof expected !== "string" || !expected ||
+          !current || stableRecordFingerprint_(current) !== expected) {
+        conflicts.push(sheetName + "/" + id);
+      }
+    });
+  });
+  if (missing.length) {
+    return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
+      message: "Versi dasar record tidak lengkap. Tidak ada data yang diubah.", conflicts: missing };
+  }
+  if (conflicts.length) {
+    return { ok: false, code: "SYNC_CONFLICT",
+      message: "Data cloud berubah sejak terakhir dibaca. Tidak ada data yang diubah.", conflicts: conflicts };
+  }
+  return { ok: true };
+}
+
+function validateExpectedDelete_(ss, sheetName, id, expectedFingerprint) {
+  if (typeof expectedFingerprint !== "string" || !expectedFingerprint) {
+    return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
+      message: "Penghapusan ditolak: expectedFingerprint wajib dikirim." };
+  }
+  var current = findRecordById_(ss, sheetName, id);
+  if (!current || stableRecordFingerprint_(current) !== expectedFingerprint) {
+    return { ok: false, code: "SYNC_CONFLICT",
+      message: "Record berubah atau sudah dihapus oleh perangkat lain. Tidak ada data yang diubah.",
+      conflicts: [sheetName + "/" + String(id)] };
+  }
+  return { ok: true };
+}
+
 // FAIL CLOSED: no configured secret -> no GET/POST access.
 // For production use an authenticated backend, not an openly shared static app.
 function getApiToken() {
@@ -368,6 +456,8 @@ function unauthorizedResponse() {
 // ============== GET — TARIK DATA SEMUA TAB ==============
 
 function doGet(e) {
+  var apiLock = null;
+  var lockAcquired = false;
   try {
     // Authenticate before disclosing protocol details or reading cloud data.
     var tokenParam = (e && e.parameter) ? e.parameter.token : "";
@@ -376,6 +466,10 @@ function doGet(e) {
     var requestedProtocol = (e && e.parameter) ? e.parameter.protocolVersion : "";
     if (Number(requestedProtocol) !== CSK_API_PROTOCOL_VERSION) return protocolMismatchResponse();
 
+    // Reads wait for an in-progress write so clients never observe a half-applied batch.
+    apiLock = LockService.getScriptLock();
+    apiLock.waitLock(30000);
+    lockAcquired = true;
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const result = {
       leads: readSheetData(ss, "Leads"),
@@ -391,12 +485,16 @@ function doGet(e) {
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: "error", protocolVersion: CSK_API_PROTOCOL_VERSION, message: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    if (lockAcquired && apiLock) apiLock.releaseLock();
   }
 }
 
 // ============== POST — CRUD (sync_all, insert, update_status) ==============
 
 function doPost(e) {
+  var apiLock = null;
+  var lockAcquired = false;
   try {
     const payload = JSON.parse(e.postData.contents);
     // Authenticate before disclosing protocol details or processing a write.
@@ -404,6 +502,10 @@ function doPost(e) {
     // Reject legacy/stale write contracts before any sheet mutation.
     if (Number(payload.protocolVersion) !== CSK_API_PROTOCOL_VERSION) return protocolMismatchResponse();
 
+    // Serialize the read-check-write section across all clients of this script.
+    apiLock = LockService.getScriptLock();
+    apiLock.waitLock(30000);
+    lockAcquired = true;
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const action = (payload.action || "").toLowerCase();
 
@@ -412,6 +514,11 @@ function doPost(e) {
       // --- sync_all (MERGE / UPSERT — tidak pernah menghapus data lama) ---
       // Aman: lead yang sudah ada di Sheets tetap tersimpan; hanya ditambah/diupdate.
       case "sync_all": {
+        var expectedCheck = validateExpectedRecords_(ss, payload);
+        if (!expectedCheck.ok) return jsonResponse({
+          status: "error", code: expectedCheck.code, protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: expectedCheck.message, conflicts: expectedCheck.conflicts || []
+        });
         var mergeSummary = {};
         if (payload.leads)          mergeSummary.Leads           = mergeSheet(ss, "Leads",           payload.leads);
         if (payload.clients)        mergeSummary.Clients         = mergeSheet(ss, "Clients",         payload.clients);
@@ -429,6 +536,15 @@ function doPost(e) {
         const sheetName = payload.sheet || "Leads";
         const delId = payload.id;
         if (!delId) throw new Error("Parameter id diperlukan untuk aksi delete.");
+        if (!FIELD_MAP[sheetName]) return jsonResponse({
+          status: "error", code: "INVALID_SHEET", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Penghapusan hanya diizinkan untuk tab Business OS yang terdaftar."
+        });
+        var deleteCheck = validateExpectedDelete_(ss, sheetName, delId, payload.expectedFingerprint);
+        if (!deleteCheck.ok) return jsonResponse({
+          status: "error", code: deleteCheck.code, protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: deleteCheck.message, conflicts: deleteCheck.conflicts || []
+        });
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
         const rowNum = findRowById(sheet, delId);
@@ -496,7 +612,9 @@ function doPost(e) {
     return jsonResponse({ status: "success", message: "Data tersinkronisasi ke Google Sheets" });
 
   } catch (err) {
-    return jsonResponse({ status: "error", message: err.toString() });
+    return jsonResponse({ status: "error", protocolVersion: CSK_API_PROTOCOL_VERSION, message: err.toString() });
+  } finally {
+    if (lockAcquired && apiLock) apiLock.releaseLock();
   }
 }
 
