@@ -6,6 +6,10 @@ on:
       - 'hpp-calculator.js'
       - 'hpp-ui.js'
       - 'hpp-calculator.test.js'
+      - 'email-marketing.js'
+      - 'email-marketing-ui.js'
+      - 'email-marketing.test.js'
+      - 'preview/CSK-Email-Marketing-Offline.html'
       - 'sync-safe.js'
       - 'sync-safe.test.js'
       - 'sync-backend-integration.test.js'
@@ -40,5 +44,10 @@ jobs:
           node --check hpp-calculator.js
           node --check hpp-ui.js
           node hpp-calculator.test.js
+      - name: Test Email Marketing safety and segmentation
+        run: |
+          node --check email-marketing.js
+          node --check email-marketing-ui.js
+          node email-marketing.test.js
       - name: Validate existing sheet mapping
         run: node mapping.test.js
