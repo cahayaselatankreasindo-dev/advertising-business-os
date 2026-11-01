@@ -56,6 +56,11 @@
   const stage = $('initial-stage').value;
   if([...$('stage').options].some(o=>o.value===stage))$('stage').value=stage;
   let ready=false,busy=false;
+  const uploadIds=new WeakMap();
+  function uploadIdFor(file){
+    if(!uploadIds.has(file))uploadIds.set(file,crypto.randomUUID());
+    return uploadIds.get(file);
+  }
   function status(s){$('status').textContent=s;}
   function gas(name,arg){return new Promise((resolve,reject)=>{
     let runner=google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
@@ -99,6 +104,7 @@
       for(let i=0;i<files.length;i++){
         status('Menyiapkan dan mengunggah foto '+(i+1)+' dari '+files.length+'... ('+saved+' tersimpan)');
         const payload=await processPhoto(files[i]);
+        payload.requestId=uploadIdFor(files[i]);
         payload.projectId=$('project').value.trim();payload.stage=$('stage').value;payload.caption=$('caption').value.trim();
         const result=await gas('uploadPhoto',payload);
         if(!result||!result.ok){
