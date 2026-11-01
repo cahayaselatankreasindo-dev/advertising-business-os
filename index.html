@@ -137,6 +137,53 @@
     button.bg-amber-500:hover,button.bg-orange-500:hover {background-color:#e8752c!important}
     @media (max-width:767px){body{background:#F8F7F4}main{scroll-padding-bottom:90px}}
     @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+
+    /* Standalone HPP production estimator: brand-aligned, mobile-first. */
+    #page-hpp{--h-ink:#0B0B0B;--h-amber:#FF8A3D;--h-paper:#F8F7F4;font-family:Montserrat,system-ui,sans-serif}
+    #page-hpp h1,#page-hpp h2,#page-hpp h3{font-family:Montserrat,system-ui,sans-serif}
+    .hpp-head{background:#0B0B0B;color:#FFF;border-radius:20px;padding:27px;display:flex;justify-content:space-between;gap:25px;align-items:start}
+    .hpp-head h2{font-size:clamp(21px,2.2vw,28px);font-weight:800;letter-spacing:-.035em;line-height:1.2;margin:9px 0}
+    .hpp-head p{color:#c8c2bd;font-size:12px;line-height:1.7;max-width:620px}
+    .hpp-kicker{font-size:10px;letter-spacing:.14em;font-weight:800;color:#FF8A3D}
+    .hpp-badge{flex:none;font-size:10px;font-weight:800;border:1px solid #735135;color:#ffc293;padding:9px 11px;border-radius:99px}
+    .hpp-note{margin:16px 0;color:#715638;background:#fff4e9;border:1px solid #e9c49f;padding:15px 17px;border-radius:12px;font-size:12px;line-height:1.7}
+    .hpp-card{background:#FFF;border:1px solid #e6e2db;padding:23px;border-radius:17px;margin:16px 0}
+    .hpp-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+    #page-hpp label{display:flex;flex-direction:column;gap:7px;color:#444;font-size:11px;font-weight:750;min-width:0}
+    #page-hpp input,#page-hpp select,#page-hpp textarea{width:100%;min-width:0;padding:11px 12px;border:1px solid #ddd9d2;border-radius:10px;background:#fff;color:#111;font-size:13px;font-weight:500}
+    #page-hpp input:focus,#page-hpp select:focus,#page-hpp textarea:focus{outline:2px solid #FF8A3D;outline-offset:1px}
+    #page-hpp button{font-size:12px;font-weight:750;min-height:41px;border-radius:10px;white-space:nowrap}
+    #page-hpp .hpp-primary{background:#FF8A3D;color:#0B0B0B;border:1px solid #FF8A3D;padding:10px 16px}
+    #page-hpp .hpp-secondary{background:#fff;border:1px solid #cfc8bf;padding:9px 13px;color:#181818}
+    #page-hpp .hpp-remove{background:#fff4f2;border:1px solid #f0c1b8;color:#b3392d;padding:8px 12px}
+    .hpp-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:27px 0 15px}
+    .hpp-section-head h3{font-size:15px;font-weight:800;color:#111}
+    .hpp-section-head p{font-size:11px;color:#777;line-height:1.6;margin-top:5px}
+    .hpp-item{display:grid;grid-template-columns:1fr minmax(120px,2fr) 85px 80px 145px 85px;gap:9px;padding:17px 0;border-top:1px solid #ece7e2;align-items:end}
+    .hpp-item label{font-size:10px}
+    .hpp-row-footer{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center}
+    .hpp-row-footer strong{font-size:15px;font-weight:800;color:#161616}
+    .hpp-extra-item{display:grid;grid-template-columns:minmax(0,1fr) minmax(140px,220px) auto;align-items:end;gap:12px;padding:12px 0;border-top:1px solid #eee}
+    .hpp-notes{margin-top:23px}
+    .hpp-summary{background:#fff;border:1px solid #e6e2db;border-radius:18px;padding:22px;margin:16px 0}
+    #hpp-alert{font-size:12px;font-weight:700;padding:13px;border-radius:10px;background:#fff8f0;margin:12px 0}
+    .hpp-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin-top:14px}
+    .hpp-kpis>div{border:1px solid #e8e3de;background:#fdfcfb;padding:15px;border-radius:12px;display:flex;flex-direction:column;gap:10px}
+    .hpp-kpis small{font-size:10px;line-height:1.5;font-weight:700;color:#777}
+    .hpp-kpis strong{font-size:clamp(15px,1.75vw,22px);letter-spacing:-.04em;color:#161616;overflow-wrap:anywhere}
+    .hpp-kpis .hpp-price{border-color:#FF8A3D;background:#fff1e6}
+    .hpp-facts,.hpp-footnote{font-size:11px;line-height:1.9;color:#625b56;margin-top:17px}
+    .hpp-footnote{font-size:10px;color:#87807a}
+    .hpp-actions{display:flex;flex-wrap:wrap;gap:10px}
+    #hpp-message{min-height:20px;font-size:12px;font-weight:700;margin:12px 0}
+    .hpp-history-row{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid #eee}
+    .hpp-history-row strong{font-size:12px;color:#181818;display:block}
+    .hpp-history-row small{font-size:10px;color:#888;display:block;margin-top:4px}
+    .hpp-history-row>div:last-child{display:flex;gap:8px}
+    .hpp-history-row button{border:1px solid #ddd;background:#fff;padding:8px 11px;font-size:11px!important}
+    .hpp-empty{padding:15px;background:#faf8f5;border-radius:10px;font-size:12px;color:#777}
+    @media(max-width:1250px){.hpp-item{grid-template-columns:repeat(3,minmax(0,1fr))}.hpp-item .hpp-wide{grid-column:span 2}.hpp-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:640px){.hpp-head{padding:21px;flex-direction:column;gap:12px}.hpp-card,.hpp-summary{padding:16px}.hpp-form-grid{grid-template-columns:1fr}.hpp-item{grid-template-columns:repeat(2,minmax(0,1fr))}.hpp-item .hpp-wide{grid-column:span 1}.hpp-extra-item{grid-template-columns:1fr 1fr}.hpp-extra-item button{grid-column:1/-1}.hpp-section-head{align-items:flex-start;flex-direction:column}.hpp-kpis{gap:8px}.hpp-kpis>div{padding:12px}.hpp-actions button{flex:1}.hpp-history-row{align-items:flex-start;flex-direction:column}.hpp-kpis strong{font-size:18px}}
   </style>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden">
@@ -180,6 +227,9 @@
       </button>
       <button onclick="nav('marketing')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition pillar-marketing">
         <i class="fa fa-ad w-5 text-pink-400"></i> Pilar 5 · Marketing
+      </button>
+      <button onclick="nav('hpp')" class="nav-btn pillar-riset w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
+        <i class="fa fa-calculator w-5 text-amber-500"></i> Hitung HPP & Penawaran
       </button>
       <button onclick="nav('analysis')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-bar-chart w-5 text-purple-400"></i> Analisis Bisnis
@@ -428,6 +478,21 @@
         <div id="projects-container" class="space-y-3"></div>
       </section>
 
+      <!-- CSK HPP & ESTIMATOR: LOCAL-ONLY, NOT PART OF GOOGLE SHEETS SYNC -->
+      <section id="page-hpp" class="page-content hidden space-y-6 pillar-riset">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div>
+            <span class="pillar-badge p4">CSK ESTIMATION</span>
+            <h1 class="text-2xl md:text-3xl font-bold font-heading text-slate-900 mt-2">Kalkulator HPP Produksi</h1>
+            <p class="text-sm text-slate-500 mt-2">Material, fabrikasi, finishing, waste, markup, dan penawaran proyek — disimpan di perangkat ini.</p>
+          </div>
+          <span class="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+            <i class="fa fa-lock" aria-hidden="true"></i> Lokal · belum terhubung cloud
+          </span>
+        </div>
+        <div id="hpp-root"><p class="text-sm text-slate-500">Memuat kalkulator HPP lokal…</p></div>
+      </section>
+
       <!-- 5. FINANCE (Pilar 2 — Jurnal Keuangan) -->
       <section id="page-finance" class="page-content hidden space-y-6 pillar-finance">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -641,6 +706,9 @@
       </button>
       <button onclick="nav('projects')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
         <i class="fa fa-briefcase text-base mb-0.5"></i>Proyek
+      </button>
+      <button onclick="nav('hpp')" class="mob-btn pillar-riset flex flex-col items-center text-[10px] text-slate-400">
+        <i class="fa fa-calculator text-base mb-0.5" aria-hidden="true"></i>HPP
       </button>
       <button onclick="nav('clients')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
         <i class="fa fa-users text-base mb-0.5"></i>Klien
@@ -1126,6 +1194,8 @@
   </div>
 
   <script src="./sync-safe.js"></script>
+  <script src="./hpp-calculator.js"></script>
+  <script src="./hpp-ui.js"></script>
   <script>
 
     const DB_KEY = 'csk_business_os_db';
@@ -1280,7 +1350,7 @@
     // ============== NAVIGATION ==============
 
     function nav(page) {
-      if (db.role === 'team' && ['finance','marketing','analysis','settings'].includes(page)) {
+      if (db.role === 'team' && ['finance','marketing','analysis','settings','hpp'].includes(page)) {
         // This limits the UI only; real data authorization MUST be server-side.
         page = 'dashboard';
       }
@@ -2660,6 +2730,12 @@
     window.addEventListener('DOMContentLoaded', () => {
       loadDB();
       renderAll();
+      if (window.CSKHPP && window.CSKHPPUI) {
+        window.CSKHPPUI.init(document.getElementById('hpp-root'), window.CSKHPP);
+      } else {
+        const el = document.getElementById('hpp-root');
+        if (el) el.textContent = 'Kalkulator HPP belum tersedia di cache. Muat ulang halaman saat online.';
+      }
       initStarPicker('client-star-picker');
       // Saat aplikasi dibuka: tarik & gabungkan data dari cloud (AMAN, tidak menimpa)
       pullAndMerge();
