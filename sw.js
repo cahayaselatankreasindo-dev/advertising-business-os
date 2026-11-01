@@ -1,7 +1,7 @@
 // Service Worker — CSK Business OS
 // Strategi: NETWORK-FIRST untuk HTML (biar update app langsung kepakai),
 // cache-first untuk aset statis (logo, manifest).
-const CACHE_NAME = 'csk-business-os-v2.5-safesync';
+const CACHE_NAME = 'csk-business-os-v2.6-accessible-staging';
 const ASSETS = [
   './',
   './index.html',
@@ -32,6 +32,9 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+  // Do not cache or intercept cross-origin APIs. Never store tokenized GET
+  // requests for Apps Script in the PWA cache.
+  if (url.origin !== self.location.origin) return;
   const isHTML = event.request.mode === 'navigate' ||
                  (event.request.headers.get('accept') || '').includes('text/html') ||
                  url.pathname.endsWith('.html') || url.pathname.endsWith('/');
@@ -42,7 +45,7 @@ self.addEventListener('fetch', event => {
       fetch(event.request)
         .then(resp => {
           const copy = resp.clone();
-          caches.open(CACHE_NAME).then(c => c.put(event.request, copy));
+          if (resp.ok) caches.open(CACHE_NAME).then(c => c.put(event.request, copy));
           return resp;
         })
         .catch(() => caches.match(event.request).then(c => c || caches.match('./index.html')))
@@ -53,7 +56,7 @@ self.addEventListener('fetch', event => {
   // CACHE-FIRST untuk aset statis
   event.respondWith(
     caches.match(event.request).then(cached => {
-      return cached || fetch(event.request).catch(() => caches.match('./index.html'));
+      return cached || fetch(event.request);
     })
   );
 });
