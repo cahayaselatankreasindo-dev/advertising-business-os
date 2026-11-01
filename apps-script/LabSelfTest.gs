@@ -118,7 +118,7 @@ function cskLabRunIsolatedSmokeTest() {
   }
 
   // The complete view must be denied without a valid API token.
-  var denied = JSON.parse(doGet({ parameter: {} }).getContent());
+  var denied = JSON.parse(doGet({ parameter: { protocolVersion: 2 } }).getContent());
   if (denied.status !== "error") {
     throw new Error("DIBATALKAN: doGet tanpa token masih dapat membaca data.");
   }
@@ -137,11 +137,11 @@ function cskLabRunIsolatedSmokeTest() {
   try {
     cskLabParseOutput_(doPost({
       postData: { contents: JSON.stringify({
-        action: "sync_all", token: token, leads: [first]
+        action: "sync_all", token: token, protocolVersion: 2, leads: [first]
       }) }
     }));
     var afterInsert = cskLabParseOutput_(doGet({
-      parameter: {token:token}
+      parameter: {token:token, protocolVersion:2}
     })).data.leads.filter(function (r) { return String(r.id) === id; });
     if (afterInsert.length !== 1 || afterInsert[0].name !== first.name) {
       throw new Error("Readback gagal setelah INSERT.");
@@ -154,11 +154,11 @@ function cskLabRunIsolatedSmokeTest() {
     updated.notes = "QA LAB UPDATE TEST";
     cskLabParseOutput_(doPost({
       postData: { contents: JSON.stringify({
-        action: "sync_all", token: token, leads: [updated]
+        action: "sync_all", token: token, protocolVersion: 2, leads: [updated]
       }) }
     }));
     var afterUpdate = cskLabParseOutput_(doGet({
-      parameter: {token:token}
+      parameter: {token:token, protocolVersion:2}
     })).data.leads.filter(function (r) { return String(r.id) === id; });
     if (afterUpdate.length !== 1 ||
         afterUpdate[0].name !== updated.name) {
@@ -168,11 +168,11 @@ function cskLabRunIsolatedSmokeTest() {
 
     cskLabParseOutput_(doPost({
       postData: { contents: JSON.stringify({
-        action: "delete", token: token, sheet: "Leads", id: id
+        action: "delete", token: token, protocolVersion: 2, sheet: "Leads", id: id
       }) }
     }));
     var afterDelete = cskLabParseOutput_(doGet({
-      parameter: {token:token}
+      parameter: {token:token, protocolVersion:2}
     })).data.leads.filter(function (r) { return String(r.id) === id; });
     if (afterDelete.length) {
       throw new Error("Readback gagal setelah DELETE.");
