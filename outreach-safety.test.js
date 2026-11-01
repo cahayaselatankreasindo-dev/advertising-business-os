@@ -33,7 +33,7 @@ vm.createContext(ctx);
 vm.runInContext(fs.readFileSync('google_apps_script.js','utf8'),ctx,{filename:'google_apps_script.js'});
 
 const response=ctx.doPost({postData:{contents:JSON.stringify({
-  action:'send_cold_email',token:mockToken,toEmail:'dummy@example.test'
+  action:'send_cold_email',token:mockToken,protocolVersion:2,toEmail:'dummy@example.test'
 })}});
 const parsed=JSON.parse(response.getContent());
 assert.equal(parsed.status,'error');
