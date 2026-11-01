@@ -1440,7 +1440,7 @@
           '<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">' +
             '<div>' +
               '<div class="text-xs font-bold text-slate-800">' + escapeHTML(p.title) + '</div>' +
-              '<div class="text-[11px] text-slate-500">' + escapeHTML(p.client) + ' &bull; Deadline: ' + (p.deadline || '-') + '</div>' +
+              '<div class="text-[11px] text-slate-500">' + escapeHTML(p.client) + ' &bull; Deadline: ' + escapeHTML(p.deadline || '-') + '</div>' +
             '</div>' +
             '<span class="badge ' + (p.status === 'ongoing' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800') + '">' +
               (p.status === 'ongoing' ? 'Pengerjaan' : 'Review') +
@@ -1515,7 +1515,7 @@
               '<span class="badge ' + badgeColor + '">' + escapeHTML(statusLabel) + '</span>' +
             '</div>' +
             '<div class="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">' +
-              '<span><i class="fa fa-tag text-slate-400"></i> ' + (l.source || 'Sumber tidak dicatat') + '</span>' +
+              '<span><i class="fa fa-tag text-slate-400"></i> ' + escapeHTML(l.source || 'Sumber tidak dicatat') + '</span>' +
               '<span><i class="fa fa-money text-slate-400"></i> ' + formatRp(l.value) + '</span>' +
               (l.date ? '<span><i class="fa fa-calendar text-slate-400"></i> ' + escapeHTML(l.date) + '</span>' : '') +
             '</div>' +
@@ -1526,7 +1526,7 @@
               '<div class="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 pt-1 border-t border-slate-100">' +
                 (l.industry ? '<span><i class="fa fa-industry text-slate-400"></i> ' + escapeHTML(l.industry) + '</span>' : '') +
                 (l.website ? '<a href="' + safeExternalHref(l.website) + '" rel="noopener noreferrer" target="_blank" class="text-blue-600 hover:underline"><i class="fa fa-globe text-slate-400"></i> ' + escapeHTML(String(l.website).replace(/^https?:\/\//,'')) + '</a>' : '') +
-                (l.pic ? '<span><i class="fa fa-user text-slate-400"></i> ' + l.pic + (l.picTitle ? ' (' + escapeHTML(l.picTitle) + ')' : '') + '</span>' : '') +
+                (l.pic ? '<span><i class="fa fa-user text-slate-400"></i> ' + escapeHTML(l.pic) + (l.picTitle ? ' (' + escapeHTML(l.picTitle) + ')' : '') + '</span>' : '') +
                 (l.linkedin ? '<a href="' + safeExternalHref(l.linkedin) + '" rel="noopener noreferrer" target="_blank" class="text-blue-600 hover:underline"><i class="fa fa-linkedin-square text-slate-400"></i> LinkedIn</a>' : '') +
                 (l.score ? '<span class="badge bg-amber-100 text-amber-800"><i class="fa fa-star"></i> Skor ' + l.score + '</span>' : '') +
               '</div>' : '') +
@@ -1556,7 +1556,7 @@
           '<div class="flex items-start justify-between">' +
             '<div>' +
               '<div class="font-heading font-bold text-sm text-slate-800">' + escapeHTML(c.name) + '</div>' +
-              '<div class="text-xs text-slate-500">' + (c.phone || '-') + '</div>' +
+              '<div class="text-xs text-slate-500">' + escapeHTML(c.phone || '-') + '</div>' +
             '</div>' +
             '<button onclick="deleteClient(\'' + safeInlineId(c.id) + '\')" class="text-slate-400 hover:text-red-600 text-xs p-1"><i class="fa fa-trash"></i></button>' +
           '</div>' +
@@ -1649,7 +1649,7 @@
             '<div class="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">' +
               '<span><i class="fa fa-user text-slate-400"></i> Klien: ' + escapeHTML(p.client) + '</span>' +
               '<span><i class="fa fa-money text-slate-400"></i> ' + formatRp(p.value) + '</span>' +
-              '<span><i class="fa fa-clock-o text-slate-400"></i> Deadline: ' + (p.deadline || '-') + '</span>' +
+              '<span><i class="fa fa-clock-o text-slate-400"></i> Deadline: ' + escapeHTML(p.deadline || '-') + '</span>' +
             '</div>' +
             (p.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + escapeHTML(p.notes) + '</div>' : '') +
             renderSOPChecklist(p) +
@@ -2119,8 +2119,8 @@
       const waText = 
         '*' + docType.toUpperCase() + ' — CAHAYA SELATAN KREASINDO*\n' +
         'No: ' + docNo + '\n' +
-        'Klien: ' + escapeHTML(p.client) + '\n' +
-        'Pekerjaan: ' + escapeHTML(p.title) + '\n' +
+        'Klien: ' + String(p.client || '') + '\n' +
+        'Pekerjaan: ' + String(p.title || '') + '\n' +
         '------------------------------------\n' +
         (isDP ? 'Total Nilai Proyek: ' + formatRp(totalVal) + '\n' : '') +
         '*Jumlah Tagihan: ' + formatRp(billAmount) + '*\n' +
