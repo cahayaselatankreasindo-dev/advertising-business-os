@@ -2286,9 +2286,18 @@
      * memerlukan persetujuan, dan snapshot pemulihan dibuat sebelum mengganti.
      */
     async function pullData() {
-      const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) { showToast('URL Google Sheets belum disetel.', true); nav('settings'); return; }
-      if (!confirm('Tarik data dari Google Sheets dan ganti data lokal?\n\nPerubahan yang belum tersinkron akan dikesampingkan. Buat backup dahulu.')) return;
+      const url = db.settings?.googleSheetUrl || '';
+      const problem = cloudConfigError(url, getApiToken());
+      if (problem) { showToast(problem, true); nav('settings'); return; }
+      if (!safeSync || safeSync.busy) { showToast('Operasi cloud sedang berjalan.', true); return; }
+      // Never discard pending changes through a routine "pull". Reconciliation
+      // needs an explicit separate workflow and durable backup.
+      const pending = safeSync.countPending();
+      if (pending > 0) {
+        showToast('Tarik diblokir: ' + pending + ' perubahan belum terverifikasi. Unduh backup dan selesaikan konflik atau sinkronisasi dulu.', true);
+        return;
+      }
+      if (!confirm('Tarik versi terbaru dari Google Sheets? Salinan sebelumnya disimpan dalam browser ini. Unduh backup sebelum melanjutkan.')) return;
       try {
         const remote = await safeSync.readCloud(url, getApiToken());
         localStorage.setItem('csk_business_os_before_manual_pull', JSON.stringify(db));
@@ -2297,7 +2306,7 @@
         localStorage.setItem(DB_KEY, JSON.stringify(db));
         renderAll();
         updateCloudIndicator();
-        showToast('Data cloud berhasil ditarik. Salinan data lokal sebelumnya disimpan.');
+        showToast('Data cloud selesai dibaca. Salinan lokal sebelumnya disimpan di browser.');
       } catch (err) {
         showToast('Gagal menarik data: ' + err.message, true);
       }
@@ -2309,7 +2318,7 @@
      */
     async function pullAndMerge() {
       const url = db.settings && db.settings.googleSheetUrl;
-      if (!url || !safeSync) return;
+      if (!safeSync || cloudConfigError(url, getApiToken())) { updateCloudIndicator(); return; }
       try {
         const remote = await safeSync.readCloud(url, getApiToken());
         safeSync.merge(remote, db);
@@ -2324,36 +2333,79 @@
     }
 
     function exportData() {
-      const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+      // An exported file should never contain the Google Sheets endpoint/token.
+      // Local database records are still sensitive business information.
+      const snapshot = JSON.parse(JSON.stringify(db));
+      snapshot.settings = { googleSheetUrl: '', apiToken: '', lastSync: snapshot.settings?.lastSync || '' };
+      const backup = {
+        format: 'csk-business-os-backup',
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        pendingChangesAtExport: safeSync?.countPending() || 0,
+        data: snapshot
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'backup-business-os-' + new Date().toISOString().slice(0, 10) + '.json';
+      a.download = 'CSK-Business-OS-Backup-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
-      showToast('Cadangan data berhasil diunduh!');
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      showToast('Backup lokal diunduh tanpa token. Simpan file secara privat; isinya data bisnis.');
     }
 
     function importData(e) {
-      const file = e.target.files[0];
+      const file = e.target.files?.[0];
       if (!file) return;
+      if (file.size > 10 * 1024 * 1024) {
+        showToast('File backup terlalu besar (maksimum 10 MB).', true);
+        e.target.value = '';
+        return;
+      }
+      if (safeSync?.busy || safeSync?.countPending()) {
+        showToast('Pulihkan diblokir selama ada perubahan yang belum terverifikasi. Unduh backup sekarang dan selesaikan antrean.', true);
+        e.target.value = '';
+        return;
+      }
       const reader = new FileReader();
       reader.onload = function(evt) {
         try {
           const parsed = JSON.parse(evt.target.result);
-          if (parsed && parsed.leads && parsed.finance) {
-            // Restore all fields including new marketingSpend
-            db = parsed;
-            if (!db.marketingSpend) db.marketingSpend = [];
-            if (!db.role) db.role = 'owner';
-            saveDB({ skipAutoSync: true });
-            showToast('Data cadangan dipulihkan lokal. Periksa sebelum sinkronisasi.');
-          } else {
-            alert('Format file cadangan tidak sesuai!');
+          const data = parsed?.format === 'csk-business-os-backup' ? parsed.data : parsed;
+          const required = ['leads', 'clients', 'projects', 'finance', 'memory', 'marketingSpend'];
+          if (!data || !required.every(area => Array.isArray(data[area]))) {
+            throw new Error('File bukan backup Business OS yang valid.');
           }
+          if (!confirm('Pulihkan data dari file ke perangkat ini? Data lokal saat ini akan diganti. Sinkronisasi cloud akan NONAKTIF sampai dikonfigurasi ulang.')) return;
+          localStorage.setItem('csk_business_os_before_import', JSON.stringify(db));
+          db = {
+            leads: data.leads, clients: data.clients, projects: data.projects,
+            finance: data.finance, memory: data.memory,
+            marketingSpend: data.marketingSpend,
+            settings: { googleSheetUrl: '', apiToken: '', lastSync: '' },
+            role: data.role === 'team' ? 'team' : 'owner'
+          };
+          // Never enqueue imported historical records as cloud upserts.
+          localStorage.setItem(DB_KEY, JSON.stringify(db));
+          if (safeSync) safeSync.restoreLocalOnly(db);
+          document.getElementById('setting-google-url').value = '';
+          document.getElementById('setting-api-token').value = '';
+          document.getElementById('role-select').value = db.role;
+          document.getElementById('role-select-mob').value = db.role;
+          renderAll();
+          updateCloudIndicator();
+          showToast('Backup dipulihkan secara lokal. Cloud sengaja dilepas untuk menghindari konflik.');
         } catch (err) {
-          alert('Gagal membaca file backup!');
+          showToast('Gagal memulihkan: ' + err.message, true);
+        } finally {
+          e.target.value = '';
         }
+      };
+      reader.onerror = () => {
+        showToast('File tidak dapat dibaca.', true);
+        e.target.value = '';
       };
       reader.readAsText(file);
     }
