@@ -170,6 +170,17 @@
       persist();
       return db;
     }
+    // Restore is local-only. Do not queue a historical backup for cloud upload:
+    // records may have been deleted on another device since that backup.
+    function restoreLocalOnly(db) {
+      if (busy) throw new Error('Tidak bisa memulihkan saat sinkronisasi berlangsung.');
+      queue = emptyQueue();
+      baseline = {};
+      verifiedAt = '';
+      lastError = '';
+      snapshot = takeSnapshot(db);
+      persist();
+    }
     async function readCloud(url, token) {
       const separator = url.includes('?') ? '&' : '?';
       const address = url + separator + 'token=' + encodeURIComponent(token || '') + '&_t=' + Date.now();
@@ -281,7 +292,7 @@
       }
     }
     return {
-      init, track, merge, replaceFromCloud, readCloud, flush, countPending,
+      init, track, merge, replaceFromCloud, restoreLocalOnly, readCloud, flush, countPending,
       get verifiedAt() { return verifiedAt; },
       get lastError() { return lastError; },
       get busy() { return busy; }
