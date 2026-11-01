@@ -265,6 +265,9 @@ test('staged app starts without demo customers or baked-in production endpoint',
   assert.match(html, /let db = \{\s*leads: \[\]/);
   assert.doesNotMatch(html, /AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_/);
   assert.match(html, /id="sync-banner"/);
+  assert.match(html, /id="sync-conflict-review-btn"/);
+  assert.match(html, /function reviewSyncConflicts\(\)/);
+  assert.match(html, /function resolveSyncConflictChoice\(/);
   assert.doesNotMatch(html, /user-scalable=no/);
   assert.match(html, /if \(pending > 0\) \{/);
   assert.match(html, /safeSync\.restoreLocalOnly\(db\)/);
