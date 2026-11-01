@@ -1,40 +1,46 @@
-# CSK Business OS — Rencana perbaikan sinkronisasi data (staging)
-Status: DRAFT, **BELUM DIPASANG KE APLIKASI PRODUKSI**.
+# CSK Business OS — Safe Sync Rollout (STAGING)
 
-## Masalah terbukti di branch main sebelum perubahan
-- \`index.html\` fungsi \`saveDB\` mengirim *semua* tabel setelah setiap edit.
-- \`syncWithGoogle\` memakai POST \`no-cors\`, lalu langsung mencatat \`lastSync\` dan menampilkan "berhasil" tanpa membaca hasil backend.
-- \`pullAndMerge\` memprioritaskan salinan lokal untuk ID yang sama, walaupun data cloud lebih baru.
-- \`deleteFinance\`, \`deleteMarketing\`, \`deleteMemory\` sebelumnya tidak melakukan delete khusus di cloud; full-merge bisa memunculkan kembali record.
-- \`sync_all\` di Apps Script masih melakukan upsert tanpa proteksi revisi atomik.
+Status pada 2 November 2026: **PR #2 DRAFT; belum di-merge, belum dipasang ke Google Sheets atau Apps Script produksi.** Panduan ini berlaku untuk perubahan pada source di branch PR, bukan klaim mengenai aplikasi yang sudah ter-deploy.
 
-## Perbaikan dalam PR
-- Frontend memakai \`sync-safe.js\` tanpa mengubah Apps Script aktif.
-- \`saveDB\` mencatat perubahan per ID menjadi antrean di localStorage, bukan POST massal.
-- Update/delete hanya dikirim untuk record yang berubah.
-- Sync memakai GET preflight sebagai perlindungan dasar konflik, dengan baseline pembacaan cloud terakhir.
-- Respons POST \`no-cors\` **tidak** dianggap bukti keberhasilan. Hasil diverifikasi melalui GET setelah POST.
-- Penggabungan startup: cloud digunakan untuk data yang tidak berubah; edit lokal yang masih pending tetap dipertahankan.
-- Status jelas: "Cloud belum terverifikasi", "N perubahan menunggu verifikasi", dan "Cloud terverifikasi".
-- PWA cache dibump agar script tambahan tidak hilang pada update.
-- Tests unit termasuk failed write, pending queue setelah reload, konflik dua perangkat, penghapusan, dan kontrak mapping Sheets.
+## Alasan perbaikan
 
-## Batasan penting yang BELUM diselesaikan
-1. **Belum atomic conflict control**: ada jendela race antara GET preflight dan POST. Untuk keamanan multi-user/sering offline, Apps Script masih perlu endpoint bersyarat per-record (expectedVersion) dan LockService. Jangan klaim konflik sudah hilang 100%.
-2. **Backend deployment**: kode GitHub belum tentu identik dengan seluruh Apps Script produksi (file \`Library\`, \`Layanan\` juga tersedia). Jangan overwrite produksi hanya untuk mengaktifkan frontend.
-3. **Legacy local-only records**: pada startup, data lokal lama yang tidak ada di cloud akan tetap terlihat tetapi tidak otomatis dikirim. Butuh alur rekonsiliasi/migrasi yang sadar konflik agar record lama tidak membangkitkan data yang sudah dihapus di perangkat lain.
-4. **Penyimpanan lokal**: localStorage bukan penyimpanan permanen lintas browser/perangkat; hapus cache/browser bisa menghilangkan antrean belum tersinkron. Backup Drive harian melindungi *cloud*, bukan antrean lokal yang belum terkirim.
-5. **Keamanan**: endpoint Apps Script memakai \`ANYONE_ANONYMOUS\` dan \`API_TOKEN\` bersifat opsional di kode backend. Butuh audit terpisah dan migrasi token wajib/otorisasi yang benar.
-6. **Finance**: backend masih otomatis membuat "DP Proyek" sebesar nilai lead saat Deal Menang. Ini masalah laporan keuangan lain yang harus ditangani sendiri sebelum pengembangan laporan laba atau kalkulator HPP.
-7. **Cold email**: alur \`sendColdEmailLead\` masih memakai POST opaque, sehingga status kirim email belum terverifikasi; perubahan ini belum mengubahnya.
-8. **Aplikasi lama**: browser yang belum menerima versi baru bisa tetap melakukan full sync. Perlu rencana migrasi/versi minimum client sebelum go-live.
+Branch `main` lama menyinkronkan seluruh tabel dan menyatakan POST `no-cors` berhasil tanpa pembacaan ulang. Dalam konflik antarperangkat, data bisa tertimpa; record yang dihapus dapat muncul lagi. Backend lama belum punya mekanisme revisi atomik.
 
-## Cara memvalidasi sebelum merge
-1. Pastikan backup Google Drive dan daftar trigger harian sudah benar.
-2. Jalankan \`node sync-safe.test.js\` dan \`node mapping.test.js\` di branch PR; tunggu CI hijau.
-3. Gunakan *salinan* Google Sheet + deployment Apps Script khusus uji (bukan database utama), isi record dummy.
-4. Uji create/edit/delete, keadaan offline, koneksi terputus, POST yang gagal, kedua browser mengedit ID sama, lalu restore dari backup dummy.
-5. Audit endpoint, role dan alur Finance serta desain server-side expectedVersion sebelum menandai aman untuk multi-user.
-6. Baru setelah semua lolos, review/merge/deploy secara terkontrol. **Tidak perlu men-deploy PR ini sekarang**.
+## Yang sudah ditambahkan di source staging
 
-Rollback: kembalikan frontend ke commit sebelum PR. Database utama tidak direstrukturisasi oleh perubahan PR.
+1. `sync-safe.js`: antrean perubahan per ID, snapshot awal, preflight konflik dasar, POST hanya perubahan, GET readback sebelum menandai terverifikasi, serta penanganan offline/retry yang mempertahankan queue lokal.
+2. Penggabungan startup menjaga perubahan lokal pending dan memakai cloud untuk record yang tidak berubah. Tidak melakukan upload massal data lama dari perangkat.
+3. Tarik manual ditolak bila queue belum kosong. Backup JSON membuang API URL/token sebelum diunduh, namun file masih memuat data bisnis sensitif. Restore hanya lokal, memutus koneksi cloud dan tidak mengirim backup sebagai perubahan baru.
+4. Status UX tetap terlihat: perangkat lokal, belum tersetel, token/config salah, offline, antrean, error/konflik, dan tanggal verifikasi terakhir. Data demo dan endpoint produksi tidak dibundel pada fresh install.
+5. Aksesibilitas/mobile: pinch zoom, target tombol lebih besar, label form, dialog, keyboard Escape, focus-visible, screen-reader live status, dan layar kosong yang menunjukkan langkah pertama.
+6. PWA cache tidak mencegat URL Apps Script cross-origin; service worker dibump untuk staged update.
+7. Kode Apps Script **staging** menolak GET/POST bila token server belum disetel atau terlalu pendek. Pengaturan masih browser bearer-token, **bukan login multi-user**.
+8. Pembuatan jurnal “DP Proyek” palsu saat Deal Menang dihapus pada source backend staging; draft proyek backend default nonaktif. Nilai deal tidak dianggap uang masuk.
+9. ROAS yang tidak memiliki atribusi campaign dihapus, CPL tetap tersedia. Ringkasan keuangan secara eksplisit hanya menunjukkan selisih kas tercatat, bukan laba bersih.
+10. Cold email POST opaque tidak lagi diklaim otomatis sukses atau menaikkan status lead. Teks yang berasal dari calon klien/Google Sheets di-escape pada UI.
+11. Automated tests memvalidasi simulasi mesin antrean, backend emulator SpreadsheetApp, dan mapping data; **bukan** bukti koneksi HTTP ke Web App aktif.
+
+## Gate yang masih HARUS diselesaikan
+
+- **LAB handler guard:** file `apps-script/LabRequestGuard.gs` dan `apps-script/LabHandlerVerification.gs` di GitHub tidak otomatis terpasang. Jalankan verifikasi bahwa fungsi `doGet/doPost` LAB benar-benar memakai guard; butuh hasil `LAB_HANDLER_GUARD_PASS`.
+- **Browser HTTP/CORS:** uji autentikasi, GET/POST, retry, offline, dan verifikasi data dummy pada browser sungguhan yang memakai backend staging khusus. Tidak boleh membuka database utama demi uji.
+- **Atomic concurrency:** preflight GET diikuti POST masih rentan race condition; butuh LockService, expectedVersion/revision pada backend, penolakan klien lama, dan conflict resolution UI.
+- **Server access control:** dropdown role owner/tim hanya untuk tampilan, tanpa otorisasi server. Pengaturan Finance/Marketing harus dilindungi menggunakan autentikasi/role nyata sebelum akses tim dibuka.
+- **Backup/rollout:** backup produksi dan pemulihannya harus diuji, lalu uji perangkat Android/iPhone/desktop dan rencana rollback serta pengawasan pasca-rilis. Tidak ada hard-coded secret di repo.
+
+## Validasi kode
+
+Cek branch PR #2 dan workflow `Check Business OS safe sync` pada commit HEAD. Tes yang dipanggil dari terminal Node (pengujian emulator) adalah:
+
+```bash
+node --check sync-safe.js
+node sync-safe.test.js
+node sync-backend-integration.test.js
+node mapping.test.js
+```
+
+Jangan menyamakan status PASS dari pengujian ini dengan akses aman di jaringan publik. Dokumen pendamping: [UX & Access QA](ux-access-security-qa.md) dan [LAB API guard](lab-api-guard.md).
+
+## Kebijakan deployment
+
+**Jangan deploy branch PR #2 ke produksi atau mengubah Apps Script live sekarang.** Kode baru akan memutus kompatibilitas bila backend masih versi lama atau token belum dikonfigurasi, dan pembatasan akses serta concurrency belum tervalidasi. Rilis hanya setelah seluruh release gate dipenuhi dan disetujui.
