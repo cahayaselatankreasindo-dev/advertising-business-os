@@ -161,3 +161,16 @@ test('staged backend never treats a won lead as a cash deposit', () => {
   assert.match(source, /AUTO_PROJECT_FROM_WON/);
   assert.match(source, /if \(!expected \|\| expected\.length < 20/);
 });
+
+test('imported customer text is escaped before HTML rendering', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const from = html.indexOf('    function escapeHTML(value) {');
+  const to = html.indexOf('    function safeInlineId(value) {', from);
+  assert.ok(from > 0 && to > from, 'HTML escape function exists');
+  const escape = vm.runInNewContext(html.slice(from, to) + '\n escapeHTML;');
+  assert.equal(escape('<img src=x onerror="alert(1)">'),
+    '&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
+  assert.match(html, /safeExternalHref\(l\.website\)/);
+  assert.match(html, /safeExternalHref\(l\.linkedin\)/);
+  assert.match(html, /safeInlineId\(l\.id\)/);
+});
