@@ -613,7 +613,7 @@
   <!-- MODALS -->
 
   <!-- Modal Lead -->
-  <div id="modal-lead" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+  <div id="modal-lead" role="dialog" aria-modal="true" aria-label="Tambah lead" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <h3 class="font-heading font-bold text-slate-900 text-base">Tambah Calon Klien (Lead)</h3>
@@ -621,20 +621,20 @@
       </div>
       <form onsubmit="submitLead(event)" class="space-y-3 text-xs">
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Nama Calon Klien / Brand</label>
+          <label for="lead-name" class="block font-semibold text-slate-700 mb-1">Nama Calon Klien / Brand</label>
           <input type="text" id="lead-name" required placeholder="Contoh: Bpk. Hendra / Kopi Sore" class="w-full p-2 border border-slate-300 rounded-lg">
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Nomor WhatsApp</label>
+          <label for="lead-phone" class="block font-semibold text-slate-700 mb-1">Nomor WhatsApp</label>
           <input type="tel" id="lead-phone" placeholder="Contoh: 08123456789" class="w-full p-2 border border-slate-300 rounded-lg">
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Email (Opsional untuk Cold Outreach)</label>
+          <label for="lead-email" class="block font-semibold text-slate-700 mb-1">Email (Opsional untuk Cold Outreach)</label>
           <input type="email" id="lead-email" placeholder="Contoh: marketing@brand.com" class="w-full p-2 border border-slate-300 rounded-lg">
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Sumber Lead</label>
+            <label for="lead-source" class="block font-semibold text-slate-700 mb-1">Sumber Lead</label>
             <select id="lead-source" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
               <option value="WhatsApp">WhatsApp Langsung</option>
               <option value="Instagram Ads">Instagram Ads</option>
@@ -644,12 +644,12 @@
             </select>
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Estimasi Nilai (Rp)</label>
+            <label for="lead-value" class="block font-semibold text-slate-700 mb-1">Estimasi Nilai (Rp)</label>
             <input type="number" id="lead-value" placeholder="Contoh: 1500000" class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Status Prospek</label>
+          <label for="lead-status" class="block font-semibold text-slate-700 mb-1">Status Prospek</label>
           <select id="lead-status" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
             <option value="new">Baru Kontak</option>
             <option value="contacted">Sudah Dihubungi</option>
@@ -659,7 +659,7 @@
           </select>
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Catatan Kebutuhan</label>
+          <label for="lead-notes" class="block font-semibold text-slate-700 mb-1">Catatan Kebutuhan</label>
           <textarea id="lead-notes" rows="2" placeholder="Contoh: Mau buat logo UMKM paket 1,5 juta..." class="w-full p-2 border border-slate-300 rounded-lg"></textarea>
         </div>
 
@@ -671,31 +671,31 @@
           <div class="p-3 space-y-3">
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block font-semibold text-slate-700 mb-1">Website</label>
+                <label for="lead-website" class="block font-semibold text-slate-700 mb-1">Website</label>
                 <input type="url" id="lead-website" placeholder="https://brand.com" class="w-full p-2 border border-slate-300 rounded-lg">
               </div>
               <div>
-                <label class="block font-semibold text-slate-700 mb-1">Industri</label>
+                <label for="lead-industry" class="block font-semibold text-slate-700 mb-1">Industri</label>
                 <input type="text" id="lead-industry" placeholder="FMCG / Retail / EO" class="w-full p-2 border border-slate-300 rounded-lg">
               </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block font-semibold text-slate-700 mb-1">Nama PIC</label>
+                <label for="lead-pic" class="block font-semibold text-slate-700 mb-1">Nama PIC</label>
                 <input type="text" id="lead-pic" placeholder="Budi Santoso" class="w-full p-2 border border-slate-300 rounded-lg">
               </div>
               <div>
-                <label class="block font-semibold text-slate-700 mb-1">Jabatan PIC</label>
+                <label for="lead-pic-title" class="block font-semibold text-slate-700 mb-1">Jabatan PIC</label>
                 <input type="text" id="lead-pic-title" placeholder="Procurement Manager" class="w-full p-2 border border-slate-300 rounded-lg">
               </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block font-semibold text-slate-700 mb-1">LinkedIn PIC</label>
+                <label for="lead-linkedin" class="block font-semibold text-slate-700 mb-1">LinkedIn PIC</label>
                 <input type="url" id="lead-linkedin" placeholder="https://linkedin.com/in/..." class="w-full p-2 border border-slate-300 rounded-lg">
               </div>
               <div>
-                <label class="block font-semibold text-slate-700 mb-1">Skor Prioritas (0-100)</label>
+                <label for="lead-score" class="block font-semibold text-slate-700 mb-1">Skor Prioritas (0-100)</label>
                 <input type="number" id="lead-score" min="0" max="100" placeholder="85" class="w-full p-2 border border-slate-300 rounded-lg">
               </div>
             </div>
@@ -711,7 +711,7 @@
   </div>
 
   <!-- Modal Client -->
-  <div id="modal-client" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+  <div id="modal-client" role="dialog" aria-modal="true" aria-label="Tambah klien" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <h3 class="font-heading font-bold text-slate-900 text-base">Tambah Klien Tetap</h3>
@@ -719,15 +719,15 @@
       </div>
       <form onsubmit="submitClient(event)" class="space-y-3 text-xs">
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Nama Klien / Brand</label>
+          <label for="client-name" class="block font-semibold text-slate-700 mb-1">Nama Klien / Brand</label>
           <input type="text" id="client-name" required placeholder="Contoh: Bpk. Hendra (Kopi Sore)" class="w-full p-2 border border-slate-300 rounded-lg">
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Nomor WhatsApp</label>
+          <label for="client-phone" class="block font-semibold text-slate-700 mb-1">Nomor WhatsApp</label>
           <input type="tel" id="client-phone" placeholder="Contoh: 08123456789" class="w-full p-2 border border-slate-300 rounded-lg">
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Review Singkat</label>
+          <label for="client-review" class="block font-semibold text-slate-700 mb-1">Review Singkat</label>
           <textarea id="client-review" rows="2" placeholder="Contoh: Sangat profesional, hasilnya memuaskan" class="w-full p-2 border border-slate-300 rounded-lg"></textarea>
         </div>
         <div>
@@ -750,7 +750,7 @@
   </div>
 
   <!-- Modal Project -->
-  <div id="modal-project" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+  <div id="modal-project" role="dialog" aria-modal="true" aria-label="Tambah proyek" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <h3 class="font-heading font-bold text-slate-900 text-base">Buat Proyek Baru</h3>
@@ -758,25 +758,25 @@
       </div>
       <form onsubmit="submitProject(event)" class="space-y-3 text-xs">
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Nama Proyek / Pekerjaan</label>
+          <label for="proj-title" class="block font-semibold text-slate-700 mb-1">Nama Proyek / Pekerjaan</label>
           <input type="text" id="proj-title" required placeholder="Contoh: Branding Logo Kopi Sore" class="w-full p-2 border border-slate-300 rounded-lg">
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Nama Klien</label>
+          <label for="proj-client" class="block font-semibold text-slate-700 mb-1">Nama Klien</label>
           <input type="text" id="proj-client" required placeholder="Contoh: Bpk. Hendra" class="w-full p-2 border border-slate-300 rounded-lg">
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Nilai Proyek (Rp)</label>
+            <label for="proj-value" class="block font-semibold text-slate-700 mb-1">Nilai Proyek (Rp)</label>
             <input type="number" id="proj-value" placeholder="Contoh: 8000000" class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Deadline</label>
+            <label for="proj-deadline" class="block font-semibold text-slate-700 mb-1">Deadline</label>
             <input type="date" id="proj-deadline" class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Status Proyek</label>
+          <label for="proj-status" class="block font-semibold text-slate-700 mb-1">Status Proyek</label>
           <select id="proj-status" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
             <option value="plan">Perencanaan / Brief</option>
             <option value="ongoing">Sedang Pengerjaan</option>
@@ -785,7 +785,7 @@
           </select>
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Catatan</label>
+          <label for="proj-notes" class="block font-semibold text-slate-700 mb-1">Catatan</label>
           <textarea id="proj-notes" rows="2" placeholder="Catatan khusus teknis atau revisi..." class="w-full p-2 border border-slate-300 rounded-lg"></textarea>
         </div>
         <div class="flex justify-end gap-2 pt-2">
@@ -797,7 +797,7 @@
   </div>
 
   <!-- Modal Finance -->
-  <div id="modal-finance" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50 pillar-finance">
+  <div id="modal-finance" role="dialog" aria-modal="true" aria-label="Catat transaksi" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50 pillar-finance">
     <div class="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <h3 class="font-heading font-bold text-slate-900 text-base">Catat Pemasukan / Pengeluaran</h3>
@@ -806,29 +806,29 @@
       <form onsubmit="submitFinance(event)" class="space-y-3 text-xs">
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Tipe Transaksi</label>
+            <label for="fin-type" class="block font-semibold text-slate-700 mb-1">Tipe Transaksi</label>
             <select id="fin-type" onchange="updateFinanceCategories()" class="w-full p-2 border border-slate-300 rounded-lg bg-white font-semibold">
               <option value="income">Pemasukan (+)</option>
               <option value="expense">Pengeluaran (-)</option>
             </select>
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Tanggal</label>
+            <label for="fin-date" class="block font-semibold text-slate-700 mb-1">Tanggal</label>
             <input type="date" id="fin-date" required class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Kategori</label>
+            <label for="fin-category" class="block font-semibold text-slate-700 mb-1">Kategori</label>
             <select id="fin-category" class="w-full p-2 border border-slate-300 rounded-lg bg-white"></select>
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Nominal (Rp)</label>
+            <label for="fin-amount" class="block font-semibold text-slate-700 mb-1">Nominal (Rp)</label>
             <input type="number" id="fin-amount" required placeholder="Contoh: 1500000" class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Keterangan / Klien</label>
+          <label for="fin-desc" class="block font-semibold text-slate-700 mb-1">Keterangan / Klien</label>
           <input type="text" id="fin-desc" required placeholder="Contoh: DP 50% Logo Bpk Hendra" class="w-full p-2 border border-slate-300 rounded-lg">
         </div>
         <div class="flex justify-end gap-2 pt-2">
@@ -840,7 +840,7 @@
   </div>
 
   <!-- Modal Marketing Spend -->
-  <div id="modal-marketing" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50 pillar-marketing">
+  <div id="modal-marketing" role="dialog" aria-modal="true" aria-label="Catat kampanye" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50 pillar-marketing">
     <div class="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <h3 class="font-heading font-bold text-slate-900 text-base">Catat Biaya Iklan / Campaign</h3>
@@ -849,7 +849,7 @@
       <form onsubmit="submitMarketing(event)" class="space-y-3 text-xs">
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Platform</label>
+            <label for="mkt-platform" class="block font-semibold text-slate-700 mb-1">Platform</label>
             <select id="mkt-platform" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
               <option value="Meta Ads">Meta Ads (Facebook/Instagram)</option>
               <option value="TikTok Ads">TikTok Ads</option>
@@ -859,31 +859,31 @@
             </select>
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Tanggal</label>
+            <label for="mkt-date" class="block font-semibold text-slate-700 mb-1">Tanggal</label>
             <input type="date" id="mkt-date" required class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Nama Kampanye</label>
+          <label for="mkt-campaign" class="block font-semibold text-slate-700 mb-1">Nama Kampanye</label>
           <input type="text" id="mkt-campaign" placeholder="Contoh: September Brand Awareness - Kopi Sore" class="w-full p-2 border border-slate-300 rounded-lg">
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Budget (Rp)</label>
+            <label for="mkt-budget" class="block font-semibold text-slate-700 mb-1">Budget (Rp)</label>
             <input type="number" id="mkt-budget" placeholder="Anggaran total" class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Terpakai (Rp)</label>
+            <label for="mkt-spent" class="block font-semibold text-slate-700 mb-1">Terpakai (Rp)</label>
             <input type="number" id="mkt-spent" placeholder="Realisasi aktual" class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Leads Dihasilkan</label>
+            <label for="mkt-leads" class="block font-semibold text-slate-700 mb-1">Leads Dihasilkan</label>
             <input type="number" id="mkt-leads" placeholder="Jumlah leads dari iklan ini" class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Catatan</label>
+            <label for="mkt-notes" class="block font-semibold text-slate-700 mb-1">Catatan</label>
             <input type="text" id="mkt-notes" placeholder="Opsional" class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
         </div>
@@ -896,7 +896,7 @@
   </div>
 
   <!-- Modal Memory -->
-  <div id="modal-memory" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50 pillar-riset">
+  <div id="modal-memory" role="dialog" aria-modal="true" aria-label="Catat insight" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50 pillar-riset">
     <div class="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <h3 class="font-heading font-bold text-slate-900 text-base">Tambah Catatan Business Memory</h3>
@@ -904,7 +904,7 @@
       </div>
       <form onsubmit="submitMemory(event)" class="space-y-3 text-xs">
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Kategori</label>
+          <label for="mem-category" class="block font-semibold text-slate-700 mb-1">Kategori</label>
           <select id="mem-category" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
             <option value="Strategi Penawaran">Strategi Penawaran</option>
             <option value="Evaluasi Iklan">Evaluasi Iklan & Leads</option>
@@ -913,11 +913,11 @@
           </select>
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Judul Catatan</label>
+          <label for="mem-title" class="block font-semibold text-slate-700 mb-1">Judul Catatan</label>
           <input type="text" id="mem-title" required placeholder="Contoh: Pola Closing Paket 8 Juta" class="w-full p-2 border border-slate-300 rounded-lg">
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Isi Pelajaran / Insight</label>
+          <label for="mem-content" class="block font-semibold text-slate-700 mb-1">Isi Pelajaran / Insight</label>
           <textarea id="mem-content" rows="4" required placeholder="Tuliskan pengalaman atau strategi yang berhasil..." class="w-full p-2 border border-slate-300 rounded-lg"></textarea>
         </div>
         <div class="flex justify-end gap-2 pt-2">
@@ -929,7 +929,7 @@
   </div>
 
   <!-- Modal Invoice & Penawaran (Paper.id style - CSK Branding) -->
-  <div id="modal-invoice" class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm hidden items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+  <div id="modal-invoice" role="dialog" aria-modal="true" aria-label="Dokumen penawaran dan invoice" class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm hidden items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
     <div class="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[92vh]">
       <!-- Header Bar Modal (No-print) -->
       <div class="bg-slate-900 text-white p-4 flex items-center justify-between no-print border-b border-slate-800">
@@ -1156,13 +1156,17 @@
       return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
     }
 
+    let toastTimeout = null;
     function showToast(msg, isError) {
       const t = document.getElementById('toast');
       const icon = document.getElementById('toast-icon');
-      document.getElementById('toast-msg').innerText = msg;
+      document.getElementById('toast-msg').textContent = msg;
+      t.setAttribute('role', isError ? 'alert' : 'status');
+      t.setAttribute('aria-live', isError ? 'assertive' : 'polite');
       icon.className = isError ? 'fa fa-exclamation-circle text-red-400' : 'fa fa-check-circle text-emerald-400';
       t.classList.remove('opacity-0', 'pointer-events-none');
-      setTimeout(() => t.classList.add('opacity-0', 'pointer-events-none'), 3000);
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => t.classList.add('opacity-0', 'pointer-events-none'), isError ? 7000 : 4000);
     }
 
     // ============== ROLE-BASED ACCESS ==============
@@ -1215,18 +1219,24 @@
     // ============== NAVIGATION ==============
 
     function nav(page) {
+      if (db.role === 'team' && ['finance','marketing','analysis','settings'].includes(page)) {
+        // This limits the UI only; real data authorization MUST be server-side.
+        page = 'dashboard';
+      }
       document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
       const target = document.getElementById('page-' + page);
       if (target) target.classList.remove('hidden');
 
       document.querySelectorAll('.nav-btn').forEach(btn => {
         const isCurrent = btn.getAttribute('onclick').includes(page);
+        btn.setAttribute('aria-current', isCurrent ? 'page' : 'false');
         btn.classList.toggle('bg-slate-800', isCurrent);
         btn.classList.toggle('text-white', isCurrent);
       });
 
       document.querySelectorAll('.mob-btn').forEach(btn => {
         const isCurrent = btn.getAttribute('onclick').includes(page);
+        btn.setAttribute('aria-current', isCurrent ? 'page' : 'false');
         btn.classList.toggle('text-amber-500', isCurrent);
         btn.classList.toggle('text-slate-400', !isCurrent);
       });
@@ -1236,11 +1246,14 @@
 
     // ============== MODAL HELPERS ==============
 
+    let previousModalFocus = null;
     function openModal(id) {
       const m = document.getElementById(id);
       if (m) {
+        previousModalFocus = document.activeElement;
         m.classList.remove('hidden');
         m.classList.add('flex');
+        requestAnimationFrame(() => m.querySelector('input:not([type="hidden"]), select, textarea, button')?.focus());
       }
       if (id === 'modal-finance') {
         document.getElementById('fin-date').value = new Date().toISOString().slice(0,10);
@@ -1259,6 +1272,7 @@
       if (m) {
         m.classList.add('hidden');
         m.classList.remove('flex');
+        previousModalFocus?.focus?.();
       }
     }
 
@@ -2644,7 +2658,15 @@
       // Saat aplikasi dibuka: tarik & gabungkan data dari cloud (AMAN, tidak menimpa)
       pullAndMerge();
       window.addEventListener('online', () => {
+        updateCloudIndicator();
         if (safeSync && safeSync.countPending()) scheduleCloudSync();
+      });
+      window.addEventListener('offline', updateCloudIndicator);
+      window.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          const dialog = document.querySelector('[role="dialog"].flex');
+          if (dialog) { event.preventDefault(); closeModal(dialog.id); }
+        }
       });
     });
   </script>
