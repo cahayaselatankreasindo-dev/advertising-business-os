@@ -23,6 +23,8 @@ on:
       - 'sync-safe.js'
       - 'sync-safe.test.js'
       - 'sync-backend-integration.test.js'
+      - 'google_apps_script.js'
+      - 'outreach-safety.test.js'
       - 'apps-script/LabSelfTest.gs'
       - 'apps-script/LabRequestGuard.gs'
       - 'sw.js'
@@ -59,6 +61,11 @@ jobs:
           node --check email-marketing.js
           node --check email-marketing-ui.js
           node email-marketing.test.js
+      - name: Assert no backend cold email or auto-email trigger
+        run: |
+          node --check google_apps_script.js
+          node --check outreach-safety.test.js
+          node outreach-safety.test.js
       - name: Test B2B persona reference (no CRM writes)
         run: |
           node --check persona-leads.js
