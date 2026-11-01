@@ -76,6 +76,7 @@ function createBackend() {
       getProperty: key => props[key] || null, setProperty: (key,val) => {props[key]=val;}
     }) },
     ScriptApp: { getProjectTriggers: () => [] },
+    LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     MailApp: { getRemainingDailyQuota: () => 100, sendEmail: () => {} },
     Utilities: { formatDate: () => '2026-10-31', getUuid: () => '0e53d4f6-137d-4bdc-86c2-67fa792a5237' },
     Logger: { log() {} },
@@ -90,6 +91,30 @@ function createBackend() {
     read() { return JSON.parse(backend.doGet({ parameter: { token: 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE', protocolVersion: 2 } }).text); },
     post(data) {
       const payload = Object.assign({ protocolVersion: 2 }, data);
+      const areaSheets = {
+        leads: 'Leads', clients: 'Clients', projects: 'Projects',
+        finance: 'Finance', memory: 'Memory', marketingSpend: 'Marketing_Spend'
+      };
+      if (payload.action === 'sync_all' && !payload.expectedRecords) {
+        payload.expectedRecords = {};
+        Object.keys(areaSheets).forEach(area => {
+          if (!Array.isArray(payload[area]) || !payload[area].length) return;
+          const sheetName = areaSheets[area];
+          const current = backend.readSheetData(backend.SpreadsheetApp.getActiveSpreadsheet(), sheetName);
+          const versions = {};
+          payload[area].forEach(record => {
+            const id = String(record.id);
+            const existing = current.find(row => String(row.id) === id);
+            versions[id] = existing ? backend.stableRecordFingerprint_(existing) : null;
+          });
+          payload.expectedRecords[sheetName] = versions;
+        });
+      }
+      if (payload.action === 'delete' && payload.expectedFingerprint === undefined) {
+        const current = backend.readSheetData(backend.SpreadsheetApp.getActiveSpreadsheet(), payload.sheet || 'Leads')
+          .find(row => String(row.id) === String(payload.id));
+        payload.expectedFingerprint = current ? backend.stableRecordFingerprint_(current) : 'NO_BASELINE';
+      }
       return JSON.parse(backend.doPost({ postData: { contents: JSON.stringify(payload) } }).text);
     },
     suppressPosts(value) { ignorePosts = value; },
@@ -149,6 +174,40 @@ test('real backend + frontend: delete -> GET confirms missing', async () => {
   assert.equal(api.read().data.finance.length,0);
   assert.equal(api.sent[0].action,'delete');
 });
+test('backend rejects a stale expected record version atomically', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const original = {id:'TEST-CAS-1',date:'2026-10-31',name:'Original',phone:'',source:'QA',
+    value:0,status:'new',notes:'',email:'',website:'',industry:'',pic:'',picTitle:'',linkedin:'',score:0};
+  assert.equal(api.post({action:'sync_all',token,leads:[original]}).status,'success');
+  const baseline = api.read().data.leads.find(row => row.id === original.id);
+  const staleFingerprint = api.sandbox.stableRecordFingerprint_(baseline);
+  assert.equal(api.post({action:'sync_all',token,leads:[{...original,name:'Second device'}]}).status,'success');
+  const staleWrite = api.post({
+    action:'sync_all',token,
+    expectedRecords:{Leads:{'TEST-CAS-1':staleFingerprint}},
+    leads:[{...original,name:'Stale first device'}]
+  });
+  assert.equal(staleWrite.status,'error');
+  assert.equal(staleWrite.code,'SYNC_CONFLICT');
+  assert.equal(api.read().data.leads.find(row => row.id === original.id).name,'Second device');
+});
+
+test('backend refuses delete without matching record fingerprint', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const original = {id:'TEST-CAS-DELETE',date:'2026-10-31',name:'Original',phone:'',source:'QA',
+    value:0,status:'new',notes:'',email:'',website:'',industry:'',pic:'',picTitle:'',linkedin:'',score:0};
+  api.post({action:'sync_all',token,leads:[original]});
+  const baseline = api.read().data.leads.find(row => row.id === original.id);
+  const expectedFingerprint = api.sandbox.stableRecordFingerprint_(baseline);
+  api.post({action:'sync_all',token,leads:[{...original,name:'Updated elsewhere'}]});
+  const result = api.post({action:'delete',token,sheet:'Leads',id:original.id,expectedFingerprint});
+  assert.equal(result.status,'error');
+  assert.equal(result.code,'SYNC_CONFLICT');
+  assert.equal(api.read().data.leads.find(row => row.id === original.id).name,'Updated elsewhere');
+});
+
 test('real backend + frontend: two-client edit conflicts without writing', async () => {
   const api=createBackend();
   const initial={id:'TEST-2',date:'2026-10-31',name:'Server old',phone:'',source:'QA',value:0,status:'new',notes:'',email:'',website:'',industry:'',pic:'',picTitle:'',linkedin:'',score:0};
