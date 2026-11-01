@@ -99,3 +99,17 @@ test('HPP UI JS syntax and vendor reference prices are valid',()=>{
  assert.ok(hpp.PRESETS.banner.rows.some(x=>x.unitCost===70000));
  assert.ok(hpp.PRESETS.rack.rows.some(x=>x.unitCost===175000));
 });
+
+test('Android HPP preview bundles calculator/UI without external API dependencies',()=>{
+ const html=fs.readFileSync(path.join(__dirname,'preview','CSK-HPP-Kalkulator-Offline.html'),'utf8');
+ assert.doesNotMatch(html,/<script[^>]+\bsrc\s*=/i);
+ assert.doesNotMatch(html,/\bfetch\s*\(/i);
+ assert.doesNotMatch(html,/script\.google\.com\/macros\/s\//i);
+ assert.doesNotMatch(html,/https?:\/\/fonts\.googleapis\.com/i);
+ const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
+ assert.equal(scripts.length,3);
+ scripts.forEach((match,i)=>assert.doesNotThrow(()=>new vm.Script(match[1],{filename:'HPP-inline-'+i})));
+ assert.match(html,/id="hpp-root"/);
+ assert.match(html,/mode offline/i);
+ assert.match(html,/csk_hpp_local_quotes_v1/);
+});
