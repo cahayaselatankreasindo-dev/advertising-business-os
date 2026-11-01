@@ -65,6 +65,24 @@ test('send ONLY changed lead and confirm real cloud state', async ()=>{
   assert.deepEqual(Object.keys(cloud.calls[0]).sort(),['action','leads','protocolVersion','token']);
 });
 
+test('new client refuses a backend with a different protocol version', async () => {
+  let posts = 0;
+  const fetcher = async (_url, opts = {}) => {
+    if (opts.method === 'POST') { posts++; return { type: 'opaque' }; }
+    return { ok: true, json: async () => ({ status: 'success', protocolVersion: 1, data: fixture() }) };
+  };
+  const db = fixture();
+  const engine = createEngine(store(), fetcher);
+  engine.init(db);
+  db.leads[0].name = 'Must remain pending';
+  engine.track(db);
+  const result = await engine.flush('https://example.test/exec', '');
+  assert.equal(result.status, 'error');
+  assert.match(result.message, /Versi backend tidak cocok/);
+  assert.equal(posts, 0, 'no write may be sent to a mismatched backend');
+  assert.equal(engine.countPending(), 1);
+});
+
 test('delete is queued, verified, and does not resurrect record on pull',async()=>{
   const cloud=fakeCloud(fixture());
   const db=fixture();
