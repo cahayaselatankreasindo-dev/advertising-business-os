@@ -180,7 +180,7 @@ function cskLabRunGuardNegativeTests() {
       id: "QA-LAB-OK", expectedFingerprint: "LAB-TEST-FINGERPRINT", extra: "not_allowed" },
     { action: "sync_all", protocolVersion: 2, token: token, expectedRecords: {}, leads: [] },
     { action: "sync_all", protocolVersion: 2, token: token,
-      expectedRecords: {Leads: {"QA-LAB-MISSING-VERSION": null}},
+      expectedRecords: {Leads: {"QA-LAB-OTHER-BASELINE": null}},
       leads: [{id:"QA-LAB-MISSING-VERSION", status:"new"}] },
     { action: "sync_all", protocolVersion: 2, token: token,
       leads: [{id:"QA-LAB-MISSING-EXPECTED", status:"new"}] },
