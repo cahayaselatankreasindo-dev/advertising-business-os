@@ -106,4 +106,12 @@ test('Kegagalan metadata tidak mengklaim sukses penuh dan tidak menghapus file',
   assert.equal(result.ok,false);assert.equal(result.needsReview,true);
   assert.equal(h.state.created,1);assert.equal(result.fileId,'LABFILE_1');
 });
+test('Unggah batch menampilkan jumlah yang sukses sebelum gagal dan memuat ulang riwayat tanpa menghapus status',()=>{
+  assert.match(html,/let saved=0/);
+  assert.match(html,/saved\+\+/);
+  assert.match(html,/saved\+' dari '\+files\.length\+' foto sudah tersimpan/);
+  assert.match(html,/saved\+' dari '\+files\.length\+' foto terkonfirmasi tersimpan/);
+  assert.match(html,/await refresh\(\{preserveStatus:true\}\)/);
+  assert.match(html,/if\(!options\.preserveStatus\)status\('Gagal memuat riwayat:/);
+});
 process.stdout.write(`\n${checks} photo LAB tests passed.\n`);
