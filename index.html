@@ -2751,11 +2751,19 @@
       // Local database records are still sensitive business information.
       const snapshot = JSON.parse(JSON.stringify(db));
       snapshot.settings = { googleSheetUrl: '', apiToken: '', lastSync: snapshot.settings?.lastSync || '' };
+      let conflictRecovery = [];
+      try {
+        const storedRecovery = JSON.parse(localStorage.getItem('csk_business_os_conflict_recovery_v1') || '[]');
+        if (Array.isArray(storedRecovery)) conflictRecovery = storedRecovery.slice(-20);
+      } catch (_) {
+        conflictRecovery = [];
+      }
       const backup = {
         format: 'csk-business-os-backup',
         version: 2,
         exportedAt: new Date().toISOString(),
         pendingChangesAtExport: safeSync?.countPending() || 0,
+        conflictRecovery,
         data: snapshot
       };
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
