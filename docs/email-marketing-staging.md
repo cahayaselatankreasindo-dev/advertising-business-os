@@ -12,7 +12,9 @@ Mengambil data prospek yang sudah tercatat dalam tab Leads CRM agar owner CSK bi
 - Filter menurut nama, alamat email, PIC, industri, status dan status izin.
 
 ## Draft kampanye
-- Template: perkenalan CSK, follow-up penawaran, portofolio B2B.
+- Dropdown **Pilih template email** muncul sebelum subjek dan isi email. Pilihan: 3 template umum, 17 template buyer persona (P1–P17), atau mulai dari kosong.
+- Persona dipilih **manual oleh owner**, tidak dideteksi otomatis dari kontak Leads. Memilih template mengisi subjek serta isi untuk disunting. Saat ganti template, perubahan draf yang sudah diedit dilindungi konfirmasi.
+- Template: perkenalan CSK, follow-up penawaran, portofolio B2B, dan 17 sudut pendekatan sesuai kapabilitas CSK. Nilai proyek persona tidak dipakai dalam email.
 - Personalisasi hanya placeholder teks sederhana: `{{pic}}`, `{{brand}}`, `{{industry}}`, `{{source}}`, `{{status}}`, `{{picTitle}}`.
 - Preview subject/body untuk penerima berizin. Tombol **Buka Draft Email Individu** membuka `mailto:` di aplikasi email; email **baru terkirim jika owner menekan Send secara manual**.
 - CSV kampanye dapat diunduh **hanya untuk penerima yang izinnya sudah dicatat**. CSV memakai escape formula spreadsheet.
@@ -28,7 +30,7 @@ Mengambil data prospek yang sudah tercatat dalam tab Leads CRM agar owner CSK bi
 ## Coba sekarang
 File HTML mandiri: [Preview Email Marketing CSK Offline](../preview/CSK-Email-Marketing-Offline.html).
 
-Preview memakai 4 Lead **fiktif** yang dipasang di file HTML, bukan memuat Google Sheets. Unduh raw file dan buka via Chrome; tombol Catat Izin bisa dicoba dengan bukti **khusus simulasi**. Data asli jangan dimasukkan ke demo.
+Preview offline mandiri saat ini hanya mencontohkan template umum; dropdown 17 persona tersedia di aplikasi staging PR #2. Preview memakai 4 Lead **fiktif** yang dipasang di file HTML, bukan memuat Google Sheets. Unduh raw file dan buka via Chrome; tombol Catat Izin bisa dicoba dengan bukti **khusus simulasi**. Data asli jangan dimasukkan ke demo.
 
 ## Batasan & release gate
 - Belum terhubung ke Gmail API, MailApp atau penyedia pengirim. Tidak ada penjadwalan dan tidak ada klaim tracking open/click atau delivered.

@@ -5,10 +5,41 @@
 'use strict';
 var STORE='csk_email_marketing_local_v1';
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+var PERSONA_EMAIL_COPY={
+ P1:['POSM & display produk','Kami membantu produksi POSM dan display untuk mendukung penempatan produk, peluncuran SKU, serta campaign di retail.'],
+ P2:['booth dan backdrop event','CSK bisa menjadi rekan produksi booth, backdrop, dan mini counter berdasarkan brief, detail lokasi, serta jadwal event.'],
+ P3:['kebutuhan event & branding korporat','Untuk pengadaan event atau branding kantor, kami dapat mendiskusikan spesifikasi teknis dan kelengkapan dokumen vendor sesuai persyaratan perusahaan.'],
+ P4:['signage dan neon box outlet','Kami membantu kebutuhan signage, neon box, dan menu board agar identitas outlet lebih jelas sesuai konsep serta kondisi lokasi.'],
+ P5:['rak display untuk jaringan retail','Kami dapat mendukung produksi rak display dan gondola dengan spesifikasi yang konsisten untuk beberapa cabang retail.'],
+ P6:['branding untuk ekspansi outlet','Untuk pembukaan cabang baru, kami dapat membantu kebutuhan signage dan display outlet dengan acuan desain yang konsisten.'],
+ P7:['materi branding campaign korporat','Kami bisa membantu produksi booth, backdrop, signage, dan merchandise dengan mengacu pada brand guideline perusahaan.'],
+ P8:['display visual merchandising','Kami mendukung produksi display akrilik dan POP sesuai desain, ukuran, serta kebutuhan seasonal display di toko.'],
+ P9:['produksi untuk proyek agency','Kami dapat menjadi rekan produksi agency untuk booth, backdrop, display, dan signage berdasarkan brief klien.'],
+ P10:['kebutuhan produksi event internal','Kami mendukung pembuatan backdrop, booth internal, dan signage event berdasarkan jadwal serta kebutuhan lokasi.'],
+ P11:['display dan signage untuk brand baru','Kami dapat membantu kebutuhan booth pertama, signage, dan display sederhana sesuai spesifikasi serta prioritas anggaran.'],
+ P12:['branding outlet franchise','Kami membantu produksi signage dan display outlet dengan mengacu pada pedoman branding dari franchisor.'],
+ P13:['POSM dan merchandise brand','CSK dapat berdiskusi sejak tahap ide untuk kebutuhan POSM, merchandise, display akrilik, dan booth yang mengikuti identitas brand.'],
+ P14:['booth, POSM dan merchandise agency','Kami mendukung kebutuhan fabrikasi agency untuk booth, POSM, merchandise, serta revisi teknis berdasarkan brief proyek.'],
+ P15:['POSM dan glorifier retail','Kami dapat membantu pembuatan POSM, glorifier, shelf talker, dan display retail sesuai standar ukuran, material, dan pemasangan.'],
+ P16:['booth activation dan pop-up store','Kami mendukung produksi booth activation dan pop-up store yang mempertimbangkan mobilitas, sistem bongkar-pasang, serta kondisi lokasi.'],
+ P17:['display akrilik dan POP presisi','Kami dapat membantu produksi display akrilik dan POP berdasarkan technical drawing, dengan perhatian pada finishing dan quality check.']
+};
+function buildPersonaEmailTemplate(persona){
+ if(!persona||!PERSONA_EMAIL_COPY[persona.id])return null;
+ var info=PERSONA_EMAIL_COPY[persona.id];
+ return {
+  label:persona.id+' — '+persona.name,
+  subject:'Diskusi '+info[0]+' untuk {{brand}}',
+  body:'Halo {{pic}},\n\nPerkenalkan, saya dari Cahaya Selatan Kreasindo (CSK), production partner untuk brand dan bisnis.\n\n'+info[1]+'\n\nJika ada kebutuhan yang sedang direncanakan di {{brand}}, bolehkah saya mengirimkan contoh portofolio dan mendiskusikan spesifikasi, jumlah, serta jadwalnya?\n\nTerima kasih,\nTim Cahaya Selatan Kreasindo\n\nJika tidak ingin menerima email layanan CSK lagi, silakan balas dengan \"Berhenti\".'
+ };
+}
 function mount(el,readLeads,engine){
  if(!el||typeof readLeads!=='function'||!engine||el.dataset.emInit==='1')return;
  el.dataset.emInit='1';
- var ledger={},draft={template:'intro',subject:engine.TEMPLATES.intro.subject,body:engine.TEMPLATES.intro.body};
+ var ledger={},draft={template:'',subject:'',body:''};
+ var personaData=(root.CSKLeadPersonas&&Array.isArray(root.CSKLeadPersonas.DATA))?root.CSKLeadPersonas.DATA:[];
+ var allTemplates=Object.assign({},engine.TEMPLATES);
+ personaData.forEach(function(p){var template=buildPersonaEmailTemplate(p);if(template)allTemplates['persona-'+p.id]=template;});
  var filters={search:'',status:'',industry:'',permission:''},highlight='';
  try{
   var state=JSON.parse(localStorage.getItem(STORE)||'null');
@@ -17,11 +48,15 @@ function mount(el,readLeads,engine){
    if(state.draft&&typeof state.draft==='object'){
     draft.subject=String(state.draft.subject||draft.subject).slice(0,220);
     draft.body=String(state.draft.body||draft.body).slice(0,7000);
-    draft.template=engine.TEMPLATES[state.draft.template]?state.draft.template:'custom';
+    draft.template=String(state.draft.template||'').slice(0,24);
    }
   }
  }catch(e){}
- var templates=Object.keys(engine.TEMPLATES).map(function(k){return '<option value="'+esc(k)+'">'+esc(engine.TEMPLATES[k].label)+'</option>'}).join('');
+ if(draft.template&&!allTemplates[draft.template]&&draft.template!=='custom')draft.template=(draft.subject||draft.body)?'custom':'';
+ var templates='<option value="">Pilih template untuk mulai</option><optgroup label="Template Umum">'+
+  Object.keys(engine.TEMPLATES).map(function(k){return '<option value="'+esc(k)+'">'+esc(engine.TEMPLATES[k].label)+'</option>'}).join('')+
+  '</optgroup>'+(personaData.length?'<optgroup label="Buyer Persona (pilih manual)">'+
+  personaData.filter(function(p){return Boolean(allTemplates['persona-'+p.id])}).map(function(p){var k='persona-'+p.id;return '<option value="'+esc(k)+'">'+esc(allTemplates[k].label)+'</option>'}).join('')+'</optgroup>':'');
  var statuses=Object.keys(engine.STATUSES).map(function(k){return '<option value="'+esc(k)+'">'+esc(engine.STATUSES[k])+'</option>'}).join('');
  el.innerHTML=[
  '<div class="em-hero"><div><span class="em-eyebrow">CSK · B2B OUTREACH STUDIO</span><h2>Email Marketing dari Leads CRM</h2>',
@@ -45,7 +80,8 @@ function mount(el,readLeads,engine){
  '<div id="em-contact-list" class="em-contact-list"></div></div>',
  '<div class="em-card"><div class="em-heading"><div><h3>2. Kampanye & Template</h3>',
  '<p>Personalisasi: {{pic}}, {{brand}}, {{industry}}, {{source}}.</p></div></div>',
- '<label>Jenis pesan<select id="em-template">'+templates+'<option value="custom">Kustom</option></select></label>',
+ '<label>1. Pilih template email<select id="em-template">'+templates+'<option value="custom">Tulis dari kosong</option></select></label>',
+ '<p class="em-hint">Pilih template umum atau persona secara manual. Subjek dan isi email akan terisi untuk diedit sendiri; tidak ada pencocokan persona otomatis dari Leads.</p>',
  '<label>Subjek<input id="em-subject" maxlength="220"></label>',
  '<label>Isi email<textarea id="em-body" rows="13" maxlength="7000"></textarea></label>',
  '<label>Pratinjau penerima<select id="em-recipient"><option value="">Pilih email berizin</option></select></label>',
@@ -95,8 +131,9 @@ function mount(el,readLeads,engine){
   var person=visible().find(function(c){return c.permission==='consented'&&c.email===$('#em-recipient').value});
   $('#em-preview-title').textContent=person?engine.render($('#em-subject').value,person):'Pilih penerima berizin';
   $('#em-preview-body').textContent=person?engine.render($('#em-body').value,person):'Pratinjau pesan untuk satu penerima muncul di sini.';
-  $('#em-mailto').disabled=!person;
-  $('#em-csv').disabled=!visible().some(function(c){return c.permission==='consented'});
+  var draftReady=Boolean($('#em-subject').value.trim()&&$('#em-body').value.trim());
+  $('#em-mailto').disabled=!person||!draftReady;
+  $('#em-csv').disabled=!draftReady||!visible().some(function(c){return c.permission==='consented'});
  }
  function changeFilters(){
   filters.search=$('#em-search').value;filters.status=$('#em-status-filter').value;
@@ -108,17 +145,29 @@ function mount(el,readLeads,engine){
   save();preview();
  }
  $('#em-template').value=draft.template;$('#em-subject').value=draft.subject;$('#em-body').value=draft.body;
+ $('#em-subject').disabled=!draft.template;$('#em-body').disabled=!draft.template;
  ['em-search','em-status-filter','em-industry','em-permission-filter'].forEach(function(id){
   $('#'+id).addEventListener('input',changeFilters);
  });
  $('#em-refresh').addEventListener('click',function(){draw();message('Daftar penerima diperbarui dari Leads CRM.')});
  $('#em-template').addEventListener('change',function(){
-  var t=engine.TEMPLATES[$('#em-template').value];
+  var choice=$('#em-template').value;
+  var current=allTemplates[draft.template];
+  var hasDraft=Boolean(draft.subject.trim()||draft.body.trim());
+  var manuallyEdited=hasDraft&&(!current||draft.subject!==current.subject||draft.body!==current.body);
+  if(manuallyEdited&&!confirm('Ganti template? Subjek dan isi email yang sedang diedit akan ditimpa.')){
+   $('#em-template').value=draft.template;return;
+  }
+  var t=allTemplates[choice];
   if(t){$('#em-subject').value=t.subject;$('#em-body').value=t.body}
+  else if(choice==='custom'){$('#em-subject').value='';$('#em-body').value=''}
+  else{$('#em-subject').value='';$('#em-body').value=''}
+  $('#em-subject').disabled=!choice;$('#em-body').disabled=!choice;
   changeDraft();
+  if(t)message('Template '+t.label+' dipilih. Silakan edit isi email dan cek penerima sebelum membuat draft.');
  });
- $('#em-subject').addEventListener('input',function(){$('#em-template').value='custom';changeDraft()});
- $('#em-body').addEventListener('input',function(){$('#em-template').value='custom';changeDraft()});
+ $('#em-subject').addEventListener('input',changeDraft);
+ $('#em-body').addEventListener('input',changeDraft);
  $('#em-recipient').addEventListener('change',preview);
  $('#em-contact-list').addEventListener('click',function(e){
   var btn=e.target.closest('button[data-action]');if(!btn)return;
@@ -180,7 +229,7 @@ function mount(el,readLeads,engine){
  el._cskEmail={refresh:draw,focusLead:focusLead};
  return el._cskEmail;
 }
-var API={mount:mount,STORE:STORE};
+var API={mount:mount,STORE:STORE,buildPersonaEmailTemplate:buildPersonaEmailTemplate};
 root.CSKEmailUI=API;
 if(typeof module!=='undefined'&&module.exports)module.exports=API;
 })(typeof window!=='undefined'?window:globalThis);

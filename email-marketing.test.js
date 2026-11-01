@@ -101,3 +101,28 @@ test('full Business OS inline app syntax parses after marketing integration',()=
  assert.equal(inline.length,1);
  assert.doesNotThrow(()=>new vm.Script(inline[0][1],{filename:'index.html'}));
 });
+
+test('email template chooser supports 3 general templates and 17 manually selected personas',()=>{
+ const ui=require('./email-marketing-ui.js');
+ const personas=require('./persona-leads.js').DATA;
+ assert.equal(Object.keys(m.TEMPLATES).length,3);
+ assert.equal(personas.length,17);
+ const subjects=new Set();
+ for(const p of personas){
+  const template=ui.buildPersonaEmailTemplate(p);
+  assert.ok(template,p.id+' must have a template');
+  assert.ok(template.label.startsWith(p.id+' — '));
+  assert.match(template.subject,/{{brand}}/);
+  assert.match(template.body,/{{pic}}/);
+  assert.ok(template.body.includes('\n\n'),'email body must have line breaks');
+  subjects.add(template.subject);
+ }
+ assert.equal(subjects.size,17,'each persona has a distinct subject');
+ assert.equal(ui.buildPersonaEmailTemplate({id:'unknown'}),null);
+ const source=fs.readFileSync(path.join(__dirname,'email-marketing-ui.js'),'utf8');
+ assert.match(source,/Pilih template email/);
+ assert.match(source,/Buyer Persona \(pilih manual\)/);
+ assert.match(source,/manuallyEdited/);
+ assert.match(source,/Subjek dan isi email yang sedang diedit akan ditimpa/);
+ assert.doesNotMatch(source,/\bfetch\s*\(/);
+});
