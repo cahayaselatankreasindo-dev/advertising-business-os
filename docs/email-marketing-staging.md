@@ -40,3 +40,10 @@ Preview offline mandiri saat ini hanya mencontohkan template umum; dropdown 17 p
 - Alur pengembangan selanjutnya: kontak dari Leads -> consent terverifikasi -> segmentasi -> preview -> kirim dengan persetujuan owner -> pencatatan status yang benar -> follow-up terjadwal.
 
 Pengujian: `node email-marketing.test.js` dan GitHub Actions workflow safe-sync.
+
+## Pengamanan backend tambahan (2 Nov 2026)
+
+- Jalur lama `send_cold_email` di backend draft sekarang **menolak semua request**, termasuk yang memiliki token API valid.
+- `cronDailyOutreach` adalah no-op dan `installDailyOutreachTrigger` tidak memasang jadwal email baru. Pengujian `outreach-safety.test.js` memastikannya.
+- Fungsi `removeLegacyOutreachTriggers()` tersedia sebagai bantuan manual di Apps Script yang telah diaudit owner; jangan menjalankannya pada proyek produksi tanpa pemeriksaan trigger terlebih dahulu.
+- **Penting:** mengubah source di PR draft tidak menonaktifkan trigger dari versi Apps Script yang telah dideploy sebelumnya. Audit deployment live diperlukan secara terpisah.
