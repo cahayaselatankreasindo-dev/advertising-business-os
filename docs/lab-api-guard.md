@@ -11,10 +11,13 @@ Status: **BELUM AKTIF DI APPS SCRIPT LAB**. Kode repo adalah persiapan; deploy L
 ## Integrasi *hanya* untuk Apps Script LAB (belum dieksekusi)
 1. Pastikan project Apps Script ID **1IushkEIqi-CsKxsdx83sxs08_G5wk8rbOQ9A_eM0UF1wOKszDfYJqzB4** dan spreadsheet ID **19le34ltpZCMIHmjw2n_JbEvrtZBWNTKd61U-xEAoR5Y**. Jika berbeda, STOP.
 2. Tambahkan file **LabRequestGuard.gs** dari folder apps-script/ di branch PR #2. **Belum perlu menjalankan fungsi apa pun atau deploy ulang**.
-3. Di file Code.gs LAB saja, setelah try block pada fungsi **doGet(e)**, tambah:
+3. Di file Code.gs LAB saja, pada awal fungsi **doGet(e)** di dalam try, validasi versi sebelum membaca data, lalu panggil guard:
    ~~~js
+   var protocolVersion = (e && e.parameter) ? Number(e.parameter.protocolVersion) : 0;
+   if (protocolVersion !== 2) return jsonResponse({status:"error",code:"CLIENT_PROTOCOL_MISMATCH",protocolVersion:2,message:"Muat ulang aplikasi CSK Business OS."});
    cskLabGuardRead_();
    ~~~
+   Respons GET sukses juga harus menyertakan `protocolVersion: 2` di objek JSON terluar. Frontend baru menolak backend yang tidak mengirim versi ini.
 4. Di file Code.gs LAB saja, dalam fungsi **doPost(e)**, tepat setelah:
    ~~~js
    const payload = JSON.parse(e.postData.contents);
@@ -23,7 +26,7 @@ Status: **BELUM AKTIF DI APPS SCRIPT LAB**. Kode repo adalah persiapan; deploy L
    ~~~js
    cskLabGuardPost_(payload);
    ~~~
-5. Simpan. Semua GET/POST LAB akan menolak spreadsheet salah, token belum dikonfigurasi, ID asli, status lead won, dan action di luar allowlist (sync_all, delete). Proteksi autentikasi lama tetap dipakai.
+5. Simpan. Guard POST mewajibkan `protocolVersion: 2`; semua GET/POST LAB harus menolak versi lama, spreadsheet salah, token belum dikonfigurasi, ID asli, status lead won, dan action di luar allowlist (sync_all, delete). Proteksi autentikasi lama tetap dipakai.
 6. Ulangi pemeriksaan internal cskLabCheckReadiness lalu cskLabRunIsolatedSmokeTest khusus LAB. Periksa LAB_TEST_PASS tanpa membagikan token.
 7. Deployment Web App yang sudah aktif tidak otomatis memakai kode terbaru; **jangan deploy ulang atau ubah Who has access** sebelum audit dan persetujuan eksplisit untuk uji browser.
 
