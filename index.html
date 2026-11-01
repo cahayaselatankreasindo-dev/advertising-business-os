@@ -238,12 +238,12 @@
           <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm pillar-finance">
             <div class="text-xs font-semibold text-slate-500 uppercase">Omset Kas Masuk</div>
             <div id="stat-total-income" class="text-xl md:text-2xl font-bold font-heading text-teal-600 mt-1">Rp 0</div>
-            <div class="text-[11px] text-slate-400 mt-1">Profit: <span id="stat-net-profit" class="font-bold text-emerald-600">Rp 0</span></div>
+            <div class="text-[11px] text-slate-400 mt-1">Selisih kas: <span id="stat-net-profit" class="font-bold text-emerald-600">Rp 0</span></div>
           </div>
           <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm pillar-finance">
-            <div class="text-xs font-semibold text-slate-500 uppercase">Margin Laba</div>
+            <div class="text-xs font-semibold text-slate-500 uppercase">Rasio selisih kas</div>
             <div id="stat-margin-pct" class="text-xl md:text-2xl font-bold font-heading text-amber-600 mt-1">0%</div>
-            <div class="text-[11px] text-slate-400 mt-1">Rasio bersih</div>
+            <div class="text-[11px] text-slate-400 mt-1">Berdasarkan jurnal kas, bukan laba bersih.</div>
           </div>
           <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm pillar-marketing">
             <div class="text-xs font-semibold text-slate-500 uppercase">Biaya Iklan</div>
@@ -298,15 +298,13 @@
           </div>
         </div>
 
-        <!-- Chart Visualisasi ROAS & CPL -->
+        <!-- Marketing chart: CPL; ROAS needs campaign revenue attribution -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pillar-marketing">
           <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-              <i class="fa fa-line-chart text-amber-500"></i> Tren ROAS (Return on Ad Spend)
+              <i class="fa fa-info-circle text-amber-500"></i> Pengukuran ROAS
             </h3>
-            <div style="height: 220px; position: relative;">
-              <canvas id="chartRoas"></canvas>
-            </div>
+            <div class="rounded-xl bg-amber-50 border border-amber-200 p-5 text-sm leading-relaxed text-slate-700"><strong>Belum terukur secara valid.</strong> ROAS memerlukan pendapatan yang dapat ditautkan ke kampanye. Nilai seluruh deal atau pemasukan kas bukan bukti atribusi iklan.</div>
           </div>
           <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
@@ -425,8 +423,8 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <span class="pillar-badge p5">Pilar 5</span>
-            <h1 class="text-2xl font-bold font-heading text-slate-900">Marketing Spend & ROI</h1>
-            <p class="text-sm text-slate-500">Catat biaya iklan per platform & kampanye. Pantau CPL dan ROAS secara real-time.</p>
+            <h1 class="text-2xl font-bold font-heading text-slate-900">Marketing Spend & CPL</h1>
+            <p class="text-sm text-slate-500">Catat belanja iklan dan prospek per platform. CPL dihitung dari catatan Anda; ROAS memerlukan atribusi penjualan.</p>
           </div>
           <button onclick="openModal('modal-marketing')" class="bg-pink-600 hover:bg-pink-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition flex items-center gap-2 shadow-sm self-start">
             <i class="fa fa-bullhorn"></i> Catat Iklan
@@ -453,7 +451,7 @@
         </div>
 
         <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 class="font-heading font-bold text-slate-800 text-sm mb-3">ROAS per Platform</h3>
+          <h3 class="font-heading font-bold text-slate-800 text-sm mb-3">Belanja Iklan & CPL per Platform</h3>
           <div id="mk-roas-table" class="space-y-2 text-xs"></div>
         </div>
 
@@ -498,14 +496,14 @@
             <p class="text-xs text-slate-500 mt-1">Persentase pengeluaran iklan dibanding omset.</p>
           </div>
           <div class="bg-white p-5 rounded-xl border border-slate-200 pillar-finance">
-            <div class="text-xs font-semibold text-slate-400 uppercase">Kesehatan Margin</div>
-            <div id="ana-health" class="text-2xl font-bold text-emerald-600 mt-2">Sangat Sehat</div>
-            <p class="text-xs text-slate-500 mt-1">Target margin jasa periklanan > 50%.</p>
+            <div class="text-xs font-semibold text-slate-400 uppercase">Selisih Kas Tercatat</div>
+            <div id="ana-health" class="text-2xl font-bold text-slate-700 mt-2">Belum ada data</div>
+            <p class="text-xs text-slate-500 mt-1">Bukan laba akuntansi; hanya jurnal kas yang dicatat.</p>
           </div>
           <div class="bg-white p-5 rounded-xl border border-slate-200 pillar-marketing">
-            <div class="text-xs font-semibold text-slate-400 uppercase">ROAS Bersih</div>
-            <div id="ana-roas" class="text-2xl font-bold text-pink-600 mt-2">0x</div>
-            <p class="text-xs text-slate-500 mt-1">Return over Ad Spend (omset ÷ biaya iklan).</p>
+            <div class="text-xs font-semibold text-slate-400 uppercase">ROAS Atribusi</div>
+            <div id="ana-roas" class="text-xl font-bold text-pink-600 mt-2">Belum terukur</div>
+            <p class="text-xs text-slate-500 mt-1">Butuh penjualan yang terhubung ke kampanye, bukan seluruh pemasukan.</p>
           </div>
         </div>
 
@@ -1673,48 +1671,35 @@
       document.getElementById('mk-leads').innerText = totalLeads;
       document.getElementById('mk-cpl').innerText = 'Rp ' + cpl.toLocaleString('id-ID');
 
-      // ROAS per platform
+      // Cost and CPL only; never assign all won deals to every ad platform.
       const platforms = {};
       db.marketingSpend.forEach(m => {
-        const plat = m.platform || 'Lainnya';
+        const plat = String(m.platform || 'Lainnya');
         if (!platforms[plat]) platforms[plat] = { spent: 0, budget: 0, leads: 0 };
         platforms[plat].spent += Number(m.spent) || 0;
         platforms[plat].budget += Number(m.budget) || 0;
         platforms[plat].leads += Number(m.leadsGenerated) || 0;
       });
-
       const roasEl = document.getElementById('mk-roas-table');
       const entries = Object.entries(platforms);
-      if (entries.length === 0) {
-        roasEl.innerHTML = '<div class="text-xs text-slate-400 text-center py-3">Belum ada data campaign.</div>';
+      const group = document.createElement('div');
+      group.className = 'space-y-2';
+      if (!entries.length) {
+        group.textContent = 'Belum ada data kampanye.';
+        group.className = 'text-sm text-slate-500';
       } else {
-        const totalIncome = db.finance.filter(f => f.type === 'income').reduce((a, b) => a + Number(b.amount || 0), 0);
-        const wonLeads = db.leads.filter(l => l.status === 'won');
-        const wonValue = wonLeads.reduce((a, b) => a + Number(b.value || 0), 0);
-        const overallRoas = totalSpent > 0 ? (wonValue / totalSpent).toFixed(2) : '—';
-
-        let roasHtml = '<div class="grid grid-cols-2 gap-2 mb-3">';
-        roasHtml += '<div class="bg-pink-50 p-2 rounded text-center"><div class="text-[10px] text-slate-500">Total RoAS</div><div class="font-bold text-pink-700 text-sm">' + overallRoas + 'x</div></div>';
-        roasHtml += '<div class="bg-pink-50 p-2 rounded text-center"><div class="text-[10px] text-slate-500">CPL Global</div><div class="font-bold text-pink-700 text-sm">' + formatRp(cpl) + '</div></div>';
-        roasHtml += '</div>';
-
-        roasHtml += '<div class="space-y-2">';
         entries.forEach(([plat, data]) => {
-          const platRoas = data.spent > 0 ? (wonValue / data.spent).toFixed(1) : '—';
-          const platCpl = data.leads > 0 ? Math.round(data.spent / data.leads) : 0;
-          roasHtml += '<div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-xs">' +
-            '<div><span class="font-semibold text-slate-700">' + plat + '</span> <span class="text-slate-400">| Budget: ' + formatRp(data.budget) + '</span></div>' +
-            '<div class="flex gap-3">' +
-              '<span class="text-slate-500">CPL: <b class="text-slate-700">' + formatRp(platCpl) + '</b></span>' +
-              '<span class="text-slate-500">Leads: <b class="text-slate-700">' + data.leads + '</b></span>' +
-            '</div>' +
-          '</div>';
+          const row = document.createElement('div');
+          row.className = 'rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800';
+          row.textContent = plat + ' — Biaya ' + formatRp(data.spent) + ' · Budget ' +
+            formatRp(data.budget) + ' · Lead ' + data.leads + ' · CPL ' +
+            (data.leads ? formatRp(Math.round(data.spent / data.leads)) : 'Belum ada lead');
+          group.appendChild(row);
         });
-        roasHtml += '</div>';
-        roasEl.innerHTML = roasHtml;
       }
+      roasEl.replaceChildren(group);
 
-      // Table
+            // Table
       const tableEl = document.getElementById('marketing-table');
       if (db.marketingSpend.length === 0) {
         tableEl.innerHTML = '<div class="p-6 text-center text-xs text-slate-400">Belum ada campaign iklan tercatat.</div>';
@@ -2464,14 +2449,7 @@
       const leadsByMonth = sortedMonths.map(m => monthlyMap[m].leads);
 
       // Hitung ROAS & CPL per bulan
-      const totalIncome = (financeData || []).filter(f => f.type === 'income').reduce((a, b) => a + Number(b.amount || 0), 0);
-      // ROAS global per bulan = total income / cumulative spent (running total)
-      const roasByMonth = [];
-      let cumSpent = 0;
-      for (let i = 0; i < sortedMonths.length; i++) {
-        cumSpent += spentByMonth[i];
-        roasByMonth.push(cumSpent > 0 ? (totalIncome / cumSpent).toFixed(2) : '—');
-      }
+      // No valid ad-attributed revenue is stored; omit ROAS estimates.
       // CPL per bulan
       const cplByMonth = leadsByMonth.map((l, i) => l > 0 ? Math.round(spentByMonth[i] / l) : 0);
 
@@ -2484,45 +2462,6 @@
 
       const gridColor = 'rgba(148, 163, 184, 0.2)';
       const tickColor = '#64748B';
-
-      // Chart ROAS — garis (line)
-      if (roasCanvas) {
-        const ctxRoas = roasCanvas.getContext('2d');
-        chartRoasInstance = new Chart(ctxRoas, {
-          type: 'line',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: 'ROAS',
-              data: roasByMonth.map(v => typeof v === 'number' ? v : parseFloat(v) || 0),
-              borderColor: '#D97706',
-              backgroundColor: 'rgba(217, 119, 6, 0.1)',
-              borderWidth: 2.5,
-              fill: true,
-              tension: 0.35,
-              pointBackgroundColor: '#D97706',
-              pointRadius: 4,
-              pointHoverRadius: 6
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: ctx => 'ROAS: ' + ctx.parsed.y + 'x'
-                }
-              }
-            },
-            scales: {
-              x: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } },
-              y: { ticks: { color: tickColor, callback: v => v + 'x' }, grid: { color: gridColor }, beginAtZero: true }
-            }
-          }
-        });
-      }
 
       // Chart CPL — batang (bar)
       if (cplCanvas) {
