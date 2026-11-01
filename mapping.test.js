@@ -94,9 +94,11 @@ const ContentServiceStub = {
   },
 };
 const ScriptAppStub = { getProjectTriggers() { return []; } };
+const LockServiceStub = { getScriptLock() { return { waitLock() {}, releaseLock() {} }; } };
 const LoggerStub = { log() {} };
 // Stub PropertiesService (in-memory) untuk fitur token API
-const _props = {};
+const TEST_API_TOKEN = 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET';
+const _props = { API_TOKEN: TEST_API_TOKEN };
 const PropertiesServiceStub = {
   getScriptProperties() {
     return {
@@ -114,6 +116,7 @@ const sandbox = {
   SpreadsheetApp: SpreadsheetAppStub,
   ContentService: ContentServiceStub,
   ScriptApp: ScriptAppStub,
+  LockService: LockServiceStub,
   Logger: LoggerStub,
   PropertiesService: PropertiesServiceStub,
   MailApp: MailAppStub,
@@ -177,7 +180,7 @@ if (FIELD_MAP) {
 
 // ---------- 6. Tes BACA (doGet): Sheet -> field HTML ----------
 function callDoGet() {
-  const out = sandbox.doGet({});
+  const out = sandbox.doGet({ parameter: { token: _props.API_TOKEN, protocolVersion: 2 } });
   return JSON.parse(out._t);
 }
 const got = callDoGet();
@@ -194,8 +197,35 @@ if (got.status === 'success') {
 }
 
 // ---------- 7. Tes TULIS (sync_all): MERGE — tidak menghapus data lama ----------
-function callDoPost(payload) {
-  const out = sandbox.doPost({ postData: { contents: JSON.stringify(payload) } });
+function callDoPost(payload, rawUnauthenticated = false) {
+  const body = rawUnauthenticated
+    ? { protocolVersion: 2, ...payload }
+    : { protocolVersion: 2, token: _props.API_TOKEN, ...payload };
+  if (body.action === 'sync_all' && !body.expectedRecords) {
+    body.expectedRecords = {};
+    const areaSheets = {
+      leads: 'Leads', clients: 'Clients', projects: 'Projects',
+      finance: 'Finance', memory: 'Memory', marketingSpend: 'Marketing_Spend'
+    };
+    Object.keys(areaSheets).forEach(area => {
+      if (!Array.isArray(body[area]) || !body[area].length) return;
+      const sheetName = areaSheets[area];
+      const current = sandbox.readSheetData(sandbox.SpreadsheetApp.getActiveSpreadsheet(), sheetName);
+      const versions = {};
+      body[area].forEach(record => {
+        const id = String(record.id);
+        const existing = current.find(row => String(row.id) === id);
+        versions[id] = existing ? sandbox.stableRecordFingerprint_(existing) : null;
+      });
+      body.expectedRecords[sheetName] = versions;
+    });
+  }
+  if (body.action === 'delete' && body.expectedFingerprint === undefined) {
+    const current = sandbox.readSheetData(sandbox.SpreadsheetApp.getActiveSpreadsheet(), body.sheet || 'Leads')
+      .find(row => String(row.id) === String(body.id));
+    body.expectedFingerprint = current ? sandbox.stableRecordFingerprint_(current) : 'NO_BASELINE';
+  }
+  const out = sandbox.doPost({ postData: { contents: JSON.stringify(body) } });
   return JSON.parse(out._t);
 }
 const leadsBefore = sheets['Leads'].rows.length;
@@ -217,6 +247,7 @@ eq(sheets['Leads'].rows[1][2], 'Budi', 'sync_all MERGE: lead lama (Budi) tidak t
 // (b) Baris BARU ditulis di kolom yang tepat (cari by ID — autoTrigger bisa menambah baris lain)
 const findRow = (sheetName, id) => sheets[sheetName].rows.find(r => String(r[0]) === id);
 const newLeadRow = findRow('Leads', 'L9');
+if (!newLeadRow) throw new Error('sync_all did not persist L9. Backend response: ' + JSON.stringify(postRes));
 eq(newLeadRow[0], 'L9', 'sync new Lead: ID di kolom A');
 eq(newLeadRow[2], 'Sari', 'sync new Lead: Nama di kolom C');
 eq(newLeadRow[6], 'new', 'sync new Lead: Status di kolom G');
@@ -352,31 +383,32 @@ const delRes2 = callDoPost({ action: 'delete', sheet: 'Leads', id: 'TIDAK-ADA-XY
 eq(delRes2.status, 'success', 'delete: ID tidak ada tetap success (idempoten)');
 
 // ---------- 9e. Tes KEAMANAN: token API ----------
-// Mode 1: token belum diset -> semua request diizinkan (kompatibel)
-eq(sandbox.isAuthorized({ action: 'sync_all' }), true, 'auth: token belum diset -> diizinkan (kompatibel)');
+// Mode 1: no token configured must always fail closed.
+delete _props['API_TOKEN'];
+eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: missing server token -> denied');
 
 // Mode 2: token diset -> request tanpa token DITOLAK
 sandbox.setupApiToken && null; // pastikan fungsi ada
-_props['API_TOKEN'] = 'RAHASIA123';
+_props['API_TOKEN'] = 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET';
 eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: token diset, request tanpa token -> DITOLAK');
 eq(sandbox.isAuthorized({ action: 'sync_all', token: 'SALAH' }), false, 'auth: token salah -> DITOLAK');
-eq(sandbox.isAuthorized({ action: 'sync_all', token: 'RAHASIA123' }), true, 'auth: token benar -> DIIZINKAN');
-eq(sandbox.isAuthorized(null, 'RAHASIA123'), true, 'auth: token via query string (GET) -> DIIZINKAN');
+eq(sandbox.isAuthorized({ action: 'sync_all', token: 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET' }), true, 'auth: token benar -> DIIZINKAN');
+eq(sandbox.isAuthorized(null, 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET'), true, 'auth: token via query string (GET) -> DIIZINKAN');
 eq(sandbox.isAuthorized(null, ''), false, 'auth: GET tanpa token -> DITOLAK');
 
 // Mode 3: doPost tanpa token -> balasan error, TIDAK mengubah data
 const beforeAuth = sheets['Leads'].rows.length;
-const authRes = callDoPost({ action: 'sync_all', leads: [{ id: 'HACK-1', name: 'Hacker' }] });
+const authRes = callDoPost({ action: 'sync_all', leads: [{ id: 'HACK-1', name: 'Hacker' }] }, true);
 eq(authRes.status, 'error', 'auth: doPost tanpa token -> status error');
 eq(sheets['Leads'].rows.length, beforeAuth, 'auth: doPost tanpa token TIDAK mengubah data');
 
 // doPost dengan token benar -> berhasil
-const okRes = callDoPost({ action: 'sync_all', token: 'RAHASIA123', leads: [{ id: 'OKAUTH-1', date: '2026-10-09', name: 'Authorized', phone: '', source: 'x', value: 0, status: 'new', notes: '' }] });
+const okRes = callDoPost({ action: 'sync_all', token: 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET', leads: [{ id: 'OKAUTH-1', date: '2026-10-09', name: 'Authorized', phone: '', source: 'x', value: 0, status: 'new', notes: '' }] });
 eq(okRes.status, 'success', 'auth: doPost dengan token benar -> success');
 eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'OKAUTH-1'), true, 'auth: data dengan token benar tersimpan');
 
-// Kembalikan ke mode kompatibel untuk test berikutnya
-delete _props['API_TOKEN'];
+// Restore the fixture token for any subsequent test phases.
+_props['API_TOKEN'] = TEST_API_TOKEN;
 
 // ---------- 10. Ringkasan ----------
 console.log(`\nmapping.test.js: ${pass} lolos, ${fail} gagal`);

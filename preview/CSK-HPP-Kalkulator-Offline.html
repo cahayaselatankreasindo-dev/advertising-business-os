@@ -1,0 +1,333 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0B0B0B"><title>Kalkulator HPP CSK - Offline Staging</title><style>*{box-sizing:border-box}html,body{margin:0;min-width:320px}body{background:#F8F7F4;color:#0B0B0B;font-family:Montserrat,Arial,sans-serif}header{padding:15px 20px;background:#0B0B0B;color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px}header strong{font-size:13px;letter-spacing:.04em}header span{font-size:10px;color:#FF8A3D;font-weight:800}.container{max-width:1160px;margin:auto;padding:24px 16px 80px}h1{font-size:26px;letter-spacing:-.04em;margin:0 0 7px}h2,h3,p{margin:0}.top-note{color:#70685f;font-size:12px;line-height:1.6;margin-bottom:20px}.offline-warning{margin:12px 0 18px;padding:12px 14px;border:1px solid #e2ad80;border-radius:10px;background:#FFF0E5;font-size:11px;color:#744622;line-height:1.7}.offline-warning b{color:#0B0B0B}#page-hpp{--h-ink:#0B0B0B;--h-amber:#FF8A3D;--h-paper:#F8F7F4;font-family:Montserrat,Arial,sans-serif}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #FF8A3D;outline-offset:2px}@media(min-width:740px){.container{padding:35px}}
+/* Standalone HPP production estimator: brand-aligned, mobile-first. */
+    #page-hpp{--h-ink:#0B0B0B;--h-amber:#FF8A3D;--h-paper:#F8F7F4;font-family:Montserrat,system-ui,sans-serif}
+    #page-hpp h1,#page-hpp h2,#page-hpp h3{font-family:Montserrat,system-ui,sans-serif}
+    .hpp-head{background:#0B0B0B;color:#FFF;border-radius:20px;padding:27px;display:flex;justify-content:space-between;gap:25px;align-items:start}
+    .hpp-head h2{font-size:clamp(21px,2.2vw,28px);font-weight:800;letter-spacing:-.035em;line-height:1.2;margin:9px 0}
+    .hpp-head p{color:#c8c2bd;font-size:12px;line-height:1.7;max-width:620px}
+    .hpp-kicker{font-size:10px;letter-spacing:.14em;font-weight:800;color:#FF8A3D}
+    .hpp-badge{flex:none;font-size:10px;font-weight:800;border:1px solid #735135;color:#ffc293;padding:9px 11px;border-radius:99px}
+    .hpp-note{margin:16px 0;color:#715638;background:#fff4e9;border:1px solid #e9c49f;padding:15px 17px;border-radius:12px;font-size:12px;line-height:1.7}
+    .hpp-card{background:#FFF;border:1px solid #e6e2db;padding:23px;border-radius:17px;margin:16px 0}
+    .hpp-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+    #page-hpp label{display:flex;flex-direction:column;gap:7px;color:#444;font-size:11px;font-weight:750;min-width:0}
+    #page-hpp input,#page-hpp select,#page-hpp textarea{width:100%;min-width:0;padding:11px 12px;border:1px solid #ddd9d2;border-radius:10px;background:#fff;color:#111;font-size:13px;font-weight:500}
+    #page-hpp input:focus,#page-hpp select:focus,#page-hpp textarea:focus{outline:2px solid #FF8A3D;outline-offset:1px}
+    #page-hpp button{font-size:12px;font-weight:750;min-height:41px;border-radius:10px;white-space:nowrap}
+    #page-hpp .hpp-primary{background:#FF8A3D;color:#0B0B0B;border:1px solid #FF8A3D;padding:10px 16px}
+    #page-hpp .hpp-secondary{background:#fff;border:1px solid #cfc8bf;padding:9px 13px;color:#181818}
+    #page-hpp .hpp-remove{background:#fff4f2;border:1px solid #f0c1b8;color:#b3392d;padding:8px 12px}
+    .hpp-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:27px 0 15px}
+    .hpp-section-head h3{font-size:15px;font-weight:800;color:#111}
+    .hpp-section-head p{font-size:11px;color:#777;line-height:1.6;margin-top:5px}
+    .hpp-item{display:grid;grid-template-columns:1fr minmax(120px,2fr) 85px 80px 145px 85px;gap:9px;padding:17px 0;border-top:1px solid #ece7e2;align-items:end}
+    .hpp-item label{font-size:10px}
+    .hpp-row-footer{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center}
+    .hpp-row-footer strong{font-size:15px;font-weight:800;color:#161616}
+    .hpp-extra-item{display:grid;grid-template-columns:minmax(0,1fr) minmax(140px,220px) auto;align-items:end;gap:12px;padding:12px 0;border-top:1px solid #eee}
+    .hpp-notes{margin-top:23px}
+    .hpp-summary{background:#fff;border:1px solid #e6e2db;border-radius:18px;padding:22px;margin:16px 0}
+    #hpp-alert{font-size:12px;font-weight:700;padding:13px;border-radius:10px;background:#fff8f0;margin:12px 0}
+    .hpp-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin-top:14px}
+    .hpp-kpis>div{border:1px solid #e8e3de;background:#fdfcfb;padding:15px;border-radius:12px;display:flex;flex-direction:column;gap:10px}
+    .hpp-kpis small{font-size:10px;line-height:1.5;font-weight:700;color:#777}
+    .hpp-kpis strong{font-size:clamp(15px,1.75vw,22px);letter-spacing:-.04em;color:#161616;overflow-wrap:anywhere}
+    .hpp-kpis .hpp-price{border-color:#FF8A3D;background:#fff1e6}
+    .hpp-facts,.hpp-footnote{font-size:11px;line-height:1.9;color:#625b56;margin-top:17px}
+    .hpp-footnote{font-size:10px;color:#87807a}
+    .hpp-actions{display:flex;flex-wrap:wrap;gap:10px}
+    #hpp-message{min-height:20px;font-size:12px;font-weight:700;margin:12px 0}
+    .hpp-history-row{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid #eee}
+    .hpp-history-row strong{font-size:12px;color:#181818;display:block}
+    .hpp-history-row small{font-size:10px;color:#888;display:block;margin-top:4px}
+    .hpp-history-row>div:last-child{display:flex;gap:8px}
+    .hpp-history-row button{border:1px solid #ddd;background:#fff;padding:8px 11px;font-size:11px!important}
+    .hpp-empty{padding:15px;background:#faf8f5;border-radius:10px;font-size:12px;color:#777}
+    @media(max-width:1250px){.hpp-item{grid-template-columns:repeat(3,minmax(0,1fr))}.hpp-item .hpp-wide{grid-column:span 2}.hpp-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:640px){.hpp-head{padding:21px;flex-direction:column;gap:12px}.hpp-card,.hpp-summary{padding:16px}.hpp-form-grid{grid-template-columns:1fr}.hpp-item{grid-template-columns:repeat(2,minmax(0,1fr))}.hpp-item .hpp-wide{grid-column:span 1}.hpp-extra-item{grid-template-columns:1fr 1fr}.hpp-extra-item button{grid-column:1/-1}.hpp-section-head{align-items:flex-start;flex-direction:column}.hpp-kpis{gap:8px}.hpp-kpis>div{padding:12px}.hpp-actions button{flex:1}.hpp-history-row{align-items:flex-start;flex-direction:column}.hpp-kpis strong{font-size:18px}}
+</style></head><body><header><strong>CSK <span> / BUSINESS OS</span></strong><span>HPP · STAGING OFFLINE</span></header>
+<div class="container">
+<div class="top-note">Kalkulator HPP untuk Cahaya Selatan Kreasindo · Produksi booth, rak display, acrylic, signage, POSM, dan merchandise.</div>
+<div class="offline-warning"><b>MODE OFFLINE · DATA LOKAL</b> — Semua perhitungan dilakukan di perangkat ini. Tidak ada koneksi ke database, Apps Script, atau CRM CSK. Sebelum dipakai sebagai penawaran resmi, verifikasi harga vendor dan unduh JSON sebagai backup.</div>
+<section id="page-hpp"><div id="hpp-root"></div></section>
+</div><script>
+/* CSK Business OS — per-quotation HPP calculator (no cloud, no customer records).
+ * Harga rule, confirmed by CSK: ready-made maklon with no installation = vendor
+ * base price (0% markup); jobs requiring installation = 100% of production HPP.
+ * Extra pass-through costs are added after markup. Taxes are excluded.
+ */
+(function(root){
+'use strict';
+const CATEGORIES=['Material','Jasa produksi','Finishing','Subkon / Vendor','Instalasi HPP','Lainnya'];
+const MODES={
+  custom_install:{label:'Produksi + instalasi',markup:100},
+  ready_vendor:{label:'Maklon siap pakai (tanpa instalasi)',markup:0}
+};
+const LIMIT=1e12;
+const PRESETS={
+  blank:{name:'Estimasi baru',mode:'custom_install',rows:[]},
+  rack:{name:'Rak Display Custom PVC',mode:'custom_install',rows:[
+    {category:'Material',description:'PVC Board Nulite 5 mm (122 × 244 cm)',unit:'lembar',quantity:1,unitCost:175000,wastePercent:0},
+    {category:'Jasa produksi',description:'Cutting, assembly dan finishing — isi biaya',unit:'paket',quantity:1,unitCost:0,wastePercent:0}
+  ]},
+  booth:{name:'Booth Pameran Custom',mode:'custom_install',rows:[
+    {category:'Material',description:'Hollow besi dan struktur — isi harga',unit:'batang',quantity:1,unitCost:0,wastePercent:0},
+    {category:'Material',description:'Panel dan branding — isi harga',unit:'lembar',quantity:1,unitCost:0,wastePercent:0},
+    {category:'Jasa produksi',description:'Fabrikasi dan finishing — isi biaya',unit:'paket',quantity:1,unitCost:0,wastePercent:0}
+  ]},
+  signage:{name:'Signage / Neon Box',mode:'custom_install',rows:[
+    {category:'Material',description:'Material box, rangka dan sumber cahaya',unit:'paket',quantity:1,unitCost:0,wastePercent:0},
+    {category:'Jasa produksi',description:'Fabrikasi dan instalasi teknis',unit:'paket',quantity:1,unitCost:0,wastePercent:0}
+  ]},
+  acrylic:{name:'Display Akrilik Custom',mode:'ready_vendor',rows:[
+    {category:'Subkon / Vendor',description:'Harga jadi dari vendor — isi harga',unit:'pcs',quantity:1,unitCost:0,wastePercent:0}
+  ]},
+  banner:{name:'Tripod Banner + Foamboard A1',mode:'ready_vendor',rows:[
+    {category:'Subkon / Vendor',description:'Tripod + foamboard A1 (harga acuan vendor)',unit:'paket',quantity:1,unitCost:70000,wastePercent:0}
+  ]}
+};
+let seq=0;
+function id(){return 'hpp-'+Date.now().toString(36)+'-'+(++seq).toString(36);}
+function money(value){return Math.round((Number(value)||0)*100)/100;}
+function num(value,field,max=LIMIT){
+  if(typeof value==='string'&&value.trim()==='')return 0;
+  const v=Number(value);
+  if(!Number.isFinite(v)||v<0||v>max)throw Error(field+' tidak valid (harus 0–'+max+').');
+  return v;
+}
+function text(value,max=140){return String(value??'').trim().slice(0,max)}
+function row(data={}){
+  return {
+    id:text(data.id||id(),60),
+    category:CATEGORIES.includes(data.category)?data.category:'Material',
+    description:text(data.description),
+    unit:text(data.unit||'pcs',24)||'pcs',
+    quantity:num(data.quantity??1,'Jumlah'),
+    unitCost:num(data.unitCost??0,'Harga satuan'),
+    wastePercent:num(data.wastePercent??0,'Waste',100)
+  };
+}
+function fee(data={}){
+  return {id:text(data.id||id(),60),description:text(data.description),amount:num(data.amount??0,'Biaya tambahan')};
+}
+function create(preset='blank'){
+  const p=PRESETS[preset]||PRESETS.blank;
+  return {id:id(),name:p.name,mode:p.mode,outputQty:1,
+    rows:p.rows.map(row),extras:[],notes:'',updatedAt:new Date().toISOString()};
+}
+function from(data){
+  if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Format data estimasi tidak valid.');
+  if(!MODES[data.mode])throw Error('Jenis pekerjaan tidak dikenali.');
+  if(!Array.isArray(data.rows)||data.rows.length>120)throw Error('Maksimal 120 baris biaya.');
+  if(!Array.isArray(data.extras)||data.extras.length>40)throw Error('Maksimal 40 biaya tambahan.');
+  const out={
+    id:text(data.id||id(),60),
+    name:text(data.name||'Estimasi tanpa nama',120),
+    mode:data.mode,
+    outputQty:num(data.outputQty??1,'Jumlah hasil',1e6),
+    rows:data.rows.map(row),extras:data.extras.map(fee),
+    notes:text(data.notes,2000),
+    updatedAt:text(data.updatedAt,50)
+  };
+  if(out.outputQty<=0)throw Error('Jumlah hasil harus lebih dari nol.');
+  return out;
+}
+function calc(quote){
+  const p=from(quote);
+  let missing=0;
+  const rows=p.rows.map(item=>{
+    const extended=item.quantity*item.unitCost*(1+item.wastePercent/100);
+    if(item.quantity>0&&item.unitCost===0)missing++;
+    return {...item,total:money(extended)};
+  });
+  const base=money(rows.reduce((sum,x)=>sum+x.total,0));
+  const extras=p.extras.map(x=>({...x,total:money(x.amount)}));
+  const extrasTotal=money(extras.reduce((sum,x)=>sum+x.total,0));
+  const markup=MODES[p.mode].markup;
+  const profit=money(base*markup/100);
+  const fullHpp=money(base+extrasTotal);
+  const sale=money(base+profit+extrasTotal);
+  const margin=sale>0?money(profit/sale*100):0;
+  return {
+    quote:p,rows,extras,
+    baseHpp:base,extraTotal:extrasTotal,totalHpp:fullHpp,
+    markupPercent:markup,markupAmount:profit,price:sale,
+    profit,marginPercent:margin,
+    hppPerUnit:money(fullHpp/p.outputQty),
+    pricePerUnit:money(sale/p.outputQty),
+    missingPrices:missing,
+    ready:p.rows.length>0&&missing===0&&base>0,
+    taxNote:'PPN/pajak tidak termasuk. Pastikan harga vendor dan ongkir terbaru.'
+  };
+}
+const API={CATEGORIES,MODES,PRESETS,create,from,row,fee,calc};
+root.CSKHPP=API;
+if(typeof module!=='undefined'&&module.exports)module.exports=API;
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+<script>
+/* CSK HPP UI — local-only calculator. Never imports/exports Google Sheets data. */
+(function(root){
+'use strict';
+var KEY='csk_hpp_local_quotes_v1',DRAFT='csk_hpp_local_draft_v1',MAX=50;
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function rp(n){return 'Rp '+Number(n||0).toLocaleString('id-ID',{maximumFractionDigits:2})}
+function init(panel,engine){
+  if(!panel||!engine||panel.dataset.init==='1')return;
+  panel.dataset.init='1';
+  var draft=engine.create(),history=[],valid=false,warning='';
+  function load(key,fallback){try{var s=localStorage.getItem(key);return s?JSON.parse(s):fallback}catch(e){warning='Penyimpanan browser tidak dapat dibaca.';return fallback}}
+  var old=load(DRAFT,null);
+  if(old)try{draft=engine.from(old)}catch(e){warning='Draft lama tidak valid; kalkulasi baru dibuat.'}
+  var stored=load(KEY,[]);
+  if(Array.isArray(stored))history=stored.slice(0,MAX).flatMap(function(x){try{return [engine.from(x)]}catch(e){return []}});
+  function $(s){return panel.querySelector(s)}
+  function save(key,value){try{localStorage.setItem(key,JSON.stringify(value));return true}catch(e){message('Penyimpanan tidak tersedia. Gunakan Unduh JSON.',true);return false}}
+  function message(s,bad){var t=$('#hpp-message');t.textContent=s;t.style.color=bad?'#B91C1C':'#047857'}
+  function opts(values,v){return values.map(function(x){return '<option value="'+esc(x)+'"'+(x===v?' selected':'')+'>'+esc(x)+'</option>'}).join('')}
+  panel.innerHTML=[
+    '<div class="hpp-head"><div><span class="hpp-kicker">CSK COST ESTIMATION · BUSINESS OS</span><h2>Hitung HPP & Harga Penawaran</h2><p>Material, fabrikasi, finishing, waste, biaya instalasi, dan biaya tambahan per proyek.</p></div><span class="hpp-badge">LOKAL · TIDAK SYNC</span></div>',
+    '<p class="hpp-note">Estimasi disimpan hanya di browser perangkat ini dan <strong>tidak masuk Leads, Finance, Projects, maupun Google Sheets</strong>. Unduh JSON sebagai cadangan. Harga acuan bukan harga vendor terkini.</p>',
+    '<div class="hpp-card">',
+      '<div class="hpp-form-grid"><label>Template pekerjaan <select id="hpp-template"><option value="blank">Estimasi kosong</option><option value="rack">Rak Display PVC</option><option value="booth">Booth Pameran</option><option value="signage">Signage / Neon Box</option><option value="acrylic">Display Akrilik (vendor)</option><option value="banner">Tripod A1 + Foamboard</option></select></label>',
+      '<label>Nama barang / proyek <input id="hpp-name" maxlength="120" placeholder="Contoh: Rak Display Brand X"></label>',
+      '<label>Jenis penawaran <select id="hpp-mode"><option value="custom_install">Produksi + instalasi (markup HPP 100%)</option><option value="ready_vendor">Maklon siap pakai (harga vendor, 0% markup)</option></select></label>',
+      '<label>Jumlah produk jadi <input id="hpp-qty" type="number" min="1" max="1000000" step="1" inputmode="numeric"></label></div>',
+      '<div class="hpp-section-head"><div><h3>Rincian HPP produksi</h3><p>Masukkan material, jasa fabrikasi, finishing, dan ongkos instalasi yang termasuk biaya pokok.</p></div><button id="hpp-add-row" type="button" class="hpp-secondary">+ Tambah Komponen</button></div>',
+      '<div id="hpp-items" aria-live="polite"></div>',
+      '<div class="hpp-section-head"><div><h3>Biaya tambahan di luar HPP</h3><p>Contoh ongkir terpisah, parkir, dan biaya titipan. Tidak terkena markup.</p></div><button id="hpp-add-extra" type="button" class="hpp-secondary">+ Tambah Biaya</button></div>',
+      '<div id="hpp-extras"></div>',
+      '<label class="hpp-notes">Catatan / spesifikasi<textarea id="hpp-notes" rows="3" maxlength="2000" placeholder="Spesifikasi teknis, vendor, jadwal, asumsi biaya..."></textarea></label>',
+    '</div>',
+    '<div class="hpp-summary"><div class="hpp-kicker">RINGKASAN BIAYA & PENAWARAN</div><p id="hpp-alert" role="status"></p>',
+      '<div class="hpp-kpis"><div><small>HPP dasar</small><strong id="hpp-base">Rp 0</strong></div><div><small>Markup <span id="hpp-rate">100%</span></small><strong id="hpp-markup">Rp 0</strong></div><div><small>Tambahan tanpa markup</small><strong id="hpp-extra-total">Rp 0</strong></div><div class="hpp-price"><small>Penawaran (belum pajak)</small><strong id="hpp-price">Rp 0</strong></div></div>',
+      '<p class="hpp-facts">Total HPP semua biaya <b id="hpp-total">Rp 0</b> · HPP/pcs <b id="hpp-unit-cost">Rp 0</b> · Harga/pcs <b id="hpp-unit-price">Rp 0</b> · Laba kotor estimasi <b id="hpp-profit">Rp 0</b> (<span id="hpp-margin">0%</span> dari penawaran).</p>',
+      '<p class="hpp-footnote">PPN/pajak belum termasuk. Tidak otomatis mencatat kas masuk. Laba kotor hanya berdasarkan biaya yang diisi.</p>',
+    '</div>',
+    '<div class="hpp-actions"><button id="hpp-save" class="hpp-primary" type="button">Simpan HPP Lokal</button><button id="hpp-copy" class="hpp-secondary" type="button">Salin RAB</button><button id="hpp-export" class="hpp-secondary" type="button">Unduh JSON</button><button id="hpp-new" class="hpp-secondary" type="button">Estimasi Baru</button></div>',
+    '<p id="hpp-message" role="status" aria-live="polite"></p>',
+    '<div class="hpp-card"><div class="hpp-section-head"><div><h3>Riwayat estimasi</h3><p>Tersimpan lokal di browser ini, maksimal 50 estimasi.</p></div></div><div id="hpp-history"></div></div>'
+  ].join('');
+  function drawItems(){
+    $('#hpp-items').innerHTML=draft.rows.length?draft.rows.map(function(x){
+      return '<div class="hpp-item" data-row="'+esc(x.id)+'">'+
+      '<label>Kategori<select data-f="category">'+opts(engine.CATEGORIES,x.category)+'</select></label>'+
+      '<label class="hpp-wide">Material / jasa<input data-f="description" maxlength="140" value="'+esc(x.description)+'" placeholder="Material / jasa produksi"></label>'+
+      '<label>Qty<input data-f="quantity" type="number" min="0" step="any" value="'+esc(x.quantity)+'"></label>'+
+      '<label>Satuan<input data-f="unit" maxlength="24" value="'+esc(x.unit)+'"></label>'+
+      '<label>Harga satuan (Rp)<input data-f="unitCost" type="number" min="0" step="any" value="'+esc(x.unitCost)+'"></label>'+
+      '<label>Waste (%)<input data-f="wastePercent" type="number" min="0" max="100" step="any" value="'+esc(x.wastePercent)+'"></label>'+
+      '<div class="hpp-row-footer"><strong data-total="'+esc(x.id)+'">Rp 0</strong><button type="button" data-delete-row="'+esc(x.id)+'" aria-label="Hapus baris" class="hpp-remove">Hapus</button></div></div>';
+    }).join(''):'<p class="hpp-empty">Belum ada komponen biaya produksi. Klik Tambah Komponen.</p>';totals();
+  }
+  function drawExtras(){
+    $('#hpp-extras').innerHTML=draft.extras.length?draft.extras.map(function(x){
+      return '<div class="hpp-extra-item" data-extra="'+esc(x.id)+'">'+
+      '<label>Jenis biaya tambahan<input data-f="description" maxlength="140" value="'+esc(x.description)+'" placeholder="Ongkos kirim / parkir / titipan"></label>'+
+      '<label>Nominal (Rp)<input data-f="amount" type="number" min="0" step="any" value="'+esc(x.amount)+'"></label>'+
+      '<button type="button" class="hpp-remove" data-delete-extra="'+esc(x.id)+'">Hapus</button></div>';
+    }).join(''):'<p class="hpp-empty">Tidak ada biaya tambahan.</p>';totals();
+  }
+  function totals(){
+    var selectors={'#hpp-base':'baseHpp','#hpp-markup':'markupAmount','#hpp-extra-total':'extraTotal','#hpp-price':'price','#hpp-total':'totalHpp','#hpp-unit-cost':'hppPerUnit','#hpp-unit-price':'pricePerUnit','#hpp-profit':'profit'};
+    try{
+      var r=engine.calc(draft);valid=r.ready;
+      Object.keys(selectors).forEach(function(key){$(key).textContent=rp(r[selectors[key]])});
+      $('#hpp-rate').textContent=r.markupPercent+'%';
+      $('#hpp-margin').textContent=r.marginPercent.toLocaleString('id-ID')+'%';
+      var alert=r.missingPrices?r.missingPrices+' harga komponen masih Rp 0, lengkapi sebelum penawaran.':(!r.ready?'Tambahkan biaya produksi agar estimasi valid.':'Estimasi siap diperiksa; pastikan harga aktual vendor.');
+      $('#hpp-alert').textContent=alert;
+      $('#hpp-alert').style.color=r.ready?'#047857':'#B45309';
+      r.rows.forEach(function(x){var t=panel.querySelector('[data-total="'+x.id+'"]');if(t)t.textContent=rp(x.total)});
+      return r;
+    }catch(err){
+      valid=false;$('#hpp-alert').textContent='Periksa input: '+err.message;
+      $('#hpp-alert').style.color='#B91C1C';$('#hpp-price').textContent='—';return null;
+    }
+  }
+  function historyUI(){
+    $('#hpp-history').innerHTML=history.length?history.map(function(x){
+      var price='—';try{price=rp(engine.calc(x).price)}catch(e){}
+      return '<div class="hpp-history-row"><div><strong>'+esc(x.name)+'</strong><small>'+esc(x.updatedAt.slice(0,10))+' · '+price+'</small></div><div><button type="button" data-open="'+esc(x.id)+'">Buka</button><button type="button" data-remove-saved="'+esc(x.id)+'">Hapus</button></div></div>'
+    }).join(''):'<p class="hpp-empty">Belum ada estimasi yang disimpan.</p>';
+  }
+  function fill(){
+    $('#hpp-name').value=draft.name;$('#hpp-mode').value=draft.mode;$('#hpp-qty').value=draft.outputQty;
+    $('#hpp-notes').value=draft.notes;$('#hpp-template').value='blank';
+    drawItems();drawExtras();historyUI();totals();
+  }
+  function changed(){draft.updatedAt=new Date().toISOString();save(DRAFT,draft);totals()}
+  function getText(r){
+    return ['CSK — ESTIMASI HPP & PENAWARAN','Produk: '+r.quote.name,'Mode: '+engine.MODES[r.quote.mode].label,'Jumlah hasil: '+r.quote.outputQty,'',
+      ...r.rows.map(function(x,i){return (i+1)+'. '+x.description+' | '+x.quantity+' '+x.unit+' x '+rp(x.unitCost)+' | waste '+x.wastePercent+'% | '+rp(x.total)}),
+      '','HPP dasar: '+rp(r.baseHpp),'Markup '+r.markupPercent+'%: '+rp(r.markupAmount),
+      ...r.extras.map(function(x){return 'Biaya tambahan — '+x.description+': '+rp(x.total)}),
+      'Total HPP: '+rp(r.totalHpp),'HARGA PENAWARAN (belum PPN): '+rp(r.price),
+      'Harga per hasil jadi: '+rp(r.pricePerUnit),'Laba kotor estimasi: '+rp(r.profit)+' ('+r.marginPercent+'%)',
+      'Catatan: '+r.quote.notes,'PPN/pajak belum termasuk. Bukan faktur atau bukti pembayaran.'
+    ].join('\n');
+  }
+  panel.addEventListener('input',function(e){
+    var t=e.target,field=t.dataset.f,box=t.closest('[data-row], [data-extra]');
+    if(t.id==='hpp-name')draft.name=t.value;
+    if(t.id==='hpp-qty')draft.outputQty=t.value;
+    if(t.id==='hpp-mode')draft.mode=t.value;
+    if(t.id==='hpp-notes')draft.notes=t.value;
+    if(box&&field){
+      var isRow=box.hasAttribute('data-row'),arr=isRow?draft.rows:draft.extras;
+      var key=isRow?'row':'extra',r=arr.find(function(x){return x.id===box.dataset[key]});
+      if(r&&Object.prototype.hasOwnProperty.call(r,field))r[field]=t.value;
+    }
+    changed();
+  });
+  panel.addEventListener('change',function(e){
+    if(e.target.id==='hpp-template'){
+      var preset=e.target.value;
+      if(!confirm('Ganti ke template baru? Draft aktif akan diganti. Simpan lebih dulu jika perlu.')){e.target.value='blank';return}
+      draft=engine.create(preset);changed();fill();$('#hpp-template').value=preset;message('Template dimuat. Komponen Rp 0 harus diisi sesuai harga vendor.');
+    }
+  });
+  panel.addEventListener('click',function(e){
+    var b=e.target.closest('button');if(!b||!panel.contains(b))return;
+    if(b.id==='hpp-add-row'){if(draft.rows.length>=120)return message('Maksimal 120 komponen.',true);draft.rows.push(engine.row());changed();drawItems();}
+    if(b.id==='hpp-add-extra'){if(draft.extras.length>=40)return message('Maksimal 40 biaya tambahan.',true);draft.extras.push(engine.fee());changed();drawExtras();}
+    if(b.dataset.deleteRow){draft.rows=draft.rows.filter(function(x){return x.id!==b.dataset.deleteRow});changed();drawItems()}
+    if(b.dataset.deleteExtra){draft.extras=draft.extras.filter(function(x){return x.id!==b.dataset.deleteExtra});changed();drawExtras()}
+    if(b.id==='hpp-new'){if(confirm('Buat estimasi kosong baru? Draft aktif akan diganti.')){draft=engine.create();changed();fill();message('Draft kosong baru dibuat.')}}
+    if(b.id==='hpp-save'){
+      var r=totals();if(!r||!r.ready)return message('Isi semua harga biaya pokok sebelum menyimpan.',true);
+      var i=history.findIndex(function(x){return x.id===draft.id});
+      if(i>=0)history[i]=engine.from(draft);else history.unshift(engine.from(draft));
+      history=history.slice(0,MAX);if(save(KEY,history)){historyUI();message('HPP tersimpan lokal; cadangkan via Unduh JSON.')}
+    }
+    if(b.id==='hpp-export'){
+      var result=totals();if(!result)return;
+      var blob=new Blob([JSON.stringify({format:'csk-hpp-v1',quote:result.quote,summary:{hpp:result.totalHpp,markup:result.markupPercent,price:result.price,missingPrices:result.missingPrices},taxExcluded:true},null,2)],{type:'application/json'});
+      var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;
+      a.download='CSK-HPP-'+new Date().toISOString().slice(0,10)+'.json';
+      document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},1000);
+      message('File JSON dibuat. Simpan di Drive pribadi jika ingin lintas perangkat.');
+    }
+    if(b.id==='hpp-copy'){
+      var r=totals();if(!r)return;
+      if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(getText(r)).then(function(){message('RAB tersalin ke clipboard.');},function(){message('Clipboard diblokir; gunakan Unduh JSON.',true)});
+      else message('Clipboard tidak tersedia; gunakan Unduh JSON.',true);
+    }
+    if(b.dataset.open){
+      var saved=history.find(function(x){return x.id===b.dataset.open});
+      if(saved&&confirm('Buka estimasi ini? Draft aktif diganti.')){draft=engine.from(saved);changed();fill();message('Estimasi lokal berhasil dibuka.')}
+    }
+    if(b.dataset.removeSaved){
+      if(confirm('Hapus estimasi dari browser ini?')){history=history.filter(function(x){return x.id!==b.dataset.removeSaved});save(KEY,history);historyUI();message('Estimasi dihapus dari riwayat lokal.')}
+    }
+  });
+  fill();if(warning)message(warning,true);
+}
+var api={init,STORE:KEY,DRAFT};
+root.CSKHPPUI=api;
+if(typeof module!=='undefined'&&module.exports)module.exports=api;
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+<script>document.addEventListener("DOMContentLoaded",function(){window.CSKHPPUI.init(document.getElementById("hpp-root"),window.CSKHPP)});</script></body></html>

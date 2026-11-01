@@ -14,11 +14,9 @@
  *    + kolom Rating_Review otomatis ditambahkan
  * 5. Marketing_Spend-> Pilar Pemasaran (Biaya & Performa Iklan) — TAB BARU
  *
- * OTOMATISASI PILLAR (autoTriggerPillars):
- * - Dipicu setelah setiap sync_all atau update_status 'won'/'Deal Menang'
- * - Menulis baris Pendapatan ke Finance (kategori DP Proyek, token [LEAD-{id}])
- * - Menulis baris Antrean ke Projects (status plan, token [LEAD-{id}])
- * - Idempoten: tidak membuat duplikat jika dijalankan berulang
+ * NOTA KEAMANAN: STATUS DEAL MENANG BUKAN BUKTI UANG MASUK.
+ * Jurnal DP hanya dibuat dari transaksi yang benar-benar diterima.
+ * Draft proyek otomatis nonaktif secara default; bisa diaktifkan sengaja.
  *
  * CARA PEMASANGAN (HANYA 2 MENIT):
  * 1. Buat Google Spreadsheet baru di Google Drive Anda (Beri nama: "Database CSK Business OS").
@@ -29,10 +27,9 @@
  *    (Berikan izin akses akun Google Anda jika diminta).
  * 6. Klik tombol "Deploy" (Terapkan) di kanan atas -> "New deployment" (Penerapan baru).
  * 7. Pilih tipe: "Web app" (Aplikasi Web).
- * 8. Konfigurasi:
- *    - Description: "CSK OS API"
- *    - Execute as: "Me" (Email Google Anda)
- *    - Who has access: "Anyone" (Siapa saja)
+ * 8. KEAMANAN: jangan aktifkan Web App publik / Anyone.
+ *    Deploy baru hanya setelah autentikasi server-side, concurrency,
+ *    dan uji LAB selesai. Lihat docs/safe-sync-rollout.md.
  * 9. Klik "Deploy", lalu SALIN URL Web App yang dihasilkan.
  * 10. Buka aplikasi CSK Business OS -> Menu Settings -> Tempelkan URL tersebut ke kolom "Google Sheets Web App URL".
  * 11. (Opsional) Pasang trigger otomatis: jalankan fungsi "installAutoTrigger" sekali agar
@@ -323,52 +320,156 @@ function readSheetData(ss, sheetName) {
   });
 }
 
-// ============== KEAMANAN: TOKEN API ==============
-// Token disimpan di Script Properties (BUKAN di kode/repo).
-// Set sekali lewat menu editor: jalankan fungsi setupApiToken().
-// Selama token belum diset, sistem berjalan TANPA proteksi (mode kompatibel).
+// ============== KEAMANAN: TOKEN + PROTOKOL API (STAGED / NOT YET DEPLOYED) ==============
+// Protocol 2 rejects stale PWA clients that still send the legacy full-sync contract.
+// This is a compatibility guard, NOT user authentication or concurrency control.
+var CSK_API_PROTOCOL_VERSION = 2;
+
+function protocolMismatchResponse() {
+  return jsonResponse({
+    status: "error",
+    code: "CLIENT_PROTOCOL_MISMATCH",
+    protocolVersion: CSK_API_PROTOCOL_VERSION,
+    message: "Versi aplikasi tidak didukung. Muat ulang CSK Business OS sebelum sinkronisasi."
+  });
+}
+
+var CSK_SYNC_PAYLOAD_AREAS_ = {
+  leads: "Leads", clients: "Clients", projects: "Projects",
+  finance: "Finance", memory: "Memory", marketingSpend: "Marketing_Spend"
+};
+
+function stableRecordFingerprint_(record) {
+  if (!record) return "";
+  var keys = Object.keys(record).sort();
+  return JSON.stringify(keys.map(function (key) { return [key, record[key]]; }));
+}
+
+function findRecordById_(ss, sheetName, id) {
+  var rows = readSheetData(ss, sheetName);
+  var target = String(id);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i].id) === target) return rows[i];
+  }
+  return null;
+}
+
+/**
+ * Compare every sync_all upsert with the record version the client edited.
+ * Must run while holding the script lock, immediately before the write.
+ * A null expected fingerprint means the record must still be absent.
+ */
+function validateExpectedRecords_(ss, payload) {
+  var expectedRecords = payload.expectedRecords;
+  if (!expectedRecords || typeof expectedRecords !== "object" || Array.isArray(expectedRecords)) {
+    return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
+      message: "Sinkronisasi ditolak: expectedRecords wajib dikirim." };
+  }
+  var missing = [];
+  var conflicts = [];
+  Object.keys(CSK_SYNC_PAYLOAD_AREAS_).forEach(function (area) {
+    if (!(area in payload)) return;
+    var items = payload[area];
+    if (!Array.isArray(items)) {
+      missing.push(area + " bukan array");
+      return;
+    }
+    if (!items.length) return;
+    var sheetName = CSK_SYNC_PAYLOAD_AREAS_[area];
+    var versions = expectedRecords[sheetName];
+    if (!versions || typeof versions !== "object" || Array.isArray(versions)) {
+      missing.push(sheetName);
+      return;
+    }
+    items.forEach(function (item) {
+      var id = String(item && item.id != null ? item.id : "").trim();
+      if (!id || !Object.prototype.hasOwnProperty.call(versions, id)) {
+        missing.push(sheetName + "/" + id);
+        return;
+      }
+      var expected = versions[id];
+      var current = findRecordById_(ss, sheetName, id);
+      if (expected === null) {
+        if (current) conflicts.push(sheetName + "/" + id);
+      } else if (typeof expected !== "string" || !expected ||
+          !current || stableRecordFingerprint_(current) !== expected) {
+        conflicts.push(sheetName + "/" + id);
+      }
+    });
+  });
+  if (missing.length) {
+    return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
+      message: "Versi dasar record tidak lengkap. Tidak ada data yang diubah.", conflicts: missing };
+  }
+  if (conflicts.length) {
+    return { ok: false, code: "SYNC_CONFLICT",
+      message: "Data cloud berubah sejak terakhir dibaca. Tidak ada data yang diubah.", conflicts: conflicts };
+  }
+  return { ok: true };
+}
+
+function validateExpectedDelete_(ss, sheetName, id, expectedFingerprint) {
+  if (typeof expectedFingerprint !== "string" || !expectedFingerprint) {
+    return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
+      message: "Penghapusan ditolak: expectedFingerprint wajib dikirim." };
+  }
+  var current = findRecordById_(ss, sheetName, id);
+  if (!current || stableRecordFingerprint_(current) !== expectedFingerprint) {
+    return { ok: false, code: "SYNC_CONFLICT",
+      message: "Record berubah atau sudah dihapus oleh perangkat lain. Tidak ada data yang diubah.",
+      conflicts: [sheetName + "/" + String(id)] };
+  }
+  return { ok: true };
+}
+
+// FAIL CLOSED: no configured secret -> no GET/POST access.
+// For production use an authenticated backend, not an openly shared static app.
 function getApiToken() {
   return PropertiesService.getScriptProperties().getProperty("API_TOKEN") || "";
 }
 
-/**
- * Set/ubah token API. Jalankan sekali dari editor Apps Script.
- * Ganti nilai di bawah dengan token rahasia Anda (minimal 20 karakter acak).
- */
+/** Generate a random token in Script Properties; never print it to logs. */
 function setupApiToken() {
-  var token = "GANTI-DENGAN-TOKEN-RAHASIA-ANDA";
+  var existing = getApiToken();
+  if (existing && existing.length >= 20 && existing !== "GANTI-DENGAN-TOKEN-RAHASIA-ANDA") {
+    return "Token sudah ada; lihat Script Properties (jangan kirim lewat chat).";
+  }
+  var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
   PropertiesService.getScriptProperties().setProperty("API_TOKEN", token);
-  Logger.log("API_TOKEN diset. Simpan token ini di app (Pengaturan → Token Akses).");
+  Logger.log("API_TOKEN baru disimpan pada Script Properties. Jangan bagikan token.");
+  return "Token dibuat di Script Properties. Buka Project Settings untuk menyalinnya sendiri.";
 }
 
-/**
- * Cek token dari request. Return true jika valid ATAU token belum diset
- * (mode kompatibel agar tidak memutus app lama).
- */
 function isAuthorized(payloadOrEvent, tokenParam) {
   var expected = getApiToken();
-  if (expected === "") return true; // belum diaktifkan -> izinkan (kompatibel)
-
+  if (!expected || expected.length < 20 || expected === "GANTI-DENGAN-TOKEN-RAHASIA-ANDA") return false;
   var provided = "";
-  if (payloadOrEvent && typeof payloadOrEvent === "object") {
-    provided = payloadOrEvent.token || "";
-  }
+  if (payloadOrEvent && typeof payloadOrEvent === "object") provided = payloadOrEvent.token || "";
   if (!provided && tokenParam) provided = tokenParam;
   return String(provided) === String(expected);
 }
 
 function unauthorizedResponse() {
-  return jsonResponse({ status: "error", message: "Tidak diizinkan: token akses salah atau kosong." });
+  return jsonResponse({ status: "error", code: "UNAUTHORIZED", protocolVersion: CSK_API_PROTOCOL_VERSION, message: "Tidak diizinkan: token akses salah atau kosong." });
 }
 
 // ============== GET — TARIK DATA SEMUA TAB ==============
 
 function doGet(e) {
+  var apiLock = null;
+  var lockAcquired = false;
   try {
-    // Proteksi token (via query string ?token=...)
+    // Authenticate before disclosing protocol details or reading cloud data.
     var tokenParam = (e && e.parameter) ? e.parameter.token : "";
     if (!isAuthorized(null, tokenParam)) return unauthorizedResponse();
+    // Reject stale clients after authentication, before exposing any cloud data.
+    var requestedProtocol = (e && e.parameter) ? e.parameter.protocolVersion : "";
+    if (Number(requestedProtocol) !== CSK_API_PROTOCOL_VERSION) return protocolMismatchResponse();
 
+    // Reads wait for an in-progress write so clients never observe a half-applied batch.
+    apiLock = LockService.getScriptLock();
+    apiLock.waitLock(30000);
+    lockAcquired = true;
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const result = {
       leads: readSheetData(ss, "Leads"),
@@ -379,23 +480,32 @@ function doGet(e) {
       marketingSpend: readSheetData(ss, "Marketing_Spend"),
       lastSynced: new Date().toISOString()
     };
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", data: result }))
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION, data: result }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", protocolVersion: CSK_API_PROTOCOL_VERSION, message: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    if (lockAcquired && apiLock) apiLock.releaseLock();
   }
 }
 
 // ============== POST — CRUD (sync_all, insert, update_status) ==============
 
 function doPost(e) {
+  var apiLock = null;
+  var lockAcquired = false;
   try {
     const payload = JSON.parse(e.postData.contents);
-
-    // Proteksi token (via field payload.token)
+    // Authenticate before disclosing protocol details or processing a write.
     if (!isAuthorized(payload)) return unauthorizedResponse();
+    // Reject legacy/stale write contracts before any sheet mutation.
+    if (Number(payload.protocolVersion) !== CSK_API_PROTOCOL_VERSION) return protocolMismatchResponse();
 
+    // Serialize the read-check-write section across all clients of this script.
+    apiLock = LockService.getScriptLock();
+    apiLock.waitLock(30000);
+    lockAcquired = true;
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const action = (payload.action || "").toLowerCase();
 
@@ -404,6 +514,11 @@ function doPost(e) {
       // --- sync_all (MERGE / UPSERT — tidak pernah menghapus data lama) ---
       // Aman: lead yang sudah ada di Sheets tetap tersimpan; hanya ditambah/diupdate.
       case "sync_all": {
+        var expectedCheck = validateExpectedRecords_(ss, payload);
+        if (!expectedCheck.ok) return jsonResponse({
+          status: "error", code: expectedCheck.code, protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: expectedCheck.message, conflicts: expectedCheck.conflicts || []
+        });
         var mergeSummary = {};
         if (payload.leads)          mergeSummary.Leads           = mergeSheet(ss, "Leads",           payload.leads);
         if (payload.clients)        mergeSummary.Clients         = mergeSheet(ss, "Clients",         payload.clients);
@@ -421,14 +536,31 @@ function doPost(e) {
         const sheetName = payload.sheet || "Leads";
         const delId = payload.id;
         if (!delId) throw new Error("Parameter id diperlukan untuk aksi delete.");
+        if (!FIELD_MAP[sheetName]) return jsonResponse({
+          status: "error", code: "INVALID_SHEET", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Penghapusan hanya diizinkan untuk tab Business OS yang terdaftar."
+        });
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
         const rowNum = findRowById(sheet, delId);
+        // Idempotent delete: if another device already removed this record, no write is needed.
         if (rowNum === -1) {
-          return jsonResponse({ status: "success", message: "Baris " + delId + " tidak ada (sudah terhapus)." });
+          return jsonResponse({
+            status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION,
+            message: "Baris " + delId + " tidak ada (sudah terhapus)."
+          });
         }
+        // For an existing row, require the exact baseline fingerprint before deleting.
+        var deleteCheck = validateExpectedDelete_(ss, sheetName, delId, payload.expectedFingerprint);
+        if (!deleteCheck.ok) return jsonResponse({
+          status: "error", code: deleteCheck.code, protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: deleteCheck.message, conflicts: deleteCheck.conflicts || []
+        });
         sheet.deleteRow(rowNum);
-        return jsonResponse({ status: "success", message: "Baris " + delId + " dihapus dari " + sheetName });
+        return jsonResponse({
+          status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Baris " + delId + " dihapus dari " + sheetName
+        });
       }
 
       // --- insert: tambahkan 1 baris ke tab tertentu ---
@@ -476,63 +608,9 @@ function doPost(e) {
 
       // --- send_cold_email: kirim outreach resmi via Gmail dengan batas kuota 50 & opt-out ---
       case "send_cold_email": {
-        const toEmail = (payload.toEmail || "").trim();
-        const name = (payload.name || "Kak").trim();
-        const brand = (payload.brand || "Brand").trim();
-
-        if (!toEmail) throw new Error("Email tujuan tidak boleh kosong");
-
-        // 1. Cek sisa kuota Gmail Google
-        const remainingGmailQuota = MailApp.getRemainingDailyQuota();
-        if (remainingGmailQuota < 5) {
-          throw new Error("Sisa kuota harian Gmail akun ini hampir habis. Pengiriman ditunda demi keamanan.");
-        }
-
-        // 2. Proteksi batas harian internal CSK (Max 50 email/hari)
-        const props = PropertiesService.getScriptProperties();
-        const todayStr = Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyy-MM-dd");
-        const lastDate = props.getProperty("COLD_EMAIL_DATE") || "";
-        let countToday = parseInt(props.getProperty("COLD_EMAIL_COUNT") || "0", 10);
-
-        if (lastDate !== todayStr) {
-          countToday = 0;
-          props.setProperty("COLD_EMAIL_DATE", todayStr);
-        }
-
-        if (countToday >= 50) {
-          throw new Error("Batas aman harian tercapai (50/hari) untuk menjaga reputasi email. Coba lagi besok.");
-        }
-
-        // 3. Draft email dengan kalimat opt-out
-        const subject = "Vendor Produksi Booth & Display POSM — Cahaya Selatan Kreasindo";
-        const body = "Halo Kak " + name + " / Tim " + brand + ",\n\n" +
-          "Salam kenal, saya Zefry dari Cahaya Selatan Kreasindo (CSK).\n\n" +
-          "Kebetulan workshop fabrikasi kami di Serpong spesialis handle:\n" +
-          "- Booth pameran, backdrop event, & sewa equipment\n" +
-          "- POSM, rak display, & akrilik custom\n\n" +
-          "Beberapa project sebelumnya kami support untuk brand seperti J&T Cargo, Hanasui, Line Friends, sampai Teh Pucuk.\n\n" +
-          "Kalau di " + brand + " lagi ada agenda event, pameran, atau kebutuhan display toko yang butuh vendor produksi langsung tangan pertama, boleh saya kirimkan PDF portfolio ringkas kami?\n\n" +
-          "Terima kasih, Kak.\n\n" +
-          "Zefry Dany\n" +
-          "Cahaya Selatan Kreasindo\n" +
-          "WhatsApp: 0888-8533-488\n" +
-          "Portofolio: cahayaselatankreasindo.my.id\n\n" +
-          "---\n" +
-          "Jika Kakak/tim tidak berkenan menerima info ini, cukup balas email ini dengan 'Stop' ya Kak. Terima kasih banyak.";
-
-        GmailApp.sendEmail(toEmail, subject, body, {
-          name: "Zefry Dany (Cahaya Selatan Kreasindo)"
-        });
-
-        // 4. Update counter terkirim
-        countToday++;
-        props.setProperty("COLD_EMAIL_COUNT", String(countToday));
-
-        return jsonResponse({
-          status: "success",
-          message: "Cold email terkirim (" + countToday + "/50 hari ini) ke " + toEmail,
-          countToday: countToday
-        });
+        // Retired: email marketing in CSK OS is owner-reviewed mailto drafts only.
+        // This endpoint must NEVER send automatically, even with a valid API token.
+        throw new Error("Pengiriman cold email otomatis dinonaktifkan. Gunakan Studio Email Marketing untuk meninjau dan mengirim manual.");
       }
 
       default:
@@ -542,73 +620,46 @@ function doPost(e) {
     return jsonResponse({ status: "success", message: "Data tersinkronisasi ke Google Sheets" });
 
   } catch (err) {
-    return jsonResponse({ status: "error", message: err.toString() });
+    return jsonResponse({ status: "error", protocolVersion: CSK_API_PROTOCOL_VERSION, message: err.toString() });
+  } finally {
+    if (lockAcquired && apiLock) apiLock.releaseLock();
   }
 }
 
 // ============== OTOMATISASI PILLAR ==============
 
 /**
- * autoTriggerPillars()
- * Menelusuri tab Leads untuk baris dengan status 'won' / 'Deal Menang' yang
- * belum pernah ditandai dengan token [LEAD-{id}]. Baris tersebut akan:
- *   1. Ditulis sebagai Pendapatan di tab Finance (kategori "DP Proyek")
- *   2. Ditulis sebagai antrean proyek baru di tab Projects (status "plan")
- * Fungsi ini IDEMPOTEN: baris yang sudah punya token tidak akan diduplikasi.
+ * Auto-create a PROJECT draft only when explicitly enabled through
+ * Script Properties: AUTO_PROJECT_FROM_WON=true. Never create Finance income.
+ * A signed deal is not proof of payment (DP).
  */
 function autoTriggerPillars(ss, forceLeadId) {
+  if (PropertiesService.getScriptProperties().getProperty("AUTO_PROJECT_FROM_WON") !== "true") {
+    return { financeCreated: 0, projectCreated: 0, disabled: true };
+  }
   const leadsSheet = ss.getSheetByName("Leads");
   if (!leadsSheet || leadsSheet.getLastRow() <= 1) return { financeCreated: 0, projectCreated: 0 };
-
   const leads = readSheetData(ss, "Leads");
-  let financeCreated = 0;
   let projectCreated = 0;
-
   leads.forEach(lead => {
     if (!isDealMenang(lead.status)) return;
-    // Lewati jika ini bukan baris yang difokuskan (kalau forceLeadId diberikan)
     if (forceLeadId && String(lead.id).trim() !== String(forceLeadId).trim()) return;
-
     const refToken = "[LEAD-" + lead.id + "]";
-
-    // Cek duplikat di Finance
-    const financeAlreadyExists = hasTokenInSheet(ss, "Finance", refToken);
-    // Cek duplikat di Projects
-    const projectAlreadyExists = hasTokenInSheet(ss, "Projects", refToken);
-
-    // Tulis ke Finance jika belum ada
-    if (!financeAlreadyExists) {
-      const financeRow = {
-        id: "AUTO-FIN-" + Date.now(),
-        date: new Date().toISOString().slice(0, 10),
-        type: "income",
-        category: "DP Proyek",
-        amount: Number(lead.value) || 0,
-        description: "Auto (Deal Menang) " + (lead.name || "") + " " + refToken
-      };
-      insertRecord(ss, "Finance", financeRow, ["id","date","type","category","amount","description"]);
-      financeCreated++;
-    }
-
-    // Tulis ke Projects jika belum ada
-    if (!projectAlreadyExists) {
-      const deadlineDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
-      const projectRow = {
-        id: "AUTO-PRJ-" + Date.now(),
-        title: "Proyek " + (lead.name || ""),
-        client: lead.name || "",
-        value: Number(lead.value) || 0,
-        status: "plan",
-        deadline: deadlineDate,
-        notes: "Antrean otomatis dari Lead [LEAD-" + lead.id + "]",
-        sopChecklist: "Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0"
-      };
-      insertRecord(ss, "Projects", projectRow, ["id","title","client","value","status","deadline","notes","sopChecklist"]);
-      projectCreated++;
-    }
+    if (hasTokenInSheet(ss, "Projects", refToken)) return;
+    const projectRow = {
+      id: "AUTO-PRJ-" + Date.now() + "-" + String(lead.id),
+      title: "Proyek " + (lead.name || ""),
+      client: lead.name || "",
+      value: Number(lead.value) || 0,
+      status: "plan",
+      deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+      notes: "Antrean otomatis dari Lead " + refToken,
+      sopChecklist: "Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0"
+    };
+    insertRecord(ss, "Projects", projectRow, ["id","title","client","value","status","deadline","notes","sopChecklist"]);
+    projectCreated++;
   });
-
-  return { financeCreated: financeCreated, projectCreated: projectCreated };
+  return { financeCreated: 0, projectCreated: projectCreated };
 }
 
 function hasTokenInSheet(ss, sheetName, token) {
@@ -713,100 +764,33 @@ function handleAutoTrigger(e) {
  * lalu mengirim cold email resmi (maks 15 per hari agar bertahap dan aman).
  */
 function cronDailyOutreach() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName("Leads");
-  if (!sheet || sheet.getLastRow() <= 1) return;
-
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0].map(h => String(h).toLowerCase().trim());
-  
-  const statusIdx = headers.indexOf("status");
-  const nameIdx = headers.indexOf("nama");
-  const notesIdx = headers.indexOf("catatan");
-  
-  if (statusIdx === -1 || nameIdx === -1) return;
-
-  // Cek kuota sisa Gmail
-  if (MailApp.getRemainingDailyQuota() < 5) {
-    Logger.log("Kuota Gmail menipis, cron dibatalkan.");
-    return;
-  }
-
-  let sentToday = 0;
-  const maxPerBatch = 15; // Kirim santai 15 lead per pagi
-
-  for (let i = 1; i < data.length; i++) {
-    if (sentToday >= maxPerBatch) break;
-
-    const row = data[i];
-    const status = String(row[statusIdx] || "").toLowerCase().trim();
-    const name = String(row[nameIdx] || "").trim();
-    const notes = String(row[notesIdx] || "").trim();
-
-    // Cari pola email dari kolom catatan atau teks
-    const emailMatch = notes.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-    
-    if (status === "new" && emailMatch) {
-      const toEmail = emailMatch[0];
-      
-      try {
-        const subject = "Vendor Produksi Booth & Display POSM — Cahaya Selatan Kreasindo";
-        const body = "Halo Kak " + name + ",\n\n" +
-          "Salam kenal, saya Zefry dari Cahaya Selatan Kreasindo (CSK).\n\n" +
-          "Kebetulan workshop fabrikasi kami di Serpong spesialis handle:\n" +
-          "- Booth pameran, backdrop event, & sewa equipment\n" +
-          "- POSM, rak display, & akrilik custom\n\n" +
-          "Beberapa project sebelumnya kami support untuk brand seperti J&T Cargo, Hanasui, Line Friends, sampai Teh Pucuk.\n\n" +
-          "Kalau di tim Kakak lagi ada agenda event, pameran, atau kebutuhan display toko yang butuh vendor produksi langsung tangan pertama, boleh saya kirimkan PDF portfolio ringkas kami?\n\n" +
-          "Terima kasih, Kak.\n\n" +
-          "Zefry Dany\n" +
-          "Cahaya Selatan Kreasindo\n" +
-          "WhatsApp: 0888-8533-488\n" +
-          "Portofolio: cahayaselatankreasindo.my.id\n\n" +
-          "---\n" +
-          "Jika tidak berkenan menerima info ini, cukup balas email ini dengan 'Stop' ya Kak. Terima kasih banyak.";
-
-        GmailApp.sendEmail(toEmail, subject, body, {
-          name: "Zefry Dany (Cahaya Selatan Kreasindo)"
-        });
-
-        // Update status di sheet jadi 'contacted'
-        sheet.getRange(i + 1, statusIdx + 1).setValue("contacted");
-        
-        // Tambahkan stempel tanggal di catatan
-        const todayStr = Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyy-MM-dd");
-        sheet.getRange(i + 1, notesIdx + 1).setValue(notes + " | Auto-email 9am " + todayStr);
-
-        sentToday++;
-        Utilities.sleep(1500); // Jeda aman 1.5 detik antar email
-      } catch (err) {
-        Logger.log("Gagal kirim ke " + toEmail + ": " + err.toString());
-      }
-    }
-  }
-
-  Logger.log("Selesai cron jam 9 pagi. Total terkirim: " + sentToday);
+  // Legacy triggers, if present in an already-deployed project, are inert
+  // ONLY AFTER the deployed version is updated and reviewed by its owner.
+  Logger.log("Cold outreach automation disabled in CSK Business OS draft.");
+  return {disabled:true, sent:0};
 }
 
 /**
  * Jalankan fungsi ini sekali dari Apps Script untuk memasang otomatis trigger jam 9 pagi.
  */
 function installDailyOutreachTrigger() {
-  const triggers = ScriptApp.getProjectTriggers();
-  triggers.forEach(t => {
-    if (t.getHandlerFunction() === "cronDailyOutreach") {
-      ScriptApp.deleteTrigger(t);
+  // No automatic email trigger is installed by this draft.
+  Logger.log("Daily email outreach trigger installation is disabled.");
+  return {disabled:true, installed:0};
+}
+
+/** Owner-only manual maintenance for an already-deployed LAB project.
+ * Never call in production without reviewing the existing triggers first.
+ */
+function removeLegacyOutreachTriggers() {
+  var removed = 0;
+  ScriptApp.getProjectTriggers().forEach(function (trigger) {
+    if (trigger.getHandlerFunction() === "cronDailyOutreach") {
+      ScriptApp.deleteTrigger(trigger);
+      removed++;
     }
   });
-
-  ScriptApp.newTrigger("cronDailyOutreach")
-    .timeBased()
-    .atHour(9)
-    .everyDays(1)
-    .inTimezone("Asia/Jakarta")
-    .create();
-
-  Logger.log("Pemicu jam 9 pagi berhasil dipasang.");
+  return {removed:removed, emailSends:0};
 }
 
 // ============== UTILITAS RESPONS ==============

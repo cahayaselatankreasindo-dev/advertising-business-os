@@ -1,15 +1,15 @@
 {
-  "name": "Advertising Business OS — 5 Pilar Terpadu",
-  "short_name": "Business OS v2",
-  "description": "Operating System Manajemen Bisnis & Pencatatan Terpadu — 5 Pilar: CRM, Keuangan, Produksi, PMF, Marketing (The Scales Advertising / CSK)",
+  "name": "CSK Business OS — Operasional Bisnis",
+  "short_name": "CSK Business OS",
+  "description": "Dashboard operasional Cahaya Selatan Kreasindo: leads, proyek, klien, keuangan, pemasaran dan backup lokal.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#1C2333",
-  "theme_color": "#C97D2C",
-  "version": "2.0.2",
+  "background_color": "#0B0B0B",
+  "theme_color": "#0B0B0B",
+  "version": "2.9.0-email-staging",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231C2333'/><text x='50%' y='58%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='42' font-weight='bold' fill='%23C97D2C'>OS</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230B0B0B'/><text x='50%' y='58%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='42' font-weight='bold' fill='%23FF8A3D'>OS</text></svg>",
       "sizes": "192x192 512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
