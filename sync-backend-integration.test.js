@@ -379,7 +379,7 @@ test('LAB real doGet/doPost wiring check rejects invalid delete without altering
   const api=createBackend(),ctx=api.sandbox;
   const backendPath=path.join(__dirname,'google_apps_script.js');
   let source=fs.readFileSync(backendPath,'utf8');
-  const getAnchor='function doGet(e) {\n  try {';
+  const getAnchor='function doGet(e) {\n  var apiLock = null;\n  var lockAcquired = false;\n  try {';
   const postAnchor='const payload = JSON.parse(e.postData.contents);';
   assert.ok(source.includes(getAnchor),'GET handler anchor missing');
   assert.ok(source.includes(postAnchor),'POST handler anchor missing');
