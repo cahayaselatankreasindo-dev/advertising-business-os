@@ -1,44 +1,44 @@
-# Foto Laporan Proyek CSK — Drive Privat (LAB / DRAFT)
+# Foto Laporan Proyek CSK — Google Drive Privat (LAB / DRAFT)
 
-**Status: hanya PR draft Business OS #2. Folder Drive LAB dibuat privat. Kode uploader belum dipasang sebagai Apps Script dan belum ada pengujian HTTP langsung/unggah foto asli. Tidak boleh merge atau deploy produksi.**
+**Status per 2 November 2026:** owner telah membuat dan men-deploy Apps Script Web App dengan akses **Only myself**. Satu foto dummy berhasil diunggah; owner mengonfirmasi file muncul di folder Google Drive LAB dan baris metadata muncul di tab `Photo_Reports`. Integrasi launcher pada Business OS sedang dikerjakan di PR #2 branch draft; belum masuk produksi.
 
-## Alur yang disiapkan
+## Alur operasional
 
-1. Owner membuka **Operasional Terpadu → QC Produksi** di Business OS draft, memilih proyek CRM dan tahap kerja.
-2. Owner memasukkan URL **uploader Apps Script LAB terpisah** lalu klik **Buka Upload Foto Proyek Privat**. Business OS hanya membuka tab baru dengan `projectId` dan `stage`; foto **tidak** dikirim oleh halaman Business OS maupun disimpan dalam backup lokal Operations.
-3. Uploader Apps Script memeriksa email user aktif dan efektif adalah owner; akses kosong/salah ditolak. Server memastikan target folder bernama LAB, privat, tanpa editor/viewer lain dan Sheet metadata mempunyai marker LAB.
-4. Owner memasukkan catatan dan memilih 1–6 foto; browser mengecilkan gambar ke maksimal 1600 px dan 1,8 MB per file, membuat JPEG baru agar EXIF/lokasi asli tidak diteruskan.
-5. Setelah owner mengaktifkan `CSK_PHOTO_ENABLE_WRITE=true` **khusus LAB**, server menyimpan blob ke Drive LAB privat, lalu mengindeks `ReportID`, waktu, ID proyek, tahap, caption, file ID, nama asli, mime, ukuran, dan akun owner pada Sheet LAB terpisah.
-6. Riwayat 100 foto per proyek dapat dilihat pada uploader privat dengan tautan Drive yang tetap memerlukan izin owner. Catatan QC lokal tidak otomatis diubah oleh upload.
+1. Owner membuka **Operasional Terpadu → QC Produksi** pada Business OS.
+2. Pada bagian **Foto Laporan Proyek**, masukkan URL Web App LAB berakhiran `/exec` dan klik **Simpan URL Uploader LAB** satu kali pada browser tersebut.
+3. Pilih proyek dari daftar CRM dan tahap pekerjaan pada form dokumentasi foto. Nama proyek diambil dari judul proyek CRM; ID proyek ikut diteruskan sebagai parameter.
+4. Klik **Buka Upload Foto Proyek Privat**. Business OS membuka tab Apps Script terpisah dengan `projectId` dan `stage` terisi otomatis.
+5. Di uploader, owner menulis caption dan memilih 1–6 foto. Browser mengompresi gambar hingga maksimal 1.600 px dan 1,8 MB per foto, lalu membuat JPEG baru agar EXIF/GPS foto asli tidak ikut diteruskan.
+6. Apps Script memeriksa identitas owner, folder privat, spreadsheet LAB, marker, dan header metadata sebelum menerima upload.
+7. Foto disimpan di Drive LAB privat. Baris metadata mencatat ID laporan, waktu, ID proyek, tahap, caption, file ID, nama asli, mime, ukuran, dan email owner.
+8. Riwayat foto proyek tersedia di halaman uploader. Tautan Drive tetap memerlukan izin akun owner.
 
-## Folder dan penyiapan owner (JANGAN lakukan di proyek produksi)
+Business OS **tidak mengirim file foto melalui server atau menyimpan foto dalam backup lokal**. Foto juga tidak otomatis mengubah status proyek, checklist SOP, atau catatan QC. Catatan QC dan dokumentasi foto tetap dua aktivitas terpisah agar tidak membuat status pekerjaan fiktif.
 
-- Folder baru: **LAB - Foto Laporan Proyek Business OS (DRAFT)**, berada di bawah **Manajerial Internal CSK**; akun owner `cahayaselatankreasindo@gmail.com`, metadata folder saat dibuat menunjukkan `shared=false` dan hanya pemilik.
-- **Tidak** mengubah berbagi folder Drive lama dan **tidak** membuat Sheet metadata di spreadsheet produksi.
-- Buat **proyek Apps Script baru**, bukan proyek yang sudah digunakan Business OS. Salin `photo-lab/Code.gs`, `photo-lab/Index.html`, dan manifest `photo-lab/appsscript.json` ke proyek baru (manifest mengunci akses awal ke `MYSELF`).
-- Isi **Script Properties** (bukan source code, GitHub, atau URL):
+## Infrastruktur LAB yang sudah disiapkan
 
-  | Key | Nilai awal / aturan |
-  | --- | --- |
-  | `CSK_PHOTO_OWNER_EMAIL` | Email owner CSK yang masuk ke Apps Script |
-  | `CSK_PHOTO_LAB_FOLDER_ID` | ID folder Drive LAB privat baru; jangan pilih folder produksi |
-  | `CSK_PHOTO_ENABLE_WRITE` | `false` sampai uji akses dan persetujuan owner |
-  | `CSK_PHOTO_LAB_SPREADSHEET_ID` | **Kosong** sebelum setup; fungsi setup mengisinya otomatis |
+- Folder: **LAB - Foto Laporan Proyek Business OS (DRAFT)**.
+- Spreadsheet: **CSK PHOTO LAB - Business OS (DRAFT)**, berada di folder LAB dan memiliki tab `_CSK_PHOTO_LAB` serta `Photo_Reports`.
+- Tab metadata menggunakan header tetap: `ReportID, UploadedAtUTC, ProjectID, Stage, Caption, DriveFileID, OriginalName, MimeType, Bytes, OwnerEmail`.
+- Proyek Apps Script terpisah dari Apps Script Business OS. Jangan menyalin kode Photo LAB ke backend produksi.
+- Web App berjalan sebagai owner dan aksesnya **Only myself**. Jangan ubah ke Anyone, Anyone with link, atau akses domain.
+- Script Properties saat uji operasional: `CSK_PHOTO_OWNER_EMAIL`, `CSK_PHOTO_LAB_FOLDER_ID`, `CSK_PHOTO_LAB_SPREADSHEET_ID` terisi sesuai LAB; `CSK_PHOTO_ENABLE_WRITE=true` agar owner dapat mengunggah. Set `false` hanya bila ingin menghentikan penerimaan upload sementara.
+- URL Web App disimpan di browser Business OS melalui localStorage key `csk_photo_lab_uploader_url_v1`. URL tidak dimasukkan ke source code, GitHub, atau backup data. Pengaturan ini harus diulang jika memakai browser/perangkat lain.
 
-- Jalankan `setupPhotoLab()` **sekali** secara manual dari editor proyek LAB. Fungsi ini membuat **spreadsheet baru** bertanda `CSK_PHOTO_LAB_ONLY_V1` di dalam folder LAB dan merekam ID-nya pada Script Properties. Tidak pernah menerima spreadsheet produksi sebagai lokasi tulis: sheet harus bernama tepat `CSK PHOTO LAB - Business OS (DRAFT)`, memiliki marker LAB, dan benar-benar berada dalam folder LAB.
-- Buat deployment Web App **baru** dengan eksekusi **sebagai owner** dan akses **Only myself / Hanya saya**. Jangan gunakan setting Anyone, Anyone with link, atau domain-wide. Jika `Session.getActiveUser().getEmail()` kosong di deployment, sistem sengaja menolak akses: periksa konfigurasi, jangan matikan pemeriksaan identitas.
-- Uji dengan satu foto dummy tanpa informasi pelanggan, lalu pastikan file dan metadata tercatat dan akun lain **tidak** bisa membuka uploader, folder, maupun file. Setelah itu baru izinkan foto internal yang benar.
-- Gunakan URL deployment LAB berakhiran `/exec` pada kotak URL di tab QC. URL tersimpan **hanya di browser itu** (`csk_photo_lab_uploader_url_v1`) dan tidak otomatis terbawa ke perangkat lain.
+## Pengamanan dan batasan
 
-## Batasan dan gate rilis
+- Pemeriksaan server mensyaratkan email user aktif dan efektif sama dengan email owner. Identitas kosong atau berbeda ditolak.
+- Folder dan spreadsheet harus privat, tidak memiliki viewer/editor lain, dan harus berada pada lokasi LAB yang benar. File foto tidak diberi akses publik.
+- Server memvalidasi format ID proyek dan tahap, tetapi belum mencocokkan ID tersebut terhadap daftar CRM di server. Karena itu, pilih proyek dengan benar dari Business OS.
+- Upload foto dan penulisan metadata bukan satu transaksi atomik. Jika file sudah masuk Drive tetapi penulisan metadata gagal, sistem mengembalikan status perlu pemeriksaan; jangan langsung mengunggah ulang.
+- Retry menggunakan UUID unggahan yang sama untuk mencegah file duplikat setelah respons terputus. Memilih ulang file dapat menghasilkan UUID baru; periksa riwayat sebelum mengulang.
+- Batas penggunaan: maksimal 6 foto per batch, 1,8 MB setelah kompresi per foto, dan 100 laporan terakhir ditampilkan per proyek.
+- Hindari mengunggah KTP, kartu bank, dokumen kontrak sensitif, atau wajah orang tanpa dasar pemrosesan/izin.
+- Uji upload dummy telah dilakukan oleh owner. Pengujian aktif memakai akun non-owner belum dilakukan; jangan pernah melonggarkan pengaturan **Only myself** atau pemeriksaan identitas untuk mengatasi masalah akses.
 
-- **Belum live:** kode disiapkan tetapi belum dibuat sebagai proyek Apps Script baru, belum ada URL deployment LAB, `CSK_PHOTO_ENABLE_WRITE` belum diaktifkan, dan belum ada foto pelanggan yang diunggah.
-- `photo-lab.test.js` menjalankan tes unit dengan mock Google Apps Script dan bukan pengujian terhubung ke Drive/Spreadsheet secara nyata. Pastikan uji manual owner dan uji dengan akun lain sebelum aktif.
-- Tidak ada sinkronisasi QC, bukti pembayaran, dan proyek utama otomatis. Foto bisa terkait ID proyek yang diambil dari URL; server hanya memvalidasi format ID, **belum** mencocokkan dengan daftar CRM produksi. Owner harus memeriksa proyek yang dipilih.
-- Setiap foto menggunakan UUID versi 4 sebagai identitas unggahan. Retry dengan UUID sama membaca metadata sebelum menulis; jika file sudah ada tetapi metadata gagal, server menolak upload ulang dan meminta pemeriksaan manual. Identitas hanya dijaga selama file masih dipilih di halaman; memilih ulang file membuat UUID baru sehingga pemeriksaan riwayat tetap wajib.
-- Penyimpanan blob Drive dan penulisan baris Sheet **tidak satu transaksi atomik**. Jika metadata gagal, sistem mempertahankan file dan mengembalikan status **butuh pemeriksaan**, bukan menghapus file atau mengklaim sukses penuh. Jangan unggah ulang sebelum memeriksa duplikasi.
-- Google Drive/Sheets punya kuota dan batas penggunaan. Siapkan audit retensi, backup folder privat, review izin, batas kapasitas, dan pemulihan sebelum operasi resmi.
-- Simpan foto pekerjaan yang pantas; hindari KTP, kartu bank, dokumen kontrak sensitif, dan wajah orang tanpa dasar pemrosesan/izin.
-- PR #2 tetap **draft, tidak merge/deploy**. Gate Safe Sync produksi yang belum lulus tetap berlaku secara terpisah: autentikasi backend, lock/versi atomik, browser HTTP/CORS, stale PWA, backup dan uji mobile.
+## Status rilis
 
-- Validasi tambahan: spreadsheet metadata harus privat dan kolomnya tetap sesuai skema. Retry memakai ID sama ditolak jika rincian foto berubah; file yang hilang tidak boleh dianggap sukses. Orphan dicari pada seluruh ekstensi gambar yang diizinkan.
+- Photo LAB: **berhasil untuk uji upload owner** ke Drive privat dan pencatatan metadata.
+- Integrasi Business OS: **draft branch PR #2**; launcher memilih proyek CRM, meneruskan ID dan tahap, serta membuka uploader terpisah. Perubahan ini belum di-deploy ke produksi.
+- PR #2 tetap **draft** dan tidak boleh di-merge atau di-deploy sebagai produksi sebelum seluruh gate Safe Sync, backup/restore, autentikasi server-side, dan pengujian mobile yang tercantum pada dokumen rollout selesai.
+- `photo-lab.test.js` tetap merupakan tes unit dengan mock Google Apps Script; hasilnya bukan pengganti uji manual pada Drive dan Spreadsheet sungguhan.
