@@ -10,6 +10,9 @@ on:
       - 'apps-script/LabRequestGuard.gs'
       - 'sw.js'
       - 'mapping.test.js'
+      - 'preview/CSK-Business-OS-Brand-Preview.html'
+      - 'preview/brand-preview.test.js'
+      - 'manifest.json'
       - '.github/workflows/safe-sync-check.yml'
   workflow_dispatch:
 jobs:
@@ -27,5 +30,7 @@ jobs:
           node --check sync-safe.test.js
           node sync-safe.test.js
           node sync-backend-integration.test.js
+      - name: Verify standalone brand preview (no cloud access)
+        run: node preview/brand-preview.test.js
       - name: Validate existing sheet mapping
         run: node mapping.test.js
