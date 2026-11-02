@@ -323,63 +323,101 @@ function readSheetData(ss, sheetName) {
   });
 }
 
-// ============== KEAMANAN: TOKEN API ==============
-// Token disimpan di Script Properties (BUKAN di kode/repo).
-// Set sekali lewat menu editor: jalankan fungsi setupApiToken().
-// Selama token belum diset, sistem berjalan TANPA proteksi (mode kompatibel).
-function getApiToken() {
-  return PropertiesService.getScriptProperties().getProperty("API_TOKEN") || "";
+// ============== KEAMANAN: TOKEN API & ROLE SERVER ==============
+// Token disimpan di Script Properties, bukan di source code atau repository.
+// OWNER_API_TOKEN memiliki akses penuh; TEAM_API_TOKEN hanya boleh mengakses
+// Leads, Clients, dan Projects. Tidak ada akses jika token belum dikonfigurasi.
+function getApiTokens() {
+  var props = PropertiesService.getScriptProperties();
+  return {
+    owner: props.getProperty("OWNER_API_TOKEN") || props.getProperty("API_TOKEN") || "",
+    team: props.getProperty("TEAM_API_TOKEN") || ""
+  };
+}
+
+function generateApiToken_() {
+  return Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
 }
 
 /**
- * Set/ubah token API. Jalankan sekali dari editor Apps Script.
- * Ganti nilai di bawah dengan token rahasia Anda (minimal 20 karakter acak).
+ * Jalankan sekali dari Apps Script Editor setelah deployment.
+ * Salin kedua token dari Execution log ke perangkat Owner dan Tim masing-masing.
+ * Fungsi ini merotasi token lama dan menghapus API_TOKEN legacy.
  */
+function setupApiTokens() {
+  var props = PropertiesService.getScriptProperties();
+  var ownerToken = generateApiToken_();
+  var teamToken = generateApiToken_();
+  props.setProperty("OWNER_API_TOKEN", ownerToken);
+  props.setProperty("TEAM_API_TOKEN", teamToken);
+  props.deleteProperty("API_TOKEN");
+  Logger.log("OWNER TOKEN (akses penuh): " + ownerToken);
+  Logger.log("TEAM TOKEN (Leads, Clients, Projects): " + teamToken);
+  return { ownerToken: ownerToken, teamToken: teamToken };
+}
+
 function setupApiToken() {
-  var token = "GANTI-DENGAN-TOKEN-RAHASIA-ANDA";
-  PropertiesService.getScriptProperties().setProperty("API_TOKEN", token);
-  Logger.log("API_TOKEN diset. Simpan token ini di app (Pengaturan → Token Akses).");
+  return setupApiTokens();
 }
 
-/**
- * Cek token dari request. Return true jika valid ATAU token belum diset
- * (mode kompatibel agar tidak memutus app lama).
- */
-function isAuthorized(payloadOrEvent, tokenParam) {
-  var expected = getApiToken();
-  if (expected === "") return true; // belum diaktifkan -> izinkan (kompatibel)
+function secureTokenEquals_(provided, expected) {
+  provided = String(provided || "");
+  expected = String(expected || "");
+  if (!provided || !expected || provided.length !== expected.length) return false;
+  var diff = 0;
+  for (var i = 0; i < expected.length; i++) diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
 
+function getRequestRole(payloadOrEvent, tokenParam) {
+  var tokens = getApiTokens();
   var provided = "";
-  if (payloadOrEvent && typeof payloadOrEvent === "object") {
-    provided = payloadOrEvent.token || "";
-  }
+  if (payloadOrEvent && typeof payloadOrEvent === "object") provided = payloadOrEvent.token || "";
   if (!provided && tokenParam) provided = tokenParam;
-  return String(provided) === String(expected);
+  if (secureTokenEquals_(provided, tokens.owner)) return "owner";
+  if (secureTokenEquals_(provided, tokens.team)) return "team";
+  return "";
+}
+
+function isAuthorized(payloadOrEvent, tokenParam) {
+  return getRequestRole(payloadOrEvent, tokenParam) !== "";
+}
+
+function isSheetAllowedForRole_(role, sheetName) {
+  var ownerSheets = Object.keys(FIELD_MAP);
+  var teamSheets = ["Leads", "Clients", "Projects"];
+  var allowed = role === "owner" ? ownerSheets : (role === "team" ? teamSheets : []);
+  return allowed.indexOf(sheetName) !== -1;
 }
 
 function unauthorizedResponse() {
-  return jsonResponse({ status: "error", message: "Tidak diizinkan: token akses salah atau kosong." });
+  return jsonResponse({ status: "error", message: "Tidak diizinkan: token akses tidak valid atau belum dikonfigurasi." });
+}
+
+function forbiddenResponse(message) {
+  return jsonResponse({ status: "error", message: message || "Role ini tidak memiliki izin untuk operasi tersebut." });
 }
 
 // ============== GET — TARIK DATA SEMUA TAB ==============
 
 function doGet(e) {
   try {
-    // Proteksi token (via query string ?token=...)
     var tokenParam = (e && e.parameter) ? e.parameter.token : "";
-    if (!isAuthorized(null, tokenParam)) return unauthorizedResponse();
+    var role = getRequestRole(null, tokenParam);
+    if (!role) return unauthorizedResponse();
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const result = {
       leads: readSheetData(ss, "Leads"),
       clients: readSheetData(ss, "Clients"),
       projects: readSheetData(ss, "Projects"),
-      finance: readSheetData(ss, "Finance"),
-      memory: readSheetData(ss, "Memory"),
-      marketingSpend: readSheetData(ss, "Marketing_Spend"),
-      lastSynced: new Date().toISOString()
+      finance: role === "owner" ? readSheetData(ss, "Finance") : [],
+      memory: role === "owner" ? readSheetData(ss, "Memory") : [],
+      marketingSpend: role === "owner" ? readSheetData(ss, "Marketing_Spend") : [],
+      lastSynced: new Date().toISOString(),
+      role: role
     };
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", data: result }))
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", data: result, role: role }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
@@ -393,8 +431,8 @@ function doPost(e) {
   try {
     const payload = JSON.parse(e.postData.contents);
 
-    // Proteksi token (via field payload.token)
-    if (!isAuthorized(payload)) return unauthorizedResponse();
+    var role = getRequestRole(payload);
+    if (!role) return unauthorizedResponse();
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const action = (payload.action || "").toLowerCase();
@@ -405,21 +443,23 @@ function doPost(e) {
       // Aman: lead yang sudah ada di Sheets tetap tersimpan; hanya ditambah/diupdate.
       case "sync_all": {
         var mergeSummary = {};
-        if (payload.leads)          mergeSummary.Leads           = mergeSheet(ss, "Leads",           payload.leads);
-        if (payload.clients)        mergeSummary.Clients         = mergeSheet(ss, "Clients",         payload.clients);
-        if (payload.projects)       mergeSummary.Projects        = mergeSheet(ss, "Projects",        payload.projects);
-        if (payload.finance)        mergeSummary.Finance         = mergeSheet(ss, "Finance",         payload.finance);
-        if (payload.memory)         mergeSummary.Memory          = mergeSheet(ss, "Memory",          payload.memory);
-        if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
-        // Setelah sinkronisasi, cek apakah ada lead baru yang won
-        autoTriggerPillars(ss);
-        return jsonResponse({ status: "success", message: "Data di-merge (tidak ada yang dihapus)", summary: mergeSummary });
+        if (payload.leads)    mergeSummary.Leads    = mergeSheet(ss, "Leads", payload.leads);
+        if (payload.clients)  mergeSummary.Clients  = mergeSheet(ss, "Clients", payload.clients);
+        if (payload.projects) mergeSummary.Projects = mergeSheet(ss, "Projects", payload.projects);
+        if (role === "owner") {
+          if (payload.finance)        mergeSummary.Finance         = mergeSheet(ss, "Finance", payload.finance);
+          if (payload.memory)         mergeSummary.Memory          = mergeSheet(ss, "Memory", payload.memory);
+          if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
+          autoTriggerPillars(ss);
+        }
+        return jsonResponse({ status: "success", message: "Data di-merge sesuai hak akses (tidak ada yang dihapus)", role: role, summary: mergeSummary });
       }
 
       // --- delete: hapus 1 baris berdasarkan ID (dipakai tombol hapus di app) ---
       case "delete": {
         const sheetName = payload.sheet || "Leads";
         const delId = payload.id;
+        if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh menghapus data " + sheetName + ".");
         if (!delId) throw new Error("Parameter id diperlukan untuk aksi delete.");
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
@@ -438,6 +478,7 @@ function doPost(e) {
         if (!sheetName || !data.id) {
           throw new Error("Parameter sheet dan data.id diperlukan untuk aksi insert.");
         }
+        if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh menambahkan data " + sheetName + ".");
         ensureSheet(ss, sheetName, FIELD_MAP[sheetName] ? FIELD_MAP[sheetName].headers : []);
         if (FIELD_MAP[sheetName]) {
           insertRecord(ss, sheetName, data);
@@ -456,6 +497,7 @@ function doPost(e) {
         const sheetName = payload.sheet || "Leads";
         const id = payload.id;
         const status = payload.status;
+        if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh mengubah data " + sheetName + ".");
         if (!id || !status) throw new Error("Parameter id dan status diperlukan.");
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
@@ -476,6 +518,7 @@ function doPost(e) {
 
       // --- send_cold_email: kirim outreach resmi via Gmail dengan batas kuota 50 & opt-out ---
       case "send_cold_email": {
+        if (role !== "owner") return forbiddenResponse("Pengiriman email outreach hanya dapat dilakukan Owner.");
         const toEmail = (payload.toEmail || "").trim();
         const name = (payload.name || "Kak").trim();
         const brand = (payload.brand || "Brand").trim();
