@@ -602,64 +602,83 @@ function doPost(e) {
 function autoTriggerPillars(ss, forceLeadId) {
   const leadsSheet = ss.getSheetByName("Leads");
   if (!leadsSheet || leadsSheet.getLastRow() <= 1) {
-    return { clientCreated: 0, projectCreated: 0, financeCreated: 0 };
+    return { clientCreated: 0, projectCreated: 0, projectLinked: 0, projectAmbiguous: 0, financeCreated: 0 };
   }
 
   const leads = readSheetData(ss, "Leads");
   const clients = readSheetData(ss, "Clients");
-  let clientCreated = 0;
-  let projectCreated = 0;
+  const projects = readSheetData(ss, "Projects");
+  const projectsSheet = ss.getSheetByName("Projects");
+  let clientCreated = 0, projectCreated = 0, projectLinked = 0, projectAmbiguous = 0;
 
   leads.forEach(lead => {
     if (!isDealMenang(lead.status)) return;
     if (forceLeadId && String(lead.id).trim() !== String(forceLeadId).trim()) return;
 
     const leadId = String(lead.id).trim();
-    const refToken = "[LEAD-" + leadId + "]";
-    const clientName = String(lead.name || "").trim();
-    if (!clientName) return;
+    const token = "[LEAD-" + leadId + "]";
+    const name = String(lead.name || "").trim();
+    if (!name) return;
+    const normalizedName = name.toLowerCase();
 
-    const clientAlreadyExists = clients.some(client =>
-      String(client.name || "").trim().toLowerCase() === clientName.toLowerCase()
-    );
-
-    if (!clientAlreadyExists) {
-      const clientRow = {
-        id: "AUTO-CLI-" + leadId,
-        name: clientName,
-        phone: lead.phone || "",
-        projectsCount: 1,
-        totalSpend: 0,
-        notes: "Dibuat otomatis dari Lead " + refToken,
-        rating: 0,
-        review: ""
+    if (!clients.some(c => String(c.name || "").trim().toLowerCase() === normalizedName)) {
+      const client = {
+        id: "AUTO-CLI-" + leadId, name: name, phone: lead.phone || "",
+        projectsCount: 1, totalSpend: 0, notes: "Dibuat otomatis dari Lead " + token,
+        rating: 0, review: ""
       };
-      insertRecord(ss, "Clients", clientRow);
-      clients.push(clientRow);
+      insertRecord(ss, "Clients", client);
+      clients.push(client);
       clientCreated++;
     }
 
-    const projectAlreadyExists = hasTokenInSheet(ss, "Projects", refToken);
-    if (!projectAlreadyExists) {
-      const deadlineDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
-      const projectRow = {
+    let projectExists = hasTokenInSheet(ss, "Projects", token);
+    if (!projectExists) {
+      // Adopsi satu proyek manual yang cocok agar tidak membuat proyek kedua.
+      const targetValue = Number(lead.value) || 0;
+      const candidates = projects.filter(p =>
+        String(p.client || "").trim().toLowerCase() === normalizedName &&
+        Number(p.value || 0) === targetValue &&
+        String(p.notes || "").indexOf("[LEAD-") === -1
+      );
+
+      if (candidates.length === 1 && projectsSheet) {
+        const candidate = candidates[0];
+        const rowNum = findRowById(projectsSheet, candidate.id);
+        const headers = projectsSheet.getRange(1, 1, 1, projectsSheet.getLastColumn()).getValues()[0];
+        const notesCol = headers.findIndex(h => String(h).trim().toLowerCase() === "catatan") + 1;
+        if (rowNum > 1 && notesCol > 0) {
+          candidate.notes = (String(candidate.notes || "").trim() + " " + token).trim();
+          projectsSheet.getRange(rowNum, notesCol).setValue(candidate.notes);
+          projectExists = true;
+          projectLinked++;
+        }
+      } else if (candidates.length > 1) {
+        projectAmbiguous++;
+        Logger.log("Beberapa proyek cocok untuk Lead " + leadId + "; pembuatan baru dilewati.");
+        projectExists = true;
+      }
+    }
+
+    if (!projectExists) {
+      const project = {
         id: "AUTO-PRJ-" + leadId,
-        title: "Proyek " + clientName,
-        client: clientName,
+        title: "Proyek " + name,
+        client: name,
         value: Number(lead.value) || 0,
         status: "plan",
-        deadline: deadlineDate,
-        notes: "Antrean otomatis dari Lead " + refToken,
+        deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+        notes: "Antrean otomatis dari Lead " + token,
         sopChecklist: "Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0"
       };
-      insertRecord(ss, "Projects", projectRow);
+      insertRecord(ss, "Projects", project);
+      projects.push(project);
       projectCreated++;
     }
   });
 
-  return { clientCreated: clientCreated, projectCreated: projectCreated, financeCreated: 0 };
+  return { clientCreated, projectCreated, projectLinked, projectAmbiguous, financeCreated: 0 };
 }
-
 function hasTokenInSheet(ss, sheetName, token) {
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() <= 1) return false;
