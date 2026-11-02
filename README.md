@@ -50,7 +50,7 @@ Hak akses ditentukan server berdasarkan token yang diverifikasi, bukan hanya dro
 Ketika status Lead diubah menjadi **Deal Menang**, sistem akan secara otomatis:
 
 1. ✅ Membuat entri Client jika belum ada.
-2. ✅ Membuat antrean Project (status: plan, deadline +14 hari) dengan referensi Lead yang stabil.
+2. ✅ Membuat antrean Project (status: plan, deadline +14 hari) dengan referensi Lead yang stabil; satu proyek manual yang cocok dengan klien dan nilai Lead akan ditautkan, bukan diduplikasi.
 3. ✅ Mencegah duplikasi Client/Project ketika sinkronisasi atau trigger berjalan berulang kali.
 
 **Penting untuk akurasi keuangan:** Deal Menang bukan bukti pembayaran. Sistem tidak membuat pendapatan otomatis. Owner mencatat DP/pelunasan di Finance setelah dana benar-benar diterima dan diverifikasi.
