@@ -102,11 +102,16 @@ const PropertiesServiceStub = {
     return {
       getProperty(k) { return (k in _props) ? _props[k] : null; },
       setProperty(k, v) { _props[k] = v; },
+      deleteProperty(k) { delete _props[k]; },
     };
   },
 };
 const MailAppStub = { getRemainingDailyQuota() { return 100; }, sendEmail() {} };
-const UtilitiesStub = { formatDate() { return '2026-10-09'; } };
+let uuidCounter = 0;
+const UtilitiesStub = {
+  formatDate() { return '2026-10-09'; },
+  getUuid() { uuidCounter++; return 'UUID-TEST-' + uuidCounter; },
+};
 
 // ---------- 2. Muat google_apps_script.js ke sandbox ----------
 const src = fs.readFileSync(path.join(__dirname, 'google_apps_script.js'), 'utf8');
@@ -122,6 +127,8 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
+_props['OWNER_API_TOKEN'] = 'OWNER_TEST_TOKEN';
+_props['TEAM_API_TOKEN'] = 'TEAM_TEST_TOKEN';
 
 // ---------- 3. Mini test runner ----------
 let pass = 0, fail = 0;
@@ -176,8 +183,8 @@ if (FIELD_MAP) {
 }
 
 // ---------- 6. Tes BACA (doGet): Sheet -> field HTML ----------
-function callDoGet() {
-  const out = sandbox.doGet({});
+function callDoGet(token = 'OWNER_TEST_TOKEN') {
+  const out = sandbox.doGet({ parameter: { token } });
   return JSON.parse(out._t);
 }
 const got = callDoGet();
@@ -195,7 +202,9 @@ if (got.status === 'success') {
 
 // ---------- 7. Tes TULIS (sync_all): MERGE — tidak menghapus data lama ----------
 function callDoPost(payload) {
-  const out = sandbox.doPost({ postData: { contents: JSON.stringify(payload) } });
+  const request = Object.assign({}, payload);
+  if (request.token === undefined) request.token = 'OWNER_TEST_TOKEN';
+  const out = sandbox.doPost({ postData: { contents: JSON.stringify(request) } });
   return JSON.parse(out._t);
 }
 const leadsBefore = sheets['Leads'].rows.length;
@@ -233,6 +242,22 @@ eq(newFinRow[4], 100000, 'sync new Finance: Nominal di kolom E');
 
 const newMkRow = findRow('Marketing_Spend', 'K9');
 eq(newMkRow[6], 5, 'sync new Marketing: LeadsDihasilkan di kolom G');
+
+// Deal menang membuat Client/Project secara idempoten, bukan transaksi Finance.
+const financeBeforeWonAutomation = sheets['Finance'].rows.length;
+callDoPost({ action: 'sync_all', leads: [{
+  id: 'L-WON-AUTO', date: '2026-10-09', name: 'Klien Otomatis', phone: '0812',
+  source: 'Referral', value: 8000000, status: 'won', notes: 'Deal dikonfirmasi'
+}] });
+eq(!!findRow('Clients', 'AUTO-CLI-L-WON-AUTO'), true, 'automation: Client dibuat untuk Deal Menang');
+eq(!!findRow('Projects', 'AUTO-PRJ-L-WON-AUTO'), true, 'automation: Project dibuat dengan ID stabil');
+eq(sheets['Finance'].rows.length, financeBeforeWonAutomation, 'automation: Deal Menang tidak membuat pendapatan otomatis');
+const projectCountAfterWon = sheets['Projects'].rows.filter(r => String(r[6] || '').includes('[LEAD-L-WON-AUTO]')).length;
+callDoPost({ action: 'sync_all', leads: [{
+  id: 'L-WON-AUTO', date: '2026-10-09', name: 'Klien Otomatis', phone: '0812',
+  source: 'Referral', value: 8000000, status: 'won', notes: 'Deal dikonfirmasi'
+}] });
+eq(sheets['Projects'].rows.filter(r => String(r[6] || '').includes('[LEAD-L-WON-AUTO]')).length, projectCountAfterWon, 'automation: pengulangan sync tidak menggandakan project');
 
 // (c) sync_all ID yang SUDAH ADA -> diupdate, bukan diduplikasi
 const leadsBefore2 = sheets['Leads'].rows.length;
@@ -351,31 +376,68 @@ eq(sheets['Leads'].rows.length, beforeDel - 1, 'delete: jumlah baris berkurang 1
 const delRes2 = callDoPost({ action: 'delete', sheet: 'Leads', id: 'TIDAK-ADA-XYZ' });
 eq(delRes2.status, 'success', 'delete: ID tidak ada tetap success (idempoten)');
 
-// ---------- 9e. Tes KEAMANAN: token API ----------
-// Mode 1: token belum diset -> semua request diizinkan (kompatibel)
-eq(sandbox.isAuthorized({ action: 'sync_all' }), true, 'auth: token belum diset -> diizinkan (kompatibel)');
+// ---------- 9e. Tes KEAMANAN: token Owner/Tim, fail-closed, dan izin server ----------
+delete _props['OWNER_API_TOKEN'];
+delete _props['TEAM_API_TOKEN'];
+delete _props['API_TOKEN'];
+eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: tanpa token terkonfigurasi -> ditolak (fail-closed)');
+eq(JSON.parse(sandbox.doGet({})._t).status, 'error', 'auth: GET tanpa token -> ditolak');
 
-// Mode 2: token diset -> request tanpa token DITOLAK
-sandbox.setupApiToken && null; // pastikan fungsi ada
-_props['API_TOKEN'] = 'RAHASIA123';
-eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: token diset, request tanpa token -> DITOLAK');
-eq(sandbox.isAuthorized({ action: 'sync_all', token: 'SALAH' }), false, 'auth: token salah -> DITOLAK');
-eq(sandbox.isAuthorized({ action: 'sync_all', token: 'RAHASIA123' }), true, 'auth: token benar -> DIIZINKAN');
-eq(sandbox.isAuthorized(null, 'RAHASIA123'), true, 'auth: token via query string (GET) -> DIIZINKAN');
-eq(sandbox.isAuthorized(null, ''), false, 'auth: GET tanpa token -> DITOLAK');
-
-// Mode 3: doPost tanpa token -> balasan error, TIDAK mengubah data
 const beforeAuth = sheets['Leads'].rows.length;
-const authRes = callDoPost({ action: 'sync_all', leads: [{ id: 'HACK-1', name: 'Hacker' }] });
-eq(authRes.status, 'error', 'auth: doPost tanpa token -> status error');
-eq(sheets['Leads'].rows.length, beforeAuth, 'auth: doPost tanpa token TIDAK mengubah data');
+const noTokenRes = callDoPost({ action: 'sync_all', token: '', leads: [{ id: 'HACK-1', name: 'Hacker' }] });
+eq(noTokenRes.status, 'error', 'auth: POST tanpa token -> status error');
+eq(sheets['Leads'].rows.length, beforeAuth, 'auth: POST tanpa token tidak mengubah data');
 
-// doPost dengan token benar -> berhasil
-const okRes = callDoPost({ action: 'sync_all', token: 'RAHASIA123', leads: [{ id: 'OKAUTH-1', date: '2026-10-09', name: 'Authorized', phone: '', source: 'x', value: 0, status: 'new', notes: '' }] });
-eq(okRes.status, 'success', 'auth: doPost dengan token benar -> success');
-eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'OKAUTH-1'), true, 'auth: data dengan token benar tersimpan');
+_props['OWNER_API_TOKEN'] = 'OWNER_TEST_TOKEN';
+_props['TEAM_API_TOKEN'] = 'TEAM_TEST_TOKEN';
+eq(sandbox.isAuthorized({ action: 'sync_all', token: 'OWNER_TEST_TOKEN' }), true, 'auth: token Owner diterima');
+eq(sandbox.isAuthorized({ action: 'sync_all', token: 'TEAM_TEST_TOKEN' }), true, 'auth: token Tim diterima');
+eq(sandbox.isAuthorized({ action: 'sync_all', token: 'SALAH' }), false, 'auth: token salah ditolak');
 
-// Kembalikan ke mode kompatibel untuk test berikutnya
+const teamGet = callDoGet('TEAM_TEST_TOKEN');
+eq(teamGet.status, 'success', 'auth: GET token Tim berhasil');
+eq(teamGet.role, 'team', 'auth: GET mengembalikan role Tim');
+eq(teamGet.data.finance.length, 0, 'auth: GET Tim tidak mengembalikan Finance');
+eq(teamGet.data.memory.length, 0, 'auth: GET Tim tidak mengembalikan Memory');
+eq(teamGet.data.marketingSpend.length, 0, 'auth: GET Tim tidak mengembalikan Marketing');
+
+const financeRowsBeforeTeamSync = sheets['Finance'].rows.length;
+const teamSync = callDoPost({
+  action: 'sync_all',
+  token: 'TEAM_TEST_TOKEN',
+  leads: [{ id: 'TEAM-LEAD', date: '2026-10-09', name: 'Team Lead', phone: '', source: 'x', value: 0, status: 'new', notes: '' }],
+  finance: [{ id: 'TEAM-FIN', date: '2026-10-09', type: 'income', category: 'x', amount: 999, description: 'unauthorized' }],
+  memory: [{ id: 'TEAM-MEM', date: '2026-10-09', category: 'x', title: 'x', content: 'unauthorized' }],
+  marketingSpend: [{ id: 'TEAM-MKT', date: '2026-10-09', platform: 'x', campaign: 'x', budget: 1, spent: 1, leadsGenerated: 1, notes: '' }]
+});
+eq(teamSync.status, 'success', 'auth: Tim boleh sync modul operasional');
+eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'TEAM-LEAD'), true, 'auth: data Leads Tim tersimpan');
+eq(sheets['Finance'].rows.length, financeRowsBeforeTeamSync, 'auth: sync Tim tidak mengubah Finance');
+eq(!!sheets['Finance'].rows.find(r => String(r[0]) === 'TEAM-FIN'), false, 'auth: sync Tim mengabaikan Finance');
+
+eq(callDoPost({ action: 'delete', token: 'TEAM_TEST_TOKEN', sheet: 'Finance', id: 'F1' }).status, 'error', 'auth: Tim tidak boleh menghapus Finance');
+eq(callDoPost({ action: 'insert', token: 'TEAM_TEST_TOKEN', sheet: 'Finance', data: { id: 'TEAM-FIN-INSERT' } }).status, 'error', 'auth: Tim tidak boleh insert Finance');
+eq(callDoPost({ action: 'update_status', token: 'TEAM_TEST_TOKEN', sheet: 'Finance', id: 'F1', status: 'expense' }).status, 'error', 'auth: Tim tidak boleh update Finance');
+eq(callDoPost({ action: 'send_cold_email', token: 'TEAM_TEST_TOKEN', toEmail: 'x@example.com' }).status, 'error', 'auth: Tim tidak boleh mengirim cold email');
+
+const ownerSync = callDoPost({
+  action: 'sync_all',
+  token: 'OWNER_TEST_TOKEN',
+  finance: [{ id: 'OWNER-FIN', date: '2026-10-09', type: 'income', category: 'x', amount: 500, description: 'authorized' }]
+});
+eq(ownerSync.status, 'success', 'auth: Owner dapat sync Finance');
+eq(!!sheets['Finance'].rows.find(r => String(r[0]) === 'OWNER-FIN'), true, 'auth: data Finance Owner tersimpan');
+
+_props['API_TOKEN'] = 'LEGACY_TOKEN';
+const generatedTokens = sandbox.setupApiTokens();
+eq(!!generatedTokens.ownerToken, true, 'auth setup: token Owner dibuat');
+eq(!!generatedTokens.teamToken, true, 'auth setup: token Tim dibuat');
+eq(_props['API_TOKEN'], undefined, 'auth setup: token legacy dihapus');
+eq(_props['OWNER_API_TOKEN'], generatedTokens.ownerToken, 'auth setup: token Owner disimpan');
+eq(_props['TEAM_API_TOKEN'], generatedTokens.teamToken, 'auth setup: token Tim disimpan');
+
+delete _props['OWNER_API_TOKEN'];
+delete _props['TEAM_API_TOKEN'];
 delete _props['API_TOKEN'];
 
 // ---------- 10. Ringkasan ----------

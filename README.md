@@ -2,7 +2,7 @@
 
 Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertising / CSK**
 
-> **Versi 2.0** — Arsitektur 5 Pilar Bisnis Terpadu dengan otomasi antar-tab dan UI berjenjang hak akses.
+> **Versi 2.1** — 5 Pilar Bisnis Terpadu dengan token Owner/Tim yang diverifikasi server, hak akses per modul, dan otomasi Deal yang tidak membuat pendapatan palsu.
 
 ---
 
@@ -38,10 +38,10 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 
 | Role | Akses |
 |------|-------|
-| **Owner** | Semua menu, Keuangan, Riset, Marketing |
-| **Tim Kreatif / Admin** | Leads, Proyek, Klien — menu Keuangan & Marketing disembunyikan |
+| **Owner** | Semua modul dan seluruh operasi database |
+| **Tim Kreatif / Admin** | Leads, Clients, Projects; Finance, Memory, Marketing, dan cold email ditolak oleh backend |
 
-Pilih role via dropdown di pojok kiri atas (desktop) atau header (mobile).
+Hak akses ditentukan server berdasarkan token yang diverifikasi, bukan hanya dropdown browser. Dropdown hanya mengubah mode tampilan setelah server mengenali role.
 
 ---
 
@@ -49,11 +49,11 @@ Pilih role via dropdown di pojok kiri atas (desktop) atau header (mobile).
 
 Ketika status Lead diubah menjadi **Deal Menang**, sistem akan secara otomatis:
 
-1. ✅ Menulis baris **Pendapatan** ke tab Finance (kategori: DP Proyek)
-2. ✅ Menulis baris **Antrean Proyek** ke tab Projects (status: plan, deadline +14 hari)
-3. ✅ Menciptakan entri Klien baru jika belum ada
+1. ✅ Membuat entri Client jika belum ada.
+2. ✅ Membuat antrean Project (status: plan, deadline +14 hari) dengan referensi Lead yang stabil.
+3. ✅ Mencegah duplikasi Client/Project ketika sinkronisasi atau trigger berjalan berulang kali.
 
-**Mekanisme idempoten**: token `[LEAD-{id}]` mencegah duplikasi baris meskipun trigger berjalan berulang kali.
+**Penting untuk akurasi keuangan:** Deal Menang bukan bukti pembayaran. Sistem tidak membuat pendapatan otomatis. Owner mencatat DP/pelunasan di Finance setelah dana benar-benar diterima dan diverifikasi.
 
 ### Cara Mengaktifkan Auto-Trigger (Sekali Setup)
 
@@ -99,8 +99,9 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
    - Execute as: **Me**
    - Who has access: **Anyone**
 8. Klik **Deploy** → salin URL Web App yang berakhiran `/exec`
-9. Buka aplikasi → masuk ke menu **Pengaturan & Cloud** → tempelkan URL → **Simpan URL**
-10. *(Opsional)* Jalankan fungsi **`installAutoTrigger`** sekali untuk mengaktifkan otomasi Deal Menang
+9. Setelah backend baru di-deploy, jalankan fungsi **`setupApiTokens`** di Apps Script Editor. Salin token Owner dan Tim dari Execution log dan simpan secara rahasia.
+10. Buka aplikasi → **Pengaturan & Cloud** → masukkan URL dan token sesuai peran → **Simpan URL**, lalu **Tarik Data** untuk memverifikasi role.
+11. Jalankan fungsi **`installAutoTrigger`** sekali jika otomasi edit langsung di Google Sheets memang diperlukan. Tanpa token valid, semua request API ditolak.
 
 ---
 
@@ -124,9 +125,12 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 - ✅ Fungsi **autoTriggerPillars()** — idempoten via token `[LEAD-{id}]`
 - ✅ Fungsi **installAutoTrigger()** — pasang onEdit + time-driven trigger
 - ✅ doPost mendukung aksi: `sync_all`, `insert`, `update_status`
-- ✅ doGet mengembalikan semua tab termasuk Marketing_Spend & lastSynced
+- ✅ doGet membatasi data sesuai role server; Finance/Memory/Marketing hanya untuk Owner
+- ✅ API fail-closed saat token belum dikonfigurasi
+- ✅ POST no-cors memakai Content-Type text/plain agar tidak memicu preflight
+- ✅ Tampilan tidak mengklaim push/email berhasil hanya dari respons no-cors
 - ✅ UI 5 pilar terpadu dengan badge penanda pilar
-- ✅ Dropdown **Hak Akses** (Owner / Tim Kreatif)
+- ✅ Token API terpisah Owner/Tim dan otorisasi server-side
 - ✅ **SOP Checklist interaktif** per proyek (Brief → Delivery)
 - ✅ **Rating bintang & review** per klien
 - ✅ View **Marketing Spend** baru dengan kalkulasi CPL & ROAS

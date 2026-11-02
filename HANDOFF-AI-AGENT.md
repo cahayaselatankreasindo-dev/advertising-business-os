@@ -86,13 +86,16 @@ Fungsi penting di backend:
 
 ## 3. Kondisi Data Sekarang (per 9 Okt 2026)
 
-Google Sheets (verified):
+Google Sheets (verified langsung 2 Nov 2026, read-only):
 ```
-Leads:    258  (247 IndoBuildTech + 10 B2B + 1 lama)
-Clients:  1
-Projects: 2
-Finance:  3
+Leads:    284  (247 IndoBuildTech 2026 + 24 Apollo + 10 Prospecting B2B + 3 sumber lain)
+Clients:  2
+Projects: 3
+Finance:  4
+Memory:   1
+Marketing_Spend: 1
 ```
+Tidak ditemukan ID kosong atau duplikat ID pada enam tab. Jangan mengubah baris aktual tanpa rekonsiliasi dan persetujuan Owner.
 
 Lead lokal (arsip mentah): `C:\Users\<user>\CSK-Scraper\data\`
 - `b2b\test_batch_10_csk.xlsx` — 10 perusahaan B2B
@@ -114,15 +117,18 @@ Test ini memuat `google_apps_script.js` ke sandbox Node dengan stub SpreadsheetA
 
 ## 5. Isu & Status (per 9 Okt 2026, sesi lanjutan)
 
-### 5.1 🟢 Keamanan URL — SOLUSI SUDAH DIBUAT
+### 5.1 🔐 Keamanan API — PHASE 1 DI BRANCH `fix/phase-1-access-control`
 
-Repo publik → URL Apps Script di `index.html` (3 tempat) bisa dibaca siapa saja.
+Perubahan yang sedang disiapkan pada branch:
+- Token terpisah `OWNER_API_TOKEN` dan `TEAM_API_TOKEN` di Script Properties.
+- Tidak ada token valid = semua request ditolak (fail-closed).
+- Token Tim hanya dapat membaca/menulis Leads, Clients, Projects.
+- Finance, Memory, Marketing_Spend, dan cold email hanya untuk Owner.
+- Role ditentukan server dari token, bukan nilai dropdown browser.
+- Jalankan `setupApiTokens()` hanya setelah backend baru di-deploy; salin token sesuai role.
+- Token tidak boleh disimpan di repository atau dibagikan antar-role.
 
-**Fix (commit `466a419`):** token API opsional.
-- Backend: `setupApiToken()` + `isAuthorized()` — token di Script Properties (bukan kode)
-- Frontend: field **Token Akses** di Pengaturan, dikirim di semua request
-- **Mode kompatibel:** token belum diset → sistem jalan normal (tidak memutus app)
-- Aktifkan: jalankan `setupApiToken()` (ganti nilai token dulu) → paste token di app → semua perangkat
+**Status:** perubahan branch belum aktif di Apps Script produksi sampai PR ditinjau, digabung, dan backend dideploy. Jangan jalankan setup token sebelum backend baru terpasang.
 
 ### 5.2 🟢 Lead tidak muncul — SUDAH DIFIX
 
@@ -145,12 +151,16 @@ Apollo API key di env masih placeholder (`key-lu`), belum valid. Belum dikerjaka
 
 ```powershell
 cd "E:\THE SCALES ADVERTISING\advertising-business-os"
-node mapping.test.js    # 81 test, harus 0 gagal
+node mapping.test.js    # jalankan suite; jumlah test mengikuti revisi terakhir
 ```
 
 ---
 
 ## 7. Catatan Jujur
+
+- **Finance:** otomasi Deal Menang tidak boleh mencatat nominal proyek sebagai pendapatan. Catat DP/pelunasan hanya setelah pembayaran diterima dan diverifikasi.
+- **Duplikasi:** konversi Lead menghasilkan Client/Project dengan ID stabil dan token [LEAD-{id}]. Jangan menghapus proyek/finance lama tanpa rekonsiliasi.
+- **Database aktif per 2 Nov 2026:** lihat ringkasan pada bagian 3; jangan push ulang dataset demo.
 
 - **Vault Obsidian:** vault CSK ADA di **`G:\My Drive\CSK-Vault`** (31 note).
   BUKAN `E:\Document\Obsidian Vault` (itu vault kosong milik orang lain).

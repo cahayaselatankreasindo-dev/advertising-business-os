@@ -15,10 +15,9 @@
  * 5. Marketing_Spend-> Pilar Pemasaran (Biaya & Performa Iklan) — TAB BARU
  *
  * OTOMATISASI PILLAR (autoTriggerPillars):
- * - Dipicu setelah setiap sync_all atau update_status 'won'/'Deal Menang'
- * - Menulis baris Pendapatan ke Finance (kategori DP Proyek, token [LEAD-{id}])
- * - Menulis baris Antrean ke Projects (status plan, token [LEAD-{id}])
- * - Idempoten: tidak membuat duplikat jika dijalankan berulang
+ * - Dipicu setelah sync_all atau update_status 'won'/'Deal Menang'
+ * - Membuat/menautkan Client dan antrean Project secara idempoten
+ * - Tidak membuat transaksi Finance; pendapatan hanya dicatat setelah pembayaran diterima
  *
  * CARA PEMASANGAN (HANYA 2 MENIT):
  * 1. Buat Google Spreadsheet baru di Google Drive Anda (Beri nama: "Database CSK Business OS").
@@ -450,8 +449,9 @@ function doPost(e) {
           if (payload.finance)        mergeSummary.Finance         = mergeSheet(ss, "Finance", payload.finance);
           if (payload.memory)         mergeSummary.Memory          = mergeSheet(ss, "Memory", payload.memory);
           if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
-          autoTriggerPillars(ss);
         }
+        // Otomasi hanya membuat Client/Project; tidak pernah mencatat pendapatan.
+        autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge sesuai hak akses (tidak ada yang dihapus)", role: role, summary: mergeSummary });
       }
 
@@ -593,65 +593,71 @@ function doPost(e) {
 
 /**
  * autoTriggerPillars()
- * Menelusuri tab Leads untuk baris dengan status 'won' / 'Deal Menang' yang
- * belum pernah ditandai dengan token [LEAD-{id}]. Baris tersebut akan:
- *   1. Ditulis sebagai Pendapatan di tab Finance (kategori "DP Proyek")
- *   2. Ditulis sebagai antrean proyek baru di tab Projects (status "plan")
- * Fungsi ini IDEMPOTEN: baris yang sudah punya token tidak akan diduplikasi.
+ * Membuat Client dan antrean Project untuk Lead berstatus won.
+ * ID dan token lead stabil sehingga proses aman dijalankan berulang kali.
+ *
+ * PENTING: Deal menang bukan bukti pembayaran. Fungsi ini TIDAK membuat
+ * transaksi Finance. Owner mencatat DP/pelunasan hanya setelah dana diterima.
  */
 function autoTriggerPillars(ss, forceLeadId) {
   const leadsSheet = ss.getSheetByName("Leads");
-  if (!leadsSheet || leadsSheet.getLastRow() <= 1) return { financeCreated: 0, projectCreated: 0 };
+  if (!leadsSheet || leadsSheet.getLastRow() <= 1) {
+    return { clientCreated: 0, projectCreated: 0, financeCreated: 0 };
+  }
 
   const leads = readSheetData(ss, "Leads");
-  let financeCreated = 0;
+  const clients = readSheetData(ss, "Clients");
+  let clientCreated = 0;
   let projectCreated = 0;
 
   leads.forEach(lead => {
     if (!isDealMenang(lead.status)) return;
-    // Lewati jika ini bukan baris yang difokuskan (kalau forceLeadId diberikan)
     if (forceLeadId && String(lead.id).trim() !== String(forceLeadId).trim()) return;
 
-    const refToken = "[LEAD-" + lead.id + "]";
+    const leadId = String(lead.id).trim();
+    const refToken = "[LEAD-" + leadId + "]";
+    const clientName = String(lead.name || "").trim();
+    if (!clientName) return;
 
-    // Cek duplikat di Finance
-    const financeAlreadyExists = hasTokenInSheet(ss, "Finance", refToken);
-    // Cek duplikat di Projects
-    const projectAlreadyExists = hasTokenInSheet(ss, "Projects", refToken);
+    const clientAlreadyExists = clients.some(client =>
+      String(client.name || "").trim().toLowerCase() === clientName.toLowerCase()
+    );
 
-    // Tulis ke Finance jika belum ada
-    if (!financeAlreadyExists) {
-      const financeRow = {
-        id: "AUTO-FIN-" + Date.now(),
-        date: new Date().toISOString().slice(0, 10),
-        type: "income",
-        category: "DP Proyek",
-        amount: Number(lead.value) || 0,
-        description: "Auto (Deal Menang) " + (lead.name || "") + " " + refToken
+    if (!clientAlreadyExists) {
+      const clientRow = {
+        id: "AUTO-CLI-" + leadId,
+        name: clientName,
+        phone: lead.phone || "",
+        projectsCount: 1,
+        totalSpend: 0,
+        notes: "Dibuat otomatis dari Lead " + refToken,
+        rating: 0,
+        review: ""
       };
-      insertRecord(ss, "Finance", financeRow, ["id","date","type","category","amount","description"]);
-      financeCreated++;
+      insertRecord(ss, "Clients", clientRow);
+      clients.push(clientRow);
+      clientCreated++;
     }
 
-    // Tulis ke Projects jika belum ada
+    const projectAlreadyExists = hasTokenInSheet(ss, "Projects", refToken);
     if (!projectAlreadyExists) {
       const deadlineDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
       const projectRow = {
-        id: "AUTO-PRJ-" + Date.now(),
-        title: "Proyek " + (lead.name || ""),
-        client: lead.name || "",
+        id: "AUTO-PRJ-" + leadId,
+        title: "Proyek " + clientName,
+        client: clientName,
         value: Number(lead.value) || 0,
         status: "plan",
         deadline: deadlineDate,
-        notes: "Antrean otomatis dari Lead [LEAD-" + lead.id + "]",
+        notes: "Antrean otomatis dari Lead " + refToken,
         sopChecklist: "Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0"
       };
-      insertRecord(ss, "Projects", projectRow, ["id","title","client","value","status","deadline","notes","sopChecklist"]);
+      insertRecord(ss, "Projects", projectRow);
       projectCreated++;
     }
   });
 
-  return { financeCreated: financeCreated, projectCreated: projectCreated };
+  return { clientCreated: clientCreated, projectCreated: projectCreated, financeCreated: 0 };
 }
 
 function hasTokenInSheet(ss, sheetName, token) {

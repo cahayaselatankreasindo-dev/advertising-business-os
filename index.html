@@ -91,7 +91,7 @@
 
     <!-- Role Dropdown -->
     <div class="px-4 py-3 border-b border-slate-800">
-      <label class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block mb-1">Hak Akses</label>
+      <label class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block mb-1">Mode Tampilan</label>
       <select id="role-select" onchange="onRoleChange(this.value)" class="w-full text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-amber-500">
         <option value="owner">Owner</option>
         <option value="team">Tim Kreatif / Admin</option>
@@ -504,9 +504,9 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Token Akses (opsional, untuk keamanan):</label>
-            <input type="password" id="setting-api-token" placeholder="Token rahasia dari setupApiToken()" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-amber-500 font-mono">
-            <p class="text-[11px] text-slate-500 mt-1">Isi ini agar URL yang bocor tidak bisa dipakai orang lain. Jalankan <code>setupApiToken()</code> sekali di Apps Script, lalu paste token-nya di sini.</p>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Token Akses Wajib (Owner atau Tim):</label>
+            <input type="password" id="setting-api-token" autocomplete="off" placeholder="Tempel token Owner atau Tim dari setupApiTokens()" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-amber-500 font-mono">
+            <p class="text-[11px] text-slate-500 mt-1">Jalankan <code>setupApiTokens()</code> di Apps Script setelah backend baru di-deploy. Salin token sesuai peran. Token Tim hanya mengakses Leads, Klien, dan Proyek; token Owner memiliki akses penuh. Jangan bagikan token Owner.</p>
           </div>
 
           <div class="flex flex-wrap gap-2 pt-1">
@@ -1043,6 +1043,7 @@
 
   <script>
 
+    let serverRole = 'unknown'; // Peran berasal dari token yang diverifikasi server.
     const DB_KEY = 'csk_business_os_db';
     let db = {
       leads: [
@@ -1099,10 +1100,7 @@
       document.getElementById('setting-google-url').value = db.settings.googleSheetUrl || '';
       const tokenEl = document.getElementById('setting-api-token');
       if (tokenEl) tokenEl.value = db.settings.apiToken || '';
-      // Set role selector
-      document.getElementById('role-select').value = db.role || 'owner';
-      const mobSel = document.getElementById('role-select-mob');
-      if (mobSel) mobSel.value = db.role || 'owner';
+      updateRoleControls();
       updateCloudIndicator();
       applyRoleUI();
     }
@@ -1120,6 +1118,24 @@
       return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
     }
 
+    function escapeHtml(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+      });
+    }
+
+    function jsArg(value) {
+      return escapeHtml(JSON.stringify(String(value == null ? '' : value)));
+    }
+
+    function safeHttpUrl(value) {
+      var url = String(value == null ? '' : value).trim();
+      var lower = url.toLowerCase();
+      var validScheme = lower.indexOf('https://') === 0 || lower.indexOf('http://') === 0;
+      var unsafe = /["'<>\s]/.test(url);
+      return validScheme && !unsafe ? escapeHtml(url) : '';
+    }
+
     function showToast(msg, isError) {
       const t = document.getElementById('toast');
       const icon = document.getElementById('toast-icon');
@@ -1131,15 +1147,35 @@
 
     // ============== ROLE-BASED ACCESS ==============
 
+    function updateRoleControls() {
+      const verified = serverRole === 'owner' || serverRole === 'team';
+      const selectedRole = serverRole === 'owner' ? (db.role || 'owner') : 'team';
+      ['role-select', 'role-select-mob'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = selectedRole;
+        el.disabled = !verified || serverRole === 'team';
+        el.title = el.disabled ? 'Hak akses ditentukan oleh token server.' : 'Hanya mengubah mode tampilan.';
+      });
+    }
+
     function onRoleChange(role) {
-      db.role = role;
+      if (serverRole !== 'owner' && role === 'owner') {
+        db.role = 'team';
+        updateRoleControls();
+        applyRoleUI();
+        showToast('Akses Owner memerlukan token Owner dari server.', true);
+        return;
+      }
+      db.role = role === 'team' ? 'team' : 'owner';
       localStorage.setItem(DB_KEY, JSON.stringify(db));
+      updateRoleControls();
       applyRoleUI();
-      showToast(role === 'owner' ? 'Mode Owner aktif — akses penuh.' : 'Mode Tim/Admin — menu keuangan & riset disembunyikan.');
+      showToast(db.role === 'owner' ? 'Mode tampilan Owner aktif.' : 'Mode tampilan Tim aktif.');
     }
 
     function applyRoleUI() {
-      const isTeam = db.role !== 'owner';
+      const isTeam = serverRole !== 'owner' || db.role !== 'owner';
       const selectors = ['.pillar-finance', '.pillar-marketing', '.pillar-riset', '.pillar-marketing-mob'];
       selectors.forEach(sel => {
         document.querySelectorAll(sel).forEach(el => {
@@ -1335,8 +1371,8 @@
         dashProjEl.innerHTML = activeProj.map(p =>
           '<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">' +
             '<div>' +
-              '<div class="text-xs font-bold text-slate-800">' + p.title + '</div>' +
-              '<div class="text-[11px] text-slate-500">' + p.client + ' &bull; Deadline: ' + (p.deadline || '-') + '</div>' +
+              '<div class="text-xs font-bold text-slate-800">' + escapeHtml(p.title) + '</div>' +
+              '<div class="text-[11px] text-slate-500">' + escapeHtml(p.client) + ' &bull; Deadline: ' + escapeHtml(p.deadline || '-') + '</div>' +
             '</div>' +
             '<span class="badge ' + (p.status === 'ongoing' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800') + '">' +
               (p.status === 'ongoing' ? 'Pengerjaan' : 'Review') +
@@ -1354,12 +1390,12 @@
         dashLeadsEl.innerHTML = recentLeads.map(l =>
           '<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">' +
             '<div>' +
-              '<div class="text-xs font-bold text-slate-800">' + l.name + '</div>' +
-              '<div class="text-[11px] text-slate-500">' + l.source + ' &bull; ' + formatRp(l.value) + '</div>' +
+              '<div class="text-xs font-bold text-slate-800">' + escapeHtml(l.name) + '</div>' +
+              '<div class="text-[11px] text-slate-500">' + escapeHtml(l.source) + ' &bull; ' + formatRp(l.value) + '</div>' +
             '</div>' +
             '<div class="flex items-center gap-1.5">' +
               (l.phone ? '<a href="https://wa.me/' + cleanPhone(l.phone) + '" target="_blank" class="p-1.5 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200 text-xs"><i class="fa fa-whatsapp"></i> Chat</a>' : '') +
-              '<button onclick="convertLeadToWon(\'' + l.id + '\')" class="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs font-semibold">Deal</button>' +
+              '<button onclick="convertLeadToWon(' + jsArg(l.id) + ')" class="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs font-semibold">Deal</button>' +
             '</div>' +
           '</div>'
         ).join('');
@@ -1407,31 +1443,31 @@
         return '<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">' +
           '<div class="space-y-1">' +
             '<div class="flex items-center gap-2">' +
-              '<span class="font-heading font-bold text-sm text-slate-800">' + l.name + '</span>' +
-              '<span class="badge ' + badgeColor + '">' + statusLabel + '</span>' +
+              '<span class="font-heading font-bold text-sm text-slate-800">' + escapeHtml(l.name) + '</span>' +
+              '<span class="badge ' + badgeColor + '">' + escapeHtml(statusLabel) + '</span>' +
             '</div>' +
             '<div class="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">' +
-              '<span><i class="fa fa-tag text-slate-400"></i> ' + (l.source || 'Sumber tidak dicatat') + '</span>' +
+              '<span><i class="fa fa-tag text-slate-400"></i> ' + escapeHtml(l.source || 'Sumber tidak dicatat') + '</span>' +
               '<span><i class="fa fa-money text-slate-400"></i> ' + formatRp(l.value) + '</span>' +
-              (l.date ? '<span><i class="fa fa-calendar text-slate-400"></i> ' + l.date + '</span>' : '') +
+              (l.date ? '<span><i class="fa fa-calendar text-slate-400"></i> ' + escapeHtml(l.date) + '</span>' : '') +
             '</div>' +
-            (l.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + l.notes + '</div>' : '') +
-            (l.email ? '<div class="text-[11px] text-blue-600 font-mono mt-0.5"><i class="fa fa-envelope-o"></i> ' + l.email + '</div>' : '') +
+            (l.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + escapeHtml(l.notes) + '</div>' : '') +
+            (l.email ? '<div class="text-[11px] text-blue-600 font-mono mt-0.5"><i class="fa fa-envelope-o"></i> ' + escapeHtml(l.email) + '</div>' : '') +
             // ===== Data B2B (tampil bila ada) =====
             ((l.industry || l.pic || l.picTitle || l.website || l.score) ?
               '<div class="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 pt-1 border-t border-slate-100">' +
-                (l.industry ? '<span><i class="fa fa-industry text-slate-400"></i> ' + l.industry + '</span>' : '') +
-                (l.website ? '<a href="' + l.website + '" target="_blank" class="text-blue-600 hover:underline"><i class="fa fa-globe text-slate-400"></i> ' + String(l.website).replace(/^https?:\/\//,'') + '</a>' : '') +
-                (l.pic ? '<span><i class="fa fa-user text-slate-400"></i> ' + l.pic + (l.picTitle ? ' (' + l.picTitle + ')' : '') + '</span>' : '') +
-                (l.linkedin ? '<a href="' + l.linkedin + '" target="_blank" class="text-blue-600 hover:underline"><i class="fa fa-linkedin-square text-slate-400"></i> LinkedIn</a>' : '') +
-                (l.score ? '<span class="badge bg-amber-100 text-amber-800"><i class="fa fa-star"></i> Skor ' + l.score + '</span>' : '') +
+                (l.industry ? '<span><i class="fa fa-industry text-slate-400"></i> ' + escapeHtml(l.industry) + '</span>' : '') +
+                (l.website && safeHttpUrl(l.website) ? '<a href="' + safeHttpUrl(l.website) + '" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline"><i class="fa fa-globe text-slate-400"></i> ' + escapeHtml(String(l.website).replace(/^https?:\/\//,'')) + '</a>' : '') +
+                (l.pic ? '<span><i class="fa fa-user text-slate-400"></i> ' + escapeHtml(l.pic) + (l.picTitle ? ' (' + escapeHtml(l.picTitle) + ')' : '') + '</span>' : '') +
+                (l.linkedin && safeHttpUrl(l.linkedin) ? '<a href="' + safeHttpUrl(l.linkedin) + '" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline"><i class="fa fa-linkedin-square text-slate-400"></i> LinkedIn</a>' : '') +
+                (l.score ? '<span class="badge bg-amber-100 text-amber-800"><i class="fa fa-star"></i> Skor ' + escapeHtml(l.score) + '</span>' : '') +
               '</div>' : '') +
           '</div>' +
           '<div class="flex items-center gap-1.5 self-end sm:self-center flex-wrap">' +
-            (l.email ? '<button onclick="sendColdEmailLead(\'' + l.id + '\')" title="Kirim Cold Email Outreach via Gmail CSK" class="px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-paper-plane"></i> Email</button>' : '') +
+            (l.email ? '<button onclick="sendColdEmailLead(' + jsArg(l.id) + ')" title="Kirim Cold Email Outreach via Gmail CSK" class="px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-paper-plane"></i> Email</button>' : '') +
             (l.phone ? '<a href="https://wa.me/' + cleanPhone(l.phone) + '" target="_blank" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"><i class="fa fa-whatsapp"></i> WA</a>' : '') +
-            (l.status !== 'won' ? '<button onclick="convertLeadToWon(\'' + l.id + '\')" title="Tandai Deal" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Deal</button>' : '<span class="badge bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">✓ Deal</span>') +
-            '<button onclick="deleteLead(\'' + l.id + '\')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
+            (l.status !== 'won' ? '<button onclick="convertLeadToWon(' + jsArg(l.id) + ')" title="Tandai Deal" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Deal</button>' : '<span class="badge bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">✓ Deal</span>') +
+            '<button onclick="deleteLead(' + jsArg(l.id) + ')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -1451,16 +1487,16 @@
         return '<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">' +
           '<div class="flex items-start justify-between">' +
             '<div>' +
-              '<div class="font-heading font-bold text-sm text-slate-800">' + c.name + '</div>' +
-              '<div class="text-xs text-slate-500">' + (c.phone || '-') + '</div>' +
+              '<div class="font-heading font-bold text-sm text-slate-800">' + escapeHtml(c.name) + '</div>' +
+              '<div class="text-xs text-slate-500">' + escapeHtml(c.phone || '-') + '</div>' +
             '</div>' +
-            '<button onclick="deleteClient(\'' + c.id + '\')" class="text-slate-400 hover:text-red-600 text-xs p-1"><i class="fa fa-trash"></i></button>' +
+            '<button onclick="deleteClient(' + jsArg(c.id) + ')" class="text-slate-400 hover:text-red-600 text-xs p-1"><i class="fa fa-trash"></i></button>' +
           '</div>' +
           '<div class="flex items-center gap-2">' +
             renderStars(avgRating) +
             '<span class="text-xs text-slate-500">' + avgRating + '/5</span>' +
           '</div>' +
-          (reviewText ? '<p class="text-xs text-slate-600 italic bg-slate-50 p-2 rounded border border-slate-100">"' + reviewText + '"</p>' : '') +
+          (reviewText ? '<p class="text-xs text-slate-600 italic bg-slate-50 p-2 rounded border border-slate-100">"' + escapeHtml(reviewText) + '"</p>' : '') +
           '<div class="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg text-xs">' +
             '<div>' +
               '<div class="text-[10px] text-slate-400 font-semibold uppercase">Total Proyek</div>' +
@@ -1471,7 +1507,7 @@
               '<div class="font-bold text-emerald-600">' + formatRp(c.totalSpend || 0) + '</div>' +
             '</div>' +
           '</div>' +
-          (c.notes ? '<p class="text-xs text-slate-600">' + c.notes + '</p>' : '') +
+          (c.notes ? '<p class="text-xs text-slate-600">' + escapeHtml(c.notes) + '</p>' : '') +
           (c.phone ? '<a href="https://wa.me/' + cleanPhone(c.phone) + '" target="_blank" class="block w-full text-center py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded text-xs transition"><i class="fa fa-whatsapp text-emerald-600"></i> Hubungi Klien</a>' : '') +
         '</div>';
       }).join('');
@@ -1498,7 +1534,7 @@
       SOP_STAGES.forEach((stage, i) => {
         const checked = values[i] === 1;
         html += '<div class="sop-item flex items-center gap-2 text-xs">' +
-          '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleSOP(\'' + project.id + '\', ' + i + ', this.checked)" class="rounded">' +
+          '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleSOP(' + jsArg(project.id) + ', ' + i + ', this.checked)" class="rounded">' +
           '<label class="' + (checked ? 'text-emerald-700 font-semibold' : 'text-slate-600') + '">' + stage + '</label>' +
           '</div>';
       });
@@ -1539,21 +1575,21 @@
         return '<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-start justify-between gap-3">' +
           '<div class="space-y-1 flex-1">' +
             '<div class="flex items-center gap-2">' +
-              '<span class="font-heading font-bold text-sm text-slate-800">' + p.title + '</span>' +
-              '<span class="badge ' + badgeColor + '">' + statusLabel + '</span>' +
+              '<span class="font-heading font-bold text-sm text-slate-800">' + escapeHtml(p.title) + '</span>' +
+              '<span class="badge ' + badgeColor + '">' + escapeHtml(statusLabel) + '</span>' +
             '</div>' +
             '<div class="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">' +
-              '<span><i class="fa fa-user text-slate-400"></i> Klien: ' + p.client + '</span>' +
+              '<span><i class="fa fa-user text-slate-400"></i> Klien: ' + escapeHtml(p.client) + '</span>' +
               '<span><i class="fa fa-money text-slate-400"></i> ' + formatRp(p.value) + '</span>' +
-              '<span><i class="fa fa-clock-o text-slate-400"></i> Deadline: ' + (p.deadline || '-') + '</span>' +
+              '<span><i class="fa fa-clock-o text-slate-400"></i> Deadline: ' + escapeHtml(p.deadline || '-') + '</span>' +
             '</div>' +
-            (p.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + p.notes + '</div>' : '') +
+            (p.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + escapeHtml(p.notes) + '</div>' : '') +
             renderSOPChecklist(p) +
           '</div>' +
           '<div class="flex items-center gap-1.5 self-end sm:self-center shrink-0 flex-wrap">' +
-            '<button onclick="openInvoiceModal(\'' + p.id + '\')" title="Buat Invoice / Penawaran Resmi CSK" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm"><i class="fa fa-file-text-o"></i> Invoice</button>' +
-            (p.status !== 'done' ? '<button onclick="markProjectDone(\'' + p.id + '\')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Selesai</button>' : '') +
-            '<button onclick="deleteProject(\'' + p.id + '\')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
+            '<button onclick="openInvoiceModal(' + jsArg(p.id) + ')" title="Buat Invoice / Penawaran Resmi CSK" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm"><i class="fa fa-file-text-o"></i> Invoice</button>' +
+            (p.status !== 'done' ? '<button onclick="markProjectDone(' + jsArg(p.id) + ')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Selesai</button>' : '') +
+            '<button onclick="deleteProject(' + jsArg(p.id) + ')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -1576,14 +1612,14 @@
       tableEl.innerHTML = db.finance.slice().reverse().map(f =>
         '<div class="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition">' +
           '<div class="space-y-0.5">' +
-            '<div class="font-bold text-slate-800">' + f.description + '</div>' +
-            '<div class="text-[11px] text-slate-400">' + f.date + ' &bull; ' + f.category + '</div>' +
+            '<div class="font-bold text-slate-800">' + escapeHtml(f.description) + '</div>' +
+            '<div class="text-[11px] text-slate-400">' + escapeHtml(f.date) + ' &bull; ' + escapeHtml(f.category) + '</div>' +
           '</div>' +
           '<div class="flex items-center gap-3">' +
             '<span class="font-heading font-bold ' + (f.type === 'income' ? 'text-teal-600' : 'text-red-600') + '">' +
               (f.type === 'income' ? '+' : '-') + ' ' + formatRp(f.amount) +
             '</span>' +
-            '<button onclick="deleteFinance(\'' + f.id + '\')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
+            '<button onclick="deleteFinance(' + jsArg(f.id) + ')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
           '</div>' +
         '</div>'
       ).join('');
@@ -1651,7 +1687,7 @@
           const platRoas = data.spent > 0 ? (wonValue / data.spent).toFixed(1) : '—';
           const platCpl = data.leads > 0 ? Math.round(data.spent / data.leads) : 0;
           roasHtml += '<div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-xs">' +
-            '<div><span class="font-semibold text-slate-700">' + plat + '</span> <span class="text-slate-400">| Budget: ' + formatRp(data.budget) + '</span></div>' +
+            '<div><span class="font-semibold text-slate-700">' + escapeHtml(plat) + '</span> <span class="text-slate-400">| Budget: ' + formatRp(data.budget) + '</span></div>' +
             '<div class="flex gap-3">' +
               '<span class="text-slate-500">CPL: <b class="text-slate-700">' + formatRp(platCpl) + '</b></span>' +
               '<span class="text-slate-500">Leads: <b class="text-slate-700">' + data.leads + '</b></span>' +
@@ -1671,13 +1707,13 @@
       tableEl.innerHTML = db.marketingSpend.slice().reverse().map(m =>
         '<div class="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition">' +
           '<div class="space-y-0.5">' +
-            '<div class="font-bold text-slate-800">' + m.campaign + '</div>' +
-            '<div class="text-[11px] text-slate-400">' + m.date + ' &bull; ' + m.platform + ' &bull; Budget: ' + formatRp(m.budget) + '</div>' +
+            '<div class="font-bold text-slate-800">' + escapeHtml(m.campaign) + '</div>' +
+            '<div class="text-[11px] text-slate-400">' + escapeHtml(m.date) + ' &bull; ' + escapeHtml(m.platform) + ' &bull; Budget: ' + formatRp(m.budget) + '</div>' +
           '</div>' +
           '<div class="flex items-center gap-4">' +
             '<span class="text-slate-500">Terpakai: <b class="text-slate-700">' + formatRp(m.spent) + '</b></span>' +
             '<span class="text-slate-500">Leads: <b class="text-slate-700">' + (m.leadsGenerated || 0) + '</b></span>' +
-            '<button onclick="deleteMarketing(\'' + m.id + '\')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
+            '<button onclick="deleteMarketing(' + jsArg(m.id) + ')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
           '</div>' +
         '</div>'
       ).join('');
@@ -1694,14 +1730,14 @@
       container.innerHTML = db.memory.map(m =>
         '<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-2 border-l-4 border-l-amber-500">' +
           '<div class="flex items-center justify-between text-xs text-slate-400">' +
-            '<span class="font-semibold text-amber-600">' + m.category + '</span>' +
+            '<span class="font-semibold text-amber-600">' + escapeHtml(m.category) + '</span>' +
             '<div class="flex items-center gap-2">' +
-              '<span>' + m.date + '</span>' +
-              '<button onclick="deleteMemory(\'' + m.id + '\')" class="hover:text-red-600"><i class="fa fa-trash"></i></button>' +
+              '<span>' + escapeHtml(m.date) + '</span>' +
+              '<button onclick="deleteMemory(' + jsArg(m.id) + ')" class="hover:text-red-600"><i class="fa fa-trash"></i></button>' +
             '</div>' +
           '</div>' +
-          '<h4 class="font-heading font-bold text-sm text-slate-800">' + m.title + '</h4>' +
-          '<p class="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">' + m.content + '</p>' +
+          '<h4 class="font-heading font-bold text-sm text-slate-800">' + escapeHtml(m.title) + '</h4>' +
+          '<p class="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">' + escapeHtml(m.content) + '</p>' +
         '</div>'
       ).join('');
     }
@@ -1771,8 +1807,8 @@
         return;
       }
 
-      if (!db.settings.googleSheetUrl) {
-        showToast('URL Google Apps Script belum diisi di Pengaturan.', true);
+      if (!db.settings.googleSheetUrl || !getApiToken() || serverRole !== 'owner') {
+        showToast('Pengiriman email hanya tersedia untuk Owner dengan token yang valid.', true);
         return;
       }
 
@@ -1793,7 +1829,7 @@
         const res = await fetch(db.settings.googleSheetUrl, {
           method: 'POST',
           mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
             action: 'send_cold_email',
             token: getApiToken(),
@@ -1803,16 +1839,8 @@
           })
         });
 
-        // Simpan increment counter lokal
-        localStorage.setItem(todayKey, String(sentCount + 1));
-
-        // Tandai status jadi contacted jika sebelumnya new
-        if (lead.status === 'new') {
-          lead.status = 'contacted';
-        }
-        lead.notes = (lead.notes ? lead.notes + ' | ' : '') + 'Cold email terkirim (' + (sentCount + 1) + '/50) ' + new Date().toISOString().slice(0, 10);
-        saveDB();
-        showToast('Cold email berhasil dikirim ke ' + lead.email + ' (' + (sentCount + 1) + '/50 hari ini)!');
+        // Respons no-cors bersifat opaque; status pengiriman harus diverifikasi di Gmail.
+        showToast('Permintaan email dikirim. Periksa folder Terkirim Gmail sebelum menandai lead sebagai contacted.');
       } catch (err) {
         console.error(err);
         showToast('Gagal mengirim email: ' + err.message, true);
@@ -1820,36 +1848,45 @@
     }
 
     function convertLeadToWon(id) {
-      const lead = db.leads.find(l => l.id === id);
-      if (!lead) return;
+      const lead = db.leads.find(l => String(l.id) === String(id));
+      if (!lead || lead.status === 'won') return;
       lead.status = 'won';
 
-      if (!db.clients.some(c => c.name.toLowerCase() === lead.name.toLowerCase())) {
+      const leadToken = '[LEAD-' + lead.id + ']';
+      const clientExists = db.clients.some(c =>
+        String(c.name || '').trim().toLowerCase() === String(lead.name || '').trim().toLowerCase()
+      );
+      if (!clientExists) {
         db.clients.unshift({
-          id: Date.now().toString(),
+          id: 'AUTO-CLI-' + lead.id,
           name: lead.name,
-          phone: lead.phone,
+          phone: lead.phone || '',
           projectsCount: 1,
-          totalSpend: lead.value,
-          notes: 'Dikonversi dari Lead (' + lead.source + ')',
+          totalSpend: 0,
+          notes: 'Dibuat otomatis dari Lead ' + leadToken,
           rating: 0,
           review: ''
         });
       }
 
-      db.projects.unshift({
-        id: Date.now().toString(),
-        title: 'Proyek ' + lead.name,
-        client: lead.name,
-        value: lead.value,
-        status: 'plan',
-        deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
-        notes: lead.notes || 'Hasil konversi Deal',
-        sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
-      });
+      const projectExists = db.projects.some(p =>
+        String(p.id) === 'AUTO-PRJ-' + lead.id || String(p.notes || '').includes(leadToken)
+      );
+      if (!projectExists) {
+        db.projects.unshift({
+          id: 'AUTO-PRJ-' + lead.id,
+          title: 'Proyek ' + lead.name,
+          client: lead.name,
+          value: Number(lead.value) || 0,
+          status: 'plan',
+          deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+          notes: 'Antrean otomatis dari Lead ' + leadToken,
+          sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
+        });
+      }
 
       saveDB();
-      showToast('Lead ditandai DEAL & otomatis masuk ke Klien, Proyek, dan jurnal Keuangan!');
+      showToast('Lead ditandai DEAL. Klien dan proyek dibuat otomatis; DP dicatat setelah pembayaran diterima.');
     }
 
     /**
@@ -1859,12 +1896,12 @@
      */
     async function deleteOnCloud(sheetName, id) {
       const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) return;
+      if (!url || !getApiToken()) return;
       try {
         await fetch(url, {
           method: 'POST',
           mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'delete', sheet: sheetName, id: id, token: getApiToken() })
         });
       } catch (err) {
@@ -2025,8 +2062,8 @@
 
       tbody.innerHTML = '<tr>' +
         '<td class="py-3 px-3 font-semibold text-slate-900">' +
-          '<div>' + itemTitle + '</div>' +
-          (p.notes ? '<div class="text-[11px] font-normal text-slate-500 mt-0.5">' + p.notes + '</div>' : '') +
+          '<div>' + escapeHtml(itemTitle) + '</div>' +
+          (p.notes ? '<div class="text-[11px] font-normal text-slate-500 mt-0.5">' + escapeHtml(p.notes) + '</div>' : '') +
           '<div class="text-[10px] text-amber-700 mt-1">&bull; Termasuk fabrikasi, perakitan, dan quality-control standar workshop CSK Serpong</div>' +
         '</td>' +
         '<td class="py-3 px-3 text-center text-slate-600 font-semibold">1 Lot</td>' +
@@ -2164,8 +2201,11 @@
       db.settings.googleSheetUrl = url;
       db.settings.apiToken = token;
       localStorage.setItem(DB_KEY, JSON.stringify(db));
+      serverRole = 'unknown';
+      updateRoleControls();
       updateCloudIndicator();
-      showToast('URL & token berhasil disimpan!');
+      applyRoleUI();
+      showToast(token ? 'URL & token tersimpan. Tarik data untuk memverifikasi hak akses.' : 'URL tersimpan, tetapi token akses wajib diisi.', !token);
     }
 
     /** Helper: ambil token akses (untuk disisipkan ke request). */
@@ -2176,16 +2216,18 @@
     function updateCloudIndicator() {
       const dot = document.getElementById('cloud-indicator');
       const text = document.getElementById('cloud-status-text');
-      const isCloud = !!(db.settings && db.settings.googleSheetUrl);
+      const hasUrl = !!(db.settings && db.settings.googleSheetUrl);
+      const hasToken = !!(db.settings && db.settings.apiToken);
+      const isCloud = hasUrl && hasToken && (serverRole === 'owner' || serverRole === 'team');
       if (dot) dot.className = isCloud ? 'w-2.5 h-2.5 rounded-full bg-emerald-500' : 'w-2.5 h-2.5 rounded-full bg-slate-500';
-      if (text) text.innerText = isCloud ? 'Tersambung Google' : 'Lokal Offline';
+      if (text) text.innerText = !hasUrl ? 'Lokal Offline' : (!hasToken ? 'Token belum diisi' : (serverRole === 'unknown' ? 'Verifikasi akses' : 'Tersambung (' + serverRole + ')'));
     }
 
     async function syncWithGoogle(isSilent = false) {
       const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) {
+      if (!url || !getApiToken()) {
         if (!isSilent) {
-          alert('URL Google Sheets belum disetel!');
+          showToast('URL Google Sheets dan token akses wajib diisi di Pengaturan.', true);
           nav('settings');
         }
         return;
@@ -2207,14 +2249,13 @@
         await fetch(url, {
           method: 'POST',
           mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
         });
 
-        db.settings.lastSync = new Date().toLocaleString('id-ID');
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
-        updateCloudIndicator();
-        if (!isSilent) showToast('Data berhasil dikirim ke Google Sheets!');
+        // no-cors hanya memastikan request dikirim browser, bukan membuktikan server
+        // berhasil memprosesnya. Status akan diverifikasi saat data ditarik kembali.
+        if (!isSilent) showToast('Permintaan sinkronisasi dikirim. Tarik data untuk memverifikasi hasilnya.');
       } catch (err) {
         if (!isSilent) showToast('Gagal sinkron: ' + err.message, true);
       }
@@ -2226,8 +2267,8 @@
      */
     async function pullData() {
       const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) {
-        alert('URL Google Sheets belum disetel! Buka Pengaturan dulu.');
+      if (!url || !getApiToken()) {
+        showToast('URL Google Sheets dan token akses wajib diisi di Pengaturan.', true);
         nav('settings');
         return;
       }
@@ -2240,15 +2281,19 @@
         if (json.status !== 'success' || !json.data) throw new Error('Respon tidak valid dari server.');
 
         const d = json.data;
+        serverRole = d.role || json.role || 'team';
         db.leads          = d.leads          || [];
         db.clients        = d.clients        || [];
         db.projects       = d.projects       || [];
-        db.finance        = d.finance        || [];
-        db.memory         = d.memory         || [];
-        db.marketingSpend = d.marketingSpend || [];
+        db.finance        = serverRole === 'owner' ? (d.finance || []) : [];
+        db.memory         = serverRole === 'owner' ? (d.memory || []) : [];
+        db.marketingSpend = serverRole === 'owner' ? (d.marketingSpend || []) : [];
+        if (serverRole === 'team') db.role = 'team';
         db.settings.lastSync = d.lastSynced || new Date().toISOString();
 
         localStorage.setItem(DB_KEY, JSON.stringify(db));
+        updateRoleControls();
+        applyRoleUI();
         updateCloudIndicator();
         renderAll();
         showToast('Data berhasil ditarik dari cloud! (' + new Date().toLocaleTimeString('id-ID') + ')');
@@ -2264,12 +2309,19 @@
      */
     async function pullAndMerge() {
       const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) return;
+      if (!url || !getApiToken()) return;
       try {
         const resp = await fetch(url + '?token=' + encodeURIComponent(getApiToken()));
         const json = await resp.json();
         if (json.status !== 'success' || !json.data) return;
         const d = json.data;
+        serverRole = d.role || json.role || 'team';
+        if (serverRole === 'team') {
+          db.role = 'team';
+          db.finance = [];
+          db.memory = [];
+          db.marketingSpend = [];
+        }
 
         // Gabungkan: cloud + lokal, dedupe by id (lokal menang jika sama)
         const mergeById = (cloudArr, localArr) => {
@@ -2282,12 +2334,20 @@
         db.leads          = mergeById(d.leads, db.leads);
         db.clients        = mergeById(d.clients, db.clients);
         db.projects       = mergeById(d.projects, db.projects);
-        db.finance        = mergeById(d.finance, db.finance);
-        db.memory         = mergeById(d.memory, db.memory);
-        db.marketingSpend = mergeById(d.marketingSpend, db.marketingSpend);
+        if (serverRole === 'owner') {
+          db.finance        = mergeById(d.finance, db.finance);
+          db.memory         = mergeById(d.memory, db.memory);
+          db.marketingSpend = mergeById(d.marketingSpend, db.marketingSpend);
+        } else {
+          db.finance = [];
+          db.memory = [];
+          db.marketingSpend = [];
+        }
         db.settings.lastSync = d.lastSynced || new Date().toISOString();
 
         localStorage.setItem(DB_KEY, JSON.stringify(db));
+        updateRoleControls();
+        applyRoleUI();
         renderAll();
         updateCloudIndicator();
       } catch (err) {
