@@ -1082,37 +1082,50 @@
 
     let serverRole = 'unknown'; // Peran berasal dari token yang diverifikasi server.
     const DB_KEY = 'csk_business_os_db';
+    const LEGACY_DEMO_BACKUP_KEY = DB_KEY + '_legacy_demo_backup_v1';
+    function archiveLegacyDemoSeeds() {
+      const signatures = {
+        leads: [
+          {id:'1',name:'Bpk. Hendra (Kopi Sore)',phone:'081234567890',value:8000000,notes:'Paket Branding Lengkap 8 Juta'},
+          {id:'2',name:'Ibu Maya (Fashion Hijab)',phone:'081398765432',value:1500000,notes:'Tanya logo UMKM 1.5jt'},
+          {id:'3',name:'Dr. Dimas (Klinik Gigi)',phone:'082155667788',value:5000000,notes:'Tertarik manajemen ads Meta bulanan'}
+        ],
+        clients:[{id:'1',name:'Bpk. Hendra (Kopi Sore)',phone:'081234567890',totalSpend:8000000,review:'Sangat puas dengan hasilnya!'}],
+        projects:[{id:'1',title:'Branding Identity Kopi Sore',client:'Bpk. Hendra (Kopi Sore)',value:8000000,deadline:'2026-09-20',notes:'Tahap penyusunan brand guidelines'}],
+        finance:[
+          {id:'1',date:'2026-09-02',type:'income',amount:4000000,description:'DP 50% Branding Kopi Sore'},
+          {id:'2',date:'2026-09-04',type:'expense',amount:500000,description:'Topup Meta Ads kampanye September'},
+          {id:'3',date:'2026-09-05',type:'expense',amount:250000,description:'Langganan tool desain'}
+        ],
+        memory:[{id:'1',date:'2026-09-02',title:'Formula 2 Paket: 1.5 Juta vs 8 Juta',category:'Strategi Penawaran'}],
+        marketingSpend:[{id:'1',date:'2026-09-04',platform:'Meta Ads',campaign:'September Brand Awareness - Kopi Sore',budget:1000000,spent:500000,leadsGenerated:8}]
+      };
+      const archived=[];
+      Object.keys(signatures).forEach(key=>{
+        const rows=Array.isArray(db[key])?db[key]:[];
+        db[key]=rows.filter(item=>{
+          const match=signatures[key].some(sig=>Object.keys(sig).every(k=>String(item&&item[k]!=null?item[k]:'')===String(sig[k])));
+          if(match)archived.push({collection:key,record:item});
+          return !match;
+        });
+      });
+      if(!archived.length)return 0;
+      try{
+        let backup={version:1,records:[]};
+        const raw=localStorage.getItem(LEGACY_DEMO_BACKUP_KEY);
+        if(raw){const parsed=JSON.parse(raw);if(parsed&&Array.isArray(parsed.records))backup=parsed;}
+        const seen=new Set(backup.records.map(x=>x.collection+'::'+JSON.stringify(x.record)));
+        archived.forEach(x=>{const key=x.collection+'::'+JSON.stringify(x.record);if(!seen.has(key)){backup.records.push(x);seen.add(key);}});
+        backup.archivedAt=new Date().toISOString();
+        localStorage.setItem(LEGACY_DEMO_BACKUP_KEY,JSON.stringify(backup));
+        localStorage.setItem(DB_KEY,JSON.stringify(db));
+        return archived.length;
+      }catch(err){console.warn('Demo backup failed; original records retained:',err.message);return 0;}
+    }
     let db = {
-      leads: [
-        { id: '1', date: '2026-09-01', name: 'Bpk. Hendra (Kopi Sore)', phone: '081234567890', source: 'Instagram Ads', value: 8000000, status: 'won', notes: 'Paket Branding Lengkap 8 Juta' },
-        { id: '2', date: '2026-09-03', name: 'Ibu Maya (Fashion Hijab)', phone: '081398765432', source: 'WhatsApp', value: 1500000, status: 'nego', notes: 'Tanya logo UMKM 1.5jt' },
-        { id: '3', date: '2026-09-05', name: 'Dr. Dimas (Klinik Gigi)', phone: '082155667788', source: 'Referensi', value: 5000000, status: 'new', notes: 'Tertarik manajemen ads Meta bulanan' }
-      ],
-      clients: [
-        { id: '1', name: 'Bpk. Hendra (Kopi Sore)', phone: '081234567890', projectsCount: 1, totalSpend: 8000000, notes: 'Klien loyal paket premium branding', rating: 5, review: 'Sangat puas dengan hasilnya!' }
-      ],
-      projects: [
-        { id: '1', title: 'Branding Identity Kopi Sore', client: 'Bpk. Hendra (Kopi Sore)', value: 8000000, status: 'ongoing', deadline: '2026-09-20', notes: 'Tahap penyusunan brand guidelines', sopChecklist: 'Brief:1;Produksi:1;Review:0;Revisi:0;Delivery:0' }
-      ],
-      finance: [
-        { id: '1', date: '2026-09-02', type: 'income', category: 'DP Proyek', amount: 4000000, description: 'DP 50% Branding Kopi Sore' },
-        { id: '2', date: '2026-09-04', type: 'expense', category: 'Biaya Iklan Meta/TikTok', amount: 500000, description: 'Topup Meta Ads kampanye September' },
-        { id: '3', date: '2026-09-05', type: 'expense', category: 'Tool/Software', amount: 250000, description: 'Langganan tool desain' }
-      ],
-      memory: [
-        { id: '1', date: '2026-09-02', category: 'Strategi Penawaran', title: 'Formula 2 Paket: 1.5 Juta vs 8 Juta', content: 'Calon klien UMKM ditawarkan logo mulai 1.5jt. Untuk bisnis mapan, tawarkan paket 8jt (Logo, guidelines, stationery, mockup, editable file). Ini membuat klien merasa punya opsi jelas.' }
-      ],
-      marketingSpend: [
-        { id: '1', date: '2026-09-04', platform: 'Meta Ads', campaign: 'September Brand Awareness - Kopi Sore', budget: 1000000, spent: 500000, leadsGenerated: 8, notes: '' }
-      ],
-      settings: {
-        googleSheetUrl: 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec',
-        lastSync: ''
-      },
-      deletedRecords: [],
-      costings: [],
-      projectCosts: [],
-      role: 'owner'
+      leads: [], clients: [], projects: [], finance: [], memory: [], marketingSpend: [],
+      settings: { googleSheetUrl: 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec', lastSync: '' },
+      deletedRecords: [], costings: [], projectCosts: [], role: 'owner'
     };
 
     // ============== CORE STATE ==============
@@ -1140,6 +1153,8 @@
       }
       if (!db.settings) db.settings = { googleSheetUrl: 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec', lastSync: '' };
       if (!db.settings.googleSheetUrl) db.settings.googleSheetUrl = 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec';
+      const archivedCount=archiveLegacyDemoSeeds();
+      if(archivedCount)showToast(archivedCount+' data contoh lama diarsipkan secara lokal sebelum dikeluarkan dari data aktif.');
       document.getElementById('setting-google-url').value = db.settings.googleSheetUrl || '';
       const tokenEl = document.getElementById('setting-api-token');
       if (tokenEl) tokenEl.value = db.settings.apiToken || '';
@@ -2321,7 +2336,8 @@
     async function deleteOnCloud(sheetName, id) {
       const url = db.settings && db.settings.googleSheetUrl;
       if (!url || !getApiToken()) return;
-      if (serverRole !== 'owner' && !['Leads', 'Clients', 'Projects'].includes(sheetName)) return;
+      if (serverRole !== 'owner' && serverRole !== 'team') return;
+      if (serverRole === 'team' && !['Leads', 'Clients', 'Projects'].includes(sheetName)) return;
       try {
         await fetch(url, {
           method: 'POST',
@@ -2667,6 +2683,10 @@
         return;
       }
 
+      if (serverRole !== 'owner' && serverRole !== 'team') {
+        if (!isSilent) showToast('Sinkronisasi ditahan sampai token diverifikasi oleh server.', true);
+        return;
+      }
       if (!isSilent) showToast('Mengirim data ke Google Sheets...');
       try {
         const payload = {

@@ -1043,11 +1043,12 @@ function mergeSheet(ss, sheetName, items) {
   }
 
   // Ubah record -> array nilai SEJAJAR dengan header AKTUAL sheet (by name, case-insensitive)
-  function buildRow(item) {
-    var contractRow = recordToRow(sheetName, item); // sejajar FIELD_MAP.headers
-    return headerRow.map(function (h) {
+  function buildRow(item, previousRow) {
+    var contractRow = recordToRow(sheetName, item);
+    return headerRow.map(function (h, columnIndex) {
       var pos = contractPos[String(h).trim().toLowerCase()];
-      return pos === undefined ? "" : contractRow[pos];
+      if (pos === undefined) return previousRow && previousRow[columnIndex] !== undefined ? previousRow[columnIndex] : "";
+      return contractRow[pos];
     });
   }
 
@@ -1059,12 +1060,13 @@ function mergeSheet(ss, sheetName, items) {
     if (id === "") { result.skipped++; return; }
     if (deletedIds[id]) { result.skipped++; return; }
 
-    var newRow = buildRow(item);
+    var existingRow = idToRow[id] ? (dataRange[idToRow[id] - 2] || []) : null;
+    var newRow = buildRow(item, existingRow);
 
     if (idToRow[id]) {
       // Baris sudah ada di sheet -> update HANYA kolom yang berubah
       var rowIdx = idToRow[id] - 2; // index di dataRange
-      var oldRow = dataRange[rowIdx] || [];
+      var oldRow = existingRow || [];
       var changed = false;
       for (var c = 0; c < newRow.length; c++) {
         // Normalisasi angka vs string agar tidak update palsu
