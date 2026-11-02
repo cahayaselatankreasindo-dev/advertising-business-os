@@ -30,10 +30,10 @@ jobs:
           const fs = require('node:fs');
           const vm = require('node:vm');
           const html = fs.readFileSync('index.html', 'utf8');
-          const scripts = [...html.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)];
+          const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
           let checked = 0;
           for (const match of scripts) {
-            if (/\\bsrc\\s*=/.test(match[1]) || !match[2].trim()) continue;
+            if (/\bsrc\s*=/.test(match[1]) || !match[2].trim()) continue;
             new vm.Script(match[2], { filename: 'index.inline.js' });
             checked++;
           }
