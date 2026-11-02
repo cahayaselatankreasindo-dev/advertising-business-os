@@ -168,6 +168,8 @@ node mapping.test.js    # jalankan suite; jumlah test mengikuti revisi terakhir
 - **Finance:** otomasi Deal Menang tidak boleh mencatat nominal proyek sebagai pendapatan. Catat DP/pelunasan hanya setelah pembayaran diterima dan diverifikasi.
 - **Duplikasi:** konversi Lead menghasilkan Client/Project dengan ID stabil dan token [LEAD-{id}]. Jangan menghapus proyek/finance lama tanpa rekonsiliasi.
 - **Database aktif per 2 Nov 2026:** lihat ringkasan pada bagian 3; jangan push ulang dataset demo.
+- **Quotation**: persetujuan quotation tidak otomatis membuat proyek atau mengubah Lead menjadi Won. Proyek dibuat/ditautkan setelah konfirmasi PO/SPK.
+- **Project Cost Ledger**: tab `Project_Costs` menyimpan biaya aktual dan hanya dapat diakses token Owner; penghapusan dilindungi `_CSK_Deleted`.
 - **Penghapusan**: backend menggunakan tab `_CSK_Deleted` sebagai tombstone ledger. Semua delete menulis tombstone sebelum menghapus baris; sync_all memproses tombstone lebih dahulu dan mergeSheet menghapus/menolak ID yang sudah ditandai. Jangan hapus ledger secara manual.
 
 - **Vault Obsidian:** vault CSK ADA di **`G:\My Drive\CSK-Vault`** (31 note).

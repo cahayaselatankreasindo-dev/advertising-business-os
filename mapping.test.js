@@ -169,8 +169,8 @@ const FIELD_MAP = sandbox.FIELD_MAP;
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
-    ['Clients','Costings','Finance','Leads','Marketing_Spend','Memory','Projects'].sort(),
-    'FIELD_MAP mencakup 7 tab');
+    ['Clients','Costings','Finance','Leads','Marketing_Spend','Memory','Project_Costs','Projects'].sort(),
+    'FIELD_MAP mencakup 8 tab');
   eq(FIELD_MAP.Projects.headers,
     ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim'],
     'FIELD_MAP.Projects.headers = hasil Tahap 2 + PIC_Tim');
@@ -181,11 +181,37 @@ if (FIELD_MAP) {
     ['id','title','client','value','status','deadline','notes','sopChecklist','pic'],
     'FIELD_MAP.Projects.fields memuat pic');
   eq(FIELD_MAP.Costings.headers,
-    ['ID','Tanggal','Klien','NamaPekerjaan','ModelProduksi','LeadID','ItemsJSON','BiayaLangsung','OverheadPersen','OverheadNominal','CadanganPersen','CadanganNominal','HPP','MarginPersen','HargaPenawaran','Status','ProjectID','Catatan'],
-    'FIELD_MAP.Costings.headers sesuai kontrak HPP');
+    ['ID','Tanggal','Klien','NamaPekerjaan','ModelProduksi','LeadID','ItemsJSON','BiayaLangsung','OverheadPersen','OverheadNominal','CadanganPersen','CadanganNominal','HPP','MarginPersen','HargaPenawaran','Status','ProjectID','Catatan','NomorQuotation','VersiQuotation','MasaBerlakuHari','WaktuPengerjaanHari','SyaratPembayaran','RuangLingkup','DisetujuiPada','POConfirmedAt','RiwayatQuotationJSON','DikirimPada'],
+    'FIELD_MAP.Costings.headers sesuai kontrak quotation');
   eq(FIELD_MAP.Costings.fields,
-    ['id','date','client','title','productionModel','leadId','itemsJson','directCost','overheadPct','overheadAmount','contingencyPct','contingencyAmount','hpp','marginPct','sellingPrice','status','projectId','notes'],
-    'FIELD_MAP.Costings.fields sesuai model aplikasi');
+    ['id','date','client','title','productionModel','leadId','itemsJson','directCost','overheadPct','overheadAmount','contingencyPct','contingencyAmount','hpp','marginPct','sellingPrice','status','projectId','notes','quoteNo','quoteVersion','validityDays','deliveryDays','paymentTerms','scope','approvedAt','poConfirmedAt','quoteHistoryJson','sentAt'],
+    'FIELD_MAP.Costings.fields sesuai model quotation');
+  eq(FIELD_MAP.Project_Costs.headers,
+    ['ID','Tanggal','ProjectID','Kategori','Sumber','Deskripsi','Vendor','Qty','HargaSatuan','Nominal','StatusPembayaran','Referensi','Catatan'],
+    'FIELD_MAP.Project_Costs.headers sesuai kontrak biaya aktual');
+  eq(FIELD_MAP.Project_Costs.fields,
+    ['id','date','projectId','category','source','description','vendor','qty','unitCost','amount','paymentStatus','reference','notes'],
+    'FIELD_MAP.Project_Costs.fields sesuai model biaya aktual');
+  const costingRow=sandbox.recordToRow('Costings',{
+    id:'COST-ROW',date:'2026-11-03',client:'PT Retail',title:'Rak Display',productionModel:'hybrid',
+    leadId:'L-10',itemsJson:'[]',directCost:7000000,overheadPct:5,overheadAmount:350000,
+    contingencyPct:3,contingencyAmount:220500,hpp:7570500,marginPct:30,sellingPrice:10815000,
+    status:'draft',projectId:'',notes:'uji mapping',quoteNo:'QUO-CSK-202611-COSTROW',
+    quoteVersion:2,validityDays:14,deliveryDays:21,paymentTerms:'DP 50%',scope:'Rak display',
+    approvedAt:'',poConfirmedAt:'',quoteHistoryJson:'[]',sentAt:''
+  });
+  eq(costingRow.length,28,'Costings: jumlah kolom 28');
+  eq(costingRow[12],7570500,'Costings: HPP pada kolom M');
+  eq(costingRow[18],'QUO-CSK-202611-COSTROW','Costings: nomor quotation pada kolom S');
+  eq(sandbox.rowToRecord('Costings',costingRow,FIELD_MAP.Costings.headers).sellingPrice,10815000,'Costings: harga penawaran terbaca kembali');
+  const projectCostRow=sandbox.recordToRow('Project_Costs',{
+    id:'PC-ROW',date:'2026-11-03',projectId:'P1',category:'material',source:'vendor',
+    description:'Acrylic sheet',vendor:'Vendor A',qty:2,unitCost:500000,amount:1000000,
+    paymentStatus:'unpaid',reference:'INV-1',notes:'uji mapping'
+  });
+  eq(projectCostRow.length,13,'Project_Costs: jumlah kolom 13');
+  eq(projectCostRow[9],1000000,'Project_Costs: nominal pada kolom J');
+  eq(sandbox.rowToRecord('Project_Costs',projectCostRow,FIELD_MAP.Project_Costs.headers).amount,1000000,'Project_Costs: nominal terbaca kembali');
   const costingRow = sandbox.recordToRow('Costings', {
     id:'COST-ROW', date:'2026-11-02', client:'PT Retail', title:'Rak Display',
     productionModel:'hybrid', leadId:'L-10', itemsJson:'[]', directCost:7000000,
@@ -232,7 +258,8 @@ const postRes = callDoPost({
   finance: [{ id: 'F9', date: '2026-09-10', type: 'expense', category: 'Operasional', amount: 100000, description: 'd' }],
   memory: [{ id: 'M9', date: '2026-09-10', category: 'SOP', title: 't', content: 'c' }],
   marketingSpend: [{ id: 'K9', date: '2026-09-10', platform: 'TikTok Ads', campaign: 'k', budget: 200000, spent: 100000, leadsGenerated: 5, notes: '' }],
-  costings: [{ id: 'COST-OWNER-1', date: '2026-11-02', client: 'PT Retail', title: 'Rak Display', productionModel: 'hybrid', leadId: 'L9', itemsJson: '[]', directCost: 7000000, overheadPct: 5, overheadAmount: 350000, contingencyPct: 3, contingencyAmount: 220500, hpp: 7570500, marginPct: 30, sellingPrice: 10815000, status: 'draft', projectId: '', notes: '' }]
+  costings: [{ id: 'COST-OWNER-1', date: '2026-11-03', client: 'PT Retail', title: 'Rak Display', productionModel: 'hybrid', leadId: 'L9', itemsJson: '[]', directCost: 7000000, overheadPct: 5, overheadAmount: 350000, contingencyPct: 3, contingencyAmount: 220500, hpp: 7570500, marginPct: 30, sellingPrice: 10815000, status: 'draft', projectId: '', notes: '', quoteNo: 'QUO-CSK-202611-COSTOWN1', quoteVersion: 1, validityDays: 14, deliveryDays: 21, paymentTerms: 'DP 50%', scope: 'Rak display', approvedAt: '', poConfirmedAt: '', quoteHistoryJson: '[]', sentAt: '' }],
+  projectCosts: [{ id: 'PC-OWNER-1', date: '2026-11-03', projectId: 'P1', category: 'material', source: 'vendor', description: 'Acrylic sheet', vendor: 'Vendor A', qty: 2, unitCost: 500000, amount: 1000000, paymentStatus: 'unpaid', reference: 'INV-1', notes: '' }]
 });
 eq(postRes.status, 'success', 'sync_all status success');
 
@@ -264,6 +291,12 @@ eq(!!newCostRow, true, 'sync new Costings: record HPP tersimpan');
 eq(newCostRow[12], 7570500, 'sync new Costings: nilai HPP tersimpan pada kolom M');
 eq(newCostRow[14], 10815000, 'sync new Costings: harga penawaran tersimpan pada kolom O');
 eq(callDoGet().data.costings.find(x => x.id === 'COST-OWNER-1').sellingPrice, 10815000, 'doGet Costings: harga penawaran terbaca');
+eq(newCostRow[18], 'QUO-CSK-202611-COSTOWN1', 'Costings: nomor quotation tersimpan');
+eq(newCostRow[20], 14, 'Costings: masa berlaku tersimpan');
+const ownerProjectCostRow=findRow('Project_Costs','PC-OWNER-1');
+eq(!!ownerProjectCostRow,true,'sync new Project_Costs: biaya aktual tersimpan');
+eq(ownerProjectCostRow[9],1000000,'Project_Costs: nominal aktual pada kolom J');
+eq(callDoGet().data.projectCosts.find(x=>x.id==='PC-OWNER-1').amount,1000000,'doGet Project_Costs: nominal terbaca');
 
 // Deal menang membuat Client/Project secara idempoten, bukan transaksi Finance.
 const financeBeforeWonAutomation = sheets['Finance'].rows.length;
@@ -358,6 +391,8 @@ sheets['Leads'].appendRow(['L-OLD','2026-09-01','Budi','081','IG',8000000,'won',
 sandbox.setupSheet();
 eq(!!sheets['Costings'], true, 'setupSheet: tab Costings dibuat');
 eq(sheets['Costings'].rows[0].join('|'), FIELD_MAP.Costings.headers.join('|'), 'setupSheet: header Costings sesuai kontrak');
+eq(!!sheets['Project_Costs'], true, 'setupSheet: tab Project_Costs dibuat');
+eq(sheets['Project_Costs'].rows[0].join('|'), FIELD_MAP.Project_Costs.headers.join('|'), 'setupSheet: header Project_Costs sesuai kontrak');
 
 const h2 = sheets['Leads'].rows[0].map(h => String(h).trim().toLowerCase());
 const dupCount = h2.filter(x => x === 'tanggal').length;
@@ -462,7 +497,8 @@ const teamSync = callDoPost({
   finance: [{ id: 'TEAM-FIN', date: '2026-10-09', type: 'income', category: 'x', amount: 999, description: 'unauthorized' }],
   memory: [{ id: 'TEAM-MEM', date: '2026-10-09', category: 'x', title: 'x', content: 'unauthorized' }],
   marketingSpend: [{ id: 'TEAM-MKT', date: '2026-10-09', platform: 'x', campaign: 'x', budget: 1, spent: 1, leadsGenerated: 1, notes: '' }],
-  costings: [{ id: 'TEAM-COST', date: '2026-11-02', client: 'x', title: 'x', hpp: 1, sellingPrice: 2 }]
+  costings: [{ id: 'TEAM-COST', date: '2026-11-03', client: 'x', title: 'x', hpp: 1, sellingPrice: 2 }],
+  projectCosts: [{ id: 'TEAM-PC', date: '2026-11-03', projectId: 'P1', category: 'material', source: 'vendor', description: 'x', vendor: 'Vendor', qty: 1, unitCost: 999, amount: 999, paymentStatus: 'unpaid', reference: '', notes: '' }]
 });
 eq(teamSync.status, 'success', 'auth: Tim boleh sync modul operasional');
 eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'TEAM-LEAD'), true, 'auth: data Leads Tim tersimpan');
@@ -470,6 +506,8 @@ eq(sheets['Finance'].rows.length, financeRowsBeforeTeamSync, 'auth: sync Tim tid
 eq(!!sheets['Finance'].rows.find(r => String(r[0]) === 'TEAM-FIN'), false, 'auth: sync Tim mengabaikan Finance');
 eq(!!sheets['Costings'].rows.find(r => String(r[0]) === 'TEAM-COST'), false, 'auth: sync Tim mengabaikan Costings');
 eq(callDoGet('TEAM_TEST_TOKEN').data.costings.length, 0, 'auth: GET Tim tidak mengembalikan Costings');
+eq(!!sheets['Project_Costs'].rows.find(r=>String(r[0])==='TEAM-PC'),false,'auth: sync Tim tidak dapat menulis Project_Costs');
+eq(callDoGet('TEAM_TEST_TOKEN').data.projectCosts.length,0,'auth: GET Tim tidak mengembalikan Project_Costs');
 const teamTombstone = callDoPost({
   action: 'sync_all', token: 'TEAM_TEST_TOKEN',
   deletedRecords: [{ sheet: 'Finance', id: 'F1', deletedAt: '2026-10-09' }]
@@ -489,6 +527,13 @@ const ownerSync = callDoPost({
 });
 eq(ownerSync.status, 'success', 'auth: Owner dapat sync Finance');
 eq(!!sheets['Finance'].rows.find(r => String(r[0]) === 'OWNER-FIN'), true, 'auth: data Finance Owner tersimpan');
+eq(callDoPost({action:'delete',token:'OWNER_TEST_TOKEN',sheet:'Project_Costs',id:'PC-OWNER-1'}).status,'success','Project_Costs: Owner dapat menghapus biaya aktual');
+callDoPost({action:'sync_all',token:'OWNER_TEST_TOKEN',projectCosts:[{
+  id:'PC-OWNER-1',date:'2026-11-03',projectId:'P1',category:'material',source:'vendor',
+  description:'stale copy',vendor:'Vendor A',qty:2,unitCost:500000,amount:1000000,
+  paymentStatus:'unpaid',reference:'INV-1',notes:''
+}]});
+eq(!!sheets['Project_Costs'].rows.find(r=>String(r[0])==='PC-OWNER-1'),false,'Project_Costs: tombstone mencegah biaya terhapus muncul kembali');
 eq(callDoPost({ action: 'delete', token: 'OWNER_TEST_TOKEN', sheet: 'Costings', id: 'COST-OWNER-1' }).status, 'success', 'Costings: Owner dapat menghapus kalkulasi');
 callDoPost({
   action: 'sync_all', token: 'OWNER_TEST_TOKEN',

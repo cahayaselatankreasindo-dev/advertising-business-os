@@ -12,9 +12,18 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - Kalkulasi biaya material, tenaga internal, mesin, vendor, finishing, transportasi, dan instalasi.
 - Pemisahan sumber biaya internal dan vendor partner untuk model produksi hybrid.
 - Overhead, cadangan risiko, HPP, margin dari harga jual, dan pembulatan harga penawaran.
-- Pipeline quotation: Draft → Dikirim → Disetujui/Ditolak.
+- Pipeline quotation: Draft → Dikirim → Disetujui → PO/SPK dikonfirmasi, atau Ditolak.
+- Nomor quotation otomatis, masa berlaku, estimasi pengerjaan, ruang lingkup, syarat pembayaran, dan riwayat revisi.
+- Cetak quotation melalui browser ke PDF. Harga internal, HPP, dan margin tidak ditampilkan kepada pelanggan.
+- Persetujuan quotation tidak otomatis membuat proyek atau mencatat pendapatan; proyek baru dibuat/ditautkan setelah PO/SPK dikonfirmasi.
 - Quotation yang disetujui baru dikonversi menjadi proyek setelah Owner mengonfirmasi PO/SPK atau DP.
-- Data Costings disimpan di tab Google Sheets Costings dan hanya dapat diakses token Owner.
+- Data Costings disimpan di tab Google Sheets `Costings` dan hanya dapat diakses token Owner.
+
+### Project Cost Ledger
+- Biaya aktual per proyek disimpan di tab `Project_Costs`.
+- Catatan meliputi kategori, sumber internal/vendor, vendor, kuantitas, harga satuan, nominal, status pembayaran, referensi bukti, dan catatan.
+- Dashboard membandingkan HPP estimasi dengan biaya aktual tercatat. Varians biaya bukan otomatis laba bersih; pembayaran dan pendapatan harus direkonsiliasi di Finance.
+- Data hanya dapat diakses dan diubah oleh Owner.
 
 ### Pilar 1 — Leads CRM
 - Pencatatan calon klien dari WhatsApp, Instagram Ads, TikTok, dan Referensi

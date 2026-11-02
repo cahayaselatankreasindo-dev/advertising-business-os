@@ -75,8 +75,12 @@ var FIELD_MAP = {
     fields:  ["id", "date", "platform", "campaign", "budget", "spent", "leadsGenerated", "notes"]
   },
   Costings: {
-    headers: ["ID", "Tanggal", "Klien", "NamaPekerjaan", "ModelProduksi", "LeadID", "ItemsJSON", "BiayaLangsung", "OverheadPersen", "OverheadNominal", "CadanganPersen", "CadanganNominal", "HPP", "MarginPersen", "HargaPenawaran", "Status", "ProjectID", "Catatan"],
-    fields:  ["id", "date", "client", "title", "productionModel", "leadId", "itemsJson", "directCost", "overheadPct", "overheadAmount", "contingencyPct", "contingencyAmount", "hpp", "marginPct", "sellingPrice", "status", "projectId", "notes"]
+    headers: ["ID", "Tanggal", "Klien", "NamaPekerjaan", "ModelProduksi", "LeadID", "ItemsJSON", "BiayaLangsung", "OverheadPersen", "OverheadNominal", "CadanganPersen", "CadanganNominal", "HPP", "MarginPersen", "HargaPenawaran", "Status", "ProjectID", "Catatan", "NomorQuotation", "VersiQuotation", "MasaBerlakuHari", "WaktuPengerjaanHari", "SyaratPembayaran", "RuangLingkup", "DisetujuiPada", "POConfirmedAt", "RiwayatQuotationJSON", "DikirimPada"],
+    fields:  ["id", "date", "client", "title", "productionModel", "leadId", "itemsJson", "directCost", "overheadPct", "overheadAmount", "contingencyPct", "contingencyAmount", "hpp", "marginPct", "sellingPrice", "status", "projectId", "notes", "quoteNo", "quoteVersion", "validityDays", "deliveryDays", "paymentTerms", "scope", "approvedAt", "poConfirmedAt", "quoteHistoryJson", "sentAt"]
+  },
+  Project_Costs: {
+    headers: ["ID", "Tanggal", "ProjectID", "Kategori", "Sumber", "Deskripsi", "Vendor", "Qty", "HargaSatuan", "Nominal", "StatusPembayaran", "Referensi", "Catatan"],
+    fields:  ["id", "date", "projectId", "category", "source", "description", "vendor", "qty", "unitCost", "amount", "paymentStatus", "reference", "notes"]
   }
 };
 var RATING_REVIEW_SEP = " | ";
@@ -185,8 +189,9 @@ function setupSheet() {
   const marketingHeaders = ["ID", "Tanggal", "Platform", "Kampanye", "Budget", "Terpakai", "LeadsDihasilkan", "Catatan"];
   ensureSheet(ss, "Marketing_Spend", marketingHeaders);
 
-  // Tab baru: Costings (HPP & Quotation) — dibuat tanpa mengubah enam tab lama.
+  // Tab Commercial Engine dan Project Cost Ledger — tab lama tidak diubah.
   ensureSheet(ss, "Costings", FIELD_MAP.Costings.headers);
+  ensureSheet(ss, "Project_Costs", FIELD_MAP.Project_Costs.headers);
 
   // Migrasi skema: rapi-kan dulu kolom duplikat, lalu pastikan kolom kontrak ada.
   // Urutan penting: dedupe dulu (mis. "TANGGAL" & "Tanggal" dobel), baru tambah yang kurang.
@@ -468,6 +473,7 @@ function doGet(e) {
       memory: role === "owner" ? readSheetData(ss, "Memory") : [],
       marketingSpend: role === "owner" ? readSheetData(ss, "Marketing_Spend") : [],
       costings: role === "owner" ? readSheetData(ss, "Costings") : [],
+      projectCosts: role === "owner" ? readSheetData(ss, "Project_Costs") : [],
       deletedRecords: readDeletedRecords_(ss, role),
       lastSynced: new Date().toISOString(),
       role: role
@@ -525,6 +531,7 @@ function doPost(e) {
           if (payload.memory)         mergeSummary.Memory          = mergeSheet(ss, "Memory", payload.memory);
           if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
           if (payload.costings)      mergeSummary.Costings       = mergeSheet(ss, "Costings", payload.costings);
+          if (payload.projectCosts)  mergeSummary.Project_Costs  = mergeSheet(ss, "Project_Costs", payload.projectCosts);
         }
         // Otomasi hanya membuat Client/Project; tidak pernah mencatat pendapatan.
         autoTriggerPillars(ss);
