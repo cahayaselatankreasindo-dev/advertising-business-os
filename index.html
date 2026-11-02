@@ -343,6 +343,20 @@
         <div id="projects-container" class="space-y-3"></div>
       </section>
 
+      <section id="page-costings" class="page-content hidden space-y-5 pillar-finance">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"><div><span class="pillar-badge p2">Commercial Engine</span><h1 class="text-2xl font-bold font-heading text-slate-900">HPP & Quotation</h1><p class="text-sm text-slate-500">Kalkulasi biaya produksi hybrid dan penawaran B2B.</p></div><button onclick="resetCostingForm()" class="bg-amber-600 text-white text-sm font-semibold px-4 py-2 rounded-lg">+ Kalkulasi Baru</button></div>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3"><div class="bg-white border rounded-xl p-3"><div class="text-xs text-slate-500">Draft</div><div id="cost-stat-draft" class="text-2xl font-bold">0</div></div><div class="bg-white border rounded-xl p-3"><div class="text-xs text-slate-500">Dikirim</div><div id="cost-stat-sent" class="text-2xl font-bold">0</div></div><div class="bg-white border rounded-xl p-3"><div class="text-xs text-slate-500">Disetujui</div><div id="cost-stat-approved" class="text-2xl font-bold text-emerald-600">0</div></div><div class="bg-white border rounded-xl p-3"><div class="text-xs text-slate-500">Total HPP</div><div id="cost-stat-hpp" class="text-lg font-bold">Rp 0</div></div></div>
+        <div class="grid grid-cols-1 xl:grid-cols-5 gap-4">
+          <div class="xl:col-span-3 bg-white border rounded-xl p-4 space-y-4"><div class="flex justify-between"><h2 class="font-bold">Kalkulator biaya proyek</h2><span id="costing-id-label" class="text-xs text-slate-500">Baru</span></div><input type="hidden" id="costing-id">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><label class="text-xs font-semibold">Klien<input id="costing-client" list="costing-client-options" class="mt-1 w-full border rounded-lg p-2 text-sm"><datalist id="costing-client-options"></datalist></label><label class="text-xs font-semibold">Pekerjaan<input id="costing-title" class="mt-1 w-full border rounded-lg p-2 text-sm" placeholder="Rak display, booth, signage"></label><label class="text-xs font-semibold">Model produksi<select id="costing-model" class="mt-1 w-full border rounded-lg p-2 text-sm"><option value="hybrid">Hybrid</option><option value="internal">Internal</option><option value="vendor">Vendor</option></select></label><label class="text-xs font-semibold">Lead terkait<select id="costing-lead" class="mt-1 w-full border rounded-lg p-2 text-sm"><option value="">Tidak ditautkan</option></select></label></div>
+            <div class="flex justify-between"><h3 class="font-bold text-sm">Rincian biaya</h3><button onclick="addCostItem()" class="text-xs border border-amber-400 text-amber-700 rounded-lg px-3 py-2">+ Tambah biaya</button></div>
+            <div class="overflow-x-auto"><table class="w-full text-xs min-w-[540px]"><thead><tr class="text-left text-slate-500 border-b"><th>Komponen</th><th>Kelompok</th><th>Sumber</th><th>Qty</th><th>Harga/unit</th><th></th></tr></thead><tbody id="cost-items-body"></tbody></table></div>
+            <div class="grid grid-cols-3 gap-2"><label class="text-xs">Overhead %<input id="cost-overhead" type="number" min="0" max="100" value="5" class="mt-1 w-full border rounded p-2"></label><label class="text-xs">Cadangan %<input id="cost-contingency" type="number" min="0" max="100" value="3" class="mt-1 w-full border rounded p-2"></label><label class="text-xs">Margin %<input id="cost-margin" type="number" min="0" max="90" value="30" class="mt-1 w-full border rounded p-2"></label></div><label class="block text-xs">Catatan internal<textarea id="cost-notes" rows="2" class="mt-1 w-full border rounded p-2"></textarea></label><div class="flex flex-wrap gap-2"><button onclick="calculateCosting()" class="bg-slate-900 text-white rounded px-4 py-2 text-xs">Hitung HPP</button><button onclick="saveCosting()" class="bg-amber-600 text-white rounded px-4 py-2 text-xs">Simpan Draft</button><button onclick="clearCostingForm()" class="border rounded px-4 py-2 text-xs">Kosongkan</button></div>
+          </div>
+          <div class="xl:col-span-2 bg-slate-900 text-white rounded-xl p-4 space-y-3"><h2 class="font-bold">Ringkasan kalkulasi</h2><div class="flex justify-between text-xs"><span>Biaya langsung</span><b id="cost-direct">Rp 0</b></div><div class="flex justify-between text-xs"><span>Overhead</span><b id="cost-overhead-value">Rp 0</b></div><div class="flex justify-between text-xs"><span>Cadangan risiko</span><b id="cost-contingency-value">Rp 0</b></div><div class="border-t border-slate-700 pt-3 flex justify-between"><b>HPP total</b><b id="cost-hpp" class="text-amber-400">Rp 0</b></div><div class="flex justify-between text-xs"><span>Harga jual</span><b id="cost-selling">Rp 0</b></div><div class="flex justify-between text-xs"><span>Laba estimasi</span><b id="cost-profit">Rp 0</b></div><p class="text-[10px] text-slate-400">Margin adalah persentase dari harga jual.</p></div>
+        </div><div class="bg-white border rounded-xl overflow-hidden"><div class="p-4 border-b font-bold text-sm">Pipeline quotation</div><div id="costings-list" class="divide-y divide-slate-100"></div></div>
+      </section>
+
       <!-- 5. FINANCE (Pilar 2 — Jurnal Keuangan) -->
       <section id="page-finance" class="page-content hidden space-y-6 pillar-finance">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -555,6 +569,7 @@
       <button onclick="nav('leads')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
         <i class="fa fa-bullseye text-base mb-0.5"></i>Leads
       </button>
+      <button onclick="nav('costings')" class="mob-btn pillar-finance flex flex-col items-center text-[10px] text-slate-400"><i class="fa fa-calculator text-base mb-0.5"></i>HPP</button>
       <button onclick="nav('projects')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
         <i class="fa fa-briefcase text-base mb-0.5"></i>Proyek
       </button>
@@ -1073,6 +1088,7 @@
         lastSync: ''
       },
       deletedRecords: [],
+      costings: [],
       role: 'owner'
     };
 
@@ -1090,6 +1106,7 @@
           db.finance        = parsed.finance        || [];
           db.memory         = parsed.memory         || [];
           db.marketingSpend = parsed.marketingSpend || [];
+          db.costings = Array.isArray(parsed.costings) ? parsed.costings : [];
           db.deletedRecords = Array.isArray(parsed.deletedRecords) ? parsed.deletedRecords : [];
           db.settings       = parsed.settings       || { googleSheetUrl: '', lastSync: '' };
           db.role           = parsed.role           || 'owner';
@@ -1141,6 +1158,7 @@
       db.finance = (db.finance || []).filter(item => !deleted.has(deletionKey('Finance', item.id)));
       db.memory = (db.memory || []).filter(item => !deleted.has(deletionKey('Memory', item.id)));
       db.marketingSpend = (db.marketingSpend || []).filter(item => !deleted.has(deletionKey('Marketing_Spend', item.id)));
+      db.costings = (db.costings || []).filter(item => !deleted.has(deletionKey('Costings', item.id)));
     }
 
     function saveDB() {
@@ -1361,6 +1379,7 @@
       renderProjects();
       renderFinance();
       renderMarketing();
+      renderCostings();
       renderMemory();
       renderAnalysis();
       applyRoleUI();
@@ -2472,6 +2491,7 @@
           finance: db.finance,
           memory: db.memory,
           marketingSpend: db.marketingSpend,
+          costings: serverRole === 'owner' ? (db.costings || []) : undefined,
           deletedRecords: (db.deletedRecords || []).filter(item =>
             serverRole === 'owner' || ['Leads', 'Clients', 'Projects'].includes(item.sheet)
           )
@@ -2520,6 +2540,7 @@
         db.finance        = serverRole === 'owner' ? (d.finance || []) : [];
         db.memory         = serverRole === 'owner' ? (d.memory || []) : [];
         db.marketingSpend = serverRole === 'owner' ? (d.marketingSpend || []) : [];
+        db.costings = serverRole === 'owner' ? (d.costings || []) : [];
         if (serverRole === 'team') db.role = 'team';
         applyDeletedRecords();
         db.settings.lastSync = d.lastSynced || new Date().toISOString();
@@ -2559,6 +2580,7 @@
           db.finance = [];
           db.memory = [];
           db.marketingSpend = [];
+          db.costings = [];
         }
 
         // Gabungkan: cloud + lokal, dedupe by id (lokal menang jika sama)
@@ -2576,10 +2598,12 @@
           db.finance        = mergeById(d.finance, db.finance);
           db.memory         = mergeById(d.memory, db.memory);
           db.marketingSpend = mergeById(d.marketingSpend, db.marketingSpend);
+          db.costings = mergeById(d.costings, db.costings);
         } else {
           db.finance = [];
           db.memory = [];
           db.marketingSpend = [];
+          db.costings = [];
         }
         applyDeletedRecords();
         db.settings.lastSync = d.lastSynced || new Date().toISOString();
