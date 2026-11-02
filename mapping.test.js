@@ -212,17 +212,7 @@ if (FIELD_MAP) {
   eq(projectCostRow.length,13,'Project_Costs: jumlah kolom 13');
   eq(projectCostRow[9],1000000,'Project_Costs: nominal pada kolom J');
   eq(sandbox.rowToRecord('Project_Costs',projectCostRow,FIELD_MAP.Project_Costs.headers).amount,1000000,'Project_Costs: nominal terbaca kembali');
-  const costingRow = sandbox.recordToRow('Costings', {
-    id:'COST-ROW', date:'2026-11-02', client:'PT Retail', title:'Rak Display',
-    productionModel:'hybrid', leadId:'L-10', itemsJson:'[]', directCost:7000000,
-    overheadPct:5, overheadAmount:350000, contingencyPct:3, contingencyAmount:220500,
-    hpp:7570500, marginPct:30, sellingPrice:10815000, status:'draft',
-    projectId:'', notes:'uji mapping'
-  });
-  eq(costingRow.length, 18, 'Costings: jumlah kolom 18');
-  eq(costingRow[12], 7570500, 'Costings: HPP ditulis pada kolom ke-13');
-  eq(sandbox.rowToRecord('Costings', costingRow, FIELD_MAP.Costings.headers).sellingPrice, 10815000, 'Costings: harga penawaran dibaca kembali');
-}
+remove duplicate Costings test}
 
 // ---------- 6. Tes BACA (doGet): Sheet -> field HTML ----------
 function callDoGet(token = 'OWNER_TEST_TOKEN') {
