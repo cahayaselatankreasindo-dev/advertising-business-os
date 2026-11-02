@@ -3,7 +3,7 @@ const h=fs.readFileSync('index.html','utf8'),b=fs.readFileSync('google_apps_scri
 const s=h.indexOf('let db = {'),e=h.indexOf('// ============== CORE STATE',s),d=h.slice(s,e);
 for(const k of ['leads','clients','projects','finance','memory','marketingSpend','costings','projectCosts'])assert.match(d,new RegExp(k+':\\s*\\[\\s*\\]'));
 assert.doesNotMatch(d,/Kopi Sore|Bpk\\. Hendra|Ibu Maya|Dr\\. Dimas/);
-assert.match(h,/function archiveLegacyDemoSeeds\\(/);
+assert.ok(h.includes('function archiveLegacyDemoSeeds()'), 'legacy demo archive function exists');
 const a=h.indexOf('async function syncWithGoogle'),z=h.indexOf('async function pullData',a),sync=h.slice(a,z);
 assert.ok(sync.indexOf("serverRole !== 'owner' && serverRole !== 'team'")<sync.indexOf('await fetch(url'));
 const da=h.indexOf('async function deleteOnCloud'),dz=h.indexOf('function deleteLead',da),del=h.slice(da,dz);
