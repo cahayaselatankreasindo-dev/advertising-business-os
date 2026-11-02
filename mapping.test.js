@@ -376,6 +376,35 @@ eq(sheets['Leads'].rows.length, beforeDel - 1, 'delete: jumlah baris berkurang 1
 const delRes2 = callDoPost({ action: 'delete', sheet: 'Leads', id: 'TIDAK-ADA-XYZ' });
 eq(delRes2.status, 'success', 'delete: ID tidak ada tetap success (idempoten)');
 
+// Tombstone: stale sync tidak boleh menghidupkan kembali data yang sudah dihapus.
+const staleLead = {
+  id: 'L-CAPS', date: '2026-10-09', name: 'PT Test Caps Stale', phone: '0899',
+  source: 'Referral', value: 5000000, status: 'new', notes: 'stale local copy',
+  email: 'pic@testcaps.co.id', website: 'https://testcaps.co.id', industry: 'Retail',
+  pic: 'Siti', picTitle: 'Store Dev Manager', linkedin: 'https://linkedin.com/in/siti', score: 90
+};
+const staleSync = callDoPost({ action: 'sync_all', leads: [staleLead] });
+eq(staleSync.status, 'success', 'tombstone: stale sync diterima dengan aman');
+eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'L-CAPS'), false, 'tombstone: lead terhapus tidak muncul kembali');
+eq(sheets['_CSK_Deleted'].rows.filter(r => String(r[0]) === 'Leads' && String(r[1]) === 'L-CAPS').length, 1, 'tombstone: satu catatan penghapusan dibuat');
+const getAfterDelete = callDoGet();
+eq(!!getAfterDelete.data.deletedRecords.find(r => r.sheet === 'Leads' && r.id === 'L-CAPS'), true, 'tombstone: GET mengembalikan catatan penghapusan');
+callDoPost({ action: 'delete', sheet: 'Leads', id: 'L-CAPS' });
+eq(sheets['_CSK_Deleted'].rows.filter(r => String(r[0]) === 'Leads' && String(r[1]) === 'L-CAPS').length, 1, 'tombstone: penghapusan berulang tidak menggandakan ledger');
+
+// Finance deletion is protected by the same ledger.
+callDoPost({ action: 'sync_all', finance: [{
+  id: 'F-DELETE-TEST', date: '2026-10-09', type: 'expense', category: 'Test',
+  amount: 100, description: 'delete regression'
+}] });
+eq(callDoPost({ action: 'delete', sheet: 'Finance', id: 'F-DELETE-TEST' }).status, 'success', 'tombstone: Owner dapat menghapus Finance');
+callDoPost({ action: 'sync_all', finance: [{
+  id: 'F-DELETE-TEST', date: '2026-10-09', type: 'expense', category: 'Test',
+  amount: 100, description: 'stale finance'
+}] });
+eq(!!sheets['Finance'].rows.find(r => String(r[0]) === 'F-DELETE-TEST'), false, 'tombstone: Finance yang dihapus tidak muncul kembali');
+eq(!!callDoGet().data.deletedRecords.find(r => r.sheet === 'Finance' && r.id === 'F-DELETE-TEST'), true, 'tombstone: Finance deletion disertakan pada GET');
+
 // ---------- 9e. Tes KEAMANAN: token Owner/Tim, fail-closed, dan izin server ----------
 delete _props['OWNER_API_TOKEN'];
 delete _props['TEAM_API_TOKEN'];
@@ -414,6 +443,12 @@ eq(teamSync.status, 'success', 'auth: Tim boleh sync modul operasional');
 eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'TEAM-LEAD'), true, 'auth: data Leads Tim tersimpan');
 eq(sheets['Finance'].rows.length, financeRowsBeforeTeamSync, 'auth: sync Tim tidak mengubah Finance');
 eq(!!sheets['Finance'].rows.find(r => String(r[0]) === 'TEAM-FIN'), false, 'auth: sync Tim mengabaikan Finance');
+const teamTombstone = callDoPost({
+  action: 'sync_all', token: 'TEAM_TEST_TOKEN',
+  deletedRecords: [{ sheet: 'Finance', id: 'F1', deletedAt: '2026-10-09' }]
+});
+eq(teamTombstone.status, 'success', 'auth: sync tombstone Tim tetap berjalan');
+eq(!!sheets['_CSK_Deleted'].rows.find(r => String(r[0]) === 'Finance' && String(r[1]) === 'F1'), false, 'auth: Tim tidak dapat menghapus Finance lewat sync payload');
 
 eq(callDoPost({ action: 'delete', token: 'TEAM_TEST_TOKEN', sheet: 'Finance', id: 'F1' }).status, 'error', 'auth: Tim tidak boleh menghapus Finance');
 eq(callDoPost({ action: 'insert', token: 'TEAM_TEST_TOKEN', sheet: 'Finance', data: { id: 'TEAM-FIN-INSERT' } }).status, 'error', 'auth: Tim tidak boleh insert Finance');

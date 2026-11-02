@@ -127,6 +127,7 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 - ✅ doPost mendukung aksi: `sync_all`, `insert`, `update_status`
 - ✅ doGet membatasi data sesuai role server; Finance/Memory/Marketing hanya untuk Owner
 - ✅ API fail-closed saat token belum dikonfigurasi
+- ✅ Tombstone ledger `_CSK_Deleted` mencegah data terhapus muncul kembali setelah stale sync
 - ✅ POST no-cors memakai Content-Type text/plain agar tidak memicu preflight
 - ✅ Tampilan tidak mengklaim push/email berhasil hanya dari respons no-cors
 - ✅ UI 5 pilar terpadu dengan badge penanda pilar

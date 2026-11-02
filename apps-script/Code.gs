@@ -397,6 +397,53 @@ function forbiddenResponse(message) {
   return jsonResponse({ status: "error", message: message || "Role ini tidak memiliki izin untuk operasi tersebut." });
 }
 
+// ============== SOFT DELETE / TOMBSTONE LEDGER ==============
+var DELETION_LEDGER_SHEET = "_CSK_Deleted";
+var DELETION_LEDGER_HEADERS = ["Sheet", "ID", "DeletedAt"];
+
+function ensureDeletionLedger_(ss) {
+  return ensureSheet(ss, DELETION_LEDGER_SHEET, DELETION_LEDGER_HEADERS);
+}
+
+function readDeletedRecords_(ss, role) {
+  var sheet = ss.getSheetByName(DELETION_LEDGER_SHEET);
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+  var rows = sheet.getDataRange().getValues();
+  var allowed = role === "owner" ? Object.keys(FIELD_MAP) : ["Leads", "Clients", "Projects"];
+  var result = [];
+  for (var i = 1; i < rows.length; i++) {
+    var sheetName = String(rows[i][0] || "").trim();
+    var id = String(rows[i][1] || "").trim();
+    if (!sheetName || !id || allowed.indexOf(sheetName) === -1) continue;
+    result.push({ sheet: sheetName, id: id, deletedAt: rows[i][2] || "" });
+  }
+  return result;
+}
+
+function recordDeletedRecord_(ss, sheetName, id) {
+  if (!FIELD_MAP[sheetName]) throw new Error("Tab tidak dikenal untuk penghapusan: " + sheetName);
+  id = String(id === undefined || id === null ? "" : id).trim();
+  if (!id) throw new Error("ID penghapusan tidak boleh kosong.");
+  var ledger = ensureDeletionLedger_(ss);
+  var values = ledger.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][0]).trim() === sheetName && String(values[i][1]).trim() === id) {
+      return { inserted: false, sheet: sheetName, id: id };
+    }
+  }
+  ledger.appendRow([sheetName, id, new Date().toISOString()]);
+  return { inserted: true, sheet: sheetName, id: id };
+}
+
+function getDeletedRecordSet_(ss, sheetName) {
+  var records = readDeletedRecords_(ss, "owner");
+  var deleted = {};
+  records.forEach(function (record) {
+    if (record.sheet === sheetName) deleted[String(record.id)] = true;
+  });
+  return deleted;
+}
+
 // ============== GET — TARIK DATA SEMUA TAB ==============
 
 function doGet(e) {
@@ -413,6 +460,7 @@ function doGet(e) {
       finance: role === "owner" ? readSheetData(ss, "Finance") : [],
       memory: role === "owner" ? readSheetData(ss, "Memory") : [],
       marketingSpend: role === "owner" ? readSheetData(ss, "Marketing_Spend") : [],
+      deletedRecords: readDeletedRecords_(ss, role),
       lastSynced: new Date().toISOString(),
       role: role
     };
@@ -442,6 +490,25 @@ function doPost(e) {
       // Aman: lead yang sudah ada di Sheets tetap tersimpan; hanya ditambah/diupdate.
       case "sync_all": {
         var mergeSummary = {};
+        var deletionSummary = { inserted: 0, skipped: 0 };
+        (payload.deletedRecords || []).forEach(function (record) {
+          if (!record || !record.sheet || record.id === undefined || record.id === null) {
+            deletionSummary.skipped++;
+            return;
+          }
+          if (!isSheetAllowedForRole_(role, record.sheet)) {
+            deletionSummary.skipped++;
+            return;
+          }
+          var saved = recordDeletedRecord_(ss, record.sheet, record.id);
+          if (saved.inserted) deletionSummary.inserted++;
+          else deletionSummary.skipped++;
+          var targetSheet = ss.getSheetByName(record.sheet);
+          if (targetSheet) {
+            var targetRow = findRowById(targetSheet, record.id);
+            if (targetRow > 1) targetSheet.deleteRow(targetRow);
+          }
+        });
         if (payload.leads)    mergeSummary.Leads    = mergeSheet(ss, "Leads", payload.leads);
         if (payload.clients)  mergeSummary.Clients  = mergeSheet(ss, "Clients", payload.clients);
         if (payload.projects) mergeSummary.Projects = mergeSheet(ss, "Projects", payload.projects);
@@ -452,7 +519,7 @@ function doPost(e) {
         }
         // Otomasi hanya membuat Client/Project; tidak pernah mencatat pendapatan.
         autoTriggerPillars(ss);
-        return jsonResponse({ status: "success", message: "Data di-merge sesuai hak akses (tidak ada yang dihapus)", role: role, summary: mergeSummary });
+        return jsonResponse({ status: "success", message: "Data di-merge sesuai hak akses; penghapusan dilindungi tombstone.", role: role, summary: mergeSummary, deletions: deletionSummary });
       }
 
       // --- delete: hapus 1 baris berdasarkan ID (dipakai tombol hapus di app) ---
@@ -463,6 +530,8 @@ function doPost(e) {
         if (!delId) throw new Error("Parameter id diperlukan untuk aksi delete.");
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
+        // Simpan tombstone SEBELUM menghapus baris agar stale sync tidak dapat memulihkannya.
+        recordDeletedRecord_(ss, sheetName, delId);
         const rowNum = findRowById(sheet, delId);
         if (rowNum === -1) {
           return jsonResponse({ status: "success", message: "Baris " + delId + " tidak ada (sudah terhapus)." });
@@ -479,6 +548,9 @@ function doPost(e) {
           throw new Error("Parameter sheet dan data.id diperlukan untuk aksi insert.");
         }
         if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh menambahkan data " + sheetName + ".");
+        if (FIELD_MAP[sheetName] && getDeletedRecordSet_(ss, sheetName)[String(data.id)]) {
+          throw new Error("ID ini sudah dihapus. Gunakan ID baru untuk membuat record baru.");
+        }
         ensureSheet(ss, sheetName, FIELD_MAP[sheetName] ? FIELD_MAP[sheetName].headers : []);
         if (FIELD_MAP[sheetName]) {
           insertRecord(ss, sheetName, data);
@@ -911,7 +983,21 @@ function mergeSheet(ss, sheetName, items) {
   }
 
   items = items || [];
-  var result = { inserted: 0, updated: 0, skipped: 0, total: items.length };
+  var result = { inserted: 0, updated: 0, skipped: 0, deleted: 0, total: items.length };
+  var deletedIds = getDeletedRecordSet_(ss, sheetName);
+
+  // Hapus baris lama yang sudah memiliki tombstone, termasuk jika payload kosong.
+  var existingLastRow = sheet.getLastRow();
+  if (existingLastRow > 1 && Object.keys(deletedIds).length) {
+    var existingIds = sheet.getRange(2, 1, existingLastRow - 1, 1).getValues();
+    for (var di = existingIds.length - 1; di >= 0; di--) {
+      var existingId = String(existingIds[di][0] || "").trim();
+      if (deletedIds[existingId]) {
+        sheet.deleteRow(di + 2);
+        result.deleted++;
+      }
+    }
+  }
   if (items.length === 0) return result;
 
   var lastRow = sheet.getLastRow();
@@ -955,6 +1041,7 @@ function mergeSheet(ss, sheetName, items) {
   items.forEach(function (item) {
     var id = String(item.id === undefined || item.id === null ? "" : item.id).trim();
     if (id === "") { result.skipped++; return; }
+    if (deletedIds[id]) { result.skipped++; return; }
 
     var newRow = buildRow(item);
 

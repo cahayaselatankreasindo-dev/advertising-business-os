@@ -1072,6 +1072,7 @@
         googleSheetUrl: 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec',
         lastSync: ''
       },
+      deletedRecords: [],
       role: 'owner'
     };
 
@@ -1089,6 +1090,7 @@
           db.finance        = parsed.finance        || [];
           db.memory         = parsed.memory         || [];
           db.marketingSpend = parsed.marketingSpend || [];
+          db.deletedRecords = Array.isArray(parsed.deletedRecords) ? parsed.deletedRecords : [];
           db.settings       = parsed.settings       || { googleSheetUrl: '', lastSync: '' };
           db.role           = parsed.role           || 'owner';
         } catch (e) {
@@ -1105,7 +1107,45 @@
       applyRoleUI();
     }
 
+    function deletionKey(sheet, id) {
+      return String(sheet || '') + '::' + String(id == null ? '' : id);
+    }
+
+    function addLocalDeletion(sheet, id) {
+      if (!Array.isArray(db.deletedRecords)) db.deletedRecords = [];
+      const key = deletionKey(sheet, id);
+      if (!db.deletedRecords.some(item => deletionKey(item.sheet, item.id) === key)) {
+        db.deletedRecords.push({ sheet: sheet, id: String(id), deletedAt: new Date().toISOString() });
+      }
+    }
+
+    function mergeDeletedRecords(serverRecords, localRecords) {
+      const map = new Map();
+      (serverRecords || []).concat(localRecords || []).forEach(item => {
+        if (!item || !item.sheet || item.id === undefined || item.id === null) return;
+        const key = deletionKey(item.sheet, item.id);
+        if (!map.has(key)) map.set(key, {
+          sheet: String(item.sheet),
+          id: String(item.id),
+          deletedAt: item.deletedAt || new Date().toISOString()
+        });
+      });
+      return Array.from(map.values());
+    }
+
+    function applyDeletedRecords() {
+      const deleted = new Set((db.deletedRecords || []).map(item => deletionKey(item.sheet, item.id)));
+      db.leads = (db.leads || []).filter(item => !deleted.has(deletionKey('Leads', item.id)));
+      db.clients = (db.clients || []).filter(item => !deleted.has(deletionKey('Clients', item.id)));
+      db.projects = (db.projects || []).filter(item => !deleted.has(deletionKey('Projects', item.id)));
+      db.finance = (db.finance || []).filter(item => !deleted.has(deletionKey('Finance', item.id)));
+      db.memory = (db.memory || []).filter(item => !deleted.has(deletionKey('Memory', item.id)));
+      db.marketingSpend = (db.marketingSpend || []).filter(item => !deleted.has(deletionKey('Marketing_Spend', item.id)));
+    }
+
     function saveDB() {
+      if (!Array.isArray(db.deletedRecords)) db.deletedRecords = [];
+      applyDeletedRecords();
       localStorage.setItem(DB_KEY, JSON.stringify(db));
       renderAll();
       // Auto-sync in background if cloud URL is active
@@ -1897,6 +1937,7 @@
     async function deleteOnCloud(sheetName, id) {
       const url = db.settings && db.settings.googleSheetUrl;
       if (!url || !getApiToken()) return;
+      if (serverRole !== 'owner' && !['Leads', 'Clients', 'Projects'].includes(sheetName)) return;
       try {
         await fetch(url, {
           method: 'POST',
@@ -1911,7 +1952,8 @@
 
     function deleteLead(id) {
       if (confirm('Yakin ingin menghapus lead ini?')) {
-        db.leads = db.leads.filter(l => l.id !== id);
+        addLocalDeletion('Leads', id);
+        db.leads = db.leads.filter(l => String(l.id) !== String(id));
         saveDB();
         deleteOnCloud('Leads', id);
         showToast('Lead dihapus.');
@@ -1940,7 +1982,8 @@
 
     function deleteClient(id) {
       if (confirm('Hapus klien ini?')) {
-        db.clients = db.clients.filter(c => c.id !== id);
+        addLocalDeletion('Clients', id);
+        db.clients = db.clients.filter(c => String(c.id) !== String(id));
         saveDB();
         deleteOnCloud('Clients', id);
         showToast('Klien dihapus.');
@@ -1979,7 +2022,8 @@
 
     function deleteProject(id) {
       if (confirm('Hapus proyek ini?')) {
-        db.projects = db.projects.filter(p => p.id !== id);
+        addLocalDeletion('Projects', id);
+        db.projects = db.projects.filter(p => String(p.id) !== String(id));
         saveDB();
         deleteOnCloud('Projects', id);
         showToast('Proyek dihapus.');
@@ -2130,8 +2174,10 @@
 
     function deleteFinance(id) {
       if (confirm('Hapus transaksi ini?')) {
-        db.finance = db.finance.filter(f => f.id !== id);
+        addLocalDeletion('Finance', id);
+        db.finance = db.finance.filter(f => String(f.id) !== String(id));
         saveDB();
+        deleteOnCloud('Finance', id);
         showToast('Transaksi dihapus.');
       }
     }
@@ -2157,8 +2203,10 @@
 
     function deleteMarketing(id) {
       if (confirm('Hapus campaign ini?')) {
-        db.marketingSpend = db.marketingSpend.filter(m => m.id !== id);
+        addLocalDeletion('Marketing_Spend', id);
+        db.marketingSpend = db.marketingSpend.filter(m => String(m.id) !== String(id));
         saveDB();
+        deleteOnCloud('Marketing_Spend', id);
         showToast('Campaign dihapus.');
       }
     }
@@ -2181,8 +2229,10 @@
 
     function deleteMemory(id) {
       if (confirm('Hapus catatan ini?')) {
-        db.memory = db.memory.filter(m => m.id !== id);
+        addLocalDeletion('Memory', id);
+        db.memory = db.memory.filter(m => String(m.id) !== String(id));
         saveDB();
+        deleteOnCloud('Memory', id);
         showToast('Catatan dihapus.');
       }
     }
@@ -2243,7 +2293,10 @@
           projects: db.projects,
           finance: db.finance,
           memory: db.memory,
-          marketingSpend: db.marketingSpend
+          marketingSpend: db.marketingSpend,
+          deletedRecords: (db.deletedRecords || []).filter(item =>
+            serverRole === 'owner' || ['Leads', 'Clients', 'Projects'].includes(item.sheet)
+          )
         };
 
         await fetch(url, {
@@ -2282,6 +2335,7 @@
 
         const d = json.data;
         serverRole = d.role || json.role || 'team';
+        db.deletedRecords = mergeDeletedRecords(d.deletedRecords, db.deletedRecords);
         db.leads          = d.leads          || [];
         db.clients        = d.clients        || [];
         db.projects       = d.projects       || [];
@@ -2289,6 +2343,7 @@
         db.memory         = serverRole === 'owner' ? (d.memory || []) : [];
         db.marketingSpend = serverRole === 'owner' ? (d.marketingSpend || []) : [];
         if (serverRole === 'team') db.role = 'team';
+        applyDeletedRecords();
         db.settings.lastSync = d.lastSynced || new Date().toISOString();
 
         localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -2296,6 +2351,7 @@
         applyRoleUI();
         updateCloudIndicator();
         renderAll();
+        if (db.deletedRecords.length) syncWithGoogle(true);
         showToast('Data berhasil ditarik dari cloud! (' + new Date().toLocaleTimeString('id-ID') + ')');
       } catch (err) {
         showToast('Gagal menarik data: ' + err.message, true);
@@ -2315,7 +2371,11 @@
         const json = await resp.json();
         if (json.status !== 'success' || !json.data) return;
         const d = json.data;
+        const serverDeletedRecords = Array.isArray(d.deletedRecords) ? d.deletedRecords : [];
+        const localDeletedRecords = Array.isArray(db.deletedRecords) ? db.deletedRecords.slice() : [];
+        const serverDeletedKeys = new Set(serverDeletedRecords.map(item => deletionKey(item.sheet, item.id)));
         serverRole = d.role || json.role || 'team';
+        db.deletedRecords = mergeDeletedRecords(serverDeletedRecords, localDeletedRecords);
         if (serverRole === 'team') {
           db.role = 'team';
           db.finance = [];
@@ -2343,6 +2403,7 @@
           db.memory = [];
           db.marketingSpend = [];
         }
+        applyDeletedRecords();
         db.settings.lastSync = d.lastSynced || new Date().toISOString();
 
         localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -2350,6 +2411,13 @@
         applyRoleUI();
         renderAll();
         updateCloudIndicator();
+
+        localDeletedRecords.forEach(item => {
+          if (!serverDeletedKeys.has(deletionKey(item.sheet, item.id)) &&
+              (serverRole === 'owner' || ['Leads', 'Clients', 'Projects'].includes(item.sheet))) {
+            deleteOnCloud(item.sheet, item.id);
+          }
+        });
       } catch (err) {
         // Diamkan — offline tidak boleh mengganggu aplikasi
         console.warn('pullAndMerge gagal (offline?):', err.message);
