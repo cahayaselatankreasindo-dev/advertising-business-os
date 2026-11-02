@@ -1,0 +1,15 @@
+const fs=require('node:fs');const assert=require('node:assert/strict');
+const h=fs.readFileSync('index.html','utf8'),b=fs.readFileSync('google_apps_script.js','utf8');
+const s=h.indexOf('let db = {'),e=h.indexOf('// ============== CORE STATE',s),d=h.slice(s,e);
+for(const k of ['leads','clients','projects','finance','memory','marketingSpend','costings','projectCosts'])assert.match(d,new RegExp(k+':\\s*\\[\\s*\\]'));
+assert.doesNotMatch(d,/Kopi Sore|Bpk\\. Hendra|Ibu Maya|Dr\\. Dimas/);
+assert.match(h,/function archiveLegacyDemoSeeds\\(/);
+const a=h.indexOf('async function syncWithGoogle'),z=h.indexOf('async function pullData',a),sync=h.slice(a,z);
+assert.ok(sync.indexOf("serverRole !== 'owner' && serverRole !== 'team'")<sync.indexOf('await fetch(url'));
+const da=h.indexOf('async function deleteOnCloud'),dz=h.indexOf('function deleteLead',da),del=h.slice(da,dz);
+assert.ok(del.indexOf("serverRole !== 'owner' && serverRole !== 'team'")<del.indexOf('await fetch(url'));
+assert.ok(b.includes('previousRow && previousRow[columnIndex] !== undefined'));
+assert.ok(h.includes('function printQuotation')&&h.includes('function confirmQuotationPO')&&h.includes('function saveProjectCost'));
+const p=h.slice(h.indexOf('function printQuotation'),h.indexOf('function updateCostingStatus'));
+for(const key of ['record.hpp','record.marginPct','record.directCost','record.itemsJson'])assert.ok(!p.includes(key),'customer quotation leaks '+key);
+console.log('UI and first-run safety contract passed');
