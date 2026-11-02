@@ -1,0 +1,44 @@
+name: CSK Business OS Regression
+
+on:
+  push:
+    branches:
+      - fix/phase-1-access-control
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check Apps Script backend syntax
+        run: node --check google_apps_script.js
+      - name: Check inline frontend JavaScript syntax
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const vm = require('node:vm');
+          const html = fs.readFileSync('index.html', 'utf8');
+          const scripts = [...html.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)];
+          let checked = 0;
+          for (const match of scripts) {
+            if (/\\bsrc\\s*=/.test(match[1]) || !match[2].trim()) continue;
+            new vm.Script(match[2], { filename: 'index.inline.js' });
+            checked++;
+          }
+          if (checked === 0) throw new Error('No inline JavaScript found');
+          console.log('Inline scripts checked:', checked);
+          NODE
+      - name: Run backend regression suite
+        run: node mapping.test.js
