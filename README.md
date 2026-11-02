@@ -16,7 +16,6 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - Nomor quotation otomatis, masa berlaku, estimasi pengerjaan, ruang lingkup, syarat pembayaran, dan riwayat revisi.
 - Cetak quotation melalui browser ke PDF. Harga internal, HPP, dan margin tidak ditampilkan kepada pelanggan.
 - Persetujuan quotation tidak otomatis membuat proyek atau mencatat pendapatan; proyek baru dibuat/ditautkan setelah PO/SPK dikonfirmasi.
-- Quotation yang disetujui baru dikonversi menjadi proyek setelah Owner mengonfirmasi PO/SPK atau DP.
 - Data Costings disimpan di tab Google Sheets `Costings` dan hanya dapat diakses token Owner.
 
 ### Project Cost Ledger
@@ -24,6 +23,11 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - Catatan meliputi kategori, sumber internal/vendor, vendor, kuantitas, harga satuan, nominal, status pembayaran, referensi bukti, dan catatan.
 - Dashboard membandingkan HPP estimasi dengan biaya aktual tercatat. Varians biaya bukan otomatis laba bersih; pembayaran dan pendapatan harus direkonsiliasi di Finance.
 - Data hanya dapat diakses dan diubah oleh Owner.
+
+### Project Cost Ledger
+- Biaya aktual per proyek disimpan pada tab `Project_Costs` dan hanya dapat diakses Owner.
+- Catatan mencakup kategori, sumber internal/vendor, vendor, kuantitas, harga satuan, nominal, status pembayaran, referensi bukti, dan catatan.
+- Varians HPP terhadap biaya aktual adalah kontrol biaya, bukan laba bersih. Pendapatan, piutang, dan pembayaran harus direkonsiliasi terpisah di Finance.
 
 ### Pilar 1 — Leads CRM
 - Pencatatan calon klien dari WhatsApp, Instagram Ads, TikTok, dan Referensi
@@ -127,7 +131,7 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 
 ---
 
-## 📂 Struktur Database (5 Pilar)
+## 📂 Struktur Database (8 tab operasional + ledger penghapusan)
 
 | Pilar | Tab Google Sheets | Kolom Kunci |
 |-------|-------------------|-------------|
@@ -138,6 +142,14 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 | **Marketing Spend** | Marketing_Spend *(baru)* | ID, Tanggal, Platform, Kampanye, Budget, Terpakai, LeadsDihasilkan, Catatan |
 
 ---
+
+## 🔧 Changelog v3.0 — branch pengembangan
+
+- Commercial Engine HPP & Quotation dengan margin berbasis harga jual.
+- Metadata quotation, versi revisi, masa berlaku, ruang lingkup, syarat pembayaran, dan cetak customer-facing.
+- Persetujuan quotation dipisahkan dari konfirmasi PO/SPK.
+- Project Cost Ledger untuk biaya aktual internal dan vendor.
+- Costings dan Project_Costs dibatasi server untuk Owner.
 
 ## 🔧 Changelog v2.0
 

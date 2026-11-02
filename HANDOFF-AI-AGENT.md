@@ -16,7 +16,7 @@ Tiga bagian:
 |---|---|---|
 | Frontend (UI) | 1 file HTML + Tailwind CDN + Chart.js | `index.html` (repo, auto-deploy GitHub Pages) |
 | Backend (API) | Google Apps Script | `google_apps_script.js` → deploy ke Apps Script |
-| Database | Google Sheets (7 tab, termasuk Costings) | spreadsheet "Database CSK Business OS" |
+| Database | Google Sheets (8 tab operasional, termasuk Costings dan Project_Costs) | spreadsheet "Database CSK Business OS" |
 
 **Repo GitHub:** `cahayaselatankreasindo-dev/advertising-business-os` (branch `main`)
 **Folder kerja:** `E:\THE SCALES ADVERTISING\advertising-business-os`
@@ -66,6 +66,8 @@ Ini yang menghapus 247 lead IndoBuildTech user.
 akan gagal kalau dikembalikan (itu memang sengaja).
 
 ### 2.3 Skema Sheet = FIELD_MAP (single source of truth)
+
+Tab operasional tambahan: `Costings` untuk HPP/quotation dan `Project_Costs` untuk biaya aktual. Keduanya Owner-only. Persetujuan quotation tidak otomatis membuat proyek; proyek dibuat/ditautkan setelah konfirmasi PO/SPK. Biaya aktual tidak otomatis membuat transaksi Finance.
 
 `FIELD_MAP` di `google_apps_script.js` memetakan header Sheet ↔ field HTML (camelCase).
 **Header-aware** — dipetakan by NAMA kolom, bukan posisi (tahan beda huruf besar/kecil).
