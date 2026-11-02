@@ -212,7 +212,6 @@ if (FIELD_MAP) {
   eq(projectCostRow.length,13,'Project_Costs: jumlah kolom 13');
   eq(projectCostRow[9],1000000,'Project_Costs: nominal pada kolom J');
   eq(sandbox.rowToRecord('Project_Costs',projectCostRow,FIELD_MAP.Project_Costs.headers).amount,1000000,'Project_Costs: nominal terbaca kembali');
-remove duplicate Costings test}
 
 // ---------- 6. Tes BACA (doGet): Sheet -> field HTML ----------
 function callDoGet(token = 'OWNER_TEST_TOKEN') {
