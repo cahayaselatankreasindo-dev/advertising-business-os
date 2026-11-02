@@ -1,0 +1,21 @@
+const fs=require('node:fs');
+const vm=require('node:vm');
+const html=fs.readFileSync('index.html','utf8');
+const match=html.match(/function calculateProjectInvoiceSummary\(project, finance, type\) \{[\s\S]*?\n    \}/);
+if(!match)throw new Error('calculateProjectInvoiceSummary not found');
+const calculate=vm.runInNewContext('('+match[0].trim()+')');
+let passed=0;
+function eq(actual,expected,label){if(actual!==expected)throw new Error(label+': expected '+expected+', got '+actual);passed++;}
+const project={id:'P-100',value:10000000};
+eq(calculate(project,[],'dp').billAmount,5000000,'DP invoice without receipts');
+eq(calculate(project,[],'pelunasan').billAmount,10000000,'final invoice without receipts');
+const paidDp=[{type:'income',projectId:'P-100',amount:5000000}];
+eq(calculate(project,paidDp,'dp').billAmount,0,'DP invoice already fully received');
+eq(calculate(project,paidDp,'pelunasan').billAmount,5000000,'final invoice subtracts DP received');
+const partial=[{type:'income',projectId:'P-100',amount:2000000},{type:'income',projectId:'OTHER',amount:3000000}];
+eq(calculate(project,partial,'dp').billAmount,3000000,'DP invoice subtracts only linked receipts');
+eq(calculate(project,partial,'pelunasan').billAmount,8000000,'final invoice subtracts only linked receipts');
+const overpaid=[{type:'income',projectId:'P-100',amount:11000000}];
+eq(calculate(project,overpaid,'pelunasan').billAmount,0,'overpaid project has no remaining invoice');
+eq(calculate(project,paidDp,'penawaran').billAmount,10000000,'quotation shows contract value independent of receipts');
+console.log('Invoice calculation tests passed:',passed);

@@ -24,11 +24,6 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - Dashboard membandingkan HPP estimasi dengan biaya aktual tercatat. Varians biaya bukan otomatis laba bersih; pembayaran dan pendapatan harus direkonsiliasi di Finance.
 - Data hanya dapat diakses dan diubah oleh Owner.
 
-### Project Cost Ledger
-- Biaya aktual per proyek disimpan pada tab `Project_Costs` dan hanya dapat diakses Owner.
-- Catatan mencakup kategori, sumber internal/vendor, vendor, kuantitas, harga satuan, nominal, status pembayaran, referensi bukti, dan catatan.
-- Varians HPP terhadap biaya aktual adalah kontrol biaya, bukan laba bersih. Pendapatan, piutang, dan pembayaran harus direkonsiliasi terpisah di Finance.
-
 ### Pilar 1 — Leads CRM
 - Pencatatan calon klien dari WhatsApp, Instagram Ads, TikTok, dan Referensi
 - Tombol **Direct WhatsApp Chat** dan konversi 1-klik menjadi Klien + Proyek
@@ -94,9 +89,10 @@ Ketika status Lead diubah menjadi **Deal Menang**, sistem akan secara otomatis:
 
 Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 
-- **Kirim (Push)**: setiap perubahan di aplikasi otomatis tersinkron ke Google Sheets (sync_all)
-- **Tarik (Pull)**: tombol **"Tarik Data"** di Dashboard mengambil data terbaru dari cloud dan menimpa penyimpanan lokal
-- **Catatan**: Pull bersifat *server overwrites local* — pastikan perubahan lokal sudah disinkronkan terlebih dahulu
+- **Kirim (Push)**: perubahan lokal dikirim setelah token diverifikasi server sebagai Owner atau Tim. Saat role belum diverifikasi, push dan delete cloud ditahan.
+- **Tarik & Gabungkan**: saat aplikasi dibuka, data cloud dan lokal digabung berdasarkan ID; data contoh lama yang dikenali dipindahkan ke cadangan lokal sebelum dikeluarkan dari data aktif.
+- **Tarik Data**: tindakan manual menimpa data lokal dengan data server setelah konfirmasi. Ekspor backup terlebih dahulu jika ada perubahan lokal yang belum tersinkron.
+- **Verifikasi**: request POST memakai `no-cors`, sehingga browser tidak dapat memastikan hasil server; tarik data kembali untuk memeriksa hasil sinkronisasi.
 
 ---
 
@@ -136,18 +132,24 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 | Pilar | Tab Google Sheets | Kolom Kunci |
 |-------|-------------------|-------------|
 | **Leads CRM** | Leads | ID, Tanggal, Nama, WA, Sumber, EstimasiNilai, Status, Catatan |
-| **Financial Journal** | Finance | ID, Tanggal, Tipe, Kategori, Nominal, Keterangan |
+| **Financial Journal** | Finance | ID, Tanggal, Tipe, Kategori, Nominal, Keterangan, ProjectID |
 | **Production Projects** | Projects | ID, NamaProyek, Klien, Nilai, Status, Deadline, Catatan, **SOP_Checklist** |
 | **Product-Market Fit** | Clients | ID, NamaKlien, WA, TotalProyek, TotalBelanja, Catatan, **Rating_Review** |
-| **Marketing Spend** | Marketing_Spend *(baru)* | ID, Tanggal, Platform, Kampanye, Budget, Terpakai, LeadsDihasilkan, Catatan |
+| **Marketing Spend** | Marketing_Spend | ID, Tanggal, Platform, Kampanye, Budget, Terpakai, LeadsDihasilkan, Catatan |
+| **HPP & Quotation** | Costings | ID, klien, pekerjaan, komponen, HPP, harga penawaran, status, versi, PO/SPK |
+| **Biaya Aktual Proyek** | Project_Costs | ID, ProjectID, kategori, sumber, vendor, qty, harga satuan, nominal, status pembayaran, referensi |
 
 ---
 
 ## 🔧 Changelog v3.0 — branch pengembangan
 
 - Commercial Engine HPP & Quotation dengan margin berbasis harga jual.
+- Finance ProjectID mendukung rekonsiliasi pembayaran per proyek.
+- Header migration mempertahankan kolom duplikat dan kolom tanpa judul melalui rename non-destruktif.
 - Metadata quotation, versi revisi, masa berlaku, ruang lingkup, syarat pembayaran, dan cetak customer-facing.
-- Persetujuan quotation dipisahkan dari konfirmasi PO/SPK.
+- Persetujuan quotation dipisahkan dari konfirmasi PO/SPK; proyek hasil PO ditautkan ke Lead agar auto-trigger tidak membuat proyek ganda.
+- Finance memiliki tautan opsional ProjectID untuk menghitung DP dan sisa pelunasan berdasarkan penerimaan aktual.
+- Migrasi header duplikat/kolom tanpa judul tidak menghapus kolom; header legacy diberi nama agar seluruh nilai tetap utuh.
 - Project Cost Ledger untuk biaya aktual internal dan vendor.
 - Costings dan Project_Costs dibatasi server untuk Owner.
 

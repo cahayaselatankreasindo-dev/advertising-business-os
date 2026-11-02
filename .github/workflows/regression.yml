@@ -42,6 +42,8 @@ jobs:
           NODE
       - name: Run HPP calculation tests
         run: node costing.test.js
+      - name: Run invoice payment reconciliation tests
+        run: node invoice.test.js
       - name: Run UI and first-run safety tests
         run: node ui-contract.test.js
       - name: Verify Apps Script mirror

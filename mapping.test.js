@@ -180,6 +180,18 @@ if (FIELD_MAP) {
   eq(FIELD_MAP.Projects.fields,
     ['id','title','client','value','status','deadline','notes','sopChecklist','pic'],
     'FIELD_MAP.Projects.fields memuat pic');
+  eq(FIELD_MAP.Finance.headers,
+    ['ID','Tanggal','Tipe','Kategori','Nominal','Keterangan','ProjectID'],
+    'FIELD_MAP.Finance.headers memuat tautan ProjectID');
+  eq(FIELD_MAP.Finance.fields,
+    ['id','date','type','category','amount','description','projectId'],
+    'FIELD_MAP.Finance.fields memuat projectId');
+  const linkedFinanceRow=sandbox.recordToRow('Finance',{
+    id:'F-LINK',date:'2026-11-03',type:'income',category:'DP Proyek',
+    amount:5000000,description:'DP Proyek P1',projectId:'P1'
+  });
+  eq(linkedFinanceRow[6],'P1','Finance: ProjectID ditulis di kolom G');
+  eq(sandbox.rowToRecord('Finance',linkedFinanceRow,FIELD_MAP.Finance.headers).projectId,'P1','Finance: ProjectID terbaca kembali');
   eq(FIELD_MAP.Costings.headers,
     ['ID','Tanggal','Klien','NamaPekerjaan','ModelProduksi','LeadID','ItemsJSON','BiayaLangsung','OverheadPersen','OverheadNominal','CadanganPersen','CadanganNominal','HPP','MarginPersen','HargaPenawaran','Status','ProjectID','Catatan','NomorQuotation','VersiQuotation','MasaBerlakuHari','WaktuPengerjaanHari','SyaratPembayaran','RuangLingkup','DisetujuiPada','POConfirmedAt','RiwayatQuotationJSON','DikirimPada'],
     'FIELD_MAP.Costings.headers sesuai kontrak quotation');
@@ -245,7 +257,7 @@ const postRes = callDoPost({
   leads: [{ id: 'L9', date: '2026-09-10', name: 'Sari', phone: '082', source: 'WA', value: 1500000, status: 'new', notes: 'n' }],
   clients: [{ id: 'C9', name: 'Sari', phone: '082', projectsCount: 0, totalSpend: 0, notes: '', rating: 4, review: 'Bagus' }],
   projects: [{ id: 'P9', title: 'Logo', client: 'Sari', value: 1500000, status: 'plan', deadline: '2026-09-30', notes: '', sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0', pic: 'Beni' }],
-  finance: [{ id: 'F9', date: '2026-09-10', type: 'expense', category: 'Operasional', amount: 100000, description: 'd' }],
+  finance: [{ id: 'F9', date: '2026-09-10', type: 'expense', category: 'Operasional', amount: 100000, description: 'd', projectId: 'P9' }],
   memory: [{ id: 'M9', date: '2026-09-10', category: 'SOP', title: 't', content: 'c' }],
   marketingSpend: [{ id: 'K9', date: '2026-09-10', platform: 'TikTok Ads', campaign: 'k', budget: 200000, spent: 100000, leadsGenerated: 5, notes: '' }],
   costings: [{ id: 'COST-OWNER-1', date: '2026-11-03', client: 'PT Retail', title: 'Rak Display', productionModel: 'hybrid', leadId: 'L9', itemsJson: '[]', directCost: 7000000, overheadPct: 5, overheadAmount: 350000, contingencyPct: 3, contingencyAmount: 220500, hpp: 7570500, marginPct: 30, sellingPrice: 10815000, status: 'draft', projectId: '', notes: '', quoteNo: 'QUO-CSK-202611-COSTOWN1', quoteVersion: 1, validityDays: 14, deliveryDays: 21, paymentTerms: 'DP 50%', scope: 'Rak display', approvedAt: '', poConfirmedAt: '', quoteHistoryJson: '[]', sentAt: '' }],
@@ -273,6 +285,8 @@ eq(newProjRow[8], 'Beni', 'sync new Project: pic di kolom I (PIC_Tim)');
 
 const newFinRow = findRow('Finance', 'F9');
 eq(newFinRow[4], 100000, 'sync new Finance: Nominal di kolom E');
+eq(newFinRow[6], 'P9', 'sync new Finance: ProjectID di kolom G');
+eq(callDoGet().data.finance.find(f => f.id === 'F9').projectId, 'P9', 'doGet Finance: ProjectID terbaca');
 
 const newMkRow = findRow('Marketing_Spend', 'K9');
 eq(newMkRow[6], 5, 'sync new Marketing: LeadsDihasilkan di kolom G');
@@ -367,17 +381,19 @@ eq(gotB2B.pic, 'Budi Santoso', 'doGet: PIC -> pic');
 eq(gotB2B.picTitle, 'Procurement Manager', 'doGet: JabatanPIC -> picTitle');
 eq(gotB2B.score, 85, 'doGet: SkorPrioritas -> score');
 
-// ---------- 9c. Kasus NYATA: header HURUF BESAR + kolom duplikat ----------
-// Ganti sheet "Leads" dengan versi header HURUF BESAR + kolom duplikat
-// (persis kondisi sheet user). Sistem harus: dedupe + tetap tulis kolom benar.
+// ---------- 9c. Migrasi header duplikat/kosong TANPA kehilangan data ----------
 sheets['Leads'] = makeSheet([
-  'ID','TANGGAL','Nama','Whatsapp','SUMBER','ESTIMASINILAI','STATUS','CATATAN',   // asli (HURUF BESAR)
-  'Tanggal','WhatsApp','Sumber','EstimasiNilai','Status','Catatan',               // duplikat (campur)
-  'Email','Website','Industri','PIC','JabatanPIC','LinkedIn','SkorPrioritas'      // B2B
+  'ID','TANGGAL','Nama','Whatsapp','SUMBER','ESTIMASINILAI','STATUS','CATATAN',
+  'Tanggal','WhatsApp','Sumber','EstimasiNilai','Status','Catatan',
+  'Email','Website','Industri','PIC','JabatanPIC','LinkedIn','SkorPrioritas',''
 ]);
-sheets['Leads'].appendRow(['L-OLD','2026-09-01','Budi','081','IG',8000000,'won','ok','','','','','','','','','','','','','']);
+sheets['Leads'].appendRow([
+  'L-OLD','2026-09-01','Budi','081','IG',8000000,'won','ok',
+  '2026-09-02','082','Referral',9000000,'nego','catatan tambahan',
+  'old@example.com','https://old.example','Retail','Siti','Buyer','https://linkedin.com/in/siti',85,
+  'nilai custom tanpa header'
+]);
 
-// Paksa dedupe + migrasi lewat setupSheet (pakai SpreadsheetApp stub yg sama)
 sandbox.setupSheet();
 eq(!!sheets['Costings'], true, 'setupSheet: tab Costings dibuat');
 eq(sheets['Costings'].rows[0].join('|'), FIELD_MAP.Costings.headers.join('|'), 'setupSheet: header Costings sesuai kontrak');
@@ -385,17 +401,17 @@ eq(!!sheets['Project_Costs'], true, 'setupSheet: tab Project_Costs dibuat');
 eq(sheets['Project_Costs'].rows[0].join('|'), FIELD_MAP.Project_Costs.headers.join('|'), 'setupSheet: header Project_Costs sesuai kontrak');
 
 const h2 = sheets['Leads'].rows[0].map(h => String(h).trim().toLowerCase());
-const dupCount = h2.filter(x => x === 'tanggal').length;
-eq(dupCount, 1, 'dedupe: kolom "TANGGAL/Tanggal" jadi 1 (tidak duplikat)');
-eq(h2.filter(x => x === 'sumber').length, 1, 'dedupe: kolom "SUMBER/Sumber" jadi 1');
-eq(h2.filter(x => x === 'whatsapp').length, 1, 'dedupe: kolom "WhatsApp" jadi 1');
+eq(h2.filter(x => x === 'tanggal').length, 1, 'header utama TANGGAL tetap satu');
+eq(h2.filter(x => x === 'tanggal__legacy_2').length, 1, 'duplikat Tanggal diberi nama legacy');
+eq(h2.filter(x => x === 'whatsapp__legacy_2').length, 1, 'duplikat WhatsApp diberi nama legacy');
+eq(h2.filter(x => x === 'csk_legacy_column_22').length, 1, 'header kosong diberi nama legacy');
 
-// Data lama harus tetap ada setelah dedupe
 const oldRow2 = sheets['Leads'].rows.find(r => String(r[0]) === 'L-OLD');
-eq(!!oldRow2, true, 'dedupe: baris lama L-OLD tetap ada');
-eq(oldRow2[2], 'Budi', 'dedupe: data kolom Nama tidak rusak');
+eq(oldRow2[2], 'Budi', 'migrasi: data kolom Nama tetap ada');
+eq(oldRow2[h2.indexOf('tanggal__legacy_2')], '2026-09-02', 'migrasi: nilai tanggal duplikat tetap ada');
+eq(oldRow2[h2.indexOf('whatsapp__legacy_2')], '082', 'migrasi: nilai WhatsApp duplikat tetap ada');
+eq(oldRow2[h2.indexOf('csk_legacy_column_22')], 'nilai custom tanpa header', 'migrasi: data pada kolom tanpa header tetap ada');
 
-// Tulis lead baru dgn header HURUF BESAR -> harus masuk kolom yang benar
 callDoPost({ action: 'sync_all', leads: [{
   id: 'L-CAPS', date: '2026-10-09', name: 'PT Test Caps', phone: '0899',
   source: 'Referral', value: 5000000, status: 'new', notes: 'catatan caps',
@@ -404,13 +420,11 @@ callDoPost({ action: 'sync_all', leads: [{
 }] });
 const capsRow = sheets['Leads'].rows.find(r => String(r[0]) === 'L-CAPS');
 const idx = (n) => h2.indexOf(n);
-eq(capsRow[idx('email')], 'pic@testcaps.co.id', 'CAPS: Email masuk kolom Email (header huruf besar)');
+eq(capsRow[idx('email')], 'pic@testcaps.co.id', 'CAPS: Email masuk kolom Email');
 eq(capsRow[idx('website')], 'https://testcaps.co.id', 'CAPS: Website masuk kolom Website');
 eq(capsRow[idx('industri')], 'Retail', 'CAPS: Industri masuk kolom Industri');
 eq(capsRow[idx('pic')], 'Siti', 'CAPS: PIC masuk kolom PIC');
 eq(capsRow[idx('skorprioritas')], 90, 'CAPS: SkorPrioritas masuk kolom SkorPrioritas');
-
-// doGet harus baca benar meski header huruf besar
 const gotCaps = callDoGet().data.leads.find(l => String(l.id) === 'L-CAPS');
 eq(gotCaps.email, 'pic@testcaps.co.id', 'CAPS doGet: email terbaca benar');
 eq(gotCaps.picTitle, 'Store Dev Manager', 'CAPS doGet: picTitle terbaca benar');

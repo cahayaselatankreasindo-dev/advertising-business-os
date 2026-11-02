@@ -63,8 +63,8 @@ var FIELD_MAP = {
     fields:  ["id", "title", "client", "value", "status", "deadline", "notes", "sopChecklist", "pic"]
   },
   Finance: {
-    headers: ["ID", "Tanggal", "Tipe", "Kategori", "Nominal", "Keterangan"],
-    fields:  ["id", "date", "type", "category", "amount", "description"]
+    headers: ["ID", "Tanggal", "Tipe", "Kategori", "Nominal", "Keterangan", "ProjectID"],
+    fields:  ["id", "date", "type", "category", "amount", "description", "projectId"]
   },
   Memory: {
     headers: ["ID", "Tanggal", "Kategori", "Judul", "Isi"],
@@ -193,8 +193,8 @@ function setupSheet() {
   ensureSheet(ss, "Costings", FIELD_MAP.Costings.headers);
   ensureSheet(ss, "Project_Costs", FIELD_MAP.Project_Costs.headers);
 
-  // Migrasi skema: rapi-kan dulu kolom duplikat, lalu pastikan kolom kontrak ada.
-  // Urutan penting: dedupe dulu (mis. "TANGGAL" & "Tanggal" dobel), baru tambah yang kurang.
+  // Migrasi skema non-destruktif: header duplikat/kosong diberi nama legacy.
+  // Kolom dan nilai tetap dipertahankan; kolom kontrak yang kurang ditambah di kanan.
   Object.keys(FIELD_MAP).forEach(function (name) {
     dedupeHeaders(ss, name);
   });
@@ -269,42 +269,38 @@ function ensureAllHeaders(ss, sheetName) {
 // Menyimpan kemunculan PERTAMA saja; kolom duplikat dihapus.
 // Sekaligus merapikan urutan jadi persis FIELD_MAP.headers (jika tab kontrak).
 // Aman: data kolom yang dipertahankan ikut dipindah, isi tidak hilang.
+// Normalize duplicate/blank headers without deleting or moving any column.
+// Duplicate columns are renamed __LEGACY_N; blank headers get CSK_Legacy_Column_N.
 function dedupeHeaders(ss, sheetName) {
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() === 0) return 0;
-
   var lastCol = sheet.getLastColumn();
-  if (lastCol <= 1) return 0;
+  if (lastCol <= 0) return 0;
 
   var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-  var seen = {};
-  var keepCols = []; // index kolom (0-based) yang dipertahankan
-
-  headerRow.forEach(function (h, i) {
-    var key = String(h).trim().toLowerCase();
-    if (key === "") return;                 // kolom tanpa judul -> buang
-    if (seen[key]) return;                  // duplikat -> buang
-    seen[key] = true;
-    keepCols.push(i);
+  var used = {};
+  var renamed = 0;
+  headerRow.forEach(function (header, index) {
+    var original = String(header == null ? "" : header).trim();
+    var candidate = original;
+    if (!original) {
+      candidate = "CSK_Legacy_Column_" + (index + 1);
+    } else if (used[original.toLowerCase()]) {
+      var suffix = 2;
+      candidate = original + "__LEGACY_" + suffix;
+      while (used[candidate.toLowerCase()]) {
+        suffix++;
+        candidate = original + "__LEGACY_" + suffix;
+      }
+    }
+    used[candidate.toLowerCase()] = true;
+    if (candidate !== original) {
+      sheet.getRange(1, index + 1).setValue(candidate);
+      renamed++;
+    }
   });
-
-  if (keepCols.length === lastCol) return 0; // tidak ada duplikat
-
-  // Ambil seluruh data, lalu tulis ulang hanya kolom yang dipertahankan.
-  var data = sheet.getDataRange().getValues();
-  var newRows = data.map(function (r) {
-    return keepCols.map(function (i) { return r[i]; });
-  });
-
-  sheet.clear();
-  sheet.getRange(1, 1, newRows.length, newRows[0].length).setValues(newRows);
-  sheet.getRange(1, 1, 1, newRows[0].length)
-    .setFontWeight("bold").setBackground("#1C2333").setFontColor("#FFFFFF");
-  sheet.setFrozenRows(1);
-
-  var removed = lastCol - keepCols.length;
-  Logger.log("dedupeHeaders[" + sheetName + "]: hapus " + removed + " kolom duplikat.");
-  return removed;
+  if (renamed) Logger.log("dedupeHeaders[" + sheetName + "]: rename " + renamed + " header; no columns or values deleted.");
+  return renamed;
 }
 
 function findRowById(sheet, id) {

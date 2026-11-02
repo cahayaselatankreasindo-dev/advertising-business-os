@@ -10,6 +10,10 @@ const da=h.indexOf('async function deleteOnCloud'),dz=h.indexOf('function delete
 assert.ok(del.indexOf("serverRole !== 'owner' && serverRole !== 'team'")<del.indexOf('await fetch(url'));
 assert.ok(b.includes('previousRow && previousRow[columnIndex] !== undefined'));
 assert.ok(h.includes('function printQuotation')&&h.includes('function confirmQuotationPO')&&h.includes('function saveProjectCost'));
+assert.ok(h.includes('function calculateProjectInvoiceSummary'), 'invoice summary helper exists');
+assert.ok(h.includes('id="fin-project"'), 'Finance form links receipts to projects');
+assert.ok(h.includes("const leadToken = '[LEAD-' + lead.id + ']'"), 'PO project receives stable Lead token');
+assert.ok(b.includes('"ProjectID"') && b.includes('"projectId"'), 'Finance backend maps ProjectID');
 const p=h.slice(h.indexOf('function printQuotation'),h.indexOf('function updateCostingStatus'));
 for(const key of ['record.hpp','record.marginPct','record.directCost','record.itemsJson'])assert.ok(!p.includes(key),'customer quotation leaks '+key);
 console.log('UI and first-run safety contract passed');
