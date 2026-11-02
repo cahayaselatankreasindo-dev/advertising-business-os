@@ -73,6 +73,10 @@ var FIELD_MAP = {
   Marketing_Spend: {
     headers: ["ID", "Tanggal", "Platform", "Kampanye", "Budget", "Terpakai", "LeadsDihasilkan", "Catatan"],
     fields:  ["id", "date", "platform", "campaign", "budget", "spent", "leadsGenerated", "notes"]
+  },
+  Costings: {
+    headers: ["ID", "Tanggal", "Klien", "NamaPekerjaan", "ModelProduksi", "LeadID", "ItemsJSON", "BiayaLangsung", "OverheadPersen", "OverheadNominal", "CadanganPersen", "CadanganNominal", "HPP", "MarginPersen", "HargaPenawaran", "Status", "ProjectID", "Catatan"],
+    fields:  ["id", "date", "client", "title", "productionModel", "leadId", "itemsJson", "directCost", "overheadPct", "overheadAmount", "contingencyPct", "contingencyAmount", "hpp", "marginPct", "sellingPrice", "status", "projectId", "notes"]
   }
 };
 var RATING_REVIEW_SEP = " | ";
@@ -180,6 +184,9 @@ function setupSheet() {
   // Tab baru: Marketing_Spend (Pilar Pemasaran)
   const marketingHeaders = ["ID", "Tanggal", "Platform", "Kampanye", "Budget", "Terpakai", "LeadsDihasilkan", "Catatan"];
   ensureSheet(ss, "Marketing_Spend", marketingHeaders);
+
+  // Tab baru: Costings (HPP & Quotation) — dibuat tanpa mengubah enam tab lama.
+  ensureSheet(ss, "Costings", FIELD_MAP.Costings.headers);
 
   // Migrasi skema: rapi-kan dulu kolom duplikat, lalu pastikan kolom kontrak ada.
   // Urutan penting: dedupe dulu (mis. "TANGGAL" & "Tanggal" dobel), baru tambah yang kurang.
@@ -460,6 +467,7 @@ function doGet(e) {
       finance: role === "owner" ? readSheetData(ss, "Finance") : [],
       memory: role === "owner" ? readSheetData(ss, "Memory") : [],
       marketingSpend: role === "owner" ? readSheetData(ss, "Marketing_Spend") : [],
+      costings: role === "owner" ? readSheetData(ss, "Costings") : [],
       deletedRecords: readDeletedRecords_(ss, role),
       lastSynced: new Date().toISOString(),
       role: role
@@ -516,6 +524,7 @@ function doPost(e) {
           if (payload.finance)        mergeSummary.Finance         = mergeSheet(ss, "Finance", payload.finance);
           if (payload.memory)         mergeSummary.Memory          = mergeSheet(ss, "Memory", payload.memory);
           if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
+          if (payload.costings)      mergeSummary.Costings       = mergeSheet(ss, "Costings", payload.costings);
         }
         // Otomasi hanya membuat Client/Project; tidak pernah mencatat pendapatan.
         autoTriggerPillars(ss);
