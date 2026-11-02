@@ -1,12 +1,20 @@
-# Advertising Business OS — 5 Pilar Terpadu (v2)
+# CSK Business OS — Commercial & Operations (v3)
 
 Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertising / CSK**
 
-> **Versi 2.1** — 5 Pilar Bisnis Terpadu dengan token Owner/Tim yang diverifikasi server, hak akses per modul, dan otomasi Deal yang tidak membuat pendapatan palsu.
+> **Versi 3.0 (pengembangan)** — lima pilar operasional ditambah Commercial Engine HPP & Quotation. Model operasi CSK: produksi hybrid (internal + vendor), owner-led, dan pemasaran hemat biaya (di bawah Rp1 juta/bulan).
 
 ---
 
 ## 📱 Fitur Utama Aplikasi
+
+### Commercial Engine — HPP & Quotation
+- Kalkulasi biaya material, tenaga internal, mesin, vendor, finishing, transportasi, dan instalasi.
+- Pemisahan sumber biaya internal dan vendor partner untuk model produksi hybrid.
+- Overhead, cadangan risiko, HPP, margin dari harga jual, dan pembulatan harga penawaran.
+- Pipeline quotation: Draft → Dikirim → Disetujui/Ditolak.
+- Quotation yang disetujui baru dikonversi menjadi proyek setelah Owner mengonfirmasi PO/SPK atau DP.
+- Data Costings disimpan di tab Google Sheets Costings dan hanya dapat diakses token Owner.
 
 ### Pilar 1 — Leads CRM
 - Pencatatan calon klien dari WhatsApp, Instagram Ads, TikTok, dan Referensi
@@ -15,7 +23,7 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 
 ### Pilar 2 — Financial Journal
 - Pencatatan DP Proyek, Pelunasan, Retainer Iklan, Expense, dll
-- **Auto-trigger**: saat lead berubah jadi Deal Menang, skrip otomatis membuat baris pendapatan di tab Finance (kategori *DP Proyek*)
+- Pencatatan DP, termin, pelunasan, dan pengeluaran hanya berdasarkan transaksi aktual yang sudah diterima/dibayarkan.
 
 ### Pilar 3 — Production Projects
 - Pelacakan deadline, status Brief/Pengerjaan/Review/Selesai
@@ -26,6 +34,11 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - Database klien tetap dengan riwayat kerja sama & LTV
 - **Rating bintang (1–5)** dan **review teks** per klien
 - Indikator PMF melalui repeat order dan kepuasan
+
+### Model Operasi CSK
+- **Produksi:** hybrid — biaya internal dan vendor dicatat terpisah pada setiap HPP.
+- **Tim:** owner-led — CRM menampilkan follow-up dan pipeline untuk membantu Owner mengelola proses penjualan.
+- **Marketing:** anggaran di bawah Rp1 juta/bulan — prioritaskan SEO lokal, Google Business Profile, konten portofolio, referral, dan outbound terarah; iklan berbayar harus dibatasi dan diukur.
 
 ### Pilar 5 — Marketing Spend
 - Catatan biaya iklan per platform (Meta Ads, TikTok, Google, LinkedIn)
@@ -53,7 +66,7 @@ Ketika status Lead diubah menjadi **Deal Menang**, sistem akan secara otomatis:
 2. ✅ Membuat antrean Project (status: plan, deadline +14 hari) dengan referensi Lead yang stabil; satu proyek manual yang cocok dengan klien dan nilai Lead akan ditautkan, bukan diduplikasi.
 3. ✅ Mencegah duplikasi Client/Project ketika sinkronisasi atau trigger berjalan berulang kali.
 
-**Penting untuk akurasi keuangan:** Deal Menang bukan bukti pembayaran. Sistem tidak membuat pendapatan otomatis. Owner mencatat DP/pelunasan di Finance setelah dana benar-benar diterima dan diverifikasi.
+**Penting untuk akurasi keuangan:** Deal Menang atau quotation disetujui bukan bukti pembayaran. Sistem tidak membuat pendapatan otomatis. Owner mencatat DP/termin/pelunasan di Finance setelah dana benar-benar diterima dan diverifikasi.
 
 ### Cara Mengaktifkan Auto-Trigger (Sekali Setup)
 

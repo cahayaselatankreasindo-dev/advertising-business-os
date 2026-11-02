@@ -169,8 +169,8 @@ const FIELD_MAP = sandbox.FIELD_MAP;
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
-    ['Clients','Finance','Leads','Marketing_Spend','Memory','Projects'].sort(),
-    'FIELD_MAP mencakup 6 tab');
+    ['Clients','Costings','Finance','Leads','Marketing_Spend','Memory','Projects'].sort(),
+    'FIELD_MAP mencakup 7 tab');
   eq(FIELD_MAP.Projects.headers,
     ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim'],
     'FIELD_MAP.Projects.headers = hasil Tahap 2 + PIC_Tim');
@@ -180,6 +180,22 @@ if (FIELD_MAP) {
   eq(FIELD_MAP.Projects.fields,
     ['id','title','client','value','status','deadline','notes','sopChecklist','pic'],
     'FIELD_MAP.Projects.fields memuat pic');
+  eq(FIELD_MAP.Costings.headers,
+    ['ID','Tanggal','Klien','NamaPekerjaan','ModelProduksi','LeadID','ItemsJSON','BiayaLangsung','OverheadPersen','OverheadNominal','CadanganPersen','CadanganNominal','HPP','MarginPersen','HargaPenawaran','Status','ProjectID','Catatan'],
+    'FIELD_MAP.Costings.headers sesuai kontrak HPP');
+  eq(FIELD_MAP.Costings.fields,
+    ['id','date','client','title','productionModel','leadId','itemsJson','directCost','overheadPct','overheadAmount','contingencyPct','contingencyAmount','hpp','marginPct','sellingPrice','status','projectId','notes'],
+    'FIELD_MAP.Costings.fields sesuai model aplikasi');
+  const costingRow = sandbox.recordToRow('Costings', {
+    id:'COST-ROW', date:'2026-11-02', client:'PT Retail', title:'Rak Display',
+    productionModel:'hybrid', leadId:'L-10', itemsJson:'[]', directCost:7000000,
+    overheadPct:5, overheadAmount:350000, contingencyPct:3, contingencyAmount:220500,
+    hpp:7570500, marginPct:30, sellingPrice:10815000, status:'draft',
+    projectId:'', notes:'uji mapping'
+  });
+  eq(costingRow.length, 18, 'Costings: jumlah kolom 18');
+  eq(costingRow[12], 7570500, 'Costings: HPP ditulis pada kolom ke-13');
+  eq(sandbox.rowToRecord('Costings', costingRow, FIELD_MAP.Costings.headers).sellingPrice, 10815000, 'Costings: harga penawaran dibaca kembali');
 }
 
 // ---------- 6. Tes BACA (doGet): Sheet -> field HTML ----------
@@ -216,6 +232,7 @@ const postRes = callDoPost({
   finance: [{ id: 'F9', date: '2026-09-10', type: 'expense', category: 'Operasional', amount: 100000, description: 'd' }],
   memory: [{ id: 'M9', date: '2026-09-10', category: 'SOP', title: 't', content: 'c' }],
   marketingSpend: [{ id: 'K9', date: '2026-09-10', platform: 'TikTok Ads', campaign: 'k', budget: 200000, spent: 100000, leadsGenerated: 5, notes: '' }],
+  costings: [{ id: 'COST-OWNER-1', date: '2026-11-02', client: 'PT Retail', title: 'Rak Display', productionModel: 'hybrid', leadId: 'L9', itemsJson: '[]', directCost: 7000000, overheadPct: 5, overheadAmount: 350000, contingencyPct: 3, contingencyAmount: 220500, hpp: 7570500, marginPct: 30, sellingPrice: 10815000, status: 'draft', projectId: '', notes: '' }]
 });
 eq(postRes.status, 'success', 'sync_all status success');
 
@@ -242,6 +259,11 @@ eq(newFinRow[4], 100000, 'sync new Finance: Nominal di kolom E');
 
 const newMkRow = findRow('Marketing_Spend', 'K9');
 eq(newMkRow[6], 5, 'sync new Marketing: LeadsDihasilkan di kolom G');
+const newCostRow = findRow('Costings', 'COST-OWNER-1');
+eq(!!newCostRow, true, 'sync new Costings: record HPP tersimpan');
+eq(newCostRow[12], 7570500, 'sync new Costings: nilai HPP tersimpan pada kolom M');
+eq(newCostRow[14], 10815000, 'sync new Costings: harga penawaran tersimpan pada kolom O');
+eq(callDoGet().data.costings.find(x => x.id === 'COST-OWNER-1').sellingPrice, 10815000, 'doGet Costings: harga penawaran terbaca');
 
 // Deal menang membuat Client/Project secara idempoten, bukan transaksi Finance.
 const financeBeforeWonAutomation = sheets['Finance'].rows.length;
@@ -334,6 +356,8 @@ sheets['Leads'].appendRow(['L-OLD','2026-09-01','Budi','081','IG',8000000,'won',
 
 // Paksa dedupe + migrasi lewat setupSheet (pakai SpreadsheetApp stub yg sama)
 sandbox.setupSheet();
+eq(!!sheets['Costings'], true, 'setupSheet: tab Costings dibuat');
+eq(sheets['Costings'].rows[0].join('|'), FIELD_MAP.Costings.headers.join('|'), 'setupSheet: header Costings sesuai kontrak');
 
 const h2 = sheets['Leads'].rows[0].map(h => String(h).trim().toLowerCase());
 const dupCount = h2.filter(x => x === 'tanggal').length;
@@ -437,12 +461,15 @@ const teamSync = callDoPost({
   leads: [{ id: 'TEAM-LEAD', date: '2026-10-09', name: 'Team Lead', phone: '', source: 'x', value: 0, status: 'new', notes: '' }],
   finance: [{ id: 'TEAM-FIN', date: '2026-10-09', type: 'income', category: 'x', amount: 999, description: 'unauthorized' }],
   memory: [{ id: 'TEAM-MEM', date: '2026-10-09', category: 'x', title: 'x', content: 'unauthorized' }],
-  marketingSpend: [{ id: 'TEAM-MKT', date: '2026-10-09', platform: 'x', campaign: 'x', budget: 1, spent: 1, leadsGenerated: 1, notes: '' }]
+  marketingSpend: [{ id: 'TEAM-MKT', date: '2026-10-09', platform: 'x', campaign: 'x', budget: 1, spent: 1, leadsGenerated: 1, notes: '' }],
+  costings: [{ id: 'TEAM-COST', date: '2026-11-02', client: 'x', title: 'x', hpp: 1, sellingPrice: 2 }]
 });
 eq(teamSync.status, 'success', 'auth: Tim boleh sync modul operasional');
 eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'TEAM-LEAD'), true, 'auth: data Leads Tim tersimpan');
 eq(sheets['Finance'].rows.length, financeRowsBeforeTeamSync, 'auth: sync Tim tidak mengubah Finance');
 eq(!!sheets['Finance'].rows.find(r => String(r[0]) === 'TEAM-FIN'), false, 'auth: sync Tim mengabaikan Finance');
+eq(!!sheets['Costings'].rows.find(r => String(r[0]) === 'TEAM-COST'), false, 'auth: sync Tim mengabaikan Costings');
+eq(callDoGet('TEAM_TEST_TOKEN').data.costings.length, 0, 'auth: GET Tim tidak mengembalikan Costings');
 const teamTombstone = callDoPost({
   action: 'sync_all', token: 'TEAM_TEST_TOKEN',
   deletedRecords: [{ sheet: 'Finance', id: 'F1', deletedAt: '2026-10-09' }]
@@ -462,6 +489,12 @@ const ownerSync = callDoPost({
 });
 eq(ownerSync.status, 'success', 'auth: Owner dapat sync Finance');
 eq(!!sheets['Finance'].rows.find(r => String(r[0]) === 'OWNER-FIN'), true, 'auth: data Finance Owner tersimpan');
+eq(callDoPost({ action: 'delete', token: 'OWNER_TEST_TOKEN', sheet: 'Costings', id: 'COST-OWNER-1' }).status, 'success', 'Costings: Owner dapat menghapus kalkulasi');
+callDoPost({
+  action: 'sync_all', token: 'OWNER_TEST_TOKEN',
+  costings: [{ id: 'COST-OWNER-1', date: '2026-11-02', client: 'PT Retail', title: 'Rak Display', productionModel: 'hybrid', leadId: 'L9', itemsJson: '[]', directCost: 7000000, overheadPct: 5, overheadAmount: 350000, contingencyPct: 3, contingencyAmount: 220500, hpp: 7570500, marginPct: 30, sellingPrice: 10815000, status: 'draft', projectId: '', notes: 'stale copy' }]
+});
+eq(!!sheets['Costings'].rows.find(r => String(r[0]) === 'COST-OWNER-1'), false, 'Costings: tombstone mencegah kalkulasi terhapus muncul kembali');
 
 _props['API_TOKEN'] = 'LEGACY_TOKEN';
 const generatedTokens = sandbox.setupApiTokens();

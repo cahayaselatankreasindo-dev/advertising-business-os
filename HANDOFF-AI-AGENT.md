@@ -16,13 +16,20 @@ Tiga bagian:
 |---|---|---|
 | Frontend (UI) | 1 file HTML + Tailwind CDN + Chart.js | `index.html` (repo, auto-deploy GitHub Pages) |
 | Backend (API) | Google Apps Script | `google_apps_script.js` → deploy ke Apps Script |
-| Database | Google Sheets (6 tab) | spreadsheet "Database CSK Business OS" |
+| Database | Google Sheets (7 tab, termasuk Costings) | spreadsheet "Database CSK Business OS" |
 
 **Repo GitHub:** `cahayaselatankreasindo-dev/advertising-business-os` (branch `main`)
 **Folder kerja:** `E:\THE SCALES ADVERTISING\advertising-business-os`
 **Folder lead-gen:** `C:\Users\<user>\CSK-Scraper\` (scripts/ + data/)
 
 ---
+
+## 1A. KONDISI OPERASIONAL CSK (KEPUTUSAN OWNER)
+
+- Model produksi: **hybrid** (produksi internal + vendor partner).
+- Kondisi tim: **owner-led** (Owner menangani sebagian besar penjualan dan koordinasi).
+- Anggaran marketing: **di bawah Rp1 juta per bulan**.
+- Implikasi: HPP wajib memisahkan biaya internal/vendor; proses sales harus ringan dan terukur; marketing mengutamakan SEO lokal, portofolio, referral, dan outbound terarah; hindari biaya tetap besar.
 
 ## 2. ARSITEKTUR KRITIS — WAJIB DIBACA SEBELUM UBAH APA PUN
 
