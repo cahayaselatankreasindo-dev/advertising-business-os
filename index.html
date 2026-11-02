@@ -1782,7 +1782,185 @@
       ).join('');
     }
 
+    // ============== HPP & QUOTATION — COSTING ENGINE ==============
+    let costingItems = [];
+    let lastCostingCalculation = null;
+
+    function makeCostItem(item) {
+      return {
+        id: item && item.id ? String(item.id) : 'CI-' + Date.now() + '-' + Math.random().toString(36).slice(2,7),
+        name: String(item && item.name || ''),
+        category: String(item && item.category || 'material'),
+        source: String(item && item.source || 'vendor'),
+        qty: Math.max(0, Number(item && item.qty) || 0),
+        unitCost: Math.max(0, Number(item && item.unitCost) || 0)
+      };
+    }
+
+    function addCostItem(item) {
+      costingItems.push(makeCostItem(item || {}));
+      renderCostItems();
+      calculateCosting();
+    }
+
+    function removeCostItem(id) {
+      costingItems = costingItems.filter(item => item.id !== id);
+      renderCostItems();
+      calculateCosting();
+    }
+
+    function updateCostItem(id, field, value) {
+      const item = costingItems.find(row => row.id === id);
+      if (!item) return;
+      if (field === 'name' || field === 'category' || field === 'source') item[field] = value;
+      else item[field] = Math.max(0, Number(value) || 0);
+      calculateCosting();
+    }
+
+    function renderCostItems() {
+      const body = document.getElementById('cost-items-body');
+      if (!body) return;
+      if (!costingItems.length) {
+        body.innerHTML = '<tr><td colspan="6" class="py-5 text-center text-slate-400">Belum ada komponen biaya. Tambahkan material, tenaga, vendor, finishing, atau logistik.</td></tr>';
+        return;
+      }
+      body.innerHTML = costingItems.map(item => {
+        const id = jsArg(item.id);
+        return '<tr class="border-b border-slate-100">' +
+          '<td class="py-2 pr-2"><input value="' + escapeHtml(item.name) + '" onchange="updateCostItem(' + id + ',\'name\',this.value)" class="w-36 border rounded p-1.5" placeholder="Nama biaya"></td>' +
+          '<td class="pr-2"><select onchange="updateCostItem(' + id + ',\'category\',this.value)" class="border rounded p-1.5"><option value="material" ' + (item.category==='material'?'selected':'') + '>Material</option><option value="labor" ' + (item.category==='labor'?'selected':'') + '>Tenaga</option><option value="machine" ' + (item.category==='machine'?'selected':'') + '>Mesin</option><option value="finishing" ' + (item.category==='finishing'?'selected':'') + '>Finishing</option><option value="transport" ' + (item.category==='transport'?'selected':'') + '>Transport</option><option value="installation" ' + (item.category==='installation'?'selected':'') + '>Instalasi</option><option value="other" ' + (item.category==='other'?'selected':'') + '>Lainnya</option></select></td>' +
+          '<td class="pr-2"><select onchange="updateCostItem(' + id + ',\'source\',this.value)" class="border rounded p-1.5"><option value="internal" ' + (item.source==='internal'?'selected':'') + '>Internal</option><option value="vendor" ' + (item.source==='vendor'?'selected':'') + '>Vendor</option></select></td>' +
+          '<td class="pr-2"><input type="number" min="0" step="0.01" value="' + item.qty + '" onchange="updateCostItem(' + id + ',\'qty\',this.value)" class="w-20 text-right border rounded p-1.5"></td>' +
+          '<td class="pr-2"><input type="number" min="0" step="1000" value="' + item.unitCost + '" onchange="updateCostItem(' + id + ',\'unitCost\',this.value)" class="w-28 text-right border rounded p-1.5"></td>' +
+          '<td><button onclick="removeCostItem(' + id + ')" class="text-red-500 px-2">×</button></td></tr>';
+      }).join('');
+    }
+
+    function calculateCosting() {
+      const directCost = costingItems.reduce((sum,item)=>sum+(Number(item.qty)||0)*(Number(item.unitCost)||0),0);
+      const overheadPct = Math.min(100,Math.max(0,Number(document.getElementById('cost-overhead')?.value)||0));
+      const contingencyPct = Math.min(100,Math.max(0,Number(document.getElementById('cost-contingency')?.value)||0));
+      const marginPct = Math.min(90,Math.max(0,Number(document.getElementById('cost-margin')?.value)||0));
+      const overheadAmount = Math.round(directCost*overheadPct/100);
+      const contingencyAmount = Math.round((directCost+overheadAmount)*contingencyPct/100);
+      const hpp = Math.round(directCost+overheadAmount+contingencyAmount);
+      const sellingPrice = marginPct >= 100 ? 0 : Math.ceil((hpp/(1-marginPct/100))/1000)*1000;
+      const profit = sellingPrice-hpp;
+      lastCostingCalculation = {directCost,overheadPct,overheadAmount,contingencyPct,contingencyAmount,hpp,marginPct,sellingPrice,profit};
+      const put=(id,value)=>{const el=document.getElementById(id);if(el)el.innerText=formatRp(value);};
+      put('cost-direct',directCost);put('cost-overhead-value',overheadAmount);put('cost-contingency-value',contingencyAmount);
+      put('cost-hpp',hpp);put('cost-selling',sellingPrice);put('cost-profit',profit);
+      return lastCostingCalculation;
+    }
+
+    function resetCostingForm() {
+      clearCostingForm();
+      const select=document.getElementById('costing-lead');
+      if(select) select.value='';
+      nav('costings');
+    }
+
+    function clearCostingForm() {
+      ['costing-id','costing-client','costing-title','costing-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+      const model=document.getElementById('costing-model');if(model)model.value='hybrid';
+      ['cost-overhead','cost-contingency','cost-margin'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=[5,3,30][i];});
+      costingItems=[];renderCostItems();calculateCosting();
+      const label=document.getElementById('costing-id-label');if(label)label.innerText='Baru';
+    }
+
+    function editCosting(id) {
+      const record=(db.costings||[]).find(item=>String(item.id)===String(id));
+      if(!record)return;
+      document.getElementById('costing-id').value=record.id;
+      document.getElementById('costing-id-label').innerText=record.id;
+      document.getElementById('costing-client').value=record.client||'';
+      document.getElementById('costing-title').value=record.title||'';
+      document.getElementById('costing-model').value=record.productionModel||'hybrid';
+      document.getElementById('costing-lead').value=record.leadId||'';
+      document.getElementById('cost-overhead').value=record.overheadPct||0;
+      document.getElementById('cost-contingency').value=record.contingencyPct||0;
+      document.getElementById('cost-margin').value=record.marginPct||0;
+      document.getElementById('cost-notes').value=record.notes||'';
+      try{costingItems=JSON.parse(record.itemsJson||'[]').map(makeCostItem);}catch(e){costingItems=[];}
+      renderCostItems();calculateCosting();nav('costings');
+    }
+
+    function saveCosting() {
+      const client=document.getElementById('costing-client').value.trim();
+      const title=document.getElementById('costing-title').value.trim();
+      if(!client||!title){showToast('Nama klien dan pekerjaan wajib diisi.',true);return;}
+      if(!costingItems.length){showToast('Tambahkan minimal satu komponen biaya.',true);return;}
+      if(costingItems.some(item=>!item.name.trim()||item.qty<=0||item.unitCost<0)){showToast('Periksa nama, kuantitas, dan harga setiap komponen.',true);return;}
+      const calc=calculateCosting();
+      if(calc.hpp<=0){showToast('HPP harus lebih besar dari nol.',true);return;}
+      const id=document.getElementById('costing-id').value||('COST-'+Date.now());
+      const existing=(db.costings||[]).find(item=>String(item.id)===String(id));
+      const record={
+        id,date:existing?.date||new Date().toISOString().slice(0,10),client,title,
+        productionModel:document.getElementById('costing-model').value,
+        leadId:document.getElementById('costing-lead').value,
+        itemsJson:JSON.stringify(costingItems),
+        directCost:calc.directCost,overheadPct:calc.overheadPct,overheadAmount:calc.overheadAmount,
+        contingencyPct:calc.contingencyPct,contingencyAmount:calc.contingencyAmount,
+        hpp:calc.hpp,marginPct:calc.marginPct,sellingPrice:calc.sellingPrice,
+        status:existing?.status||'draft',projectId:existing?.projectId||'',
+        notes:document.getElementById('cost-notes').value.trim()
+      };
+      if(!Array.isArray(db.costings))db.costings=[];
+      const index=db.costings.findIndex(item=>String(item.id)===String(id));
+      if(index>=0)db.costings[index]=record;else db.costings.unshift(record);
+      saveDB();renderCostings();showToast('Kalkulasi HPP dan draft quotation tersimpan.');
+    }
+
+    function updateCostingStatus(id,status) {
+      const record=(db.costings||[]).find(item=>String(item.id)===String(id));
+      if(!record)return;
+      if(status==='approved'&&!confirm('Tandai quotation disetujui dan buat proyek dari nilai penawaran ini?'))return;
+      record.status=status;
+      if(status==='approved'&&!record.projectId){
+        const projectId='PRJ-'+record.id;
+        const lead=(db.leads||[]).find(item=>String(item.id)===String(record.leadId));
+        db.projects.unshift({
+          id:projectId,title:record.title,client:record.client,value:Number(record.sellingPrice)||0,
+          status:'plan',deadline:'',notes:'Dibuat dari quotation '+record.id+'; HPP '+formatRp(record.hpp)+'; model '+record.productionModel,
+          sopChecklist:'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
+        });
+        record.projectId=projectId;
+        if(lead&&lead.status!=='won')lead.status='won';
+      }
+      saveDB();renderCostings();showToast('Status quotation diperbarui.');
+    }
+
+    function deleteCosting(id) {
+      if(!confirm('Hapus kalkulasi/quotation ini?'))return;
+      addLocalDeletion('Costings',id);
+      db.costings=(db.costings||[]).filter(item=>String(item.id)!==String(id));
+      saveDB();deleteOnCloud('Costings',id);renderCostings();showToast('Quotation dihapus.');
+    }
+
+    function renderCostings() {
+      if(!document.getElementById('costings-list'))return;
+      const items=db.costings||[];
+      const count=status=>items.filter(item=>item.status===status).length;
+      document.getElementById('cost-stat-draft').innerText=count('draft');
+      document.getElementById('cost-stat-sent').innerText=count('sent');
+      document.getElementById('cost-stat-approved').innerText=count('approved');
+      document.getElementById('cost-stat-hpp').innerText=formatRp(items.reduce((sum,item)=>sum+(Number(item.hpp)||0),0));
+      const leadSelect=document.getElementById('costing-lead');
+      const clientList=document.getElementById('costing-client-options');
+      if(leadSelect){const selected=leadSelect.value;leadSelect.innerHTML='<option value="">Tidak ditautkan</option>'+(db.leads||[]).map(l=>'<option value="'+escapeHtml(l.id)+'">'+escapeHtml(l.name)+' — '+escapeHtml(l.status)+'</option>').join('');leadSelect.value=selected;}
+      if(clientList)clientList.innerHTML=(db.clients||[]).map(c=>'<option value="'+escapeHtml(c.name)+'"></option>').join('');
+      const statusLabels={draft:'Draft',sent:'Dikirim',approved:'Disetujui',rejected:'Ditolak'};
+      document.getElementById('costings-list').innerHTML=items.length?items.map(item=>{
+        const status=item.status||'draft';
+        const color=status==='approved'?'text-emerald-700 bg-emerald-50':status==='rejected'?'text-red-700 bg-red-50':'text-amber-700 bg-amber-50';
+        return '<div class="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3"><div class="min-w-0"><div class="font-bold text-sm">'+escapeHtml(item.title)+'</div><div class="text-xs text-slate-500">'+escapeHtml(item.client)+' · '+escapeHtml(item.productionModel)+' · '+escapeHtml(item.date)+'</div><div class="text-xs mt-1">HPP '+formatRp(item.hpp)+' · Penawaran <b>'+formatRp(item.sellingPrice)+'</b> · Margin '+escapeHtml(item.marginPct)+'%</div><span class="inline-block mt-1 text-[10px] px-2 py-1 rounded '+color+'">'+statusLabels[status]+'</span></div><div class="flex flex-wrap gap-1"><button onclick="editCosting('+jsArg(item.id)+')" class="border rounded px-2 py-1 text-xs">Edit</button><button onclick="updateCostingStatus('+jsArg(item.id)+',\'sent\')" class="border rounded px-2 py-1 text-xs">Tandai dikirim</button><button onclick="updateCostingStatus('+jsArg(item.id)+',\'approved\')" class="border rounded px-2 py-1 text-xs">Setujui</button><button onclick="updateCostingStatus('+jsArg(item.id)+',\'rejected\')" class="border rounded px-2 py-1 text-xs">Tolak</button><button onclick="deleteCosting('+jsArg(item.id)+')" class="text-red-600 px-2 py-1 text-xs">Hapus</button></div></div>';
+      }).join(''):'<div class="p-6 text-center text-sm text-slate-400">Belum ada kalkulasi. Mulai dari biaya material, tenaga, vendor, finishing, transportasi, dan instalasi.</div>';
+    }
+
     // ============== ANALYSIS ==============
+
+
 
     function renderAnalysis() {
       const wonLeads = db.leads.filter(l => l.status === 'won');
