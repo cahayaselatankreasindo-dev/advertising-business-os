@@ -62,7 +62,7 @@ test('one accepted quotation maps to one invoice and document numbers stay uniqu
  state=ops.newInvoice(state,secondQuote.id,'INV-SECOND','2026-11-02','2026-11-15');
  assert.throws(()=>ops.update(state,'invoices',invoice.id,{number:'INV-SECOND'}),/nomor dokumen/i);
  assert.throws(()=>ops.update(state,'invoices',invoice.id,{amount:1}),/sesuai penawaran/i);
- assert.throws(()=>ops.update(state,'invoices',invoice.id,{quoteId:secondQuote.quotes[1].id}),/relasi invoice/i);
+ assert.throws(()=>ops.update(state,'invoices',invoice.id,{quoteId:secondQuote.id}),/relasi invoice/i);
 });
 
 
