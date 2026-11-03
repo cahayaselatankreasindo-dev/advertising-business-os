@@ -56,9 +56,10 @@ test('one accepted quotation maps to one invoice and document numbers stay uniqu
  state=ops.newInvoice(state,q.id,'INV-UNIQUE','2026-11-02','2026-11-15');
  const invoice=state.invoices[0];
  assert.throws(()=>ops.newInvoice(state,q.id,'INV-DUP','2026-11-02','2026-11-15'),/satu penawaran/i);
- const secondQuote=ops.quoteFromHpp(state,hpp,hppEngine,{id:'LEAD-2',name:'Brand Kedua'},{number:'CSK-Q-002',name:'Rak display',validUntil:'2026-11-30'});
- state=ops.update(state,'quotes',secondQuote.quotes[1].id,{status:'accepted'});
- state=ops.newInvoice(state,secondQuote.quotes[1].id,'INV-SECOND','2026-11-02','2026-11-15');
+ state=ops.quoteFromHpp(state,hpp,hppEngine,{id:'LEAD-2',name:'Brand Kedua'},{number:'CSK-Q-002',name:'Rak display',validUntil:'2026-11-30'});
+ const secondQuote=state.quotes[1];
+ state=ops.update(state,'quotes',secondQuote.id,{status:'accepted'});
+ state=ops.newInvoice(state,secondQuote.id,'INV-SECOND','2026-11-02','2026-11-15');
  assert.throws(()=>ops.update(state,'invoices',invoice.id,{number:'INV-SECOND'}),/nomor dokumen/i);
  assert.throws(()=>ops.update(state,'invoices',invoice.id,{amount:1}),/sesuai penawaran/i);
  assert.throws(()=>ops.update(state,'invoices',invoice.id,{quoteId:secondQuote.quotes[1].id}),/relasi invoice/i);
