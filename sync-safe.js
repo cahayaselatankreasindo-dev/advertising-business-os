@@ -310,16 +310,38 @@
         const remote = await readCloud(url, token);
         const foundConflicts = [];
         const nothingToDelete = [];
+        const alreadyApplied = [];
         Object.keys(DATA).forEach(area => {
           const onServer = byId(remote[area]);
           const base = baseline[area] || {};
-          Object.keys(work[area].upserts).concat(Object.keys(work[area].deletes)).forEach(id => {
+          Object.keys(work[area].upserts).forEach(id => {
             const now = onServer[id];
             const prior = base[id];
-            // Unknown server record or changed record -> never overwrite silently.
-            if ((now && (!prior || stableFingerprint(now) !== prior)) ||
-                (!now && !!prior)) foundConflicts.push(area + '/' + id);
-            if (!now && work[area].deletes[id]) nothingToDelete.push([area, id]);
+            // A previous POST may have committed while its readback failed. If the
+            // current cloud row already matches our queued desired state, reconcile
+            // it idempotently rather than misclassifying our own write as a conflict.
+            if (now && matchesWrittenRecord(area, work[area].upserts[id], now)) {
+              alreadyApplied.push({ area, id, record: work[area].upserts[id], remote: now });
+              return;
+            }
+            // Unknown or concurrently changed server record -> never overwrite silently.
+            if (now && (!prior || stableFingerprint(now) !== prior)) {
+              foundConflicts.push(area + '/' + id);
+            }
+            if (!now && !!prior) foundConflicts.push(area + '/' + id);
+          });
+          Object.keys(work[area].deletes).forEach(id => {
+            const now = onServer[id];
+            const prior = base[id];
+            // A missing row is already the desired state for a queued deletion,
+            // including after a partial commit or an interrupted readback.
+            if (!now) {
+              nothingToDelete.push([area, id]);
+              return;
+            }
+            if (!prior || stableFingerprint(now) !== prior) {
+              foundConflicts.push(area + '/' + id);
+            }
           });
         });
         if (foundConflicts.length) {
@@ -329,10 +351,19 @@
           return { status: 'conflict', conflicts: conflicts.slice(), pending: countPending() };
         }
 
+        for (const item of alreadyApplied) {
+          const current = queue[item.area].upserts[item.id];
+          if (current && JSON.stringify(current) === JSON.stringify(item.record)) {
+            delete queue[item.area].upserts[item.id];
+          }
+          if (!baseline[item.area]) baseline[item.area] = Object.create(null);
+          baseline[item.area][item.id] = stableFingerprint(item.remote);
+        }
         for (const [area, id] of nothingToDelete) {
           if (queue[area].deletes[id]) delete queue[area].deletes[id];
           if (baseline[area]) delete baseline[area][id];
         }
+        if (alreadyApplied.length || nothingToDelete.length) persist();
 
         const sentDeletes = [];
         for (const area of Object.keys(DATA)) {
