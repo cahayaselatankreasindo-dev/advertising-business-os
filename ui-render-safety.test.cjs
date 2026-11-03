@@ -8,6 +8,7 @@ const vm = require('node:vm');
 const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 const helper = html.match(/function escapeHTML\(value\) \{[\s\S]*?\n    \}/);
 assert.ok(helper, 'index.html must define the shared HTML escaping helper');
+assert.match(html, /Token disimpan di browser ini dan token baca dikirim melalui parameter URL/, 'settings must disclose browser token persistence and URL exposure');
 
 const sandbox = {};
 vm.runInNewContext(helper[0] + '\nglobalThis.escapeHTML = escapeHTML;', sandbox);
