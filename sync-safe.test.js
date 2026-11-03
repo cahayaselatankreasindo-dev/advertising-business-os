@@ -27,11 +27,16 @@ function fingerprint(record) {
 function fakeCloud(initial, writeEnabled=true) {
   const rows = clone(initial);
   const calls = [];
+  const reads = [];
   return {
-    rows, calls,
+    rows, calls, reads,
     fetch: async (url, opts={}) => {
       if (opts.method === 'POST') {
         const body = JSON.parse(opts.body);
+        if (body.action === 'read') {
+          reads.push({ url, opts, body });
+          return { ok: true, type: 'cors', json: async () => ({ status:'success', protocolVersion:2, data:clone(rows) }) };
+        }
         calls.push(body);
         if (!writeEnabled) return { type: 'opaque' };
         if (body.action === 'sync_all') {
@@ -63,10 +68,26 @@ function fakeCloud(initial, writeEnabled=true) {
         }
         return { type:'opaque' };
       }
-      return { ok: true, json: async ()=>({ status:'success', protocolVersion:2, data:clone(rows) }) };
+      throw new Error('GET is disabled; use authenticated POST action read.');
     }
   };
 }
+
+test('read sends the bearer token in a POST body, never in the URL', async () => {
+  const cloud = fakeCloud(fixture());
+  const engine = createEngine(store(), cloud.fetch);
+  const endpoint = 'https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec';
+  const secret = 'TEST_ONLY_SESSION_TOKEN_2026';
+  const data = await engine.readCloud(endpoint, secret);
+  assert.equal(data.leads[0].id, 'lead-1');
+  assert.equal(cloud.reads.length, 1);
+  assert.equal(cloud.reads[0].url, endpoint);
+  assert.deepEqual(JSON.parse(cloud.reads[0].opts.body), { action: 'read', token: secret, protocolVersion: 2 });
+  assert.equal(cloud.reads[0].opts.mode, 'cors');
+  assert.equal(cloud.reads[0].opts.redirect, 'follow');
+  assert.equal(cloud.reads[0].opts.headers['Content-Type'], 'text/plain;charset=UTF-8');
+  assert.equal(new URL(cloud.reads[0].url).search, '');
+});
 
 test('send ONLY changed lead and confirm real cloud state', async ()=>{
   const cloud=fakeCloud(fixture());
@@ -87,8 +108,13 @@ test('send ONLY changed lead and confirm real cloud state', async ()=>{
 test('new client refuses a backend with a different protocol version', async () => {
   let posts = 0;
   const fetcher = async (_url, opts = {}) => {
-    if (opts.method === 'POST') { posts++; return { type: 'opaque' }; }
-    return { ok: true, json: async () => ({ status: 'success', protocolVersion: 1, data: fixture() }) };
+    if (opts.method === 'POST') {
+      const body = JSON.parse(opts.body);
+      if (body.action === 'read') return { ok: true, json: async () => ({ status: 'success', protocolVersion: 1, data: fixture() }) };
+      posts++;
+      return { type: 'opaque' };
+    }
+    throw new Error('Unexpected GET request');
   };
   const db = fixture();
   const engine = createEngine(store(), fetcher);

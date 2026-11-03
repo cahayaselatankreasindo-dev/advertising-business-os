@@ -3,8 +3,9 @@
  *
  * The private Google Apps Script LAB Web App currently uses Code.gs doGet/doPost.
  * This file is an allowlist guard; copying this file ALONE does not activate it.
- * A later audited change must call cskLabGuardRead_() near the start of doGet
- * and cskLabGuardPost_(payload) after JSON.parse in doPost. Keep the LAB Web App
+ * The LAB doGet calls cskLabGuardRead_() but returns POST_REQUIRED without data.
+ * The LAB doPost calls cskLabGuardPost_(payload) after JSON.parse; authenticated
+ * action "read" is read-only and limited to the exact dummy spreadsheet. Keep the LAB Web App
  * set to "Only myself" until BOTH guards and live readback checks pass.
  *
  * This code must never be copied to the production Apps Script project.
@@ -50,10 +51,17 @@ function cskLabGuardPost_(payload) {
     throw new Error("LAB guard: missing or incorrect API token.");
   }
   var action = String(payload.action || "").toLowerCase();
+  if (action === "read") {
+    ["action", "token", "protocolVersion"].forEach(function(k) {
+      if (!Object.prototype.hasOwnProperty.call(payload, k)) throw new Error("LAB guard: read request is incomplete.");
+    });
+    Object.keys(payload).forEach(function(k) {
+      if (["action", "token", "protocolVersion"].indexOf(k) === -1) throw new Error("LAB guard: unknown read field.");
+    });
+    return;
+  }
   if (action !== "sync_all" && action !== "delete") {
-    // Explicitly disables send_email, insert, update_status, and any
-    // other backend action when the LAB Web App is opened to browsers.
-    throw new Error("LAB guard: only sync_all and delete are allowed.");
+    throw new Error("LAB guard: only read, sync_all and delete are allowed.");
   }
   if (action === "delete") {
     Object.keys(payload).forEach(function(k) {
@@ -139,7 +147,10 @@ function cskLabRunGuardNegativeTests() {
     beforeRows[name] = ss.getSheetByName(name).getLastRow();
   });
 
-  // Accepted request shapes are validated, but never submitted.
+  // Read is authenticated and restricted to the exact dummy spreadsheet.
+  cskLabGuardPost_({ action: "read", token: token, protocolVersion: 2 });
+
+  // Accepted write request shapes are validated, but never submitted.
   cskLabGuardPost_({
     action: "sync_all", token: token, protocolVersion: 2,
     expectedRecords: {Leads: {"QA-LAB-GUARD-PASS": null}},

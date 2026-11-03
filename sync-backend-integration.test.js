@@ -110,7 +110,9 @@ function createBackend() {
   let ignorePosts = false;
   const server = {
     tables, sent,
-    read() { return JSON.parse(backend.doGet({ parameter: { token: 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE', protocolVersion: 2 } }).text); },
+    read(token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE') {
+      return JSON.parse(backend.doPost({ postData: { contents: JSON.stringify({ action: 'read', token, protocolVersion: 2 }) } }).text);
+    },
     post(data) {
       const payload = Object.assign({ protocolVersion: 2 }, data);
       const areaSheets = {
@@ -144,17 +146,15 @@ function createBackend() {
     fetch: async (url, opts = {}) => {
       if (opts.method === 'POST') {
         const payload = JSON.parse(opts.body);
+        if (payload.action === 'read') {
+          const response = server.post(payload);
+          return { ok: true, type: 'cors', json: async () => response };
+        }
         sent.push(payload);
         if (!ignorePosts) server.post(payload);
-        return { type: 'opaque' }; // Apps Script POST CORS can't be inspected
+        return { type: 'opaque' };
       }
-      const query = new URL(url).searchParams;
-      const token = query.get('token');
-      const protocolVersion = query.get('protocolVersion');
-      return {
-        ok: true,
-        json: async () => JSON.parse(backend.doGet({ parameter: { token, protocolVersion } }).text)
-      };
+      throw new Error('GET is disabled; authenticated reads must use POST action read.');
     }
   };
   return {...server, sandbox:backend};
@@ -185,7 +185,7 @@ test('backup restoration preserves both commercial arrays in staged HTML source'
   assert.match(restore,/projectCosts: Array\.isArray\(data\.projectCosts\)/);
 });
 
-test('real backend + real frontend delta: edit -> POST -> GET readback', async () => {
+test('real backend + real frontend delta: edit -> POST -> authenticated POST readback', async () => {
   const api = createBackend();
   const original = { id:'TEST-1', date:'2026-10-31', name:'Dummy A', phone:'0', source:'QA', value:1, status:'new', notes:'',email:'',website:'',industry:'',pic:'',picTitle:'',linkedin:'',score:0 };
   assert.equal(api.post({action:'sync_all',token:'TEST_ONLY_LAB_API_TOKEN_2026_SAFE',leads:[original]}).status, 'success');
@@ -203,7 +203,7 @@ test('real backend + real frontend delta: edit -> POST -> GET readback', async (
   assert.equal(api.sent.length,1);
   assert.deepEqual(Object.keys(api.sent[0]).sort(),['action','expectedRecords','leads','protocolVersion','token']);
 });
-test('real backend + frontend: delete -> GET confirms missing', async () => {
+test('real backend + frontend: delete -> authenticated POST read confirms missing', async () => {
   const api=createBackend();
   const finance={id:'FIN-DEL',date:'2026-10-31',type:'expense',category:'QA',amount:175000,description:'Dummy'};
   assert.equal(api.post({action:'sync_all',token:'TEST_ONLY_LAB_API_TOKEN_2026_SAFE',finance:[finance]}).status,'success');
@@ -446,11 +446,11 @@ test('LAB real doGet/doPost wiring check rejects invalid delete without altering
   const api=createBackend(),ctx=api.sandbox;
   const backendPath=path.join(__dirname,'google_apps_script.js');
   let source=fs.readFileSync(backendPath,'utf8');
-  const getAnchor='function doGet(e) {\n  var apiLock = null;\n  var lockAcquired = false;\n  try {';
+  const getAnchor='function doGet() {\n  // Never accept bearer credentials in query strings. All authenticated reads use POST action "read".\n  return jsonResponse({';
   const postAnchor='const payload = JSON.parse(e.postData.contents);';
   assert.ok(source.includes(getAnchor),'GET handler anchor missing');
   assert.ok(source.includes(postAnchor),'POST handler anchor missing');
-  source=source.replace(getAnchor,getAnchor+'\n    cskLabGuardRead_();');
+  source=source.replace(getAnchor,'function doGet() {\n  cskLabGuardRead_();\n  // Never accept bearer credentials in query strings. All authenticated reads use POST action "read".\n  return jsonResponse({');
   source=source.replace(postAnchor,postAnchor+'\n    cskLabGuardPost_(payload);');
   vm.runInContext(source,ctx);
   for(const file of ['LabSelfTest.gs','LabRequestGuard.gs','LabHandlerVerification.gs']){
@@ -484,8 +484,11 @@ test('LAB handler wiring check fails closed if Code.gs has not been guarded',()=
 test('backend rejects stale clients that omit protocol version on both read and write', () => {
   const api = createBackend();
   const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
-  const legacyRead = JSON.parse(api.sandbox.doGet({ parameter: { token } }).text);
-  assert.equal(legacyRead.code, 'CLIENT_PROTOCOL_MISMATCH');
+  const legacyRead = JSON.parse(api.sandbox.doGet({ parameter: { token, protocolVersion: 2 } }).text);
+  assert.equal(legacyRead.code, 'POST_REQUIRED');
+  assert.equal(legacyRead.data, undefined);
+  const stalePostRead = JSON.parse(api.sandbox.doPost({ postData: { contents: JSON.stringify({ action: 'read', token }) } }).text);
+  assert.equal(stalePostRead.code, 'CLIENT_PROTOCOL_MISMATCH');
   const beforeRows = api.tables.Leads.getLastRow();
   const legacyWrite = JSON.parse(api.sandbox.doPost({ postData: { contents: JSON.stringify({
     action: 'sync_all', token,
@@ -573,9 +576,7 @@ test('Team token cannot read or mutate private modules and cannot trigger Owner 
   props.deleteProperty('API_TOKEN');
   props.setProperty('AUTO_PROJECT_FROM_WON','true');
 
-  const teamRead = JSON.parse(api.sandbox.doGet({
-    parameter:{token:teamToken,protocolVersion:2}
-  }).text);
+  const teamRead = api.post({ action:'read', token:teamToken });
   assert.equal(teamRead.status,'success');
   assert.equal(teamRead.data.role,'team');
   for(const area of ['finance','memory','marketingSpend','costings','projectCosts']) {
@@ -760,9 +761,7 @@ test('legacy insert and update_status enforce expected versions and Owner-only a
   props.setProperty('TEAM_API_TOKEN',teamToken);
   props.deleteProperty('API_TOKEN');
   props.setProperty('AUTO_PROJECT_FROM_WON','true');
-  const readOwner = () => JSON.parse(api.sandbox.doGet({
-    parameter:{token:ownerToken,protocolVersion:2}
-  }).text).data;
+  const readOwner = () => api.post({ action:'read', token:ownerToken }).data;
 
   const lead = {id:'TEST-LEGACY-STATUS',date:'2026-11-03',name:'Legacy status',status:'new',value:100};
   const insertedLead = api.post({

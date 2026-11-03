@@ -1,5 +1,5 @@
 /* CSK Business OS — conservative, opt-in-to-cloud delta sync (draft release).
- * Cloud writes are NEVER called "saved" until a fresh GET verifies them.
+ * Cloud writes are NEVER called "saved" until an authenticated POST read verifies them.
  * Do not deploy until backend and multi-device tests have been reviewed.
  */
 (function (root) {
@@ -275,10 +275,16 @@
 
     async function readCloud(url, token) {
       const endpoint = validateEndpoint(url);
-      const address = endpoint + '?token=' + encodeURIComponent(token || '') +
-        '&protocolVersion=' + PROTOCOL_VERSION + '&_t=' + Date.now();
-      const response = await network(address, { cache: 'no-store' });
-      if (!response || !response.ok) throw new Error('Tidak bisa membaca respons Google Sheets.');
+      // Use a simple text/plain POST so the bearer token stays out of URL history,
+      // referrers and query-string logs. Follow Apps Script ContentService redirects.
+      const response = await network(endpoint, {
+        method: 'POST', mode: 'cors', redirect: 'follow', cache: 'no-store',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body: JSON.stringify({ action: 'read', token: token || '', protocolVersion: PROTOCOL_VERSION })
+      });
+      if (!response || !response.ok || response.type === 'opaque') {
+        throw new Error('Tidak bisa membaca respons Google Sheets melalui POST. Periksa akses dan CORS endpoint Apps Script.');
+      }
       const json = await response.json();
       if (!json || Number(json.protocolVersion) !== PROTOCOL_VERSION) {
         throw new Error('Versi backend tidak cocok. Muat ulang aplikasi atau periksa versi Apps Script.');
@@ -291,7 +297,7 @@
     async function send(url, body) {
       // Validate again at the write boundary; never disclose a token to an arbitrary URL.
       const endpoint = validateEndpoint(url);
-      // Apps Script cross-origin POST returns an opaque response. Only GET readback is proof.
+      // Write POST is opaque; only a separate authenticated POST readback is proof.
       await network(endpoint, {
         method: 'POST',
         mode: 'no-cors',

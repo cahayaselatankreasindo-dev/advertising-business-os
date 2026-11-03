@@ -31,6 +31,7 @@ on:
       - 'preview/CSK-Email-Marketing-Offline.html'
       - 'sync-safe.js'
       - 'sync-safe.test.js'
+      - 'security-token-safety.test.cjs'
       - 'sync-backend-integration.test.js'
       - 'google_apps_script.js'
       - 'outreach-safety.test.js'
@@ -65,6 +66,7 @@ jobs:
           node --check sync-safe.js
           node --check sync-safe.test.js
           node sync-safe.test.js
+          node security-token-safety.test.cjs
           node sync-backend-integration.test.js
           node ui-render-safety.test.cjs
           node legacy-backup-safety.test.cjs

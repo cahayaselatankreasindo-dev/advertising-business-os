@@ -589,43 +589,10 @@ function forbiddenResponse(message) {
 
 // ============== GET — TARIK DATA SEMUA TAB ==============
 
-function doGet(e) {
-  var apiLock = null;
-  var lockAcquired = false;
-  try {
-    // Authenticate before disclosing protocol details or reading cloud data.
-    var tokenParam = (e && e.parameter) ? e.parameter.token : "";
-    var role = getRequestRole(null, tokenParam);
-    if (!role) return unauthorizedResponse();
-    // Reject stale clients after authentication, before exposing any cloud data.
-    var requestedProtocol = (e && e.parameter) ? e.parameter.protocolVersion : "";
-    if (Number(requestedProtocol) !== CSK_API_PROTOCOL_VERSION) return protocolMismatchResponse();
-
-    // Reads wait for an in-progress write so clients never observe a half-applied batch.
-    apiLock = LockService.getScriptLock();
-    apiLock.waitLock(30000);
-    lockAcquired = true;
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const result = {
-      leads: readSheetData(ss, "Leads"),
-      clients: readSheetData(ss, "Clients"),
-      projects: readSheetData(ss, "Projects"),
-      finance: role === "owner" ? readSheetData(ss, "Finance") : [],
-      memory: role === "owner" ? readSheetData(ss, "Memory") : [],
-      marketingSpend: role === "owner" ? readSheetData(ss, "Marketing_Spend") : [],
-      costings: role === "owner" ? readSheetData(ss, "Costings") : [],
-      projectCosts: role === "owner" ? readSheetData(ss, "Project_Costs") : [],
-      lastSynced: new Date().toISOString(),
-      role: role
-    };
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION, data: result }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", protocolVersion: CSK_API_PROTOCOL_VERSION, message: err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } finally {
-    if (lockAcquired && apiLock) apiLock.releaseLock();
-  }
+function doGet() {
+  // Never accept bearer credentials in query strings. All authenticated reads use POST action "read".
+  return jsonResponse({ status: "error", code: "POST_REQUIRED", protocolVersion: CSK_API_PROTOCOL_VERSION,
+    message: "GET tidak menyediakan data. Gunakan POST action read dengan token di request body." });
 }
 
 // ============== POST — CRUD (sync_all, insert, update_status) ==============
@@ -649,6 +616,21 @@ function doPost(e) {
     const action = (payload.action || "").toLowerCase();
 
     switch (action) {
+
+      // --- read: authenticated data read; token is accepted only in POST body ---
+      case "read": {
+        var allowedReadKeys = ["action", "token", "protocolVersion"];
+        var unknownReadKeys = Object.keys(payload).filter(function (key) { return allowedReadKeys.indexOf(key) === -1; });
+        if (unknownReadKeys.length) return jsonResponse({ status: "error", code: "INVALID_PAYLOAD",
+          protocolVersion: CSK_API_PROTOCOL_VERSION, message: "Field pembacaan tidak dikenal: " + unknownReadKeys.join(", ") });
+        const result = {
+          leads: readSheetData(ss, "Leads"), clients: readSheetData(ss, "Clients"), projects: readSheetData(ss, "Projects"),
+          finance: role === "owner" ? readSheetData(ss, "Finance") : [], memory: role === "owner" ? readSheetData(ss, "Memory") : [],
+          marketingSpend: role === "owner" ? readSheetData(ss, "Marketing_Spend") : [], costings: role === "owner" ? readSheetData(ss, "Costings") : [],
+          projectCosts: role === "owner" ? readSheetData(ss, "Project_Costs") : [], lastSynced: new Date().toISOString(), role: role
+        };
+        return jsonResponse({ status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION, data: result });
+      }
 
       // --- sync_all (MERGE / UPSERT — tidak pernah menghapus data lama) ---
       // Aman: lead yang sudah ada di Sheets tetap tersimpan; hanya ditambah/diupdate.

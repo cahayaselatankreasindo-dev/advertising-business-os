@@ -22,7 +22,10 @@ const setup = fn(code,'setupSheet','ensureSheet');
 const trigger = fn(code,'installAutoTrigger','handleAutoTrigger');
 
 assert.ok(get.includes('cskLabGuardRead_()'), 'LAB doGet must call the real read guard');
-assert.ok(post.includes('cskLabGuardPost_(payload)'), 'LAB doPost must call the real write guard');
+assert.ok(get.includes('POST_REQUIRED'), 'LAB doGet must not return data or accept query-string tokens');
+assert.ok(post.includes('cskLabGuardPost_(payload)'), 'LAB doPost must call the real request guard');
+assert.ok(post.includes('case "read"'), 'LAB authenticated read must use POST action read');
+assert.ok(guard.includes('action === "read"'), 'LAB guard must allow only the strict authenticated read shape');
 assert.ok(setup.includes('cskLabRequireDummySheet_()'), 'setupSheet must be bound to the exact LAB spreadsheet');
 assert.match(trigger,/automatic triggers are disabled/i);
 assert.ok(code.includes('function setupApiTokens()'), 'separate role token setup exists');
