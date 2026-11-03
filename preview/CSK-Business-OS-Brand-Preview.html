@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B0B0B">
+<title>CSK Business OS — Design Preview</title>
+<style>
+:root{--ink:#0B0B0B;--ink2:#242424;--paper:#F8F7F4;--amber:#FF8A3D;--amberLight:#FFF0E5;--gray:#4B4B4B;--line:#E5E2DD;--surface:#fff;--ok:#087B54;--danger:#B33331;color-scheme:light;font-family:Montserrat,'Arial',sans-serif}
+*{box-sizing:border-box}html{min-width:320px}body{margin:0;background:var(--paper);color:var(--ink)}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--amber);outline-offset:2px}button:disabled{cursor:not-allowed;opacity:.5}
+.app{display:flex;min-height:100vh}.side{width:258px;flex:none;background:#0B0B0B;color:#d8d8d8;display:flex;flex-direction:column;position:sticky;height:100vh;top:0;padding:25px 16px 20px;border-right:1px solid #292929}
+.brand{padding:6px 13px 25px;border-bottom:1px solid #272727;margin-bottom:20px}.mark{display:inline-flex;background:var(--amber);border-radius:11px;height:38px;min-width:38px;align-items:center;justify-content:center;color:#0B0B0B;font-size:16px;font-weight:900;letter-spacing:-.06em}.brand-head{display:flex;align-items:center;gap:12px}.brand-name{font-size:16px;line-height:1.1;letter-spacing:.03em;font-weight:800;color:white}.brand-sub{font-size:10px;font-weight:700;letter-spacing:.13em;color:#ffb47e;margin-top:5px;text-transform:uppercase}
+.navlabel{color:#777;font-size:10px;font-weight:800;letter-spacing:.16em;margin:14px 13px 10px}.nav{display:grid;gap:5px}.nav button{width:100%;text-align:left;display:flex;align-items:center;gap:12px;border:0;border-radius:12px;padding:13px 14px;color:#c3c3c3;background:transparent;font-size:13px;font-weight:600}.nav button:hover{background:#242424;color:white}.nav button[aria-current="page"]{background:#32261c;color:#FFAC70}.nav .sym{font-size:18px;line-height:1;width:22px;text-align:center}.side-bottom{margin-top:auto;padding:17px 14px 0;border-top:1px solid #272727}.user{display:flex;align-items:center;gap:10px;font-size:12px}.avatar{width:34px;height:34px;border:1px solid #654429;background:#372719;border-radius:50%;display:grid;place-items:center;color:var(--amber);font-weight:800}.side-note{color:#777;font-size:10px;line-height:1.6;margin:12px 0 0}
+.content{width:calc(100% - 258px);min-width:0}.top{height:82px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 34px;background:#fff;border-bottom:1px solid var(--line)}.top-brand{font-size:12px;color:#737373;font-weight:700;letter-spacing:.04em}.top-actions{display:flex;align-items:center;gap:11px}.pill{display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border-radius:999px;border:1px solid var(--line);font-weight:700;font-size:11px;background:#fff;color:#4b4b4b}.dot{width:7px;height:7px;border-radius:100%;background:var(--amber)}.top .mini{font-size:12px;color:#787878}
+.wrap{max-width:1440px;margin:auto;padding:34px}.eyebrow{font-weight:800;letter-spacing:.16em;text-transform:uppercase;font-size:10px;color:#c26623}.heading{font-size:clamp(27px,3vw,38px);font-weight:800;letter-spacing:-.05em;line-height:1.16;margin:9px 0 8px}.sub{font-size:13px;line-height:1.65;color:#707070;margin:0}.heading-row{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:28px}.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;border:1px solid var(--line);padding:12px 16px;border-radius:11px;background:white;color:#111;font-size:12px;font-weight:800;white-space:nowrap}.btn.primary{background:var(--amber);border-color:var(--amber)}.btn:hover{filter:brightness(.96)}.btn.small{padding:9px 12px}.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 4px 24px rgba(20,20,20,.025);min-width:0}
+.hero{background:#111;color:#fff;padding:27px 30px;border:1px solid #222;border-radius:21px;display:flex;justify-content:space-between;align-items:center;gap:20px;overflow:hidden;position:relative;margin-bottom:19px}.hero:before{content:'';position:absolute;height:280px;width:280px;border-radius:50%;border:40px solid rgba(255,138,61,.07);right:-90px;top:-90px}.hero h2{font-size:22px;letter-spacing:-.035em;margin:9px 0 8px;position:relative}.hero p{color:#bdbdbd;font-size:12px;line-height:1.65;max-width:520px;margin:0;position:relative}.hero .btn{position:relative;flex-shrink:0}.hero .eyebrow{color:#ffb780}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px}.metric{padding:20px 21px;min-height:135px}.metric-label{font-size:12px;color:#747474;font-weight:650}.metric-number{font-size:clamp(24px,2.6vw,32px);font-weight:800;letter-spacing:-.055em;margin:15px 0 7px;white-space:nowrap}.metric-foot{font-size:11px;color:#888;line-height:1.5}.metric-foot em{color:#09825a;font-weight:800;font-style:normal}
+.columns{display:grid;grid-template-columns:1.25fr .9fr;gap:18px;margin-top:18px}.block-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}.block-title{font-size:15px;font-weight:800;letter-spacing:-.025em;margin:0}.muted{font-size:11px;color:#8c8c8c}.block{padding:24px}.stage-list{display:grid;gap:18px}.stage-line{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:750;margin-bottom:9px}.stage-line span:last-child{color:#666}.track{height:7px;background:#f0edeb;border-radius:10px;overflow:hidden}.fill{height:100%;background:var(--amber);border-radius:10px}.fill.black{background:#333}.fill.green{background:#247e56}.project{padding:13px 0;border-bottom:1px solid #eee}.project:first-child{padding-top:1px}.project:last-child{border-bottom:0;padding-bottom:0}.project-name{font-size:12px;font-weight:750;display:flex;justify-content:space-between;gap:8px}.project-sub{color:#8a8a8a;margin:6px 0 11px;font-size:11px}.project .track{height:5px}.project-name strong{font-size:11px;font-weight:750;color:#a06a3f}
+.tablewrap{overflow:auto}.table{border-collapse:collapse;width:100%;min-width:580px}.table th{text-align:left;background:#faf9f7;color:#85817a;font-weight:700;font-size:10px;letter-spacing:.055em;text-transform:uppercase}.table th,.table td{padding:14px 17px;border-bottom:1px solid #f0eeeb;white-space:nowrap}.table td{font-size:11px;color:#525252}.table tr:last-child td{border-bottom:0}.table .strong{font-weight:800;color:#161616}.tag{display:inline-flex;border-radius:99px;padding:6px 10px;background:#F5F1EC;color:#6b5546;font-size:10px;font-weight:800}.tag.good{background:#EAF6EE;color:#166F4F}.tag.new{background:#FFF0E5;color:#AB5F28}.tag.hold{background:#F1F0EC;color:#64625c}.full{margin-top:18px}.tablehead{padding:23px 24px 17px;display:flex;justify-content:space-between;align-items:center;gap:10px}.search{background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px 13px;min-width:190px;max-width:100%;font-size:12px;color:#333}.split{display:grid;grid-template-columns:1fr 1fr;gap:17px}.info{border-radius:14px;background:#fbfaf8;border:1px solid var(--line);padding:19px}.info b{font-size:13px}.info p{margin:8px 0 0;font-size:12px;color:#666;line-height:1.7}.notice{background:#FFF0E5;border:1px solid #f2c9a9;padding:15px 17px;border-radius:13px;color:#744b2b;font-size:12px;line-height:1.6}.section[hidden]{display:none!important}.field{display:flex;flex-direction:column;gap:8px;font-size:11px;font-weight:750;color:#444}.field input,.field select{border:1px solid #dedbd5;border-radius:10px;padding:13px 12px;color:#131313;background:white}.form-row{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.form-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:20px}.dialog{border:0;border-radius:20px;max-width:min(90vw,510px);width:100%;padding:26px;background:#fff;box-shadow:0 24px 90px #0004}.dialog::backdrop{background:#0b0b0ba8}.dialog h2{font-size:21px;letter-spacing:-.03em;margin:0 0 7px}.dialog .sub{margin-bottom:20px}.bottom-nav{display:none}.stamp{padding:10px 14px;border:1px dashed #d2c1b3;background:#fff7f0;border-radius:9px;font-size:10px;font-weight:800;letter-spacing:.07em;color:#a56236;margin-left:7px}.empty{padding:24px 18px;color:#777;text-align:center;font-size:12px}#toast{position:fixed;bottom:28px;right:26px;background:#171717;color:white;padding:15px 18px;border-radius:12px;font-size:12px;font-weight:700;box-shadow:0 10px 30px #0002;z-index:1000;max-width:min(90vw,370px)}#toast[hidden]{display:none}.chart{display:flex;align-items:flex-end;gap:13px;height:150px;border-bottom:1px solid #ece9e3;padding:12px 0 0}.chart .bar{flex:1;background:linear-gradient(180deg,#ffac72,#FF8A3D);border-radius:7px 7px 0 0;min-height:8px}.chart .bar:nth-child(even){background:linear-gradient(180deg,#525252,#151515)}.axis{display:flex;justify-content:space-around;color:#929292;font-size:10px;margin-top:11px}
+@media(max-width:1160px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.columns{grid-template-columns:1fr}.metric-number{font-size:30px}}
+@media(max-width:740px){.app{display:block}.side{display:none}.content{width:100%}.top{height:66px;padding:0 17px}.top .mini{display:none}.wrap{padding:22px 15px 95px}.heading{font-size:28px}.heading-row{align-items:flex-start;flex-direction:column;gap:15px;margin-bottom:20px}.hero{padding:24px 21px;align-items:flex-start;flex-direction:column}.hero h2{font-size:20px}.hero .btn{width:100%}.metrics{gap:10px}.metric{min-height:127px;padding:16px 15px}.metric-number{font-size:26px}.metric-label{font-size:11px}.columns{gap:12px;margin-top:12px}.block{padding:20px}.full{margin-top:12px}.tablehead{padding:19px 16px}.split{grid-template-columns:1fr}.bottom-nav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;z-index:99;bottom:0;left:0;right:0;padding:8px 6px max(12px,env(safe-area-inset-bottom));background:#0B0B0B;border-top:1px solid #313131}.bottom-nav button{display:grid;justify-items:center;gap:4px;font-size:9px;font-weight:700;border:0;background:transparent;color:#aaa;padding:7px 1px}.bottom-nav button[aria-current="page"]{color:#FF8A3D}.bottom-nav span{font-size:19px}.top-brand{font-size:11px}.pill{padding:8px 10px;font-size:10px}.form-row{grid-template-columns:1fr}.dialog{padding:22px}.table{min-width:560px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="side" aria-label="Navigasi">
+  <div class="brand"><div class="brand-head"><span class="mark">CSK</span><div><div class="brand-name">BUSINESS OS</div><div class="brand-sub">Cahaya Selatan Kreasindo</div></div></div></div>
+  <div class="navlabel">WORKSPACE</div>
+  <nav class="nav" id="desktopNav">
+    <button type="button" data-view="dashboard" aria-current="page"><span class="sym">◫</span>Overview</button>
+    <button type="button" data-view="leads"><span class="sym">◎</span>Leads & Prospek</button>
+    <button type="button" data-view="production"><span class="sym">▣</span>Proyek & Produksi</button>
+    <button type="button" data-view="finance"><span class="sym">◈</span>Keuangan</button>
+    <button type="button" data-view="marketing"><span class="sym">⌁</span>Marketing</button>
+    <button type="button" data-view="settings"><span class="sym">⚙</span>Pengaturan</button>
+  </nav>
+  <div class="side-bottom"><div class="user"><span class="avatar">CS</span><span><strong>Owner Workspace</strong><br><span style="color:#888">Mode preview</span></span></div><p class="side-note">Design preview · Data simulasi<br>Tidak terhubung dengan database CSK</p></div>
+</aside>
+<div class="content">
+<header class="top"><div class="top-brand">CSK <span style="color:#b7b7b7">/</span> BUSINESS OS <span class="stamp">DEMO</span></div><div class="top-actions"><span class="pill"><span class="dot"></span> Offline • Simulasi</span><span class="mini">Owner view</span></div></header>
+<main class="wrap">
+<section class="section" id="dashboard">
+<div class="heading-row"><div><div class="eyebrow">CONTROL CENTER</div><h1 class="heading">Operasional bisnis, lebih jelas.</h1><p class="sub">Pantau prospek, produksi, pemasaran, dan arus kas dari satu tempat.</p></div><button class="btn primary" data-action="newLead">+ Tambah Prospek</button></div>
+<div class="hero"><div><div class="eyebrow">PRODUCTION PARTNER UNTUK BRAND & BISNIS</div><h2>Semua pekerjaan terpantau. <span style="color:#ffad73">Keputusan lebih terarah.</span></h2><p>Alur kerja untuk kebutuhan produksi booth pameran, rak display, signage, POSM, merchandise, dan branding B2B.</p></div><button class="btn" data-view="production">Lihat proyek →</button></div>
+<div class="metrics" id="kpis"></div>
+<div class="columns">
+  <article class="card block"><div class="block-head"><h2 class="block-title">Pipeline penjualan</h2><span class="muted">Leads simulasi</span></div><div id="pipeline" class="stage-list"></div></article>
+  <article class="card block"><div class="block-head"><h2 class="block-title">Progress produksi</h2><span class="muted">3 proyek contoh</span></div><div id="projectsPanel"></div></article>
+</div>
+<article class="card full"><div class="tablehead"><h2 class="block-title">Prospek terbaru</h2><button class="btn small" data-view="leads">Lihat semua →</button></div><div class="tablewrap" id="recentLeads"></div></article>
+</section>
+<section class="section" id="leads" hidden>
+ <div class="heading-row"><div><div class="eyebrow">CUSTOMER RELATIONSHIP MANAGEMENT</div><h1 class="heading">Leads & Prospek</h1><p class="sub">Kelola peluang brand dan mitra bisnis dari briefing sampai deal.</p></div><button class="btn primary" data-action="newLead">+ Tambah Prospek</button></div>
+ <div class="card"><div class="tablehead"><div><h2 class="block-title">Daftar prospek</h2><p class="muted" style="margin:6px 0 0">Contoh data fiktif. Perubahan hanya berlaku sampai halaman ditutup.</p></div><input class="search" id="leadSearch" type="search" placeholder="Cari nama atau layanan..." aria-label="Cari prospek"></div><div class="tablewrap" id="allLeads"></div></div>
+</section>
+<section class="section" id="production" hidden>
+ <div class="heading-row"><div><div class="eyebrow">FABRICATION & EXECUTION</div><h1 class="heading">Proyek & Produksi</h1><p class="sub">Brief, pra-produksi, fabrikasi, quality control, sampai serah terima.</p></div></div>
+ <div class="split">
+  <article class="card block"><div class="block-head"><h2 class="block-title">Antrean produksi</h2><span class="tag new">3 proyek simulasi</span></div><div id="projectList"></div></article>
+  <article class="card block"><h2 class="block-title">Checklist operasional</h2><div class="info" style="margin-top:16px"><b>1. Brief & desain</b><p>Verifikasi dimensi, gambar kerja, material, kebutuhan listrik, dan lokasi pemasangan.</p></div><div class="info" style="margin-top:12px"><b>2. Persetujuan produksi</b><p>Pastikan harga, jadwal, vendor, dan dokumen persetujuan telah lengkap.</p></div><div class="info" style="margin-top:12px"><b>3. QC & serah terima</b><p>Dokumentasi hasil, pengecekan finishing, lalu konfirmasi ke klien.</p></div></article>
+ </div>
+</section>
+<section class="section" id="finance" hidden>
+ <div class="heading-row"><div><div class="eyebrow">FINANCIAL HEALTH</div><h1 class="heading">Keuangan</h1><p class="sub">Pencatatan pemasukan dan pengeluaran. Nilai deal tidak otomatis menjadi kas masuk.</p></div></div>
+ <div class="metrics" id="financeKpis"></div>
+ <div class="card block full"><div class="block-head"><h2 class="block-title">Ringkasan transaksi</h2><span class="muted">Data simulasi</span></div><div id="transactions"></div></div>
+ <p class="notice">Saldo kas simulasi bukan laba bersih. Perhitungan keuntungan produksi tetap memerlukan HPP, biaya proyek, dan realisasi pembayaran.</p>
+</section>
+<section class="section" id="marketing" hidden>
+ <div class="heading-row"><div><div class="eyebrow">GROWTH & ACQUISITION</div><h1 class="heading">Marketing</h1><p class="sub">Pantau pembelanjaan iklan dan aliran prospek ke CRM.</p></div></div>
+ <div class="split"><div class="card block"><div class="block-head"><h2 class="block-title">Tren leads simulasi</h2><span class="muted">6 periode contoh</span></div><div class="chart" aria-label="Diagram batang leads per periode contoh"><div class="bar" style="height:31%"></div><div class="bar" style="height:55%"></div><div class="bar" style="height:45%"></div><div class="bar" style="height:79%"></div><div class="bar" style="height:66%"></div><div class="bar" style="height:92%"></div></div><div class="axis"><span>Mei</span><span>Jun</span><span>Jul</span><span>Agu</span><span>Sep</span><span>Okt</span></div></div><div class="card block"><h2 class="block-title">Prioritas akuisisi B2B</h2><div class="info" style="margin-top:16px"><b>Brand & Retail</b><p>Visual merchandising, rak display, POSM dan aktivasi gerai.</p></div><div class="info" style="margin-top:12px"><b>EO & Brand Activation</b><p>Booth custom, backdrop, signage, serta kebutuhan branding event untuk dibeli, bukan disewa.</p></div></div></div>
+</section>
+<section class="section" id="settings" hidden>
+ <div class="heading-row"><div><div class="eyebrow">CONFIGURATION</div><h1 class="heading">Pengaturan</h1><p class="sub">Status preview dan identitas visual aplikasi.</p></div></div>
+ <div class="split"><div class="card block"><h2 class="block-title">Keamanan data</h2><p class="sub" style="margin-top:13px">Mode preview tidak membaca Google Sheets, tidak menggunakan API token, dan tidak menyimpan perubahan ke cloud.</p><div class="notice" style="margin-top:18px">Untuk aplikasi produksi, status sinkronisasi baru boleh disebut berhasil setelah data benar-benar diverifikasi di server.</div></div><div class="card block"><h2 class="block-title">Identitas CSK</h2><p class="sub" style="margin-top:13px">Obsidian Black · Warm White · Warm Amber · Slate Gray</p><div style="display:flex;gap:10px;margin-top:22px"><span style="width:40px;height:40px;border-radius:9px;background:#0B0B0B"></span><span style="width:40px;height:40px;border-radius:9px;background:#F8F7F4;border:1px solid #ddd"></span><span style="width:40px;height:40px;border-radius:9px;background:#FF8A3D"></span><span style="width:40px;height:40px;border-radius:9px;background:#4B4B4B"></span></div></div></div>
+</section>
+</main></div></div>
+<nav class="bottom-nav" aria-label="Navigasi seluler">
+<button type="button" data-view="dashboard" aria-current="page"><span>◫</span>Overview</button>
+<button type="button" data-view="leads"><span>◎</span>Leads</button>
+<button type="button" data-view="production"><span>▣</span>Produksi</button>
+<button type="button" data-view="finance"><span>◈</span>Keuangan</button>
+<button type="button" data-view="marketing"><span>⌁</span>Marketing</button>
+</nav>
+<dialog class="dialog" id="leadDialog" aria-labelledby="dialogTitle">
+<form id="leadForm"><h2 id="dialogTitle">Tambah Prospek (Demo)</h2><p class="sub">Data fiktif hanya tersimpan selama preview dibuka, tidak pernah dikirim ke cloud.</p>
+<div class="form-row"><label class="field">Nama brand/perusahaan <input name="name" required minlength="2" maxlength="80" autocomplete="off" placeholder="Contoh: Brand Nusantara"></label><label class="field">Jenis kebutuhan <select name="service"><option>Rak Display</option><option>Booth Pameran</option><option>Signage / Neon Box</option><option>POSM / Akrilik</option><option>Merchandise</option></select></label></div>
+<div class="form-row" style="margin-top:13px"><label class="field">Estimasi nilai (Rp) <input name="value" type="number" required min="0" max="100000000000" value="2500000"></label><label class="field">Tahap <select name="status"><option value="new">Lead Baru</option><option value="contacted">Follow-up</option><option value="qualified">Penawaran</option><option value="won">Deal</option></select></label></div>
+<div class="form-actions"><button class="btn" type="button" id="cancelLead">Batal</button><button class="btn primary" type="submit">Tambah ke demo</button></div></form>
+</dialog>
+<div id="toast" hidden role="status" aria-live="polite"></div>
+<script>
+(function(){
+'use strict';
+const leads=[
+{id:'DEMO-001',name:'Brand Fiktif A',service:'Rak Display',source:'Referral',value:18500000,status:'qualified',date:'2026-11-02'},
+{id:'DEMO-002',name:'EO Simulasi B',service:'Booth Pameran',source:'Website',value:35000000,status:'contacted',date:'2026-11-01'},
+{id:'DEMO-003',name:'Retail Contoh C',service:'POSM / Akrilik',source:'Google Ads',value:4500000,status:'new',date:'2026-10-31'},
+{id:'DEMO-004',name:'Brand Contoh D',service:'Signage / Neon Box',source:'Instagram',value:12000000,status:'won',date:'2026-10-29'},
+{id:'DEMO-005',name:'Agency Fiktif E',service:'Merchandise',source:'Referral',value:6500000,status:'contacted',date:'2026-10-27'}
+];
+const projects=[
+{name:'Display Retail — Demo',client:'Retail Contoh C',step:'Fabrikasi',progress:70},
+{name:'Booth Pameran — Demo',client:'EO Simulasi B',step:'Persiapan material',progress:35},
+{name:'Signage Outdoor — Demo',client:'Brand Contoh D',step:'QC & serah terima',progress:92}
+];
+const transactions=[
+{description:'Pembayaran proyek contoh',type:'income',amount:12000000},
+{description:'Pembelian material contoh',type:'expense',amount:3200000},
+{description:'Biaya operasional contoh',type:'expense',amount:1500000}
+];
+const rupiah=n=>'Rp'+Number(n||0).toLocaleString('id-ID');
+const statuses={new:'Lead Baru',contacted:'Follow-up',qualified:'Penawaran',won:'Deal'};
+const tagClass={new:'new',contacted:'hold',qualified:'new',won:'good'};
+const $$=(sel,ctx=document)=>Array.from(ctx.querySelectorAll(sel));
+const $=sel=>document.querySelector(sel);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let current='dashboard',toastTimer;
+function notice(text){const t=$('#toast');t.textContent=text;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true},2800);}
+function show(view){
+ if(!document.getElementById(view))return;
+ current=view;
+ $$('.section').forEach(s=>{s.hidden=s.id!==view});
+ $$('[data-view]').forEach(b=>{if(b.dataset.view===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+ window.scrollTo(0,0);
+}
+function stats(){
+ const income=transactions.filter(x=>x.type==='income').reduce((s,x)=>s+x.amount,0);
+ const expenses=transactions.filter(x=>x.type==='expense').reduce((s,x)=>s+x.amount,0);
+ const pipe=leads.filter(x=>x.status!=='won').reduce((s,x)=>s+x.value,0);
+ const items=[
+ ['Total prospek',leads.length,'Data simulasi · CRM'],
+ ['Pipeline terbuka',rupiah(pipe),'Estimasi peluang, bukan omzet'],
+ ['Proyek aktif',projects.length,'3 proyek contoh'],
+ ['Arus kas neto',rupiah(income-expenses),'Bukan laba bersih']
+ ];
+ $('#kpis').innerHTML=items.map(x=>'<div class="card metric"><div class="metric-label">'+esc(x[0])+'</div><div class="metric-number">'+esc(x[1])+'</div><div class="metric-foot">'+esc(x[2])+'</div></div>').join('');
+ $('#financeKpis').innerHTML=[['Kas masuk',rupiah(income),'Pembayaran contoh'],['Kas keluar',rupiah(expenses),'Pengeluaran contoh'],['Kas neto',rupiah(income-expenses),'Kas masuk − kas keluar'],['Profit proyek','Belum dihitung','HPP belum direkonsiliasi']].map(x=>'<div class="card metric"><div class="metric-label">'+esc(x[0])+'</div><div class="metric-number">'+esc(x[1])+'</div><div class="metric-foot">'+esc(x[2])+'</div></div>').join('');
+ const max=Math.max(1,...Object.keys(statuses).map(s=>leads.filter(x=>x.status===s).length));
+ $('#pipeline').innerHTML=Object.keys(statuses).map((s,i)=>{const n=leads.filter(x=>x.status===s).length;return '<div><div class="stage-line"><span>'+esc(statuses[s])+'</span><span>'+n+' lead</span></div><div class="track"><div class="fill '+(i%2?'black':i===3?'green':'')+'" style="width:'+(100*n/max)+'%"></div></div></div>'}).join('');
+}
+function projectHTML(p){return '<div class="project"><div class="project-name"><span>'+esc(p.name)+'</span><strong>'+p.progress+'%</strong></div><div class="project-sub">'+esc(p.client)+' · '+esc(p.step)+'</div><div class="track"><div class="fill" style="width:'+p.progress+'%"></div></div></div>';}
+function leadTable(arr){return arr.length?'<table class="table"><thead><tr><th>Prospek</th><th>Kebutuhan</th><th>Nilai peluang</th><th>Status</th><th>Tanggal</th></tr></thead><tbody>'+arr.map(l=>'<tr><td class="strong">'+esc(l.name)+'</td><td>'+esc(l.service)+'</td><td>'+rupiah(l.value)+'</td><td><span class="tag '+tagClass[l.status]+'">'+esc(statuses[l.status])+'</span></td><td>'+esc(l.date)+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">Tidak ada prospek yang cocok.</div>';}
+function draw(){
+ stats();
+ $('#projectsPanel').innerHTML=projects.map(projectHTML).join('');
+ $('#projectList').innerHTML=projects.map(projectHTML).join('');
+ $('#recentLeads').innerHTML=leadTable(leads.slice(0,4));
+ const q=$('#leadSearch').value.trim().toLowerCase();
+ $('#allLeads').innerHTML=leadTable(leads.filter(x=>(x.name+' '+x.service+' '+x.source).toLowerCase().includes(q)));
+ $('#transactions').innerHTML=transactions.map(x=>'<div class="project"><div class="project-name"><span>'+esc(x.description)+'</span><strong style="color:'+(x.type==='income'?'#087B54':'#B33331')+'">'+(x.type==='income'?'+':'−')+rupiah(x.amount)+'</strong></div><div class="project-sub">'+(x.type==='income'?'Pemasukan':'Pengeluaran')+' · Data simulasi</div></div>').join('');
+}
+document.addEventListener('click',event=>{
+ const v=event.target.closest('[data-view]');if(v){show(v.dataset.view);return}
+ const a=event.target.closest('[data-action]');if(a&&a.dataset.action==='newLead'){$('#leadForm').reset();$('#leadDialog').showModal();}
+});
+$('#leadSearch').addEventListener('input',draw);
+$('#cancelLead').addEventListener('click',()=>$('#leadDialog').close());
+$('#leadForm').addEventListener('submit',event=>{
+ event.preventDefault();const f=new FormData(event.currentTarget);
+ const name=String(f.get('name')||'').trim(),service=String(f.get('service')||'');
+ const value=Number(f.get('value')||0),status=String(f.get('status')||'new');
+ if(name.length<2||name.length>80||!Number.isFinite(value)||value<0||value>1e11||!Object.hasOwn(statuses,status)){notice('Isi data prospek dengan benar.');return}
+ leads.unshift({id:'DEMO-'+Date.now(),name,service,value,status,source:'Preview',date:'2026-11-02'});
+ draw();$('#leadDialog').close();show('leads');notice('Prospek contoh ditambahkan. Tidak tersimpan ke cloud.');
+});
+draw();
+})();
+</script>
+</body>
+</html>

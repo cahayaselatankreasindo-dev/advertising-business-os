@@ -1,134 +1,100 @@
-# Advertising Business OS — 5 Pilar Terpadu (v2)
+# CSK Business OS — Operasional Cahaya Selatan Kreasindo
 
-Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertising / CSK**
+Aplikasi PWA untuk mencatat prospek, klien, proyek produksi, transaksi kas, aktivitas pemasaran, dan catatan operasional CSK.
 
-> **Versi 2.0** — Arsitektur 5 Pilar Bisnis Terpadu dengan otomasi antar-tab dan UI berjenjang hak akses.
+> **STATUS RILIS (3 November 2026):** Penggabungan proyek di **Draft PR #4** masih **STAGING**. Backend dan frontend di branch ini belum ter-deploy ke Google Apps Script atau Google Sheets produksi. Walaupun pengujian otomatis lulus, tetap perlu endpoint LAB terisolasi, uji HTTP/CORS, backup/restore, dan uji multi-perangkat sebelum mergerilis.
 
----
+## Modul operasional
 
-## 📱 Fitur Utama Aplikasi
+| Modul | Kegunaan |
+| --- | --- |
+| Leads CRM | Prospek B2B, sumber lead, tahapan follow-up, estimasi proyek, WhatsApp |
+| Projects | Daftar pekerjaan, PIC, tenggat, status, dan checklist produksi |
+| Clients | Kontak klien, catatan kerja sama, rating dan review |
+| Finance | **Kas masuk/keluar yang benar-benar dicatat**; deal tidak otomatis menjadi DP |
+| Marketing Spend | Anggaran dan pengeluaran iklan; CPL dari biaya dan jumlah lead yang tercatat |
+| Business Memory | Catatan SOP, bahan, harga acuan, dan pembelajaran tim |
+| Commercial Engine | Kalkulasi HPP produksi hybrid, quotation, persetujuan, dan konfirmasi PO/SPK |
+| Project Cost Ledger | Biaya proyek aktual internal/vendor, estimasi vs realisasi |
+| Kalkulator HPP Lokal | Estimator produksi perangkat lokal, terpisah dari quotation cloud |
+| Operations Suite | Modul SOP dan operasional tambahan (staging, sebagian lokal) |
+| Email Marketing | Draft outbound dan segmentasi yang ditinjau Owner; tidak ada pengiriman otomatis |
 
-### Pilar 1 — Leads CRM
-- Pencatatan calon klien dari WhatsApp, Instagram Ads, TikTok, dan Referensi
-- Tombol **Direct WhatsApp Chat** dan konversi 1-klik menjadi Klien + Proyek
-- Status: Baru → Dihubungi → Negosiasi → **Deal Menang** → Batal
+**Jangan menyamakan nilai deal, invoice, dan uang masuk.** Versi staging tidak menciptakan jurnal DP otomatis saat Lead berstatus Deal Menang. Proyek draft dapat dibuat lewat UI, sedangkan pembuatan proyek otomatis di backend baru berjalan jika Script Properties `AUTO_PROJECT_FROM_WON=true` diaktifkan dengan sadar. **ROAS** belum layak dihitung tanpa pendapatan yang benar-benar diatribusikan ke kampanye; selisih pemasukan dan pengeluaran bukan laba bersih akuntansi.
 
-### Pilar 2 — Financial Journal
-- Pencatatan DP Proyek, Pelunasan, Retainer Iklan, Expense, dll
-- **Auto-trigger**: saat lead berubah jadi Deal Menang, skrip otomatis membuat baris pendapatan di tab Finance (kategori *DP Proyek*)
+## Penggunaan dan akses
 
-### Pilar 3 — Production Projects
-- Pelacakan deadline, status Brief/Pengerjaan/Review/Selesai
-- **SOP Checklist interaktif** per proyek: Brief → Produksi → Review → Revisi → Delivery
-- **Auto-trigger**: saat lead Deal Menang, baris antrean kerja baru dibuat otomatis di tab Projects (status *plan*, deadline +14 hari)
+Aplikasi memiliki tampilan responsif untuk ponsel dan desktop, navigasi bawah seluler, form lead/proyek/transaksi, indikator status sinkronisasi persisten, dan opsi ekspor/impor backup lokal. Tambahan UX staging: halaman mendukung zoom, fokus keyboard lebih terlihat, elemen form memiliki label, modal memakai semantik dialog, dan status cloud membedakan **lokal**, **menunggu**, **gagal/konflik**, serta **terverifikasi**.
 
-### Pilar 4 — Product-Market Fit (Clients)
-- Database klien tetap dengan riwayat kerja sama & LTV
-- **Rating bintang (1–5)** dan **review teks** per klien
-- Indikator PMF melalui repeat order dan kepuasan
+Backend staging kini menggunakan token **OWNER_API_TOKEN** dan **TEAM_API_TOKEN** terpisah. Server membatasi akses Tim ke Leads, Clients dan Projects; Finance, Marketing, Memory, Costings dan Project_Costs hanya untuk Owner. Dropdown di frontend **bukan login multi-user**. Token hanya berada di memori tab selama sesi aktif dan tetap dapat diekstrak dari sesi browser; jangan gunakan perangkat bersama untuk data rahasia. Perubahan role dan pembatasan sinkronisasi harus diverifikasi pada staging sebelum produksi.
 
-### Pilar 5 — Marketing Spend
-- Catatan biaya iklan per platform (Meta Ads, TikTok, Google, LinkedIn)
-- Kalkulasi **CPL** (Cost Per Lead) dan **ROAS** per platform secara real-time
-- Ringkasan performa campaign langsung di dashboard
+### Prinsip sinkronisasi staging
 
----
+- Instalasi baru mulai **kosong dan terputus dari cloud**. Data browser yang sudah ada tetap dipertahankan saat upgrade.
+- Setiap perubahan disimpan lokal dan dimasukkan ke antrean per-record, bukan dianggap langsung berhasil di Google Sheets.
+- POST write Apps Script yang bersifat opaque **bukan bukti tersimpan**; harus diikuti pembacaan ulang terautentikasi melalui POST action `read`.
+- Tarik manual dari cloud **diblokir saat ada perubahan lokal yang belum terverifikasi** agar tidak menghilangkan pekerjaan.
+- Backup JSON yang diunduh **tidak menyertakan token dan URL API**, tetapi tetap berisi informasi bisnis sensitif; simpan privat.
+- Pemulihan file backup **hanya lokal** dan memutus konfigurasi cloud untuk mencegah histori lama tersinkron kembali tanpa pemeriksaan.
+- Pemulihan backup memvalidasi versi, struktur, ID wajib, dan ID duplikat; metadata riwayat konflik ikut dipulihkan, tetapi token dan endpoint tetap dilepas. Jumlah perubahan yang belum terverifikasi saat backup dibuat ditampilkan sebagai peringatan.
+- Setiap peran memakai token berbeda yang diverifikasi server. Token hanya berada di memori tab selama sesi aktif dan dikirim di body POST, bukan di `localStorage` atau query URL. Token tetap bearer credential yang dapat diekstrak dari sesi browser; ini bukan login per-pengguna. Jangan gunakan perangkat bersama dan jangan membagikan URL request. Sebelum akses multi-user yang lebih luas, pindahkan autentikasi ke mekanisme identitas server-side.
+- Backend staging sudah memakai `LockService` dan compare-and-set fingerprint (`expectedRecords` dan `expectedFingerprint`) untuk menolak perubahan stale. Keandalan HTTP dan konflik pada **Apps Script LAB aktif** tetap belum diverifikasi.
+- Manifest kedua proyek Apps Script di repo kini dibatasi ke `MYSELF` / `USER_DEPLOYING`; CI memeriksa agar `ANYONE` dan `ANYONE_ANONYMOUS` tidak masuk kembali. Ini mengamankan konfigurasi sumber, bukan membuktikan pengaturan deployment yang sudah aktif.
+- Backend historis pada file `backups` sudah dinonaktifkan: handler `doGet`/`doPost` dan `setupSheet` diganti nama, dan CI memastikan file arsip itu tidak bisa dipakai sebagai Web App atau setup aktif secara tidak sengaja.
+- `deploy-backend.ps1` sekarang fail-closed. Versi lama menyalin backend produksi ke proyek LAB yang dikonfigurasi oleh `.clasp.json`, lalu menjalankan `clasp push/deploy`; jalur itu dinonaktifkan agar guard LAB tidak tertimpa.
 
-## 🔐 Hak Akses Berjenjang
+## Pengujian dan pengembangan
 
-| Role | Akses |
-|------|-------|
-| **Owner** | Semua menu, Keuangan, Riset, Marketing |
-| **Tim Kreatif / Admin** | Leads, Proyek, Klien — menu Keuangan & Marketing disembunyikan |
+Pada branch integrasi PR #4, workflow `Check Business OS safe sync` menguji:
+```bash
+node --check sync-safe.js
+node --check sync-safe.test.js
+node sync-safe.test.js
+node sync-backend-integration.test.js
+node apps-script/lab-contract.test.cjs
+node legacy-backup-safety.test.cjs
+node deploy-backend-safety.test.cjs
+# Deployment guard: only explicit, reviewed release procedures may touch Apps Script.
+node ui-render-safety.test.cjs
+# UI render safety: imported CRM/marketing values are HTML-escaped before insertion.
+node mapping.test.js
+node commercial-costing.test.js
+node commercial-invoice.test.js
+```
 
-Pilih role via dropdown di pojok kiri atas (desktop) atau header (mobile).
+Integrasi backend pada workflow memakai **emulator SpreadsheetApp, bukan Web App live**. Simulasi Android V2 6/6 dan smoke test internal Spreadsheet LAB tidak membuktikan otentikasi/CORS HTTP di browser terhadap Apps Script yang di-deploy.
 
----
+Referensi teknis: [Safe Sync rollout](docs/safe-sync-rollout.md), [LAB API guard](docs/lab-api-guard.md), [UX/accessibility QA & release gate](docs/ux-access-security-qa.md).
 
-## ⚡ Otomasi Intelligente (Auto-Trigger)
+### Batasan sebelum rilis produksi
 
-Ketika status Lead diubah menjadi **Deal Menang**, sistem akan secara otomatis:
+1. Cadangan produksi diverifikasi dan skenario pemulihan disimulasikan pada database dummy.
+2. Pasang `LabRequestGuard.gs`, `LabHandlerVerification.gs`, dan panggilan guard pada **Apps Script LAB saja**; periksa output `LAB_HANDLER_GUARD_PASS`. Jangan mengubah database produksi.
+3. Gunakan endpoint/staging terpisah untuk verifikasi browser → Apps Script → Google Sheets melalui HTTP nyata; cek CORS untuk POST read/write, redirect, token, retry, offline dan dua browser berbeda.
+4. Verifikasi live di LAB bahwa mekanisme atomik `expectedRecords` / `expectedFingerprint` + `LockService` benar-benar menolak stale client dan race antardua perangkat.
+5. Uji backend role Owner/Team pada LAB dengan data dummy, termasuk penolakan akses lintas modul. Token browser belum menjadi autentikasi per-pengguna; pertimbangkan provider identitas sebelum akses multi-user produksi.
+6. Audit dan harden frontend terhadap injeksi konten saat menampilkan data pengguna; backup dan restore diuji di perangkat seluler.
+7. Hanya sesudah semua gate lolos, review perubahan PR, rollout terkontrol, dan verifikasi pascarilis.
 
-1. ✅ Menulis baris **Pendapatan** ke tab Finance (kategori: DP Proyek)
-2. ✅ Menulis baris **Antrean Proyek** ke tab Projects (status: plan, deadline +14 hari)
-3. ✅ Menciptakan entri Klien baru jika belum ada
+**Jangan mengikuti instruksi lama yang menganjurkan “Anyone” tanpa pengamanan backend, menghapus isi project Apps Script produksi, atau menjalankan `setupSheet` pada database aktif.** Versi staging kode GitHub belum identik dengan Apps Script produksi yang berjalan.
 
-**Mekanisme idempoten**: token `[LEAD-{id}]` mencegah duplikasi baris meskipun trigger berjalan berulang kali.
+## Sumber kode
 
-### Cara Mengaktifkan Auto-Trigger (Sekali Setup)
+- Frontend PWA: `index.html`
+- Antrean dan pembacaan ulang Safe Sync: `sync-safe.js`
+- Service worker cache: `sw.js`
+- Manifest instalasi: `manifest.json`
+- Contoh kode backend (bukan otomatis ter-deploy): `google_apps_script.js`
+- Hanya LAB: `apps-script/LabSelfTest.gs`, `apps-script/LabRequestGuard.gs`, `apps-script/LabHandlerVerification.gs`
 
-1. Buka [Google Apps Script Editor](https://script.google.com) → Spreadsheet Anda
-2. Pilih fungsi **`installAutoTrigger`** di dropdown atas → klik **Run**
-3. Berikan izin akses Google Account Anda
-4. Selesai! Otomasi akan berjalan otomatis setiap kali Anda mengedit tab Leads, maupun terjadwal per jam
+Gunakan data dummy untuk pengujian. Jangan menyimpan API token, password, email klien, atau export database produksi ke source control.
 
----
 
-## 🔄 Sinkronisasi Dua Arah
+## Status integrasi 3 November 2026
 
-Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
-
-- **Kirim (Push)**: setiap perubahan di aplikasi otomatis tersinkron ke Google Sheets (sync_all)
-- **Tarik (Pull)**: tombol **"Tarik Data"** di Dashboard mengambil data terbaru dari cloud dan menimpa penyimpanan lokal
-- **Catatan**: Pull bersifat *server overwrites local* — pastikan perubahan lokal sudah disinkronkan terlebih dahulu
-
----
-
-## 🚀 Cara Membuka di HP (via GitHub Pages — Gratis)
-
-1. Buka repositori ini di browser: https://github.com/cahayaselatankreasindo-dev/advertising-business-os
-2. Klik tab **Settings** → bilah sisi kiri klik **Pages**
-3. Source: **Deploy from a branch** → Branch: **main**, folder: **/ (root)** → Save
-4. Tunggu 1–2 menit → link publik: 👉 `https://cahayaselatankreasindo-dev.github.io/advertising-business-os/`
-5. **Pasang sebagai app di HP:**
-   - **Android (Chrome)**: titik tiga kanan atas → **"Tambahkan ke Layar Utama"**
-   - **iPhone (Safari)**: tombol Share → **"Tambahkan ke Layar Utama"**
-
----
-
-## 📊 Cara Menghubungkan ke Google Sheets (Database Gratis)
-
-1. Buat **Google Spreadsheet baru** → beri nama `Database CSK Business OS`
-2. Klik menu **Extensions** → **Apps Script**
-3. Hapus semua kode bawaan, lalu **PASTE** seluruh isi file [`google_apps_script.js`](google_apps_script.js)
-4. Simpan (Ctrl+S)
-5. Pilih fungsi **`setupSheet`** → klik **Run** (berikan izin jika diminta)
-6. Klik **Deploy** (kanan atas) → **New deployment** → pilih **Web app**
-7. Konfigurasi:
-   - Description: `CSK OS API v2`
-   - Execute as: **Me**
-   - Who has access: **Anyone**
-8. Klik **Deploy** → salin URL Web App yang berakhiran `/exec`
-9. Buka aplikasi → masuk ke menu **Pengaturan & Cloud** → tempelkan URL → **Simpan URL**
-10. *(Opsional)* Jalankan fungsi **`installAutoTrigger`** sekali untuk mengaktifkan otomasi Deal Menang
-
----
-
-## 📂 Struktur Database (5 Pilar)
-
-| Pilar | Tab Google Sheets | Kolom Kunci |
-|-------|-------------------|-------------|
-| **Leads CRM** | Leads | ID, Tanggal, Nama, WA, Sumber, EstimasiNilai, Status, Catatan |
-| **Financial Journal** | Finance | ID, Tanggal, Tipe, Kategori, Nominal, Keterangan |
-| **Production Projects** | Projects | ID, NamaProyek, Klien, Nilai, Status, Deadline, Catatan, **SOP_Checklist** |
-| **Product-Market Fit** | Clients | ID, NamaKlien, WA, TotalProyek, TotalBelanja, Catatan, **Rating_Review** |
-| **Marketing Spend** | Marketing_Spend *(baru)* | ID, Tanggal, Platform, Kampanye, Budget, Terpakai, LeadsDihasilkan, Catatan |
-
----
-
-## 🔧 Changelog v2.0
-
-- ✅ Tab **Marketing_Spend** baru ditambahkan
-- ✅ Kolom **SOP_Checklist** otomatis ditambahkan ke tab Projects
-- ✅ Kolom **Rating_Review** otomatis ditambahkan ke tab Clients
-- ✅ Fungsi **autoTriggerPillars()** — idempoten via token `[LEAD-{id}]`
-- ✅ Fungsi **installAutoTrigger()** — pasang onEdit + time-driven trigger
-- ✅ doPost mendukung aksi: `sync_all`, `insert`, `update_status`
-- ✅ doGet mengembalikan semua tab termasuk Marketing_Spend & lastSynced
-- ✅ UI 5 pilar terpadu dengan badge penanda pilar
-- ✅ Dropdown **Hak Akses** (Owner / Tim Kreatif)
-- ✅ **SOP Checklist interaktif** per proyek (Brief → Delivery)
-- ✅ **Rating bintang & review** per klien
-- ✅ View **Marketing Spend** baru dengan kalkulasi CPL & ROAS
-- ✅ Tombol **"Tarik Data"** (pull server overwrites local) di dashboard
-- ✅ Versi PWA bumped ke **v2.0.0** (service worker cache baru)
+- Branch integrasi: `integration/secure-safe-sync-20261103` ([Draft PR #4](https://github.com/cahayaselatankreasindo-dev/advertising-business-os/pull/4)).
+- Optimasi keamanan/performa PR #6 sudah di-squash-merge ke branch integrasi (commit `647555d5efa37e3445af5b8ad90e645c895c7964`); belum masuk `main` atau deployment produksi.
+- Origin fitur: Draft PR #2 (safe sync, operations, email, estimator HPP lokal), Draft PR #3 (commercial HPP, project ledger, invoice, role), disatukan secara selektif tanpa merge ke `main`.
+- Dua domain HPP berbeda: `page-hpp` untuk estimator **lokal** dan `page-costings` untuk quotation terkait proyek yang ikut delta sync.
+- Akun Team hanya memiliki akses server ke Leads, Clients dan Projects; pembatasan yang benar-benar aman untuk data lokal memerlukan perangkat/profile browser terpisah.
+- **Belum production-ready.** Lihat [Integration QA & release gate](docs/integration-release-gate-20261103.md).

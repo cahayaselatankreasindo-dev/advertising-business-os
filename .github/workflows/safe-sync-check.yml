@@ -1,0 +1,138 @@
+name: Check Business OS safe sync
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'README.md'
+      - 'ui-render-safety.test.cjs'
+      - 'legacy-backup-safety.test.cjs'
+      - 'backups'
+      - 'deploy-backend.ps1'
+      - 'deploy-backend-safety.test.cjs'
+      - 'hpp-calculator.js'
+      - 'hpp-ui.js'
+      - 'hpp-calculator.test.js'
+      - 'commercial-costing.test.js'
+      - 'commercial-invoice.test.js'
+      - 'email-marketing.js'
+      - 'email-marketing-ui.js'
+      - 'email-marketing.test.js'
+      - 'persona-leads.js'
+      - 'persona-leads.test.js'
+      - 'operations-core.js'
+      - 'operations-ui.js'
+      - 'operations.test.js'
+      - 'operations-photo-lab.browser.test.cjs'
+      - 'photo-lab/Code.gs'
+      - 'photo-lab/Index.html'
+      - 'photo-lab/appsscript.json'
+      - 'photo-lab.test.js'
+      - 'docs/photo-reports-staging.md'
+      - 'preview/CSK-Email-Marketing-Offline.html'
+      - 'sync-safe.js'
+      - 'sync-safe.test.js'
+      - 'security-token-safety.test.cjs'
+      - 'sync-backend-integration.test.js'
+      - 'google_apps_script.js'
+      - 'outreach-safety.test.js'
+      - 'apps-script/CSK-LAB-BUNDLE.gs'
+      - 'apps-script/build-lab-bundle.cjs'
+      - 'apps-script/lab-bundle.test.cjs'
+      - 'apps-script/Code.gs'
+      - 'apps-script/appsscript.json'
+      - 'apps-script/LabHandlerVerification.gs'
+      - 'apps-script/lab-contract.test.cjs'
+      - 'apps-script/LabSelfTest.gs'
+      - 'apps-script/LabRequestGuard.gs'
+      - 'sw.js'
+      - 'service-worker.test.js'
+      - 'mapping.test.js'
+      - 'preview/CSK-Business-OS-Brand-Preview.html'
+      - 'preview/brand-preview.test.js'
+      - 'manifest.json'
+      - '.github/workflows/safe-sync-check.yml'
+  workflow_dispatch:
+jobs:
+  safe-sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate scripts
+        run: |
+          node --check sync-safe.js
+          node --check sync-safe.test.js
+          node sync-safe.test.js
+          node security-token-safety.test.cjs
+          node sync-backend-integration.test.js
+          node ui-render-safety.test.cjs
+          node legacy-backup-safety.test.cjs
+          node deploy-backend-safety.test.cjs
+      - name: Verify standalone brand preview (no cloud access)
+        run: node preview/brand-preview.test.js
+      - name: Test HPP costing, quote policy, and local-only integration
+        run: |
+          node --check hpp-calculator.js
+          node --check hpp-ui.js
+          node hpp-calculator.test.js
+      - name: Test integrated commercial costing and invoice receipts
+        run: |
+          node commercial-costing.test.js
+          node commercial-invoice.test.js
+      - name: Test Email Marketing safety and segmentation
+        run: |
+          node --check email-marketing.js
+          node --check email-marketing-ui.js
+          node email-marketing.test.js
+      - name: Assert no backend cold email or auto-email trigger
+        run: |
+          node --check google_apps_script.js
+          node --check outreach-safety.test.js
+          node outreach-safety.test.js
+      - name: Test B2B persona reference (no CRM writes)
+        run: |
+          node --check persona-leads.js
+          node persona-leads.test.js
+      - name: Test local Operations Suite and financial guardrails
+        run: |
+          node --check operations-core.js
+          node --check operations-ui.js
+          node operations.test.js
+      - name: Test owner-only private Drive photo LAB guards (mock, not live upload)
+        run: |
+          node --check --input-type=commonjs < photo-lab/Code.gs
+          node --check photo-lab.test.js
+          node photo-lab.test.js
+      - name: Validate existing sheet mapping
+        run: node mapping.test.js
+      - name: Validate PWA cache boundaries
+        run: |
+          node --check service-worker.test.js
+          node service-worker.test.js
+      - name: Validate isolated Apps Script LAB source and guard wiring
+        run: |
+          node --check --input-type=commonjs < apps-script/Code.gs
+          node --check --input-type=commonjs < apps-script/LabRequestGuard.gs
+          node --check --input-type=commonjs < apps-script/LabSelfTest.gs
+          node --check --input-type=commonjs < apps-script/LabHandlerVerification.gs
+          node apps-script/lab-contract.test.cjs
+          node --check --input-type=commonjs < apps-script/CSK-LAB-BUNDLE.gs
+          node apps-script/build-lab-bundle.cjs --check
+          node apps-script/lab-bundle.test.cjs
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Browser test private photo LAB project handoff
+        run: node operations-photo-lab.browser.test.cjs
+      - name: Upload browser preview screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: csk-photo-lab-browser-preview
+          path: artifacts/*.png
+          if-no-files-found: ignore
+          retention-days: 7
