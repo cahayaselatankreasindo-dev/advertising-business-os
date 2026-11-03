@@ -34,6 +34,7 @@ on:
       - 'apps-script/build-lab-bundle.cjs'
       - 'apps-script/lab-bundle.test.cjs'
       - 'apps-script/Code.gs'
+      - 'apps-script/appsscript.json'
       - 'apps-script/LabHandlerVerification.gs'
       - 'apps-script/lab-contract.test.cjs'
       - 'apps-script/LabSelfTest.gs'
