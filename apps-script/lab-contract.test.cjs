@@ -15,7 +15,7 @@ function fn(source, name, nextName) {
 }
 
 const get = fn(code,'doGet','doPost');
-const post = fn(code,'doPost','protocolMismatchResponse');
+const post = fn(code,'doPost');
 const setup = fn(code,'setupSheet','ensureSheet');
 const trigger = fn(code,'installAutoTrigger','handleAutoTrigger');
 
