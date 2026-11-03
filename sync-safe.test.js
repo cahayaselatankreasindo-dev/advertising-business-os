@@ -432,15 +432,19 @@ test('retry reconciles a committed write when all immediate readbacks fail', asy
   let failReadbacks = 0;
   const flaky = async (url, options={}) => {
     if (options.method === 'POST') {
+      const payload = JSON.parse(options.body);
+      if (payload.action === 'read') {
+        if (failReadbacks > 0) {
+          failReadbacks--;
+          throw new Error('temporary readback failure');
+        }
+        return cloud.fetch(url, options);
+      }
       const result = await cloud.fetch(url, options);
       failReadbacks = 3;
       return result;
     }
-    if (failReadbacks > 0) {
-      failReadbacks--;
-      throw new Error('temporary readback failure');
-    }
-    return cloud.fetch(url, options);
+    throw new Error('GET is disabled; use authenticated POST action read.');
   };
   const storage = store();
   const engine = createEngine(storage, flaky);
