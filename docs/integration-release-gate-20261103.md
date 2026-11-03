@@ -53,7 +53,7 @@ These tests use an emulated backend / local browser fixtures. A green CI result 
 
 ## Release gates that must remain open
 
-- **BLOCKER — Apps Script target identity mismatch:** `apps-script/.clasp.json` currently references a Script ID that differs from the LAB Script ID documented in `docs/lab-api-guard.md`. Resolve this against the actual Apps Script editor and bound dummy spreadsheet before any `clasp` command, manual bundle copy, or deployment. Do not guess which ID is authoritative. The deployment helper remains fail-closed.
+- **BLOCKER — Apps Script environment separation:** `apps-script/.clasp.json` is the production Script ID, while the isolated LAB uses a different Script ID documented in `docs/lab-api-guard.md`. The staging `apps-script/Code.gs` contains LAB-only guarded code, so a `clasp push/deploy` from `apps-script/` would target production with the wrong source. Do not run `clasp` from that directory. The deployment helper remains fail-closed; create and verify a dedicated LAB working directory/configuration before any live LAB push.
 - **Live Apps Script verification is not available from repository CI:** source-level tests do not prove that the deployed Web App runs these handlers. The owner must verify the active project ID, bound spreadsheet ID/name, installed `doGet/doPost` guards, and private `MYSELF` access in the Apps Script editor before running the non-mutating handler check.
 
 1. Isolated Google Spreadsheet + Apps Script deployment with dummy data only. Confirm connected project IDs, active guard handlers and `LAB_HANDLER_GUARD_PASS`.
