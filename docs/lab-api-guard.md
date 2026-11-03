@@ -2,7 +2,7 @@
 
 Status: **BELUM AKTIF DI APPS SCRIPT LAB**. Kode repo adalah persiapan; deploy LAB tetap **Only myself**. Aplikasi produksi dan Google Sheets produksi **jangan disentuh**.
 
-Konfigurasi manifest `apps-script/appsscript.json` dikunci ke `webapp.access: MYSELF` dan `executeAs: USER_DEPLOYING`. CI memeriksa kedua nilai ini; jangan mengubahnya menjadi `ANYONE` atau `ANYONE_ANONYMOUS`.
+Konfigurasi manifest kedua proyek (`apps-script/appsscript.json` dan `photo-lab/appsscript.json`) dikunci ke `webapp.access: MYSELF` dan `executeAs: USER_DEPLOYING`. CI memeriksa keempat nilai ini; jangan mengubahnya menjadi `ANYONE` atau `ANYONE_ANONYMOUS`.
 
 ## Bukti yang sudah didapat
 - LAB_TEST_PASS dari Apps Script LAB: create/update/delete/readback data dummy.
