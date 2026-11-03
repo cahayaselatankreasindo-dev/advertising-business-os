@@ -594,6 +594,8 @@ function doPost(e) {
         if (payload.finance)        mergeSummary.Finance         = mergeSheet(ss, "Finance",         payload.finance);
         if (payload.memory)         mergeSummary.Memory          = mergeSheet(ss, "Memory",          payload.memory);
         if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
+        if (payload.costings)       mergeSummary.Costings        = mergeSheet(ss, "Costings",        payload.costings);
+        if (payload.projectCosts)   mergeSummary.Project_Costs   = mergeSheet(ss, "Project_Costs",   payload.projectCosts);
         // Setelah sinkronisasi, cek apakah ada lead baru yang won
         autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge (tidak ada yang dihapus)", summary: mergeSummary });
