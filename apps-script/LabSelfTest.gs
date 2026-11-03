@@ -8,7 +8,8 @@
  */
 var CSK_LAB_SHEET_ID = "19le34ltpZCMIHmjw2n_JbEvrtZBWNTKd61U-xEAoR5Y";
 var CSK_LAB_TABLES = [
-  "Leads", "Clients", "Projects", "Finance", "Memory", "Marketing_Spend"
+  "Leads", "Clients", "Projects", "Finance", "Memory", "Marketing_Spend",
+  "Costings", "Project_Costs"
 ];
 
 function cskLabRequireDummySheet_() {
@@ -57,13 +58,17 @@ function cskLabCheckReadiness() {
       typeof findRowById !== "function") {
     throw new Error("Handler backend wajib tidak ditemukan di Code.gs.");
   }
-  var token = getApiToken();
-  var secure = token.length >= 20 &&
-    token !== "GANTI-DENGAN-TOKEN-RAHASIA-ANDA";
+  var tokens = getApiTokens();
+  var ownerSecure = !!tokens.owner && tokens.owner.length >= 20 &&
+    tokens.owner !== "GANTI-DENGAN-TOKEN-RAHASIA-ANDA";
+  var teamSecure = !!tokens.team && tokens.team.length >= 20 &&
+    tokens.team !== "GANTI-DENGAN-TOKEN-RAHASIA-ANDA";
   var status = {
     labIdVerified: ss.getId() === CSK_LAB_SHEET_ID,
     backendPresent: true,
-    apiTokenConfigured: secure,
+    apiTokenConfigured: ownerSecure,
+    ownerApiTokenConfigured: ownerSecure,
+    teamApiTokenConfigured: teamSecure,
     externalWebAppRequired: false
   };
   Logger.log(JSON.stringify(status));
@@ -73,17 +78,20 @@ function cskLabCheckReadiness() {
 /** Strong random LAB token, generated and stored ONLY in LAB Script Properties. */
 function cskLabEnsurePrivateToken_() {
   cskLabRequireDummySheet_();
-  var existing = getApiToken();
-  if (existing && existing.length >= 20 &&
-      existing !== "GANTI-DENGAN-TOKEN-RAHASIA-ANDA") {
-    return { created: false, configured: true };
+  var tokens = getApiTokens();
+  var ownerReady = !!tokens.owner && tokens.owner.length >= 20;
+  var teamReady = !!tokens.team && tokens.team.length >= 20;
+  if (ownerReady && teamReady) {
+    return { created: false, configured: true, rolesConfigured: 2 };
   }
-  var newToken = "LAB-" +
-    Utilities.getUuid().replace(/-/g, "") +
-    Utilities.getUuid().replace(/-/g, "");
-  PropertiesService.getScriptProperties().setProperty("API_TOKEN", newToken);
-  // Deliberately DO NOT log the token: no secrets in public logs.
-  return { created: true, configured: true };
+  // Generate separate random Owner and Team credentials in LAB Script Properties.
+  // setupApiTokens() never logs either secret and removes the legacy shared token.
+  setupApiTokens();
+  tokens = getApiTokens();
+  if (!tokens.owner || tokens.owner.length < 20 || !tokens.team || tokens.team.length < 20) {
+    throw new Error("DIBATALKAN: token Owner/Tim LAB belum berhasil dibuat.");
+  }
+  return { created: true, configured: true, rolesConfigured: 2 };
 }
 
 function cskLabParseOutput_(output) {
@@ -110,17 +118,36 @@ function cskLabRunIsolatedSmokeTest() {
   var ss = cskLabRequireDummySheet_();
   cskLabCheckReadiness();
   var tokenResult = cskLabEnsurePrivateToken_();
-  var token = getApiToken();
-  if (!token || !isAuthorized({token:token}) ||
-      isAuthorized({token:""}) ||
-      isAuthorized({token:"INVALID-TEST-TOKEN"})) {
-    throw new Error("DIBATALKAN: autentikasi API LAB belum aman.");
+  var tokens = getApiTokens();
+  var token = tokens.owner;
+  var teamToken = tokens.team;
+  if (!token || !teamToken || token === teamToken ||
+      !isAuthorized({token:token}) || !isAuthorized({token:teamToken}) ||
+      isAuthorized({token:""}) || isAuthorized({token:"INVALID-TEST-TOKEN"})) {
+    throw new Error("DIBATALKAN: autentikasi API LAB Owner/Tim belum aman.");
   }
 
   // The complete view must be denied without a valid API token.
   var denied = JSON.parse(doGet({ parameter: { protocolVersion: 2 } }).getContent());
   if (denied.status !== "error") {
     throw new Error("DIBATALKAN: doGet tanpa token masih dapat membaca data.");
+  }
+
+  // Team read must never include private business modules.
+  var teamRead = JSON.parse(doGet({
+    parameter: {token:teamToken, protocolVersion:2}
+  }).getContent());
+  var privateAreas = ["finance","memory","marketingSpend","costings","projectCosts"];
+  if (teamRead.status !== "success" || !teamRead.data || teamRead.data.role !== "team") {
+    throw new Error("DIBATALKAN: role Team tidak diverifikasi oleh backend.");
+  }
+  privateAreas.forEach(function(area) {
+    if (!Array.isArray(teamRead.data[area]) || teamRead.data[area].length !== 0) {
+      throw new Error("DIBATALKAN: Team menerima data privat " + area + ".");
+    }
+  });
+  if (getRequestRole({token:teamToken,role:"owner"}) !== "team") {
+    throw new Error("DIBATALKAN: payload role browser dapat menaikkan hak akses.");
   }
 
   var id = "QA-LAB-" + new Date().getTime() + "-" +
@@ -186,7 +213,8 @@ function cskLabRunIsolatedSmokeTest() {
     done.verified = true;
     Logger.log(JSON.stringify({
       status:"LAB_TEST_PASS", labSheet:CSK_LAB_SHEET_ID,
-      authenticationRequired:true, tokenCreated:tokenResult.created,
+      authenticationRequired:true, ownerAndTeamTokensConfigured:true,
+      teamPrivateReadFiltered:true, tokenCreated:tokenResult.created,
       test:done
     }));
     return done;
@@ -197,4 +225,96 @@ function cskLabRunIsolatedSmokeTest() {
     var rowToRemove = findRowById(labSheet, id);
     if (rowToRemove > 1) labSheet.deleteRow(rowToRemove);
   }
+}
+
+
+/**
+ * Non-mutating Owner/Team isolation test against the actual guarded LAB handlers.
+ * It checks Team read filtering and rejects Team writes/deletes to private sheets.
+ */
+function cskLabRunRoleIsolationTests() {
+  var ss = cskLabRequireDummySheet_();
+  var tokens = getApiTokens();
+  if (!tokens.owner || !tokens.team || tokens.owner === tokens.team) {
+    throw new Error("LAB_ROLE_TEST_FAIL: separate Owner/Team tokens are required.");
+  }
+  var privateSheets = ["Finance","Memory","Marketing_Spend","Costings","Project_Costs"];
+  var beforeRows = {};
+  privateSheets.forEach(function(name) {
+    var sheet = ss.getSheetByName(name);
+    if (!sheet) throw new Error("LAB_ROLE_TEST_FAIL: missing sheet " + name);
+    beforeRows[name] = sheet.getLastRow();
+  });
+
+  var ownerRead = JSON.parse(doGet({
+    parameter:{token:tokens.owner,protocolVersion:2}
+  }).getContent());
+  if (ownerRead.status !== "success" || ownerRead.data.role !== "owner") {
+    throw new Error("LAB_ROLE_TEST_FAIL: Owner read was not authorized.");
+  }
+
+  var teamRead = JSON.parse(doGet({
+    parameter:{token:tokens.team,protocolVersion:2}
+  }).getContent());
+  if (teamRead.status !== "success" || teamRead.data.role !== "team") {
+    throw new Error("LAB_ROLE_TEST_FAIL: Team read was not authorized.");
+  }
+  privateSheets.forEach(function(name) {
+    var area = ({
+      Finance:"finance", Memory:"memory", Marketing_Spend:"marketingSpend",
+      Costings:"costings", Project_Costs:"projectCosts"
+    })[name];
+    if (!Array.isArray(teamRead.data[area]) || teamRead.data[area].length !== 0) {
+      throw new Error("LAB_ROLE_TEST_FAIL: Team read exposed " + name + ".");
+    }
+  });
+
+  var financeId = "QA-LAB-ROLE-DENY-FINANCE";
+  var financeSync = JSON.parse(doPost({postData:{contents:JSON.stringify({
+    action:"sync_all",token:tokens.team,protocolVersion:2,
+    expectedRecords:{Finance:{}},
+    finance:[{id:financeId,date:"2026-11-03",type:"income",category:"LAB",amount:1,description:"MUST NOT WRITE"}]
+  })}}).getContent());
+  if (financeSync.status === "success") {
+    throw new Error("LAB_ROLE_TEST_FAIL: Team sync_all wrote Finance.");
+  }
+
+  var costId = "QA-LAB-ROLE-DENY-COSTING";
+  var costingSync = JSON.parse(doPost({postData:{contents:JSON.stringify({
+    action:"sync_all",token:tokens.team,protocolVersion:2,
+    expectedRecords:{Costings:{}},
+    costings:[{id:costId,client:"LAB",title:"MUST NOT WRITE",hpp:1}]
+  })}}).getContent());
+  if (costingSync.status === "success") {
+    throw new Error("LAB_ROLE_TEST_FAIL: Team sync_all wrote Costings.");
+  }
+
+  var financeDelete = JSON.parse(doPost({postData:{contents:JSON.stringify({
+    action:"delete",token:tokens.team,protocolVersion:2,
+    sheet:"Finance",id:"QA-LAB-ROLE-DENY-DELETE",
+    expectedFingerprint:"LAB-NEGATIVE-TEST-FINGERPRINT"
+  })}}).getContent());
+  if (financeDelete.status === "success") {
+    throw new Error("LAB_ROLE_TEST_FAIL: Team deleted Finance.");
+  }
+
+  privateSheets.forEach(function(name) {
+    if (ss.getSheetByName(name).getLastRow() !== beforeRows[name]) {
+      throw new Error("LAB_ROLE_TEST_FAIL: private sheet row count changed: " + name);
+    }
+  });
+
+  var result = {
+    status:"LAB_ROLE_ISOLATION_PASS",
+    labIdVerified:ss.getId() === CSK_LAB_SHEET_ID,
+    ownerReadAllowed:true,
+    teamReadAllowed:true,
+    teamPrivateAreasFiltered:privateSheets.length,
+    teamFinanceWriteRejected:true,
+    teamCostingsWriteRejected:true,
+    teamFinanceDeleteRejected:true,
+    privateSheetRowsUnchanged:true
+  };
+  Logger.log(JSON.stringify(result));
+  return result;
 }
