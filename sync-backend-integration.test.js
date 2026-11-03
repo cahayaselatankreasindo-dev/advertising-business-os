@@ -749,3 +749,67 @@ test('mergeSheet reads the data block once and coalesces contiguous updates into
     'four adjacent updates must be coalesced into one setValues call');
   assert.equal(api.read().data.leads.find(row=>row.id==='TEST-BULK-3').name,'Bulk 3 updated');
 });
+
+
+test('legacy insert and update_status enforce expected versions and Owner-only automation', () => {
+  const api = createBackend();
+  const props = api.sandbox.PropertiesService.getScriptProperties();
+  const ownerToken = 'TEST_ONLY_OWNER_TOKEN_LEGACY_API';
+  const teamToken = 'TEST_ONLY_TEAM_TOKEN_LEGACY_API';
+  props.setProperty('OWNER_API_TOKEN',ownerToken);
+  props.setProperty('TEAM_API_TOKEN',teamToken);
+  props.deleteProperty('API_TOKEN');
+  props.setProperty('AUTO_PROJECT_FROM_WON','true');
+
+  const lead = {id:'TEST-LEGACY-STATUS',date:'2026-11-03',name:'Legacy status',status:'new',value:100};
+  const insertedLead = api.post({
+    action:'sync_all',token:ownerToken,leads:[lead],
+    expectedRecords:{Leads:{[lead.id]:null}}
+  });
+  assert.equal(insertedLead.status,'success');
+  const original = api.read().data.leads.find(row=>row.id===lead.id);
+  const originalFingerprint = api.sandbox.stableRecordFingerprint_(original);
+
+  const missingFingerprint = api.post({
+    action:'update_status',token:ownerToken,sheet:'Leads',id:lead.id,status:'won'
+  });
+  assert.equal(missingFingerprint.code,'EXPECTED_VERSION_REQUIRED');
+  assert.equal(api.tables.Projects.getLastRow(),1);
+
+  const teamUpdate = api.post({
+    action:'update_status',token:teamToken,sheet:'Leads',id:lead.id,status:'won',
+    expectedFingerprint:originalFingerprint
+  });
+  assert.equal(teamUpdate.status,'success');
+  assert.equal(api.tables.Projects.getLastRow(),1,
+    'Team must not trigger Owner-only won-lead automation');
+
+  const updatedLead = api.read().data.leads.find(row=>row.id===lead.id);
+  const ownerUpdate = api.post({
+    action:'update_status',token:ownerToken,sheet:'Leads',id:lead.id,status:'won',
+    expectedFingerprint:api.sandbox.stableRecordFingerprint_(updatedLead)
+  });
+  assert.equal(ownerUpdate.status,'success');
+  assert.equal(api.tables.Projects.getLastRow(),2,
+    'Owner may trigger the opt-in automation after a CAS-verified status update');
+
+  const beforeInsert = api.tables.Memory.getLastRow();
+  const missingAbsent = api.post({
+    action:'insert',token:ownerToken,sheet:'Memory',
+    data:{id:'TEST-LEGACY-INSERT',date:'2026-11-03',category:'QA',title:'No baseline',content:'Reject'}
+  });
+  assert.equal(missingAbsent.code,'EXPECTED_VERSION_REQUIRED');
+  assert.equal(api.tables.Memory.getLastRow(),beforeInsert);
+
+  const validInsert = api.post({
+    action:'insert',token:ownerToken,sheet:'Memory',expectedAbsent:true,
+    data:{id:'TEST-LEGACY-INSERT',date:'2026-11-03',category:'QA',title:'CAS insert',content:'Allowed'}
+  });
+  assert.equal(validInsert.status,'success');
+  const duplicateInsert = api.post({
+    action:'insert',token:ownerToken,sheet:'Memory',expectedAbsent:true,
+    data:{id:'TEST-LEGACY-INSERT',date:'2026-11-03',category:'QA',title:'Duplicate',content:'Rejected'}
+  });
+  assert.equal(duplicateInsert.code,'SYNC_CONFLICT');
+  assert.equal(api.tables.Memory.getLastRow(),beforeInsert+1);
+});
