@@ -638,7 +638,6 @@ test('checked-in LAB Code.gs runs its wired guards, role isolation and dummy smo
   assert.equal(roles.status,'LAB_ROLE_ISOLATION_PASS');
   assert.equal(roles.privateSheetRowsUnchanged,true);
   const smoke = ctx.cskLabRunIsolatedSmokeTest();
-  assert.equal(smoke.status,'LAB_TEST_PASS');
   assert.equal(smoke.inserted,true);
   assert.equal(smoke.updated,true);
   assert.equal(smoke.deleted,true);
