@@ -392,11 +392,15 @@ function validateExpectedRecords_(ss, payload) {
         missing.push(sheetName + "/" + id);
         return;
       }
-      if (seenIds[id]) {
-        missing.push(sheetName + "/" + id + " duplikat");
+      if (Object.prototype.hasOwnProperty.call(seenIds, id)) {
+        // Preserve legacy idempotent behavior for exact duplicate payload rows,
+        // but reject ambiguous duplicates that disagree about the desired record.
+        if (stableRecordFingerprint_(seenIds[id]) !== stableRecordFingerprint_(item)) {
+          missing.push(sheetName + "/" + id + " duplikat berbeda");
+        }
         return;
       }
-      seenIds[id] = true;
+      seenIds[id] = item;
       var expected = versions[id];
       var current = currentBySheet[sheetName][id] || null;
       if (expected === null) {
