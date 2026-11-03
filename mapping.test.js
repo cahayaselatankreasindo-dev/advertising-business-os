@@ -206,7 +206,8 @@ function callDoPost(payload, rawUnauthenticated = false) {
     body.expectedRecords = {};
     const areaSheets = {
       leads: 'Leads', clients: 'Clients', projects: 'Projects',
-      finance: 'Finance', memory: 'Memory', marketingSpend: 'Marketing_Spend'
+      finance: 'Finance', memory: 'Memory', marketingSpend: 'Marketing_Spend',
+      costings: 'Costings', projectCosts: 'Project_Costs'
     };
     Object.keys(areaSheets).forEach(area => {
       if (!Array.isArray(body[area]) || !body[area].length) return;
