@@ -53,6 +53,7 @@ node sync-backend-integration.test.js
 node apps-script/lab-contract.test.cjs
 node legacy-backup-safety.test.cjs
 node deploy-backend-safety.test.cjs
+# Deployment guard: only explicit, reviewed release procedures may touch Apps Script.
 node ui-render-safety.test.cjs
 # UI render safety: imported CRM/marketing values are HTML-escaped before insertion.
 node mapping.test.js
