@@ -37,6 +37,7 @@ on:
       - 'apps-script/LabSelfTest.gs'
       - 'apps-script/LabRequestGuard.gs'
       - 'sw.js'
+      - 'service-worker.test.js'
       - 'mapping.test.js'
       - 'preview/CSK-Business-OS-Brand-Preview.html'
       - 'preview/brand-preview.test.js'
