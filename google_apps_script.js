@@ -542,6 +542,59 @@ function validateExpectedRecords_(ss, payload) {
   return { ok: true };
 }
 
+/**
+ * Validate project links before writing Finance, Costings, or Project_Costs.
+ * Project_Costs requires a project; Finance/Costings may be unassigned drafts.
+ * New projects in the same sync batch are valid references.
+ */
+function validateProjectReferences_(ss, payload) {
+  var projectIds = Object.create(null);
+  readSheetData(ss, "Projects").forEach(function (project) {
+    var id = String(project && project.id != null ? project.id : "").trim();
+    if (id) projectIds[id] = true;
+  });
+  if (Array.isArray(payload.projects)) payload.projects.forEach(function (project) {
+    var id = String(project && project.id != null ? project.id : "").trim();
+    if (id) projectIds[id] = true;
+  });
+  var invalid = [];
+  function check(area, rows, required) {
+    if (!Array.isArray(rows)) return;
+    rows.forEach(function (record) {
+      var id = String(record && record.projectId != null ? record.projectId : "").trim();
+      if (!id && !required) return;
+      if (!id || !projectIds[id]) invalid.push(area + "/" + String(record && record.id || "(tanpa ID)") + " -> " + (id || "(ProjectID kosong)"));
+    });
+  }
+  check("Finance", payload.finance, false);
+  check("Costings", payload.costings, false);
+  check("Project_Costs", payload.projectCosts, true);
+  if (invalid.length) return {
+    ok: false,
+    code: "PROJECT_REFERENCE_INVALID",
+    message: "Relasi proyek tidak valid. Pastikan ProjectID ada di tab Projects; tidak ada data yang diubah.",
+    conflicts: invalid
+  };
+  return { ok: true };
+}
+
+function getProjectReferenceCounts_(ss, projectId) {
+  var id = String(projectId).trim();
+  function count(sheetName) {
+    return readSheetData(ss, sheetName).filter(function (record) {
+      return String(record && record.projectId != null ? record.projectId : "").trim() === id;
+    }).length;
+  }
+  return { finance: count("Finance"), costings: count("Costings"), projectCosts: count("Project_Costs") };
+}
+
+function getLeadCostingReferenceCount_(ss, leadId) {
+  var id = String(leadId).trim();
+  return readSheetData(ss, "Costings").filter(function (record) {
+    return String(record && record.leadId != null ? record.leadId : "").trim() === id;
+  }).length;
+}
+
 function validateExpectedUpdate_(ss, sheetName, id, expectedFingerprint) {
   if (typeof expectedFingerprint !== "string" || !expectedFingerprint) {
     return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
@@ -731,6 +784,11 @@ function doPost(e) {
           status: "error", code: expectedCheck.code, protocolVersion: CSK_API_PROTOCOL_VERSION,
           message: expectedCheck.message, conflicts: expectedCheck.conflicts || []
         });
+        var projectReferenceCheck = validateProjectReferences_(ss, payload);
+        if (!projectReferenceCheck.ok) return jsonResponse({
+          status: "error", code: projectReferenceCheck.code, protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: projectReferenceCheck.message, conflicts: projectReferenceCheck.conflicts || []
+        });
         var mergeSummary = {};
         if (payload.leads)          mergeSummary.Leads           = mergeSheet(ss, "Leads",           payload.leads);
         if (payload.clients)        mergeSummary.Clients         = mergeSheet(ss, "Clients",         payload.clients);
@@ -788,6 +846,23 @@ function doPost(e) {
           status: "error", code: deleteCheck.code, protocolVersion: CSK_API_PROTOCOL_VERSION,
           message: deleteCheck.message, conflicts: deleteCheck.conflicts || []
         });
+        if (sheetName === "Projects") {
+          var projectRefs = getProjectReferenceCounts_(ss, delId);
+          var projectRefTotal = projectRefs.finance + projectRefs.costings + projectRefs.projectCosts;
+          if (projectRefTotal) return jsonResponse({
+            status: "error", code: "RECORD_IN_USE", protocolVersion: CSK_API_PROTOCOL_VERSION,
+            message: "Proyek masih memiliki transaksi atau biaya terkait. Hapus atau pindahkan relasinya terlebih dahulu.",
+            references: projectRefs
+          });
+        }
+        if (sheetName === "Leads") {
+          var costingRefs = getLeadCostingReferenceCount_(ss, delId);
+          if (costingRefs) return jsonResponse({
+            status: "error", code: "RECORD_IN_USE", protocolVersion: CSK_API_PROTOCOL_VERSION,
+            message: "Lead masih terhubung dengan kalkulasi HPP/quotation. Relasi harus ditangani sebelum lead dihapus.",
+            references: { costings: costingRefs }
+          });
+        }
         sheet.deleteRow(rowNum);
         return jsonResponse({
           status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION,
@@ -818,6 +893,15 @@ function doPost(e) {
         if (payload.expectedAbsent !== true) return jsonResponse({
           status: "error", code: "EXPECTED_VERSION_REQUIRED", protocolVersion: CSK_API_PROTOCOL_VERSION,
           message: "Insert ditolak: expectedAbsent:true wajib dikirim."
+        });
+        var incomingReferencePayload = { projects: [], finance: [], costings: [], projectCosts: [] };
+        if (sheetName === "Finance") incomingReferencePayload.finance.push(data);
+        if (sheetName === "Costings") incomingReferencePayload.costings.push(data);
+        if (sheetName === "Project_Costs") incomingReferencePayload.projectCosts.push(data);
+        var insertReferenceCheck = validateProjectReferences_(ss, incomingReferencePayload);
+        if (!insertReferenceCheck.ok) return jsonResponse({
+          status: "error", code: insertReferenceCheck.code, protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: insertReferenceCheck.message, conflicts: insertReferenceCheck.conflicts || []
         });
         if (findRecordById_(ss, sheetName, data.id)) return jsonResponse({
           status: "error", code: "SYNC_CONFLICT", protocolVersion: CSK_API_PROTOCOL_VERSION,
