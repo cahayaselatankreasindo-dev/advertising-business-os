@@ -549,8 +549,8 @@ test('compare-and-set reads each affected sheet once per bounded batch', () => {
   const before = api.tables.Leads.getDataRangeReadCount();
   const result = api.post({action:'sync_all',token,leads:rows,expectedRecords});
   assert.equal(result.status,'success');
-  assert.equal(api.tables.Leads.getDataRangeReadCount()-before,2,
-    'CAS and upsert must each read the Leads sheet once, not once per record');
+  assert.equal(api.tables.Leads.getDataRangeReadCount()-before,1,
+    'CAS must read the Leads sheet once, not once per record');
 });
 
 test('Team token cannot read or mutate private modules and cannot trigger Owner automation', () => {
