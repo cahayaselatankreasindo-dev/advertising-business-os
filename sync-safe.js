@@ -9,9 +9,11 @@
     leads: { sheet: 'Leads', fields: ['id','date','name','phone','source','value','status','notes','email','website','industry','pic','picTitle','linkedin','score'] },
     clients: { sheet: 'Clients', fields: ['id','name','phone','projectsCount','totalSpend','notes','rating','review'] },
     projects: { sheet: 'Projects', fields: ['id','title','client','value','status','deadline','notes','sopChecklist','pic'] },
-    finance: { sheet: 'Finance', fields: ['id','date','type','category','amount','description'] },
+    finance: { sheet: 'Finance', fields: ['id','date','type','category','amount','description','projectId'] },
     memory: { sheet: 'Memory', fields: ['id','date','category','title','content'] },
-    marketingSpend: { sheet: 'Marketing_Spend', fields: ['id','date','platform','campaign','budget','spent','leadsGenerated','notes'] }
+    marketingSpend: { sheet: 'Marketing_Spend', fields: ['id','date','platform','campaign','budget','spent','leadsGenerated','notes'] },
+    costings: { sheet: 'Costings', fields: ['id','date','client','title','productionModel','leadId','itemsJson','directCost','overheadPct','overheadAmount','contingencyPct','contingencyAmount','hpp','marginPct','sellingPrice','status','projectId','notes','quoteNo','quoteVersion','validityDays','deliveryDays','paymentTerms','scope','approvedAt','poConfirmedAt','quoteHistoryJson','sentAt'] },
+    projectCosts: { sheet: 'Project_Costs', fields: ['id','date','projectId','category','source','description','vendor','qty','unitCost','amount','paymentStatus','reference','notes'] }
   };
   const PROTOCOL_VERSION = 2;
   const STATE_KEY = 'csk_business_os_safe_sync_v1';
