@@ -50,6 +50,21 @@ test('quotation snapshots HPP, rejects incomplete estimates and prevents fake in
  assert.throws(()=>ops.add(state,'quotes',{...q,id:'bad',price:1}),/tidak konsisten/);
  assert.throws(()=>ops.newInvoice(state,q.id,'INV-2','2026-11-20','2026-11-10'),/Jatuh tempo/);
 });
+test('one accepted quotation maps to one invoice and document numbers stay unique on update',()=>{
+ let state=quote(ops.empty());const q=state.quotes[0];
+ state=ops.update(state,'quotes',q.id,{status:'accepted'});
+ state=ops.newInvoice(state,q.id,'INV-UNIQUE','2026-11-02','2026-11-15');
+ const invoice=state.invoices[0];
+ assert.throws(()=>ops.newInvoice(state,q.id,'INV-DUP','2026-11-02','2026-11-15'),/satu penawaran/i);
+ const secondQuote=ops.quoteFromHpp(state,hpp,hppEngine,{id:'LEAD-2',name:'Brand Kedua'},{number:'CSK-Q-002',name:'Rak display',validUntil:'2026-11-30'});
+ state=ops.update(state,'quotes',secondQuote.quotes[1].id,{status:'accepted'});
+ state=ops.newInvoice(state,secondQuote.quotes[1].id,'INV-SECOND','2026-11-02','2026-11-15');
+ assert.throws(()=>ops.update(state,'invoices',invoice.id,{number:'INV-SECOND'}),/nomor dokumen/i);
+ assert.throws(()=>ops.update(state,'invoices',invoice.id,{amount:1}),/sesuai penawaran/i);
+ assert.throws(()=>ops.update(state,'invoices',invoice.id,{quoteId:secondQuote.quotes[1].id}),/relasi invoice/i);
+});
+
+
 test('payments are actual separate records with balances and overpayment rejection',()=>{
  let state=quote(ops.empty());const q=state.quotes[0];
  state=ops.update(state,'quotes',q.id,{status:'accepted'});
