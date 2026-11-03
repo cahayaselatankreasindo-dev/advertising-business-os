@@ -48,6 +48,7 @@ node --check sync-safe.test.js
 node sync-safe.test.js
 node sync-backend-integration.test.js
 node ui-render-safety.test.cjs
+# UI render safety: imported CRM/marketing values are HTML-escaped before insertion.
 node mapping.test.js
 node commercial-costing.test.js
 node commercial-invoice.test.js
