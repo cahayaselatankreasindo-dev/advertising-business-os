@@ -339,10 +339,14 @@ function findRowById(sheet, id) {
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return -1;
   const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  var foundRow = -1;
   for (let i = 0; i < ids.length; i++) {
-    if (String(ids[i][0]).trim() === String(id).trim()) return i + 2;
+    if (String(ids[i][0]).trim() !== String(id).trim()) continue;
+    // -2 is a fail-closed sentinel: the same ID exists in multiple rows.
+    if (foundRow !== -1) return -2;
+    foundRow = i + 2;
   }
-  return -1;
+  return foundRow;
 }
 
 function readSheetData(ss, sheetName) {
@@ -389,13 +393,18 @@ function stableRecordFingerprint_(record) {
   return JSON.stringify(keys.map(function (key) { return [key, record[key]]; }));
 }
 
-function findRecordById_(ss, sheetName, id) {
+function findRecordsById_(ss, sheetName, id) {
   var rows = readSheetData(ss, sheetName);
-  var target = String(id);
-  for (var i = 0; i < rows.length; i++) {
-    if (String(rows[i].id) === target) return rows[i];
-  }
-  return null;
+  var target = String(id).trim();
+  return rows.filter(function (record) {
+    return record && record.id !== undefined && record.id !== null &&
+      String(record.id).trim() === target;
+  });
+}
+
+function findRecordById_(ss, sheetName, id) {
+  var matches = findRecordsById_(ss, sheetName, id);
+  return matches.length ? matches[0] : null;
 }
 
 /**
@@ -411,6 +420,7 @@ function validateExpectedRecords_(ss, payload) {
   }
   var missing = [];
   var conflicts = [];
+  var duplicateCloudIds = [];
   var totalRecords = 0;
   var currentBySheet = Object.create(null);
   Object.keys(CSK_SYNC_PAYLOAD_AREAS_).forEach(function (area) {
@@ -436,9 +446,14 @@ function validateExpectedRecords_(ss, payload) {
     if (!currentBySheet[sheetName]) {
       currentBySheet[sheetName] = Object.create(null);
       readSheetData(ss, sheetName).forEach(function (record) {
-        if (record && record.id !== undefined && record.id !== null) {
-          currentBySheet[sheetName][String(record.id)] = record;
+        if (!record || record.id === undefined || record.id === null) return;
+        var recordId = String(record.id).trim();
+        if (!recordId) return;
+        if (Object.prototype.hasOwnProperty.call(currentBySheet[sheetName], recordId)) {
+          duplicateCloudIds.push(sheetName + "/" + recordId);
+          return;
         }
+        currentBySheet[sheetName][recordId] = record;
       });
     }
     var seenIds = Object.create(null);
@@ -471,6 +486,11 @@ function validateExpectedRecords_(ss, payload) {
     return { ok: false, code: "SYNC_BATCH_LIMIT",
       message: "Maksimum " + CSK_SYNC_MAX_RECORDS_PER_REQUEST_ + " record per batch. Pecah sinkronisasi menjadi beberapa batch." };
   }
+  if (duplicateCloudIds.length) {
+    return { ok: false, code: "DUPLICATE_CLOUD_ID",
+      message: "Google Sheets memuat ID record duplikat. Tidak ada data yang diubah; perbaiki ID yang ditandai terlebih dahulu.",
+      conflicts: Array.from(new Set(duplicateCloudIds)) };
+  }
   if (missing.length) {
     return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
       message: "Versi dasar record tidak lengkap atau ID duplikat. Tidak ada data yang diubah.", conflicts: missing };
@@ -487,7 +507,13 @@ function validateExpectedUpdate_(ss, sheetName, id, expectedFingerprint) {
     return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
       message: "Pembaruan status ditolak: expectedFingerprint wajib dikirim." };
   }
-  var current = findRecordById_(ss, sheetName, id);
+  var matches = findRecordsById_(ss, sheetName, id);
+  if (matches.length > 1) {
+    return { ok: false, code: "DUPLICATE_CLOUD_ID",
+      message: "ID record muncul lebih dari sekali di Google Sheets. Tidak ada data yang diubah.",
+      conflicts: [sheetName + "/" + String(id)] };
+  }
+  var current = matches[0] || null;
   if (!current || stableRecordFingerprint_(current) !== expectedFingerprint) {
     return { ok: false, code: "SYNC_CONFLICT",
       message: "Record berubah atau sudah dihapus oleh perangkat lain. Tidak ada data yang diubah.",
@@ -501,7 +527,13 @@ function validateExpectedDelete_(ss, sheetName, id, expectedFingerprint) {
     return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
       message: "Penghapusan ditolak: expectedFingerprint wajib dikirim." };
   }
-  var current = findRecordById_(ss, sheetName, id);
+  var matches = findRecordsById_(ss, sheetName, id);
+  if (matches.length > 1) {
+    return { ok: false, code: "DUPLICATE_CLOUD_ID",
+      message: "ID record muncul lebih dari sekali di Google Sheets. Tidak ada data yang dihapus.",
+      conflicts: [sheetName + "/" + String(id)] };
+  }
+  var current = matches[0] || null;
   if (!current || stableRecordFingerprint_(current) !== expectedFingerprint) {
     return { ok: false, code: "SYNC_CONFLICT",
       message: "Record berubah atau sudah dihapus oleh perangkat lain. Tidak ada data yang diubah.",
@@ -698,6 +730,11 @@ function doPost(e) {
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
         const rowNum = findRowById(sheet, delId);
+        if (rowNum === -2) return jsonResponse({
+          status: "error", code: "DUPLICATE_CLOUD_ID", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "ID record muncul lebih dari sekali di Google Sheets. Tidak ada baris yang dihapus.",
+          conflicts: [sheetName + "/" + String(delId)]
+        });
         // Idempotent delete: if another device already removed this record, no write is needed.
         if (rowNum === -1) {
           return jsonResponse({
@@ -779,6 +816,11 @@ function doPost(e) {
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
         const rowNum = findRowById(sheet, id);
+        if (rowNum === -2) return jsonResponse({
+          status: "error", code: "DUPLICATE_CLOUD_ID", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "ID record muncul lebih dari sekali di Google Sheets. Tidak ada status yang diubah.",
+          conflicts: [sheetName + "/" + String(id)]
+        });
         if (rowNum === -1) throw new Error("Baris dengan ID " + id + " tidak ditemukan di " + sheetName);
         const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
         let statusCol = headers.findIndex(h => String(h).toLowerCase() === "status");
@@ -1022,9 +1064,19 @@ function mergeSheet(ss, sheetName, items) {
     ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues()
     : [];
   var idToRow = Object.create(null);
+  var duplicateIds = [];
   for (var i = 0; i < dataRange.length; i++) {
     var key = String(dataRange[i][0]).trim();
-    if (key !== "") idToRow[key] = i + 2;
+    if (key === "") continue;
+    if (Object.prototype.hasOwnProperty.call(idToRow, key)) {
+      duplicateIds.push(key);
+      continue;
+    }
+    idToRow[key] = i + 2;
+  }
+  if (duplicateIds.length) {
+    throw new Error("DUPLICATE_CLOUD_ID: " + sheetName + " mengandung ID record duplikat: " +
+      Array.from(new Set(duplicateIds)).join(", "));
   }
 
   var contractPos = Object.create(null);
