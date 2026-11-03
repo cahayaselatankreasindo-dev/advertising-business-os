@@ -576,44 +576,13 @@ function forbiddenResponse(message) {
 
 // ============== GET — TARIK DATA SEMUA TAB ==============
 
-function doGet(e) {
-  var apiLock = null;
-  var lockAcquired = false;
+function doGet() {
   try {
-    // LAB-only: refuse reads unless the active spreadsheet is the verified dummy database.
     cskLabGuardRead_();
-    // Authenticate before disclosing protocol details or reading cloud data.
-    var tokenParam = (e && e.parameter) ? e.parameter.token : "";
-    var role = getRequestRole(null, tokenParam);
-    if (!role) return unauthorizedResponse();
-    // Reject stale clients after authentication, before exposing any cloud data.
-    var requestedProtocol = (e && e.parameter) ? e.parameter.protocolVersion : "";
-    if (Number(requestedProtocol) !== CSK_API_PROTOCOL_VERSION) return protocolMismatchResponse();
-
-    // Reads wait for an in-progress write so clients never observe a half-applied batch.
-    apiLock = LockService.getScriptLock();
-    apiLock.waitLock(30000);
-    lockAcquired = true;
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const result = {
-      leads: readSheetData(ss, "Leads"),
-      clients: readSheetData(ss, "Clients"),
-      projects: readSheetData(ss, "Projects"),
-      finance: role === "owner" ? readSheetData(ss, "Finance") : [],
-      memory: role === "owner" ? readSheetData(ss, "Memory") : [],
-      marketingSpend: role === "owner" ? readSheetData(ss, "Marketing_Spend") : [],
-      costings: role === "owner" ? readSheetData(ss, "Costings") : [],
-      projectCosts: role === "owner" ? readSheetData(ss, "Project_Costs") : [],
-      lastSynced: new Date().toISOString(),
-      role: role
-    };
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION, data: result }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonResponse({ status: "error", code: "POST_REQUIRED", protocolVersion: CSK_API_PROTOCOL_VERSION,
+      message: "GET tidak menyediakan data. Gunakan POST action read dengan token di request body." });
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", protocolVersion: CSK_API_PROTOCOL_VERSION, message: err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } finally {
-    if (lockAcquired && apiLock) apiLock.releaseLock();
+    return jsonResponse({ status: "error", code: "LAB_GUARD_ERROR", protocolVersion: CSK_API_PROTOCOL_VERSION, message: err.toString() });
   }
 }
 
@@ -640,6 +609,21 @@ function doPost(e) {
     const action = (payload.action || "").toLowerCase();
 
     switch (action) {
+
+      // --- read: authenticated read of the isolated dummy LAB spreadsheet ---
+      case "read": {
+        var allowedReadKeys = ["action", "token", "protocolVersion"];
+        var unknownReadKeys = Object.keys(payload).filter(function (key) { return allowedReadKeys.indexOf(key) === -1; });
+        if (unknownReadKeys.length) return jsonResponse({ status: "error", code: "INVALID_PAYLOAD",
+          protocolVersion: CSK_API_PROTOCOL_VERSION, message: "Field pembacaan tidak dikenal: " + unknownReadKeys.join(", ") });
+        const result = {
+          leads: readSheetData(ss, "Leads"), clients: readSheetData(ss, "Clients"), projects: readSheetData(ss, "Projects"),
+          finance: role === "owner" ? readSheetData(ss, "Finance") : [], memory: role === "owner" ? readSheetData(ss, "Memory") : [],
+          marketingSpend: role === "owner" ? readSheetData(ss, "Marketing_Spend") : [], costings: role === "owner" ? readSheetData(ss, "Costings") : [],
+          projectCosts: role === "owner" ? readSheetData(ss, "Project_Costs") : [], lastSynced: new Date().toISOString(), role: role
+        };
+        return jsonResponse({ status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION, data: result });
+      }
 
       // --- sync_all (MERGE / UPSERT — tidak pernah menghapus data lama) ---
       // Aman: lead yang sudah ada di Sheets tetap tersimpan; hanya ditambah/diupdate.
@@ -1109,8 +1093,9 @@ function jsonResponse(obj) {
  *
  * The private Google Apps Script LAB Web App currently uses Code.gs doGet/doPost.
  * This file is an allowlist guard; copying this file ALONE does not activate it.
- * A later audited change must call cskLabGuardRead_() near the start of doGet
- * and cskLabGuardPost_(payload) after JSON.parse in doPost. Keep the LAB Web App
+ * The LAB doGet calls cskLabGuardRead_() but returns POST_REQUIRED without data.
+ * The LAB doPost calls cskLabGuardPost_(payload) after JSON.parse; authenticated
+ * action "read" is read-only and limited to the exact dummy spreadsheet. Keep the LAB Web App
  * set to "Only myself" until BOTH guards and live readback checks pass.
  *
  * This code must never be copied to the production Apps Script project.
@@ -1156,10 +1141,17 @@ function cskLabGuardPost_(payload) {
     throw new Error("LAB guard: missing or incorrect API token.");
   }
   var action = String(payload.action || "").toLowerCase();
+  if (action === "read") {
+    ["action", "token", "protocolVersion"].forEach(function(k) {
+      if (!Object.prototype.hasOwnProperty.call(payload, k)) throw new Error("LAB guard: read request is incomplete.");
+    });
+    Object.keys(payload).forEach(function(k) {
+      if (["action", "token", "protocolVersion"].indexOf(k) === -1) throw new Error("LAB guard: unknown read field.");
+    });
+    return;
+  }
   if (action !== "sync_all" && action !== "delete") {
-    // Explicitly disables send_email, insert, update_status, and any
-    // other backend action when the LAB Web App is opened to browsers.
-    throw new Error("LAB guard: only sync_all and delete are allowed.");
+    throw new Error("LAB guard: only read, sync_all and delete are allowed.");
   }
   if (action === "delete") {
     Object.keys(payload).forEach(function(k) {
@@ -1245,7 +1237,10 @@ function cskLabRunGuardNegativeTests() {
     beforeRows[name] = ss.getSheetByName(name).getLastRow();
   });
 
-  // Accepted request shapes are validated, but never submitted.
+  // Read is authenticated and restricted to the exact dummy spreadsheet.
+  cskLabGuardPost_({ action: "read", token: token, protocolVersion: 2 });
+
+  // Accepted write request shapes are validated, but never submitted.
   cskLabGuardPost_({
     action: "sync_all", token: token, protocolVersion: 2,
     expectedRecords: {Leads: {"QA-LAB-GUARD-PASS": null}},
@@ -1443,8 +1438,21 @@ function cskLabParseOutput_(output) {
   return value;
 }
 
+/** Authenticated read through POST; bearer token is never sent in a URL. */
+function cskLabReadPost_(token) {
+  return doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "read",
+        token: token || "",
+        protocolVersion: 2
+      })
+    }
+  });
+}
+
 /**
- * Runs real doGet/doPost against TEST-ONLY spreadsheet, then cleans up.
+ * Runs real POST read/write handlers against TEST-ONLY spreadsheet, then cleans up.
  * - Ensure LAB-bound spreadsheet + all IDs dummy.
  * - Generate secret Script Property on LAB ONLY if needed.
  * - Reject unauthenticated requests.
@@ -1465,16 +1473,19 @@ function cskLabRunIsolatedSmokeTest() {
     throw new Error("DIBATALKAN: autentikasi API LAB Owner/Tim belum aman.");
   }
 
-  // The complete view must be denied without a valid API token.
-  var denied = JSON.parse(doGet({ parameter: { protocolVersion: 2 } }).getContent());
+  // GET never returns data; all authenticated reads must use POST.
+  var getDisabled = JSON.parse(doGet().getContent());
+  if (getDisabled.code !== "POST_REQUIRED" || getDisabled.data !== undefined) {
+    throw new Error("DIBATALKAN: GET tidak menolak pembacaan data.");
+  }
+  // A POST read without a valid token must be denied.
+  var denied = JSON.parse(cskLabReadPost_("").getContent());
   if (denied.status !== "error") {
-    throw new Error("DIBATALKAN: doGet tanpa token masih dapat membaca data.");
+    throw new Error("DIBATALKAN: POST read tanpa token masih dapat membaca data.");
   }
 
   // Team read must never include private business modules.
-  var teamRead = JSON.parse(doGet({
-    parameter: {token:teamToken, protocolVersion:2}
-  }).getContent());
+  var teamRead = JSON.parse(cskLabReadPost_(teamToken).getContent());
   var privateAreas = ["finance","memory","marketingSpend","costings","projectCosts"];
   if (teamRead.status !== "success" || !teamRead.data || teamRead.data.role !== "team") {
     throw new Error("DIBATALKAN: role Team tidak diverifikasi oleh backend.");
@@ -1507,9 +1518,7 @@ function cskLabRunIsolatedSmokeTest() {
         expectedRecords: {Leads: firstVersions}, leads: [first]
       }) }
     }));
-    var afterInsert = cskLabParseOutput_(doGet({
-      parameter: {token:token, protocolVersion:2}
-    })).data.leads.filter(function (r) { return String(r.id) === id; });
+    var afterInsert = cskLabParseOutput_(cskLabReadPost_(token)).data.leads.filter(function (r) { return String(r.id) === id; });
     if (afterInsert.length !== 1 || afterInsert[0].name !== first.name) {
       throw new Error("Readback gagal setelah INSERT.");
     }
@@ -1526,9 +1535,7 @@ function cskLabRunIsolatedSmokeTest() {
         expectedRecords: {Leads: updateVersions}, leads: [updated]
       }) }
     }));
-    var afterUpdate = cskLabParseOutput_(doGet({
-      parameter: {token:token, protocolVersion:2}
-    })).data.leads.filter(function (r) { return String(r.id) === id; });
+    var afterUpdate = cskLabParseOutput_(cskLabReadPost_(token)).data.leads.filter(function (r) { return String(r.id) === id; });
     if (afterUpdate.length !== 1 ||
         afterUpdate[0].name !== updated.name) {
       throw new Error("Readback gagal setelah UPDATE.");
@@ -1541,9 +1548,7 @@ function cskLabRunIsolatedSmokeTest() {
         expectedFingerprint: stableRecordFingerprint_(afterUpdate[0])
       }) }
     }));
-    var afterDelete = cskLabParseOutput_(doGet({
-      parameter: {token:token, protocolVersion:2}
-    })).data.leads.filter(function (r) { return String(r.id) === id; });
+    var afterDelete = cskLabParseOutput_(cskLabReadPost_(token)).data.leads.filter(function (r) { return String(r.id) === id; });
     if (afterDelete.length) {
       throw new Error("Readback gagal setelah DELETE.");
     }
@@ -1584,16 +1589,12 @@ function cskLabRunRoleIsolationTests() {
     beforeRows[name] = sheet.getLastRow();
   });
 
-  var ownerRead = JSON.parse(doGet({
-    parameter:{token:tokens.owner,protocolVersion:2}
-  }).getContent());
+  var ownerRead = JSON.parse(cskLabReadPost_(tokens.owner).getContent());
   if (ownerRead.status !== "success" || ownerRead.data.role !== "owner") {
     throw new Error("LAB_ROLE_TEST_FAIL: Owner read was not authorized.");
   }
 
-  var teamRead = JSON.parse(doGet({
-    parameter:{token:tokens.team,protocolVersion:2}
-  }).getContent());
+  var teamRead = JSON.parse(cskLabReadPost_(tokens.team).getContent());
   if (teamRead.status !== "success" || teamRead.data.role !== "team") {
     throw new Error("LAB_ROLE_TEST_FAIL: Team read was not authorized.");
   }

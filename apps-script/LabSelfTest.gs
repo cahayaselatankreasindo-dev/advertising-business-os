@@ -105,8 +105,21 @@ function cskLabParseOutput_(output) {
   return value;
 }
 
+/** Authenticated read through POST; bearer token is never sent in a URL. */
+function cskLabReadPost_(token) {
+  return doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "read",
+        token: token || "",
+        protocolVersion: 2
+      })
+    }
+  });
+}
+
 /**
- * Runs real doGet/doPost against TEST-ONLY spreadsheet, then cleans up.
+ * Runs real POST read/write handlers against TEST-ONLY spreadsheet, then cleans up.
  * - Ensure LAB-bound spreadsheet + all IDs dummy.
  * - Generate secret Script Property on LAB ONLY if needed.
  * - Reject unauthenticated requests.
@@ -127,16 +140,19 @@ function cskLabRunIsolatedSmokeTest() {
     throw new Error("DIBATALKAN: autentikasi API LAB Owner/Tim belum aman.");
   }
 
-  // The complete view must be denied without a valid API token.
-  var denied = JSON.parse(doGet({ parameter: { protocolVersion: 2 } }).getContent());
+  // GET never returns data; all authenticated reads must use POST.
+  var getDisabled = JSON.parse(doGet().getContent());
+  if (getDisabled.code !== "POST_REQUIRED" || getDisabled.data !== undefined) {
+    throw new Error("DIBATALKAN: GET tidak menolak pembacaan data.");
+  }
+  // A POST read without a valid token must be denied.
+  var denied = JSON.parse(cskLabReadPost_("").getContent());
   if (denied.status !== "error") {
-    throw new Error("DIBATALKAN: doGet tanpa token masih dapat membaca data.");
+    throw new Error("DIBATALKAN: POST read tanpa token masih dapat membaca data.");
   }
 
   // Team read must never include private business modules.
-  var teamRead = JSON.parse(doGet({
-    parameter: {token:teamToken, protocolVersion:2}
-  }).getContent());
+  var teamRead = JSON.parse(cskLabReadPost_(teamToken).getContent());
   var privateAreas = ["finance","memory","marketingSpend","costings","projectCosts"];
   if (teamRead.status !== "success" || !teamRead.data || teamRead.data.role !== "team") {
     throw new Error("DIBATALKAN: role Team tidak diverifikasi oleh backend.");
@@ -169,9 +185,7 @@ function cskLabRunIsolatedSmokeTest() {
         expectedRecords: {Leads: firstVersions}, leads: [first]
       }) }
     }));
-    var afterInsert = cskLabParseOutput_(doGet({
-      parameter: {token:token, protocolVersion:2}
-    })).data.leads.filter(function (r) { return String(r.id) === id; });
+    var afterInsert = cskLabParseOutput_(cskLabReadPost_(token)).data.leads.filter(function (r) { return String(r.id) === id; });
     if (afterInsert.length !== 1 || afterInsert[0].name !== first.name) {
       throw new Error("Readback gagal setelah INSERT.");
     }
@@ -188,9 +202,7 @@ function cskLabRunIsolatedSmokeTest() {
         expectedRecords: {Leads: updateVersions}, leads: [updated]
       }) }
     }));
-    var afterUpdate = cskLabParseOutput_(doGet({
-      parameter: {token:token, protocolVersion:2}
-    })).data.leads.filter(function (r) { return String(r.id) === id; });
+    var afterUpdate = cskLabParseOutput_(cskLabReadPost_(token)).data.leads.filter(function (r) { return String(r.id) === id; });
     if (afterUpdate.length !== 1 ||
         afterUpdate[0].name !== updated.name) {
       throw new Error("Readback gagal setelah UPDATE.");
@@ -203,9 +215,7 @@ function cskLabRunIsolatedSmokeTest() {
         expectedFingerprint: stableRecordFingerprint_(afterUpdate[0])
       }) }
     }));
-    var afterDelete = cskLabParseOutput_(doGet({
-      parameter: {token:token, protocolVersion:2}
-    })).data.leads.filter(function (r) { return String(r.id) === id; });
+    var afterDelete = cskLabParseOutput_(cskLabReadPost_(token)).data.leads.filter(function (r) { return String(r.id) === id; });
     if (afterDelete.length) {
       throw new Error("Readback gagal setelah DELETE.");
     }
@@ -246,16 +256,12 @@ function cskLabRunRoleIsolationTests() {
     beforeRows[name] = sheet.getLastRow();
   });
 
-  var ownerRead = JSON.parse(doGet({
-    parameter:{token:tokens.owner,protocolVersion:2}
-  }).getContent());
+  var ownerRead = JSON.parse(cskLabReadPost_(tokens.owner).getContent());
   if (ownerRead.status !== "success" || ownerRead.data.role !== "owner") {
     throw new Error("LAB_ROLE_TEST_FAIL: Owner read was not authorized.");
   }
 
-  var teamRead = JSON.parse(doGet({
-    parameter:{token:tokens.team,protocolVersion:2}
-  }).getContent());
+  var teamRead = JSON.parse(cskLabReadPost_(tokens.team).getContent());
   if (teamRead.status !== "success" || teamRead.data.role !== "team") {
     throw new Error("LAB_ROLE_TEST_FAIL: Team read was not authorized.");
   }
