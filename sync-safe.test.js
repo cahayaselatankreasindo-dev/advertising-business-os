@@ -429,7 +429,9 @@ test('retry reconciles a committed write when all immediate readbacks fail', asy
 
   const postCount = cloud.calls.length;
   const second = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
-  assert.equal(second.status,'verified');
+  assert.equal(second.status,'verified',JSON.stringify({
+    second,lastError:engine.lastError,pending:engine.countPending(),remote:cloud.rows.leads[0]
+  }));
   assert.equal(engine.countPending(),0);
   assert.equal(cloud.calls.length,postCount,'retry must reconcile, not duplicate the committed POST');
 });
