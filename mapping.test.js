@@ -424,7 +424,7 @@ eq(teamRead.data.costings.length, 0, 'role: Team tidak menerima data HPP');
 eq(teamRead.data.projectCosts.length, 0, 'role: Team tidak menerima data biaya proyek');
 const teamWrite = JSON.parse(sandbox.doPost({postData:{contents:JSON.stringify({
   protocolVersion:2,token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026',action:'sync_all',
-  expectedRecords:{Leads:{}},
+  expectedRecords:{Leads:{'TEAM-ALLOWED':null}},
   leads:[{id:'TEAM-ALLOWED',date:'2026-11-03',name:'Team Allowed',phone:'',source:'QA',value:0,status:'new',notes:''}]
 })}})._t);
 eq(teamWrite.status,'success','role: Team boleh menulis Leads');
