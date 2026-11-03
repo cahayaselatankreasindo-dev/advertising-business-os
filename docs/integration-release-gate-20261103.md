@@ -11,9 +11,9 @@
 - Marketing: Auto-send cold email disabled. Drafts are manually reviewed.
 - PWA branding: official logo, local favicon, app icon, and updated cache.
 
-## Optimization hardening — Draft PR #6
+## Optimization hardening — merged into integration staging
 
-The optimization branch adds the following safeguards without changing the production deployment:
+PR #6 has been squash-merged into `integration/secure-safe-sync-20261103` (commit `647555d5efa37e3445af5b8ad90e645c895c7964`). The following safeguards are now part of the integration staging source; production remains unchanged:
 
 - Token-bearing requests are restricted to HTTPS Google Apps Script `/exec` deployment URLs; arbitrary hosts, query strings, credentials, and lookalike domains are rejected before network access.
 - Local upserts are sent in verified batches of at most 40 records. A POST is not treated as saved until GET readback confirms the expected state.
