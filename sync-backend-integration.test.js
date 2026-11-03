@@ -647,3 +647,32 @@ test('checked-in LAB Code.gs runs its wired guards, role isolation and dummy smo
   }
   assert.equal(api.sent.length,0,'LAB checks must not send email');
 });
+
+
+test('won aliases normalize consistently and Owner automation remains opt-in and payload-scoped', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  for (const status of ['won','Deal Menang','deal-menang','deal_menang','dealwin','Deal Win']) {
+    assert.equal(api.sandbox.isDealMenang(status),true,'status alias: '+status);
+  }
+  for (const status of ['new','proposal','lost','in progress']) {
+    assert.equal(api.sandbox.isDealMenang(status),false,'non-won status: '+status);
+  }
+
+  const props = api.sandbox.PropertiesService.getScriptProperties();
+  props.setProperty('AUTO_PROJECT_FROM_WON','true');
+  const won = {id:'TEST-WON-ALIAS',date:'2026-11-03',name:'Alias client',value:250000,status:'deal_menang'};
+  const expectedRecords = {Leads:{'TEST-WON-ALIAS':null}};
+  const result = api.post({action:'sync_all',token,leads:[won],expectedRecords});
+  assert.equal(result.status,'success');
+  assert.equal(api.tables.Projects.getLastRow(),2,'Owner won alias creates one project only when feature flag is enabled');
+  assert.equal(api.tables.Finance.getLastRow(),1,'won status must never fabricate a cash receipt');
+
+  const unrelated = {id:'TEST-NON-WON',date:'2026-11-03',name:'Unrelated',value:1,status:'new'};
+  const nonWon = api.post({
+    action:'sync_all',token,leads:[unrelated],
+    expectedRecords:{Leads:{'TEST-NON-WON':null}}
+  });
+  assert.equal(nonWon.status,'success');
+  assert.equal(api.tables.Projects.getLastRow(),2,'non-won payload must not run the automation');
+});
