@@ -41,8 +41,8 @@ function cskLabRequireDummySheet_() {
   var leads = typeof readSheetData === "function"
     ? readSheetData(ss, "Leads") : [];
   if (leads.some(function (l) {
-    var status = String(l.status || "").toLowerCase();
-    return status === "won" || status === "deal menang";
+    var status = String(l.status || "").toLowerCase().replace(/[\s_-]/g, "");
+    return status === "won" || status === "dealmenang" || status === "dealwin";
   })) {
     throw new Error("DIBATALKAN: ada Lead WON di LAB. Tidak aman untuk tes.");
   }
