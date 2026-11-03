@@ -3283,6 +3283,72 @@
       showToast('Backup lokal diunduh tanpa token. Simpan file secara privat; isinya data bisnis.');
     }
 
+    function validateBackupData(parsed) {
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('File backup tidak memiliki struktur objek yang valid.');
+      }
+      const isEnvelope = parsed.format === 'csk-business-os-backup';
+      if (parsed.format && !isEnvelope) throw new Error('Format backup tidak dikenali.');
+      if (isEnvelope && parsed.version !== undefined &&
+          (!Number.isInteger(parsed.version) || parsed.version < 1 || parsed.version > 2)) {
+        throw new Error('Versi backup belum didukung aplikasi ini.');
+      }
+      const source = isEnvelope ? parsed.data : parsed;
+      const required = ['leads', 'clients', 'projects', 'finance', 'memory', 'marketingSpend'];
+      const optional = ['costings', 'projectCosts'];
+      if (!source || typeof source !== 'object' || Array.isArray(source) ||
+          !required.every(area => Array.isArray(source[area]))) {
+        throw new Error('File bukan backup Business OS yang valid.');
+      }
+      const data = {};
+      required.concat(optional).forEach(area => {
+        if (optional.includes(area) && source[area] === undefined) {
+          data[area] = [];
+          return;
+        }
+        if (!Array.isArray(source[area])) throw new Error('Bagian ' + area + ' pada backup tidak valid.');
+        if (source[area].length > 100000) throw new Error('Jumlah data ' + area + ' melewati batas pemulihan.');
+        const seen = new Set();
+        data[area] = source[area].map((record, index) => {
+          if (!record || typeof record !== 'object' || Array.isArray(record)) {
+            throw new Error('Record ' + area + ' ke-' + (index + 1) + ' tidak valid.');
+          }
+          if ((typeof record.id !== 'string' && typeof record.id !== 'number') ||
+              (typeof record.id === 'number' && !Number.isFinite(record.id))) {
+            throw new Error('ID record ' + area + ' ke-' + (index + 1) + ' tidak valid.');
+          }
+          const id = String(record.id).trim();
+          if (!id || id.length > 200) throw new Error('ID record ' + area + ' ke-' + (index + 1) + ' kosong atau terlalu panjang.');
+          if (seen.has(id)) throw new Error('ID duplikat pada bagian ' + area + ': ' + id);
+          seen.add(id);
+          return record;
+        });
+      });
+      data.settings = { googleSheetUrl: '', lastSync: '' };
+      data.role = source.role === 'team' ? 'team' : 'owner';
+
+      const areas = required.concat(optional);
+      const conflictRecovery = [];
+      const recoverySource = isEnvelope && Array.isArray(parsed.conflictRecovery) ? parsed.conflictRecovery : [];
+      recoverySource.slice(-20).forEach(item => {
+        if (!item || typeof item !== 'object' || Array.isArray(item) ||
+            !areas.includes(item.area) || typeof item.id !== 'string' || !item.id.trim() ||
+            item.id.length > 200 || typeof item.at !== 'string' ||
+            (item.selected !== 'cloud' && item.selected !== 'local')) return;
+        const validRecord = value => value == null || (typeof value === 'object' && !Array.isArray(value));
+        if (!validRecord(item.localRecord) || !validRecord(item.cloudRecord)) return;
+        conflictRecovery.push({
+          at: item.at, area: item.area, id: item.id,
+          localRecord: item.localRecord || null,
+          cloudRecord: item.cloudRecord || null,
+          selected: item.selected
+        });
+      });
+      const pendingChangesAtExport = isEnvelope && Number.isInteger(parsed.pendingChangesAtExport) &&
+        parsed.pendingChangesAtExport > 0 ? parsed.pendingChangesAtExport : 0;
+      return { data, conflictRecovery, pendingChangesAtExport };
+    }
+
     function importData(e) {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -3300,35 +3366,34 @@
       reader.onload = function(evt) {
         try {
           const parsed = JSON.parse(evt.target.result);
-          const data = parsed?.format === 'csk-business-os-backup' ? parsed.data : parsed;
-          const required = ['leads', 'clients', 'projects', 'finance', 'memory', 'marketingSpend'];
-          if (!data || !required.every(area => Array.isArray(data[area]))) {
-            throw new Error('File bukan backup Business OS yang valid.');
-          }
-          if (!confirm('Pulihkan data dari file ke perangkat ini? Data lokal saat ini akan diganti. Sinkronisasi cloud akan NONAKTIF sampai dikonfigurasi ulang.')) return;
-          localStorage.setItem('csk_business_os_before_import', JSON.stringify(db));
-          db = {
-            leads: data.leads, clients: data.clients, projects: data.projects,
-            finance: data.finance, memory: data.memory,
-            marketingSpend: data.marketingSpend,
-            costings: Array.isArray(data.costings) ? data.costings : [],
-            projectCosts: Array.isArray(data.projectCosts) ? data.projectCosts : [],
-            settings: { googleSheetUrl: '', lastSync: '' },
-            role: data.role === 'team' ? 'team' : 'owner'
-          };
-          // Never enqueue imported historical records as cloud upserts.
+          const restored = validateBackupData(parsed);
+          const data = restored.data;
+          const pendingNote = restored.pendingChangesAtExport > 0
+            ? ' Backup ini memuat ' + restored.pendingChangesAtExport + ' perubahan lokal yang belum terverifikasi saat diekspor.'
+            : '';
+          if (!confirm('Pulihkan data dari file ke perangkat ini? Data lokal saat ini akan diganti. Sinkronisasi cloud akan NONAKTIF sampai dikonfigurasi ulang.' + pendingNote)) return;
+          const previousRecovery = localStorage.getItem('csk_business_os_conflict_recovery_v1') || '[]';
+          localStorage.setItem('csk_business_os_before_import', JSON.stringify({
+            format: 'csk-business-os-local-recovery', data: db, conflictRecovery: JSON.parse(previousRecovery)
+          }));
+          db = data;
+          // Historical backup records stay local; never enqueue them for automatic cloud upload.
           localStorage.setItem(DB_KEY, JSON.stringify(db));
+          localStorage.setItem('csk_business_os_conflict_recovery_v1', JSON.stringify(restored.conflictRecovery));
           if (safeSync) safeSync.restoreLocalOnly(db);
           sessionApiToken = '';
+          serverRole = 'unknown';
           document.getElementById('setting-google-url').value = '';
           document.getElementById('setting-api-token').value = '';
           const tokenStatus = document.getElementById('setting-token-status');
           if (tokenStatus) tokenStatus.textContent = 'Backup dipulihkan. Masukkan token lagi untuk sesi cloud baru.';
           document.getElementById('role-select').value = db.role;
           document.getElementById('role-select-mob').value = db.role;
+          updateRoleControls();
+          applyRoleUI();
           renderAll();
           updateCloudIndicator();
-          showToast('Backup dipulihkan secara lokal. Cloud sengaja dilepas untuk menghindari konflik.');
+          showToast('Backup dipulihkan secara lokal. Cloud sengaja dilepas untuk menghindari konflik.' + pendingNote);
         } catch (err) {
           showToast('Gagal memulihkan: ' + err.message, true);
         } finally {
