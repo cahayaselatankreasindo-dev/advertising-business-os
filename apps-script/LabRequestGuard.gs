@@ -109,9 +109,8 @@ function cskLabGuardPost_(payload) {
         throw new Error("LAB guard: expected version format invalid.");
       }
       if (area === "leads") {
-        var status = String(row.status || "").toLowerCase().trim();
-        if (status === "won" || status === "deal menang" ||
-            status === "deal_menang") {
+        var status = String(row.status || "").toLowerCase().replace(/[\\s_-]/g, "");
+        if (status === "won" || status === "dealmenang" || status === "dealwin") {
           // Avoid automatic Finance/Projects entries in autoTriggerPillars.
           throw new Error("LAB guard: won leads are forbidden.");
         }
