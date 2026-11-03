@@ -10,7 +10,8 @@ const executableLines = script.split(/\r?\n/)
 
 assert.match(script, /DEPLOYMENT BLOCKED/i);
 assert.match(script, /\.clasp\.json points to the PRODUCTION Script ID/i);
-assert.match(script, /LAB-ONLY guarded source/i);
+assert.match(script, /LAB-only source/i);
+assert.match(script, /integration backend/i);
 assert.match(script, /Do not run clasp from this branch/i);
 assert.match(script, /No files were copied/i);
 assert.match(script, /\bexit\s+1\b/i);
