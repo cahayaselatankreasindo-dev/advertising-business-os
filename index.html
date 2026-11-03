@@ -325,7 +325,7 @@
     <!-- Role Dropdown -->
     <div class="px-4 py-3 border-b border-slate-800">
       <label for="role-select" class="text-[11px] text-slate-300 font-semibold uppercase tracking-wider block mb-1">Mode tampilan</label>
-      <p class="mb-2 text-[11px] leading-snug text-slate-400">Hak akses data ditentukan oleh token yang diverifikasi server. Mode tampilan tidak memberikan izin tambahan.</p>
+      <p class="mb-2 text-[11px] leading-snug text-slate-400">Mode lokal menyediakan fitur offline; pembatasan cloud hanya berlaku setelah token server diverifikasi. Jangan gunakan perangkat bersama untuk data sensitif.</p>
       <select id="role-select" onchange="onRoleChange(this.value)" class="w-full text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-amber-500">
         <option value="owner">Owner</option>
         <option value="team">Tim Kreatif / Admin</option>
@@ -1591,7 +1591,7 @@
     }
 
     function applyRoleUI() {
-      const isTeam = serverRole !== 'owner' || db.role !== 'owner';
+      const isTeam = serverRole === 'team' || db.role === 'team';
       const selectors = ['.pillar-finance', '.pillar-marketing', '.pillar-riset', '.pillar-marketing-mob'];
       selectors.forEach(sel => {
         document.querySelectorAll(sel).forEach(el => { el.style.display = isTeam ? 'none' : ''; });
@@ -1610,7 +1610,7 @@
     // ============== NAVIGATION ==============
 
     function nav(page) {
-      if ((serverRole !== 'owner' || db.role === 'team') && ['finance','marketing','analysis','memory','hpp','costings','email','ops'].includes(page)) {
+      if ((serverRole === 'team' || db.role === 'team') && ['finance','marketing','analysis','memory','hpp','costings','email','ops'].includes(page)) {
         // UI defense in depth; the Apps Script backend independently enforces the role.
         page = 'dashboard';
       }
