@@ -206,6 +206,8 @@
     }
     function replaceFromCloud(remote, db) {
       queue = emptyQueue();
+      conflicts = [];
+      lastError = '';
       Object.keys(DATA).forEach(area => { db[area] = remote[area] || []; });
       Object.keys(DATA).forEach(area => rebaseline(area, db[area]));
       snapshot = takeSnapshot(db);
@@ -219,6 +221,7 @@
       if (busy) throw new Error('Tidak bisa memulihkan saat sinkronisasi berlangsung.');
       queue = emptyQueue();
       baseline = {};
+      conflicts = [];
       verifiedAt = '';
       lastError = '';
       snapshot = takeSnapshot(db);
