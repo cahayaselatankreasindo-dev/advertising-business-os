@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'index.html'
+      - 'ui-render-safety.test.cjs'
       - 'hpp-calculator.js'
       - 'hpp-ui.js'
       - 'hpp-calculator.test.js'
@@ -59,6 +60,7 @@ jobs:
           node --check sync-safe.test.js
           node sync-safe.test.js
           node sync-backend-integration.test.js
+          node ui-render-safety.test.cjs
       - name: Verify standalone brand preview (no cloud access)
         run: node preview/brand-preview.test.js
       - name: Test HPP costing, quote policy, and local-only integration
