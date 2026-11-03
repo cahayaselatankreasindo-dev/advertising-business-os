@@ -22,6 +22,7 @@ The optimization branch adds the following safeguards without changing the produ
 - Exact duplicate rows in one payload remain idempotent; conflicting duplicate IDs are rejected before any write.
 - Prototype-safe record indexes protect special IDs such as `__proto__` and `constructor`.
 - Owner-only project automation is payload-scoped and remains opt-in; Team writes cannot trigger it.
+- Legacy `insert` and `update_status` API actions also require explicit compare-and-set expectations; Team status updates cannot invoke Owner-only project automation.
 - The PWA defers pinned CDN scripts and caches only approved static CDN assets. Apps Script API traffic remains outside the service-worker cache.
 
 ## Automated gates
