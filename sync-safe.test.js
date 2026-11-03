@@ -466,3 +466,34 @@ test('retry safely reconciles a deletion committed before a later delete request
   assert.equal(engine.countPending(),0);
   assert.equal(cloud.rows.leads.length,0);
 });
+
+
+test('retry after a partial delete clears the already absent row and does not conflict', async () => {
+  const initial = fixture();
+  initial.leads.push({...initial.leads[0],id:'lead-2',name:'Second lead'});
+  const cloud = fakeCloud(initial);
+  const db = clone(initial);
+  let interrupted = false;
+  const flaky = async (url, options={}) => {
+    if (options.method === 'POST' && !interrupted) {
+      const payload = JSON.parse(options.body);
+      if (payload.action === 'delete' && payload.id === 'lead-2') {
+        interrupted = true;
+        throw new Error('interrupted before second delete');
+      }
+    }
+    return cloud.fetch(url, options);
+  };
+  const engine = createEngine(store(), flaky);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads = [];
+  engine.track(db);
+  const first = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(first.status,'error');
+  assert.equal(engine.countPending(),2);
+  const second = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(second.status,'verified');
+  assert.equal(engine.countPending(),0);
+  assert.equal(cloud.rows.leads.length,0);
+});
