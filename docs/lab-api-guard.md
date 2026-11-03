@@ -1,6 +1,6 @@
 # CSK LAB — pengamanan endpoint sebelum uji browser
 
-> **RELEASE BLOCKER — SCRIPT ID BELUM TEREKONSILIASI.** Pada branch ini, `apps-script/.clasp.json` menunjuk ke Apps Script project ID yang berbeda dari ID proyek LAB yang disebut pada langkah verifikasi di dokumen ini. Jangan jalankan `clasp push`, `clasp deploy`, atau menyalin bundle ke Apps Script sampai pemilik proyek memverifikasi Script ID yang benar melalui editor Apps Script dan mengonfirmasi spreadsheet LAB yang terikat. Jangan menebak atau mengganti ID berdasarkan salah satu file saja.
+> **RELEASE BLOCKER — TARGET DEPLOYMENT TERPISAH.** `apps-script/.clasp.json` menunjuk ke Script ID produksi (`1eUjEvbe4dGsAIT32P3vLVdf1CKIsk0swleiJg1FHX0OugYddNYWbB3qC`), sedangkan Apps Script LAB memakai Script ID terpisah (`1IushkEIqi-CsKxsdx83sxs08_G5wk8rbOQ9A_eM0UF1wOKszDfYJqzB4`) dan spreadsheet dummy `19le34ltpZCMIHmjw2n_JbEvrtZBWNTKd61U-xEAoR5Y`. Ini pemisahan environment yang disengaja, bukan ID yang harus disamakan. Namun `apps-script/Code.gs` pada branch staging berisi handler LAB-only. Karena itu **jangan jalankan `clasp push` atau `clasp deploy` dari folder `apps-script/`**: target `.clasp.json` adalah produksi. Helper deployment sengaja fail-closed. Live LAB deployment memerlukan konfigurasi/working directory LAB tersendiri yang diverifikasi langsung di Apps Script editor.
 
 
 Status: **BELUM AKTIF DI APPS SCRIPT LAB**. Kode repo adalah persiapan; deploy LAB tetap **Only myself**. Aplikasi produksi dan Google Sheets produksi **jangan disentuh**.
