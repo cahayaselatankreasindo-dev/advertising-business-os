@@ -460,6 +460,20 @@ function validateExpectedRecords_(ss, payload) {
   return { ok: true };
 }
 
+function validateExpectedUpdate_(ss, sheetName, id, expectedFingerprint) {
+  if (typeof expectedFingerprint !== "string" || !expectedFingerprint) {
+    return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
+      message: "Pembaruan status ditolak: expectedFingerprint wajib dikirim." };
+  }
+  var current = findRecordById_(ss, sheetName, id);
+  if (!current || stableRecordFingerprint_(current) !== expectedFingerprint) {
+    return { ok: false, code: "SYNC_CONFLICT",
+      message: "Record berubah atau sudah dihapus oleh perangkat lain. Tidak ada data yang diubah.",
+      conflicts: [sheetName + "/" + String(id)] };
+  }
+  return { ok: true, record: current };
+}
+
 function validateExpectedDelete_(ss, sheetName, id, expectedFingerprint) {
   if (typeof expectedFingerprint !== "string" || !expectedFingerprint) {
     return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
@@ -706,47 +720,76 @@ function doPost(e) {
 
       // --- insert: tambahkan 1 baris ke tab tertentu ---
       case "insert": {
+        var allowedInsertKeys = ["action", "token", "protocolVersion", "sheet", "data", "expectedAbsent"];
+        var unknownInsertKeys = Object.keys(payload).filter(function (key) {
+          return allowedInsertKeys.indexOf(key) === -1;
+        });
+        if (unknownInsertKeys.length) return jsonResponse({
+          status: "error", code: "INVALID_PAYLOAD", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Field insert tidak dikenal: " + unknownInsertKeys.join(", ")
+        });
         const sheetName = payload.sheet;
         const data = payload.data || {};
         if (!sheetName || !data.id) {
           throw new Error("Parameter sheet dan data.id diperlukan untuk aksi insert.");
         }
+        if (!FIELD_MAP[sheetName]) return jsonResponse({
+          status: "error", code: "INVALID_SHEET", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Insert hanya diizinkan untuk tab Business OS yang terdaftar."
+        });
         if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh menambahkan data " + sheetName + ".");
-        ensureSheet(ss, sheetName, FIELD_MAP[sheetName] ? FIELD_MAP[sheetName].headers : []);
-        if (FIELD_MAP[sheetName]) {
-          insertRecord(ss, sheetName, data);
-        } else {
-          // Tab di luar kontrak: ikut header Sheet apa adanya.
-          const sheet = ss.getSheetByName(sheetName);
-          const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-          const row = headers.map(h => data[String(h).toLowerCase()] !== undefined ? data[String(h).toLowerCase()] : "");
-          sheet.appendRow(row);
-        }
-        return jsonResponse({ status: "success", message: "Baris berhasil disisipkan di " + sheetName, id: data.id });
+        if (payload.expectedAbsent !== true) return jsonResponse({
+          status: "error", code: "EXPECTED_VERSION_REQUIRED", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Insert ditolak: expectedAbsent:true wajib dikirim."
+        });
+        if (findRecordById_(ss, sheetName, data.id)) return jsonResponse({
+          status: "error", code: "SYNC_CONFLICT", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "ID sudah ada. Tidak ada baris yang ditambahkan.",
+          conflicts: [sheetName + "/" + String(data.id)]
+        });
+        ensureSheet(ss, sheetName, FIELD_MAP[sheetName].headers);
+        insertRecord(ss, sheetName, data);
+        return jsonResponse({ status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Baris berhasil disisipkan di " + sheetName, id: data.id });
       }
 
-      // --- update_status: ubah kolom Status baris berdasarkan ID ---
       case "update_status": {
+        var allowedUpdateKeys = ["action", "token", "protocolVersion", "sheet", "id", "status", "expectedFingerprint"];
+        var unknownUpdateKeys = Object.keys(payload).filter(function (key) {
+          return allowedUpdateKeys.indexOf(key) === -1;
+        });
+        if (unknownUpdateKeys.length) return jsonResponse({
+          status: "error", code: "INVALID_PAYLOAD", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Field update_status tidak dikenal: " + unknownUpdateKeys.join(", ")
+        });
         const sheetName = payload.sheet || "Leads";
         const id = payload.id;
         const status = payload.status;
         if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh mengubah data " + sheetName + ".");
+        if (["Leads", "Projects"].indexOf(sheetName) === -1) return jsonResponse({
+          status: "error", code: "INVALID_SHEET", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "update_status hanya diizinkan untuk Leads dan Projects."
+        });
         if (!id || !status) throw new Error("Parameter id dan status diperlukan.");
+        var updateCheck = validateExpectedUpdate_(ss, sheetName, id, payload.expectedFingerprint);
+        if (!updateCheck.ok) return jsonResponse({
+          status: "error", code: updateCheck.code, protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: updateCheck.message, conflicts: updateCheck.conflicts || []
+        });
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
         const rowNum = findRowById(sheet, id);
         if (rowNum === -1) throw new Error("Baris dengan ID " + id + " tidak ditemukan di " + sheetName);
-        // Kolom Status adalah kolom ke-7 untuk Leads, Projects — umum di kolom terakhir sebelum catatan
-        // Kita cari indeks header "status" (case-insensitive)
         const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
         let statusCol = headers.findIndex(h => String(h).toLowerCase() === "status");
-        if (statusCol === -1) statusCol = 6; // fallback kolom G (index 7)
+        if (statusCol === -1) statusCol = 6;
         sheet.getRange(rowNum, statusCol + 1).setValue(status);
-        // Jika status berubah jadi deal menang → jalankan otomasi
-        if ((sheetName === "Leads" || sheetName === "Leads_CRM") && isDealMenang(status)) {
+        // Only an Owner can trigger project automation; Team status changes remain data-only.
+        if (role === "owner" && sheetName === "Leads" && isDealMenang(status)) {
           autoTriggerPillars(ss, id);
         }
-        return jsonResponse({ status: "success", message: "Status diperbarui di " + sheetName, row: rowNum });
+        return jsonResponse({ status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Status diperbarui di " + sheetName, row: rowNum });
       }
 
       // --- send_cold_email: kirim outreach resmi via Gmail dengan batas kuota 50 & opt-out ---
