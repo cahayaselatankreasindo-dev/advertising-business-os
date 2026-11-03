@@ -382,9 +382,10 @@ test('recovery restores local snapshot without queuing old records to cloud', ()
 
 test('main Business OS backup validator supports current and legacy backups while rejecting malformed records', () => {
   const html = fs.readFileSync('index.html', 'utf8');
-  const match = html.match(/    function validateBackupData\\(parsed\\) \\{[\\s\\S]*?\\n    \\}\\n\\n    function importData/);
-  assert.ok(match, 'backup validation helper exists before the import handler');
-  const source = match[0].replace(/\\n\\n    function importData$/, '').trim();
+  const start = html.indexOf('    function validateBackupData(parsed) {');
+  const end = html.indexOf('\\n    function importData(e) {', start);
+  assert.ok(start >= 0 && end > start, 'backup validation helper exists before the import handler');
+  const source = html.slice(start, end).trim();
   const validate = vm.runInNewContext('(' + source + ')');
   const base = {
     leads:[{id:'L-1',name:'Lead'}], clients:[], projects:[], finance:[],
@@ -399,9 +400,9 @@ test('main Business OS backup validator supports current and legacy backups whil
     data:{...base,role:'team',settings:{googleSheetUrl:'https://secret.invalid/exec'}}
   });
   assert.equal(current.data.role,'team');
-  assert.deepEqual(current.data.settings,{googleSheetUrl:'',lastSync:''});
-  assert.deepEqual(current.data.costings,[]);
-  assert.deepEqual(current.data.projectCosts,[]);
+  assert.deepEqual(JSON.parse(JSON.stringify(current.data.settings)),{googleSheetUrl:'',lastSync:''});
+  assert.deepEqual(JSON.parse(JSON.stringify(current.data.costings)),[]);
+  assert.deepEqual(JSON.parse(JSON.stringify(current.data.projectCosts)),[]);
   assert.equal(current.pendingChangesAtExport,3);
   assert.equal(current.conflictRecovery.length,1);
   assert.equal(current.conflictRecovery[0].id,'L-1');
@@ -409,7 +410,7 @@ test('main Business OS backup validator supports current and legacy backups whil
   const legacy = validate({...base,role:'owner'});
   assert.equal(legacy.data.role,'owner');
   assert.equal(legacy.pendingChangesAtExport,0);
-  assert.deepEqual(legacy.conflictRecovery,[]);
+  assert.deepEqual(JSON.parse(JSON.stringify(legacy.conflictRecovery)),[]);
   assert.throws(() => validate({format:'csk-business-os-backup',version:99,data:base}),/Versi backup/);
   assert.throws(() => validate({...base,leads:[{id:'DUP'},{id:'DUP'}]}),/ID duplikat/);
   assert.throws(() => validate({...base,clients:[null]}),/Record clients/);
@@ -419,11 +420,11 @@ test('main Business OS backup validator supports current and legacy backups whil
 
 test('backup import restores conflict recovery and keeps cloud credentials detached', () => {
   const html = fs.readFileSync('index.html', 'utf8');
-  assert.match(html,/const restored = validateBackupData\\(parsed\\)/);
-  assert.match(html,/localStorage\\.setItem\\('csk_business_os_conflict_recovery_v1', JSON\\.stringify\\(restored\\.conflictRecovery\\)\\)/);
-  assert.match(html,/serverRole = 'unknown'/);
-  assert.match(html,/sessionApiToken = ''/);
-  assert.match(html,/googleSheetUrl: ''/);
+  assert.ok(html.includes('const restored = validateBackupData(parsed);'));
+  assert.ok(html.includes("localStorage.setItem('csk_business_os_conflict_recovery_v1', JSON.stringify(restored.conflictRecovery));"));
+  assert.ok(html.includes("serverRole = 'unknown';"));
+  assert.ok(html.includes("sessionApiToken = '';"));
+  assert.ok(html.includes("googleSheetUrl: ''"));
 });
 
 test('staged app starts without demo customers or baked-in production endpoint', () => {
