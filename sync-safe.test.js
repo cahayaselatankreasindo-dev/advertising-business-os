@@ -383,7 +383,7 @@ test('recovery restores local snapshot without queuing old records to cloud', ()
 test('main Business OS backup validator supports current and legacy backups while rejecting malformed records', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   const start = html.indexOf('    function validateBackupData(parsed) {');
-  const end = html.indexOf('\\n    function importData(e) {', start);
+  const end = html.indexOf('    function importData(e) {', start);
   assert.ok(start >= 0 && end > start, 'backup validation helper exists before the import handler');
   const source = html.slice(start, end).trim();
   const validate = vm.runInNewContext('(' + source + ')');
