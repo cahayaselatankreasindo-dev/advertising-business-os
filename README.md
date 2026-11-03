@@ -39,6 +39,7 @@ Backend staging kini menggunakan token **OWNER_API_TOKEN** dan **TEAM_API_TOKEN*
 - Setiap peran memakai token berbeda yang diverifikasi server. Token masih disimpan di `localStorage` browser dan token GET masih berada di query string; ini bukan login per-pengguna. Jangan gunakan perangkat bersama dan jangan membagikan URL request. Sebelum akses multi-user yang lebih luas, pindahkan autentikasi ke mekanisme identitas server-side.
 - Backend staging sudah memakai `LockService` dan compare-and-set fingerprint (`expectedRecords` dan `expectedFingerprint`) untuk menolak perubahan stale. Keandalan HTTP dan konflik pada **Apps Script LAB aktif** tetap belum diverifikasi.
 - Manifest kedua proyek Apps Script di repo kini dibatasi ke `MYSELF` / `USER_DEPLOYING`; CI memeriksa agar `ANYONE` dan `ANYONE_ANONYMOUS` tidak masuk kembali. Ini mengamankan konfigurasi sumber, bukan membuktikan pengaturan deployment yang sudah aktif.
+- Backend historis pada file `backups` sudah dinonaktifkan: handler `doGet`/`doPost` dan `setupSheet` diganti nama, dan CI memastikan file arsip itu tidak bisa dipakai sebagai Web App atau setup aktif secara tidak sengaja.
 
 ## Pengujian dan pengembangan
 
@@ -49,6 +50,7 @@ node --check sync-safe.test.js
 node sync-safe.test.js
 node sync-backend-integration.test.js
 node apps-script/lab-contract.test.cjs
+node legacy-backup-safety.test.cjs
 node ui-render-safety.test.cjs
 # UI render safety: imported CRM/marketing values are HTML-escaped before insertion.
 node mapping.test.js
