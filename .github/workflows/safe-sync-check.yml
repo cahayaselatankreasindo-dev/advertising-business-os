@@ -95,6 +95,10 @@ jobs:
           node photo-lab.test.js
       - name: Validate existing sheet mapping
         run: node mapping.test.js
+      - name: Validate PWA cache boundaries
+        run: |
+          node --check service-worker.test.js
+          node service-worker.test.js
       - name: Validate isolated Apps Script LAB source and guard wiring
         run: |
           node --check --input-type=commonjs < apps-script/Code.gs
