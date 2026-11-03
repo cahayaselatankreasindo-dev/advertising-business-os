@@ -330,6 +330,11 @@ test('LAB Owner/Team role isolation filters five private modules and rejects wri
   const ctx = api.sandbox;
   vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script','LabSelfTest.gs'),'utf8'),ctx);
   vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script','LabRequestGuard.gs'),'utf8'),ctx);
+  ctx.setupApiTokens();
+  const roleTokens = ctx.getApiTokens();
+  assert.ok(roleTokens.owner && roleTokens.owner.length >= 20);
+  assert.ok(roleTokens.team && roleTokens.team.length >= 20);
+  assert.notEqual(roleTokens.owner,roleTokens.team);
   const result = ctx.cskLabRunRoleIsolationTests();
   assert.equal(result.status,'LAB_ROLE_ISOLATION_PASS');
   assert.equal(result.labIdVerified,true);
