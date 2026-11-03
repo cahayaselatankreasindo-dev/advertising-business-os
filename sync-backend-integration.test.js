@@ -245,11 +245,19 @@ test('Owner sync persists HPP quotations and project cost entries', () => {
   assert.equal(cloud.finance.length,0,'quotation and costs must not fabricate cash receipts');
 });
 
-test('backup restoration preserves both commercial arrays in staged HTML source', () => {
+test('backup restoration validates and preserves both commercial arrays in staged HTML source', () => {
   const html = fs.readFileSync(path.join(__dirname, 'index.html'),'utf8');
-  const restore = html.slice(html.indexOf('    function importData(e) {'), html.indexOf('    function importData(e) {') + 2500);
-  assert.match(restore,/costings: Array\.isArray\(data\.costings\)/);
-  assert.match(restore,/projectCosts: Array\.isArray\(data\.projectCosts\)/);
+  const validatorStart = html.indexOf('    function validateBackupData(parsed) {');
+  const importStart = html.indexOf('    function importData(e) {', validatorStart);
+  assert.ok(validatorStart >= 0 && importStart > validatorStart);
+  const validator = html.slice(validatorStart, importStart);
+  const restore = html.slice(importStart, importStart + 3500);
+  assert.match(validator,/optional = \['costings', 'projectCosts'\]/);
+  assert.match(validator,/data\[area\] = \[\]/);
+  assert.match(validator,/required\.concat\(optional\)/);
+  assert.match(restore,/const data = restored\.data/);
+  assert.match(restore,/safeSync\.restoreLocalOnly\(db\)/);
+  assert.match(restore,/conflict_recovery_v1/);
 });
 
 test('real backend + real frontend delta: edit -> POST -> authenticated POST readback', async () => {
