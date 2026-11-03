@@ -3264,6 +3264,8 @@
             leads: data.leads, clients: data.clients, projects: data.projects,
             finance: data.finance, memory: data.memory,
             marketingSpend: data.marketingSpend,
+            costings: Array.isArray(data.costings) ? data.costings : [],
+            projectCosts: Array.isArray(data.projectCosts) ? data.projectCosts : [],
             settings: { googleSheetUrl: '', apiToken: '', lastSync: '' },
             role: data.role === 'team' ? 'team' : 'owner'
           };
