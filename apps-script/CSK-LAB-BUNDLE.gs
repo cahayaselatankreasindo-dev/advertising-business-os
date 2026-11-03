@@ -788,8 +788,8 @@ function hasTokenInSheet(ss, sheetName, token) {
 }
 
 function isDealMenang(status) {
-  const s = String(status || "").toLowerCase().replace(/\s/g, "");
-  return s === "won" || s === "dealmenang" || s === "deal-menang" || s === "dealwin";
+  const s = String(status || "").toLowerCase().replace(/[\s_-]/g, "");
+  return s === "won" || s === "dealmenang" || s === "dealwin";
 }
 
 function insertRecord(ss, sheetName, recordObj, keyOrder) {
