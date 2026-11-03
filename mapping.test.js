@@ -179,21 +179,25 @@ if (FIELD_MAP) {
     'FIELD_MAP.Projects.fields memuat pic');
 }
 
-// ---------- 6. Tes BACA (doGet): Sheet -> field HTML ----------
-function callDoGet() {
-  const out = sandbox.doGet({ parameter: { token: _props.API_TOKEN, protocolVersion: 2 } });
+// ---------- 6. Tes BACA (POST action read): Sheet -> field HTML ----------
+function callRead(token = _props.API_TOKEN) {
+  const out = sandbox.doPost({ postData: { contents: JSON.stringify({
+    action: 'read', token, protocolVersion: 2
+  }) } });
   return JSON.parse(out._t);
 }
-const got = callDoGet();
-eq(got.status, 'success', 'doGet status success');
+const getDisabled = JSON.parse(sandbox.doGet()._t);
+eq(getDisabled.code, 'POST_REQUIRED', 'GET does not disclose spreadsheet data');
+const got = callRead();
+eq(got.status, 'success', 'authenticated POST read status success');
 if (got.status === 'success') {
-  eq(got.data.leads[0].name, 'Budi', 'doGet Leads Nama -> name');
-  eq(got.data.clients[0].rating, 5, 'doGet Clients "5 | Sangat puas" -> rating=5');
+  eq(got.data.leads[0].name, 'Budi', 'POST read Leads Nama -> name');
+  eq(got.data.clients[0].rating, 5, 'POST read Clients "5 | Sangat puas" -> rating=5');
   eq(got.data.clients[0].review, 'Sangat puas', 'doGet Clients "5 | Sangat puas" -> review');
-  eq(got.data.projects[0].pic, 'Andi', 'doGet Projects PIC_Tim -> pic');
-  eq(got.data.projects[0].sopChecklist, 'Brief:1;Produksi:0;Review:0;Revisi:0;Delivery:0', 'doGet SOP_Checklist lolos apa adanya');
-  eq(got.data.finance[0].amount, 4000000, 'doGet Finance Nominal -> amount');
-  eq(got.data.marketingSpend[0].spent, 500000, 'doGet Marketing Terpakai -> spent');
+  eq(got.data.projects[0].pic, 'Andi', 'POST read Projects PIC_Tim -> pic');
+  eq(got.data.projects[0].sopChecklist, 'Brief:1;Produksi:0;Review:0;Revisi:0;Delivery:0', 'POST read SOP_Checklist lolos apa adanya');
+  eq(got.data.finance[0].amount, 4000000, 'POST read Finance Nominal -> amount');
+  eq(got.data.marketingSpend[0].spent, 500000, 'POST read Marketing Terpakai -> spent');
   eq(got.data.marketingSpend[0].leadsGenerated, 8, 'doGet Marketing LeadsDihasilkan -> leadsGenerated');
 }
 
@@ -329,14 +333,14 @@ eq(b2bRow[colOf('JabatanPIC')], 'Procurement Manager', 'B2B: JabatanPIC masuk ko
 eq(b2bRow[colOf('LinkedIn')], 'https://linkedin.com/in/budi', 'B2B: LinkedIn masuk kolom LinkedIn');
 eq(b2bRow[colOf('SkorPrioritas')], 85, 'B2B: SkorPrioritas masuk kolom SkorPrioritas');
 
-// doGet harus mengembalikan field B2B sebagai camelCase
-const gotB2B = callDoGet().data.leads.find(l => String(l.id) === 'LB2B');
-eq(gotB2B.email, 'vendor@mayora.co.id', 'doGet: Email -> email');
-eq(gotB2B.website, 'https://www.mayoraindah.co.id', 'doGet: Website -> website');
-eq(gotB2B.industry, 'FMCG', 'doGet: Industri -> industry');
-eq(gotB2B.pic, 'Budi Santoso', 'doGet: PIC -> pic');
-eq(gotB2B.picTitle, 'Procurement Manager', 'doGet: JabatanPIC -> picTitle');
-eq(gotB2B.score, 85, 'doGet: SkorPrioritas -> score');
+// POST read harus mengembalikan field B2B sebagai camelCase
+const gotB2B = callRead().data.leads.find(l => String(l.id) === 'LB2B');
+eq(gotB2B.email, 'vendor@mayora.co.id', 'POST read: Email -> email');
+eq(gotB2B.website, 'https://www.mayoraindah.co.id', 'POST read: Website -> website');
+eq(gotB2B.industry, 'FMCG', 'POST read: Industri -> industry');
+eq(gotB2B.pic, 'Budi Santoso', 'POST read: PIC -> pic');
+eq(gotB2B.picTitle, 'Procurement Manager', 'POST read: JabatanPIC -> picTitle');
+eq(gotB2B.score, 85, 'POST read: SkorPrioritas -> score');
 
 // ---------- 9c. Kasus NYATA: header HURUF BESAR + kolom duplikat ----------
 // Ganti sheet "Leads" dengan versi header HURUF BESAR + kolom duplikat
@@ -377,9 +381,9 @@ eq(capsRow[idx('industri')], 'Retail', 'CAPS: Industri masuk kolom Industri');
 eq(capsRow[idx('pic')], 'Siti', 'CAPS: PIC masuk kolom PIC');
 eq(capsRow[idx('skorprioritas')], 90, 'CAPS: SkorPrioritas masuk kolom SkorPrioritas');
 
-// doGet harus baca benar meski header huruf besar
-const gotCaps = callDoGet().data.leads.find(l => String(l.id) === 'L-CAPS');
-eq(gotCaps.email, 'pic@testcaps.co.id', 'CAPS doGet: email terbaca benar');
+// POST read harus baca benar meski header huruf besar
+const gotCaps = callRead().data.leads.find(l => String(l.id) === 'L-CAPS');
+eq(gotCaps.email, 'pic@testcaps.co.id', 'CAPS POST read: email terbaca benar');
 eq(gotCaps.picTitle, 'Store Dev Manager', 'CAPS doGet: picTitle terbaca benar');
 
 // ---------- 9d. Tes action 'delete' (tombol hapus di app) ----------
@@ -403,8 +407,9 @@ _props['API_TOKEN'] = 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET';
 eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: token diset, request tanpa token -> DITOLAK');
 eq(sandbox.isAuthorized({ action: 'sync_all', token: 'SALAH' }), false, 'auth: token salah -> DITOLAK');
 eq(sandbox.isAuthorized({ action: 'sync_all', token: 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET' }), true, 'auth: token benar -> DIIZINKAN');
-eq(sandbox.isAuthorized(null, 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET'), true, 'auth: token via query string (GET) -> DIIZINKAN');
-eq(sandbox.isAuthorized(null, ''), false, 'auth: GET tanpa token -> DITOLAK');
+eq(sandbox.isAuthorized({action:'read',token:'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET'}), true, 'auth: token in POST body -> DIIZINKAN');
+eq(sandbox.isAuthorized(null, 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET'), false, 'auth: legacy query-string token -> DITOLAK');
+eq(sandbox.isAuthorized(null, ''), false, 'auth: request without POST body token -> DITOLAK');
 
 // Mode 3: doPost tanpa token -> balasan error, TIDAK mengubah data
 const beforeAuth = sheets['Leads'].rows.length;
@@ -426,8 +431,10 @@ _props['TEAM_API_TOKEN'] = 'TEAM_TEST_TOKEN_FOR_MAPPING_2026';
 eq(sandbox.getRequestRole({token:'OWNER_TEST_TOKEN_FOR_MAPPING_2026'}), 'owner', 'role: token Owner dikenali server');
 eq(sandbox.getRequestRole({token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026'}), 'team', 'role: token Tim dikenali server');
 eq(sandbox.getRequestRole({token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026'}), 'team', 'role: role tidak berasal dari payload browser');
-const teamRead = JSON.parse(sandbox.doGet({parameter:{token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026',protocolVersion:2}})._t);
-eq(teamRead.data.role, 'team', 'role: GET mengembalikan role terverifikasi');
+const teamRead = JSON.parse(sandbox.doPost({postData:{contents:JSON.stringify({
+  action:'read',token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026',protocolVersion:2
+})}})._t);
+eq(teamRead.data.role, 'team', 'role: authenticated POST read returns verified role');
 eq(teamRead.data.finance.length, 0, 'role: Team tidak menerima data Finance');
 eq(teamRead.data.costings.length, 0, 'role: Team tidak menerima data HPP');
 eq(teamRead.data.projectCosts.length, 0, 'role: Team tidak menerima data biaya proyek');

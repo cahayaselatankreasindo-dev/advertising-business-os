@@ -536,18 +536,18 @@ function secureTokenEquals_(provided, expected) {
   return diff === 0;
 }
 
-function getRequestRole(payloadOrEvent, tokenParam) {
+function getRequestRole(payload) {
   var tokens = getApiTokens();
-  var provided = "";
-  if (payloadOrEvent && typeof payloadOrEvent === "object") provided = payloadOrEvent.token || "";
-  if (!provided && tokenParam) provided = tokenParam;
+  // Bearer credentials are accepted only from authenticated POST JSON bodies.
+  // Never fall back to query parameters or a second positional token argument.
+  var provided = payload && typeof payload === "object" ? (payload.token || "") : "";
   if (secureTokenEquals_(provided, tokens.owner)) return "owner";
   if (secureTokenEquals_(provided, tokens.team)) return "team";
   return "";
 }
 
-function isAuthorized(payloadOrEvent, tokenParam) {
-  return getRequestRole(payloadOrEvent, tokenParam) !== "";
+function isAuthorized(payload) {
+  return getRequestRole(payload) !== "";
 }
 
 function isSheetAllowedForRole_(role, sheetName) {
@@ -565,7 +565,7 @@ function forbiddenResponse(message) {
   return jsonResponse({ status: "error", code: "FORBIDDEN", protocolVersion: CSK_API_PROTOCOL_VERSION, message: message || "Role ini tidak memiliki izin untuk operasi tersebut." });
 }
 
-// ============== GET — TARIK DATA SEMUA TAB ==============
+// ============== GET — DISABLED (AUTHENTICATED READS USE POST) ==============
 
 function doGet() {
   try {
