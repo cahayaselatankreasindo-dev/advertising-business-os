@@ -16,14 +16,14 @@ let expected = `/**
  * Regenerate with: node apps-script/build-lab-bundle.cjs
  */`;
 const sections = files.map(file => {
-  let source = fs.readFileSync(path.join(root,file),'utf8').replace(/\\s+$/,'');
+  let source = fs.readFileSync(path.join(root,file),'utf8').replace(/\s+$/,'');
   if (file === 'apps-script/Code.gs') source = source.replace(
     'Requires LabSelfTest.gs, LabRequestGuard.gs and LabHandlerVerification.gs.',
     'Guard and LAB test helpers are appended in this generated one-file bundle.'
   );
-  return '// ===== BEGIN ' + file + ' =====\\n' + source + '\\n// ===== END ' + file + ' =====';
+  return '// ===== BEGIN ' + file + ' =====\n' + source + '\n// ===== END ' + file + ' =====';
 });
-expected += '\\n\\n' + sections.join('\\n\\n') + '\\n';
+expected += '\n\n' + sections.join('\n\n') + '\n';
 const actual = fs.readFileSync(path.join(__dirname,'CSK-LAB-BUNDLE.gs'),'utf8');
 assert.equal(actual,expected,'one-file LAB bundle must match all source modules');
 assert.ok(actual.includes('cskLabGuardRead_()'),'bundle contains the GET guard');
