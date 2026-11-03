@@ -102,11 +102,16 @@ const PropertiesServiceStub = {
     return {
       getProperty(k) { return (k in _props) ? _props[k] : null; },
       setProperty(k, v) { _props[k] = v; },
+      deleteProperty(k) { delete _props[k]; },
     };
   },
 };
 const MailAppStub = { getRemainingDailyQuota() { return 100; }, sendEmail() {} };
-const UtilitiesStub = { formatDate() { return '2026-10-09'; } };
+let uuidCounter = 0;
+const UtilitiesStub = {
+  formatDate() { return '2026-10-09'; },
+  getUuid() { uuidCounter++; return 'UUID-TEST-' + uuidCounter; },
+};
 
 // ---------- 2. Muat google_apps_script.js ke sandbox ----------
 const src = fs.readFileSync(path.join(__dirname, 'google_apps_script.js'), 'utf8');
@@ -122,6 +127,8 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
+_props['OWNER_API_TOKEN'] = 'OWNER_TEST_TOKEN';
+_props['TEAM_API_TOKEN'] = 'TEAM_TEST_TOKEN';
 
 // ---------- 3. Mini test runner ----------
 let pass = 0, fail = 0;
@@ -162,8 +169,8 @@ const FIELD_MAP = sandbox.FIELD_MAP;
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
-    ['Clients','Finance','Leads','Marketing_Spend','Memory','Projects'].sort(),
-    'FIELD_MAP mencakup 6 tab');
+    ['Clients','Costings','Finance','Leads','Marketing_Spend','Memory','Project_Costs','Projects'].sort(),
+    'FIELD_MAP mencakup 8 tab');
   eq(FIELD_MAP.Projects.headers,
     ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim'],
     'FIELD_MAP.Projects.headers = hasil Tahap 2 + PIC_Tim');
@@ -173,11 +180,55 @@ if (FIELD_MAP) {
   eq(FIELD_MAP.Projects.fields,
     ['id','title','client','value','status','deadline','notes','sopChecklist','pic'],
     'FIELD_MAP.Projects.fields memuat pic');
+  eq(FIELD_MAP.Finance.headers,
+    ['ID','Tanggal','Tipe','Kategori','Nominal','Keterangan','ProjectID'],
+    'FIELD_MAP.Finance.headers memuat tautan ProjectID');
+  eq(FIELD_MAP.Finance.fields,
+    ['id','date','type','category','amount','description','projectId'],
+    'FIELD_MAP.Finance.fields memuat projectId');
+  const linkedFinanceRow=sandbox.recordToRow('Finance',{
+    id:'F-LINK',date:'2026-11-03',type:'income',category:'DP Proyek',
+    amount:5000000,description:'DP Proyek P1',projectId:'P1'
+  });
+  eq(linkedFinanceRow[6],'P1','Finance: ProjectID ditulis di kolom G');
+  eq(sandbox.rowToRecord('Finance',linkedFinanceRow,FIELD_MAP.Finance.headers).projectId,'P1','Finance: ProjectID terbaca kembali');
+  eq(FIELD_MAP.Costings.headers,
+    ['ID','Tanggal','Klien','NamaPekerjaan','ModelProduksi','LeadID','ItemsJSON','BiayaLangsung','OverheadPersen','OverheadNominal','CadanganPersen','CadanganNominal','HPP','MarginPersen','HargaPenawaran','Status','ProjectID','Catatan','NomorQuotation','VersiQuotation','MasaBerlakuHari','WaktuPengerjaanHari','SyaratPembayaran','RuangLingkup','DisetujuiPada','POConfirmedAt','RiwayatQuotationJSON','DikirimPada'],
+    'FIELD_MAP.Costings.headers sesuai kontrak quotation');
+  eq(FIELD_MAP.Costings.fields,
+    ['id','date','client','title','productionModel','leadId','itemsJson','directCost','overheadPct','overheadAmount','contingencyPct','contingencyAmount','hpp','marginPct','sellingPrice','status','projectId','notes','quoteNo','quoteVersion','validityDays','deliveryDays','paymentTerms','scope','approvedAt','poConfirmedAt','quoteHistoryJson','sentAt'],
+    'FIELD_MAP.Costings.fields sesuai model quotation');
+  eq(FIELD_MAP.Project_Costs.headers,
+    ['ID','Tanggal','ProjectID','Kategori','Sumber','Deskripsi','Vendor','Qty','HargaSatuan','Nominal','StatusPembayaran','Referensi','Catatan'],
+    'FIELD_MAP.Project_Costs.headers sesuai kontrak biaya aktual');
+  eq(FIELD_MAP.Project_Costs.fields,
+    ['id','date','projectId','category','source','description','vendor','qty','unitCost','amount','paymentStatus','reference','notes'],
+    'FIELD_MAP.Project_Costs.fields sesuai model biaya aktual');
+  const costingRow=sandbox.recordToRow('Costings',{
+    id:'COST-ROW',date:'2026-11-03',client:'PT Retail',title:'Rak Display',productionModel:'hybrid',
+    leadId:'L-10',itemsJson:'[]',directCost:7000000,overheadPct:5,overheadAmount:350000,
+    contingencyPct:3,contingencyAmount:220500,hpp:7570500,marginPct:30,sellingPrice:10815000,
+    status:'draft',projectId:'',notes:'uji mapping',quoteNo:'QUO-CSK-202611-COSTROW',
+    quoteVersion:2,validityDays:14,deliveryDays:21,paymentTerms:'DP 50%',scope:'Rak display',
+    approvedAt:'',poConfirmedAt:'',quoteHistoryJson:'[]',sentAt:''
+  });
+  eq(costingRow.length,28,'Costings: jumlah kolom 28');
+  eq(costingRow[12],7570500,'Costings: HPP pada kolom M');
+  eq(costingRow[18],'QUO-CSK-202611-COSTROW','Costings: nomor quotation pada kolom S');
+  eq(sandbox.rowToRecord('Costings',costingRow,FIELD_MAP.Costings.headers).sellingPrice,10815000,'Costings: harga penawaran terbaca kembali');
+  const projectCostRow=sandbox.recordToRow('Project_Costs',{
+    id:'PC-ROW',date:'2026-11-03',projectId:'P1',category:'material',source:'vendor',
+    description:'Acrylic sheet',vendor:'Vendor A',qty:2,unitCost:500000,amount:1000000,
+    paymentStatus:'unpaid',reference:'INV-1',notes:'uji mapping'
+  });
+  eq(projectCostRow.length,13,'Project_Costs: jumlah kolom 13');
+  eq(projectCostRow[9],1000000,'Project_Costs: nominal pada kolom J');
+  eq(sandbox.rowToRecord('Project_Costs',projectCostRow,FIELD_MAP.Project_Costs.headers).amount,1000000,'Project_Costs: nominal terbaca kembali');
 }
 
 // ---------- 6. Tes BACA (doGet): Sheet -> field HTML ----------
-function callDoGet() {
-  const out = sandbox.doGet({});
+function callDoGet(token = 'OWNER_TEST_TOKEN') {
+  const out = sandbox.doGet({ parameter: { token } });
   return JSON.parse(out._t);
 }
 const got = callDoGet();
@@ -195,7 +246,9 @@ if (got.status === 'success') {
 
 // ---------- 7. Tes TULIS (sync_all): MERGE — tidak menghapus data lama ----------
 function callDoPost(payload) {
-  const out = sandbox.doPost({ postData: { contents: JSON.stringify(payload) } });
+  const request = Object.assign({}, payload);
+  if (request.token === undefined) request.token = 'OWNER_TEST_TOKEN';
+  const out = sandbox.doPost({ postData: { contents: JSON.stringify(request) } });
   return JSON.parse(out._t);
 }
 const leadsBefore = sheets['Leads'].rows.length;
@@ -204,9 +257,11 @@ const postRes = callDoPost({
   leads: [{ id: 'L9', date: '2026-09-10', name: 'Sari', phone: '082', source: 'WA', value: 1500000, status: 'new', notes: 'n' }],
   clients: [{ id: 'C9', name: 'Sari', phone: '082', projectsCount: 0, totalSpend: 0, notes: '', rating: 4, review: 'Bagus' }],
   projects: [{ id: 'P9', title: 'Logo', client: 'Sari', value: 1500000, status: 'plan', deadline: '2026-09-30', notes: '', sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0', pic: 'Beni' }],
-  finance: [{ id: 'F9', date: '2026-09-10', type: 'expense', category: 'Operasional', amount: 100000, description: 'd' }],
+  finance: [{ id: 'F9', date: '2026-09-10', type: 'expense', category: 'Operasional', amount: 100000, description: 'd', projectId: 'P9' }],
   memory: [{ id: 'M9', date: '2026-09-10', category: 'SOP', title: 't', content: 'c' }],
   marketingSpend: [{ id: 'K9', date: '2026-09-10', platform: 'TikTok Ads', campaign: 'k', budget: 200000, spent: 100000, leadsGenerated: 5, notes: '' }],
+  costings: [{ id: 'COST-OWNER-1', date: '2026-11-03', client: 'PT Retail', title: 'Rak Display', productionModel: 'hybrid', leadId: 'L9', itemsJson: '[]', directCost: 7000000, overheadPct: 5, overheadAmount: 350000, contingencyPct: 3, contingencyAmount: 220500, hpp: 7570500, marginPct: 30, sellingPrice: 10815000, status: 'draft', projectId: '', notes: '', quoteNo: 'QUO-CSK-202611-COSTOWN1', quoteVersion: 1, validityDays: 14, deliveryDays: 21, paymentTerms: 'DP 50%', scope: 'Rak display', approvedAt: '', poConfirmedAt: '', quoteHistoryJson: '[]', sentAt: '' }],
+  projectCosts: [{ id: 'PC-OWNER-1', date: '2026-11-03', projectId: 'P1', category: 'material', source: 'vendor', description: 'Acrylic sheet', vendor: 'Vendor A', qty: 2, unitCost: 500000, amount: 1000000, paymentStatus: 'unpaid', reference: 'INV-1', notes: '' }]
 });
 eq(postRes.status, 'success', 'sync_all status success');
 
@@ -230,9 +285,38 @@ eq(newProjRow[8], 'Beni', 'sync new Project: pic di kolom I (PIC_Tim)');
 
 const newFinRow = findRow('Finance', 'F9');
 eq(newFinRow[4], 100000, 'sync new Finance: Nominal di kolom E');
+eq(newFinRow[6], 'P9', 'sync new Finance: ProjectID di kolom G');
+eq(callDoGet().data.finance.find(f => f.id === 'F9').projectId, 'P9', 'doGet Finance: ProjectID terbaca');
 
 const newMkRow = findRow('Marketing_Spend', 'K9');
 eq(newMkRow[6], 5, 'sync new Marketing: LeadsDihasilkan di kolom G');
+const newCostRow = findRow('Costings', 'COST-OWNER-1');
+eq(!!newCostRow, true, 'sync new Costings: record HPP tersimpan');
+eq(newCostRow[12], 7570500, 'sync new Costings: nilai HPP tersimpan pada kolom M');
+eq(newCostRow[14], 10815000, 'sync new Costings: harga penawaran tersimpan pada kolom O');
+eq(callDoGet().data.costings.find(x => x.id === 'COST-OWNER-1').sellingPrice, 10815000, 'doGet Costings: harga penawaran terbaca');
+eq(newCostRow[18], 'QUO-CSK-202611-COSTOWN1', 'Costings: nomor quotation tersimpan');
+eq(newCostRow[20], 14, 'Costings: masa berlaku tersimpan');
+const ownerProjectCostRow=findRow('Project_Costs','PC-OWNER-1');
+eq(!!ownerProjectCostRow,true,'sync new Project_Costs: biaya aktual tersimpan');
+eq(ownerProjectCostRow[9],1000000,'Project_Costs: nominal aktual pada kolom J');
+eq(callDoGet().data.projectCosts.find(x=>x.id==='PC-OWNER-1').amount,1000000,'doGet Project_Costs: nominal terbaca');
+
+// Deal menang membuat Client/Project secara idempoten, bukan transaksi Finance.
+const financeBeforeWonAutomation = sheets['Finance'].rows.length;
+callDoPost({ action: 'sync_all', leads: [{
+  id: 'L-WON-AUTO', date: '2026-10-09', name: 'Klien Otomatis', phone: '0812',
+  source: 'Referral', value: 8000000, status: 'won', notes: 'Deal dikonfirmasi'
+}] });
+eq(!!findRow('Clients', 'AUTO-CLI-L-WON-AUTO'), true, 'automation: Client dibuat untuk Deal Menang');
+eq(!!findRow('Projects', 'AUTO-PRJ-L-WON-AUTO'), true, 'automation: Project dibuat dengan ID stabil');
+eq(sheets['Finance'].rows.length, financeBeforeWonAutomation, 'automation: Deal Menang tidak membuat pendapatan otomatis');
+const projectCountAfterWon = sheets['Projects'].rows.filter(r => String(r[6] || '').includes('[LEAD-L-WON-AUTO]')).length;
+callDoPost({ action: 'sync_all', leads: [{
+  id: 'L-WON-AUTO', date: '2026-10-09', name: 'Klien Otomatis', phone: '0812',
+  source: 'Referral', value: 8000000, status: 'won', notes: 'Deal dikonfirmasi'
+}] });
+eq(sheets['Projects'].rows.filter(r => String(r[6] || '').includes('[LEAD-L-WON-AUTO]')).length, projectCountAfterWon, 'automation: pengulangan sync tidak menggandakan project');
 
 // (c) sync_all ID yang SUDAH ADA -> diupdate, bukan diduplikasi
 const leadsBefore2 = sheets['Leads'].rows.length;
@@ -297,31 +381,37 @@ eq(gotB2B.pic, 'Budi Santoso', 'doGet: PIC -> pic');
 eq(gotB2B.picTitle, 'Procurement Manager', 'doGet: JabatanPIC -> picTitle');
 eq(gotB2B.score, 85, 'doGet: SkorPrioritas -> score');
 
-// ---------- 9c. Kasus NYATA: header HURUF BESAR + kolom duplikat ----------
-// Ganti sheet "Leads" dengan versi header HURUF BESAR + kolom duplikat
-// (persis kondisi sheet user). Sistem harus: dedupe + tetap tulis kolom benar.
+// ---------- 9c. Migrasi header duplikat/kosong TANPA kehilangan data ----------
 sheets['Leads'] = makeSheet([
-  'ID','TANGGAL','Nama','Whatsapp','SUMBER','ESTIMASINILAI','STATUS','CATATAN',   // asli (HURUF BESAR)
-  'Tanggal','WhatsApp','Sumber','EstimasiNilai','Status','Catatan',               // duplikat (campur)
-  'Email','Website','Industri','PIC','JabatanPIC','LinkedIn','SkorPrioritas'      // B2B
+  'ID','TANGGAL','Nama','Whatsapp','SUMBER','ESTIMASINILAI','STATUS','CATATAN',
+  'Tanggal','WhatsApp','Sumber','EstimasiNilai','Status','Catatan',
+  'Email','Website','Industri','PIC','JabatanPIC','LinkedIn','SkorPrioritas',''
 ]);
-sheets['Leads'].appendRow(['L-OLD','2026-09-01','Budi','081','IG',8000000,'won','ok','','','','','','','','','','','','','']);
+sheets['Leads'].appendRow([
+  'L-OLD','2026-09-01','Budi','081','IG',8000000,'won','ok',
+  '2026-09-02','082','Referral',9000000,'nego','catatan tambahan',
+  'old@example.com','https://old.example','Retail','Siti','Buyer','https://linkedin.com/in/siti',85,
+  'nilai custom tanpa header'
+]);
 
-// Paksa dedupe + migrasi lewat setupSheet (pakai SpreadsheetApp stub yg sama)
 sandbox.setupSheet();
+eq(!!sheets['Costings'], true, 'setupSheet: tab Costings dibuat');
+eq(sheets['Costings'].rows[0].join('|'), FIELD_MAP.Costings.headers.join('|'), 'setupSheet: header Costings sesuai kontrak');
+eq(!!sheets['Project_Costs'], true, 'setupSheet: tab Project_Costs dibuat');
+eq(sheets['Project_Costs'].rows[0].join('|'), FIELD_MAP.Project_Costs.headers.join('|'), 'setupSheet: header Project_Costs sesuai kontrak');
 
 const h2 = sheets['Leads'].rows[0].map(h => String(h).trim().toLowerCase());
-const dupCount = h2.filter(x => x === 'tanggal').length;
-eq(dupCount, 1, 'dedupe: kolom "TANGGAL/Tanggal" jadi 1 (tidak duplikat)');
-eq(h2.filter(x => x === 'sumber').length, 1, 'dedupe: kolom "SUMBER/Sumber" jadi 1');
-eq(h2.filter(x => x === 'whatsapp').length, 1, 'dedupe: kolom "WhatsApp" jadi 1');
+eq(h2.filter(x => x === 'tanggal').length, 1, 'header utama TANGGAL tetap satu');
+eq(h2.filter(x => x === 'tanggal__legacy_2').length, 1, 'duplikat Tanggal diberi nama legacy');
+eq(h2.filter(x => x === 'whatsapp__legacy_2').length, 1, 'duplikat WhatsApp diberi nama legacy');
+eq(h2.filter(x => x === 'csk_legacy_column_22').length, 1, 'header kosong diberi nama legacy');
 
-// Data lama harus tetap ada setelah dedupe
 const oldRow2 = sheets['Leads'].rows.find(r => String(r[0]) === 'L-OLD');
-eq(!!oldRow2, true, 'dedupe: baris lama L-OLD tetap ada');
-eq(oldRow2[2], 'Budi', 'dedupe: data kolom Nama tidak rusak');
+eq(oldRow2[2], 'Budi', 'migrasi: data kolom Nama tetap ada');
+eq(oldRow2[h2.indexOf('tanggal__legacy_2')], '2026-09-02', 'migrasi: nilai tanggal duplikat tetap ada');
+eq(oldRow2[h2.indexOf('whatsapp__legacy_2')], '082', 'migrasi: nilai WhatsApp duplikat tetap ada');
+eq(oldRow2[h2.indexOf('csk_legacy_column_22')], 'nilai custom tanpa header', 'migrasi: data pada kolom tanpa header tetap ada');
 
-// Tulis lead baru dgn header HURUF BESAR -> harus masuk kolom yang benar
 callDoPost({ action: 'sync_all', leads: [{
   id: 'L-CAPS', date: '2026-10-09', name: 'PT Test Caps', phone: '0899',
   source: 'Referral', value: 5000000, status: 'new', notes: 'catatan caps',
@@ -330,13 +420,11 @@ callDoPost({ action: 'sync_all', leads: [{
 }] });
 const capsRow = sheets['Leads'].rows.find(r => String(r[0]) === 'L-CAPS');
 const idx = (n) => h2.indexOf(n);
-eq(capsRow[idx('email')], 'pic@testcaps.co.id', 'CAPS: Email masuk kolom Email (header huruf besar)');
+eq(capsRow[idx('email')], 'pic@testcaps.co.id', 'CAPS: Email masuk kolom Email');
 eq(capsRow[idx('website')], 'https://testcaps.co.id', 'CAPS: Website masuk kolom Website');
 eq(capsRow[idx('industri')], 'Retail', 'CAPS: Industri masuk kolom Industri');
 eq(capsRow[idx('pic')], 'Siti', 'CAPS: PIC masuk kolom PIC');
 eq(capsRow[idx('skorprioritas')], 90, 'CAPS: SkorPrioritas masuk kolom SkorPrioritas');
-
-// doGet harus baca benar meski header huruf besar
 const gotCaps = callDoGet().data.leads.find(l => String(l.id) === 'L-CAPS');
 eq(gotCaps.email, 'pic@testcaps.co.id', 'CAPS doGet: email terbaca benar');
 eq(gotCaps.picTitle, 'Store Dev Manager', 'CAPS doGet: picTitle terbaca benar');
@@ -351,31 +439,122 @@ eq(sheets['Leads'].rows.length, beforeDel - 1, 'delete: jumlah baris berkurang 1
 const delRes2 = callDoPost({ action: 'delete', sheet: 'Leads', id: 'TIDAK-ADA-XYZ' });
 eq(delRes2.status, 'success', 'delete: ID tidak ada tetap success (idempoten)');
 
-// ---------- 9e. Tes KEAMANAN: token API ----------
-// Mode 1: token belum diset -> semua request diizinkan (kompatibel)
-eq(sandbox.isAuthorized({ action: 'sync_all' }), true, 'auth: token belum diset -> diizinkan (kompatibel)');
+// Tombstone: stale sync tidak boleh menghidupkan kembali data yang sudah dihapus.
+const staleLead = {
+  id: 'L-CAPS', date: '2026-10-09', name: 'PT Test Caps Stale', phone: '0899',
+  source: 'Referral', value: 5000000, status: 'new', notes: 'stale local copy',
+  email: 'pic@testcaps.co.id', website: 'https://testcaps.co.id', industry: 'Retail',
+  pic: 'Siti', picTitle: 'Store Dev Manager', linkedin: 'https://linkedin.com/in/siti', score: 90
+};
+const staleSync = callDoPost({ action: 'sync_all', leads: [staleLead] });
+eq(staleSync.status, 'success', 'tombstone: stale sync diterima dengan aman');
+eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'L-CAPS'), false, 'tombstone: lead terhapus tidak muncul kembali');
+eq(sheets['_CSK_Deleted'].rows.filter(r => String(r[0]) === 'Leads' && String(r[1]) === 'L-CAPS').length, 1, 'tombstone: satu catatan penghapusan dibuat');
+const getAfterDelete = callDoGet();
+eq(!!getAfterDelete.data.deletedRecords.find(r => r.sheet === 'Leads' && r.id === 'L-CAPS'), true, 'tombstone: GET mengembalikan catatan penghapusan');
+callDoPost({ action: 'delete', sheet: 'Leads', id: 'L-CAPS' });
+eq(sheets['_CSK_Deleted'].rows.filter(r => String(r[0]) === 'Leads' && String(r[1]) === 'L-CAPS').length, 1, 'tombstone: penghapusan berulang tidak menggandakan ledger');
 
-// Mode 2: token diset -> request tanpa token DITOLAK
-sandbox.setupApiToken && null; // pastikan fungsi ada
-_props['API_TOKEN'] = 'RAHASIA123';
-eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: token diset, request tanpa token -> DITOLAK');
-eq(sandbox.isAuthorized({ action: 'sync_all', token: 'SALAH' }), false, 'auth: token salah -> DITOLAK');
-eq(sandbox.isAuthorized({ action: 'sync_all', token: 'RAHASIA123' }), true, 'auth: token benar -> DIIZINKAN');
-eq(sandbox.isAuthorized(null, 'RAHASIA123'), true, 'auth: token via query string (GET) -> DIIZINKAN');
-eq(sandbox.isAuthorized(null, ''), false, 'auth: GET tanpa token -> DITOLAK');
+// Finance deletion is protected by the same ledger.
+callDoPost({ action: 'sync_all', finance: [{
+  id: 'F-DELETE-TEST', date: '2026-10-09', type: 'expense', category: 'Test',
+  amount: 100, description: 'delete regression'
+}] });
+eq(callDoPost({ action: 'delete', sheet: 'Finance', id: 'F-DELETE-TEST' }).status, 'success', 'tombstone: Owner dapat menghapus Finance');
+callDoPost({ action: 'sync_all', finance: [{
+  id: 'F-DELETE-TEST', date: '2026-10-09', type: 'expense', category: 'Test',
+  amount: 100, description: 'stale finance'
+}] });
+eq(!!sheets['Finance'].rows.find(r => String(r[0]) === 'F-DELETE-TEST'), false, 'tombstone: Finance yang dihapus tidak muncul kembali');
+eq(!!callDoGet().data.deletedRecords.find(r => r.sheet === 'Finance' && r.id === 'F-DELETE-TEST'), true, 'tombstone: Finance deletion disertakan pada GET');
 
-// Mode 3: doPost tanpa token -> balasan error, TIDAK mengubah data
+// ---------- 9e. Tes KEAMANAN: token Owner/Tim, fail-closed, dan izin server ----------
+delete _props['OWNER_API_TOKEN'];
+delete _props['TEAM_API_TOKEN'];
+delete _props['API_TOKEN'];
+eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: tanpa token terkonfigurasi -> ditolak (fail-closed)');
+eq(JSON.parse(sandbox.doGet({})._t).status, 'error', 'auth: GET tanpa token -> ditolak');
+
 const beforeAuth = sheets['Leads'].rows.length;
-const authRes = callDoPost({ action: 'sync_all', leads: [{ id: 'HACK-1', name: 'Hacker' }] });
-eq(authRes.status, 'error', 'auth: doPost tanpa token -> status error');
-eq(sheets['Leads'].rows.length, beforeAuth, 'auth: doPost tanpa token TIDAK mengubah data');
+const noTokenRes = callDoPost({ action: 'sync_all', token: '', leads: [{ id: 'HACK-1', name: 'Hacker' }] });
+eq(noTokenRes.status, 'error', 'auth: POST tanpa token -> status error');
+eq(sheets['Leads'].rows.length, beforeAuth, 'auth: POST tanpa token tidak mengubah data');
 
-// doPost dengan token benar -> berhasil
-const okRes = callDoPost({ action: 'sync_all', token: 'RAHASIA123', leads: [{ id: 'OKAUTH-1', date: '2026-10-09', name: 'Authorized', phone: '', source: 'x', value: 0, status: 'new', notes: '' }] });
-eq(okRes.status, 'success', 'auth: doPost dengan token benar -> success');
-eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'OKAUTH-1'), true, 'auth: data dengan token benar tersimpan');
+_props['OWNER_API_TOKEN'] = 'OWNER_TEST_TOKEN';
+_props['TEAM_API_TOKEN'] = 'TEAM_TEST_TOKEN';
+eq(sandbox.isAuthorized({ action: 'sync_all', token: 'OWNER_TEST_TOKEN' }), true, 'auth: token Owner diterima');
+eq(sandbox.isAuthorized({ action: 'sync_all', token: 'TEAM_TEST_TOKEN' }), true, 'auth: token Tim diterima');
+eq(sandbox.isAuthorized({ action: 'sync_all', token: 'SALAH' }), false, 'auth: token salah ditolak');
 
-// Kembalikan ke mode kompatibel untuk test berikutnya
+const teamGet = callDoGet('TEAM_TEST_TOKEN');
+eq(teamGet.status, 'success', 'auth: GET token Tim berhasil');
+eq(teamGet.role, 'team', 'auth: GET mengembalikan role Tim');
+eq(teamGet.data.finance.length, 0, 'auth: GET Tim tidak mengembalikan Finance');
+eq(teamGet.data.memory.length, 0, 'auth: GET Tim tidak mengembalikan Memory');
+eq(teamGet.data.marketingSpend.length, 0, 'auth: GET Tim tidak mengembalikan Marketing');
+
+const financeRowsBeforeTeamSync = sheets['Finance'].rows.length;
+const teamSync = callDoPost({
+  action: 'sync_all',
+  token: 'TEAM_TEST_TOKEN',
+  leads: [{ id: 'TEAM-LEAD', date: '2026-10-09', name: 'Team Lead', phone: '', source: 'x', value: 0, status: 'new', notes: '' }],
+  finance: [{ id: 'TEAM-FIN', date: '2026-10-09', type: 'income', category: 'x', amount: 999, description: 'unauthorized' }],
+  memory: [{ id: 'TEAM-MEM', date: '2026-10-09', category: 'x', title: 'x', content: 'unauthorized' }],
+  marketingSpend: [{ id: 'TEAM-MKT', date: '2026-10-09', platform: 'x', campaign: 'x', budget: 1, spent: 1, leadsGenerated: 1, notes: '' }],
+  costings: [{ id: 'TEAM-COST', date: '2026-11-03', client: 'x', title: 'x', hpp: 1, sellingPrice: 2 }],
+  projectCosts: [{ id: 'TEAM-PC', date: '2026-11-03', projectId: 'P1', category: 'material', source: 'vendor', description: 'x', vendor: 'Vendor', qty: 1, unitCost: 999, amount: 999, paymentStatus: 'unpaid', reference: '', notes: '' }]
+});
+eq(teamSync.status, 'success', 'auth: Tim boleh sync modul operasional');
+eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'TEAM-LEAD'), true, 'auth: data Leads Tim tersimpan');
+eq(sheets['Finance'].rows.length, financeRowsBeforeTeamSync, 'auth: sync Tim tidak mengubah Finance');
+eq(!!sheets['Finance'].rows.find(r => String(r[0]) === 'TEAM-FIN'), false, 'auth: sync Tim mengabaikan Finance');
+eq(!!sheets['Costings'].rows.find(r => String(r[0]) === 'TEAM-COST'), false, 'auth: sync Tim mengabaikan Costings');
+eq(callDoGet('TEAM_TEST_TOKEN').data.costings.length, 0, 'auth: GET Tim tidak mengembalikan Costings');
+eq(!!sheets['Project_Costs'].rows.find(r=>String(r[0])==='TEAM-PC'),false,'auth: sync Tim tidak dapat menulis Project_Costs');
+eq(callDoGet('TEAM_TEST_TOKEN').data.projectCosts.length,0,'auth: GET Tim tidak mengembalikan Project_Costs');
+const teamTombstone = callDoPost({
+  action: 'sync_all', token: 'TEAM_TEST_TOKEN',
+  deletedRecords: [{ sheet: 'Finance', id: 'F1', deletedAt: '2026-10-09' }]
+});
+eq(teamTombstone.status, 'success', 'auth: sync tombstone Tim tetap berjalan');
+eq(!!sheets['_CSK_Deleted'].rows.find(r => String(r[0]) === 'Finance' && String(r[1]) === 'F1'), false, 'auth: Tim tidak dapat menghapus Finance lewat sync payload');
+
+eq(callDoPost({ action: 'delete', token: 'TEAM_TEST_TOKEN', sheet: 'Finance', id: 'F1' }).status, 'error', 'auth: Tim tidak boleh menghapus Finance');
+eq(callDoPost({ action: 'insert', token: 'TEAM_TEST_TOKEN', sheet: 'Finance', data: { id: 'TEAM-FIN-INSERT' } }).status, 'error', 'auth: Tim tidak boleh insert Finance');
+eq(callDoPost({ action: 'update_status', token: 'TEAM_TEST_TOKEN', sheet: 'Finance', id: 'F1', status: 'expense' }).status, 'error', 'auth: Tim tidak boleh update Finance');
+eq(callDoPost({ action: 'send_cold_email', token: 'TEAM_TEST_TOKEN', toEmail: 'x@example.com' }).status, 'error', 'auth: Tim tidak boleh mengirim cold email');
+
+const ownerSync = callDoPost({
+  action: 'sync_all',
+  token: 'OWNER_TEST_TOKEN',
+  finance: [{ id: 'OWNER-FIN', date: '2026-10-09', type: 'income', category: 'x', amount: 500, description: 'authorized' }]
+});
+eq(ownerSync.status, 'success', 'auth: Owner dapat sync Finance');
+eq(!!sheets['Finance'].rows.find(r => String(r[0]) === 'OWNER-FIN'), true, 'auth: data Finance Owner tersimpan');
+eq(callDoPost({action:'delete',token:'OWNER_TEST_TOKEN',sheet:'Project_Costs',id:'PC-OWNER-1'}).status,'success','Project_Costs: Owner dapat menghapus biaya aktual');
+callDoPost({action:'sync_all',token:'OWNER_TEST_TOKEN',projectCosts:[{
+  id:'PC-OWNER-1',date:'2026-11-03',projectId:'P1',category:'material',source:'vendor',
+  description:'stale copy',vendor:'Vendor A',qty:2,unitCost:500000,amount:1000000,
+  paymentStatus:'unpaid',reference:'INV-1',notes:''
+}]});
+eq(!!sheets['Project_Costs'].rows.find(r=>String(r[0])==='PC-OWNER-1'),false,'Project_Costs: tombstone mencegah biaya terhapus muncul kembali');
+eq(callDoPost({ action: 'delete', token: 'OWNER_TEST_TOKEN', sheet: 'Costings', id: 'COST-OWNER-1' }).status, 'success', 'Costings: Owner dapat menghapus kalkulasi');
+callDoPost({
+  action: 'sync_all', token: 'OWNER_TEST_TOKEN',
+  costings: [{ id: 'COST-OWNER-1', date: '2026-11-02', client: 'PT Retail', title: 'Rak Display', productionModel: 'hybrid', leadId: 'L9', itemsJson: '[]', directCost: 7000000, overheadPct: 5, overheadAmount: 350000, contingencyPct: 3, contingencyAmount: 220500, hpp: 7570500, marginPct: 30, sellingPrice: 10815000, status: 'draft', projectId: '', notes: 'stale copy' }]
+});
+eq(!!sheets['Costings'].rows.find(r => String(r[0]) === 'COST-OWNER-1'), false, 'Costings: tombstone mencegah kalkulasi terhapus muncul kembali');
+
+_props['API_TOKEN'] = 'LEGACY_TOKEN';
+const generatedTokens = sandbox.setupApiTokens();
+eq(!!generatedTokens.ownerToken, true, 'auth setup: token Owner dibuat');
+eq(!!generatedTokens.teamToken, true, 'auth setup: token Tim dibuat');
+eq(_props['API_TOKEN'], undefined, 'auth setup: token legacy dihapus');
+eq(_props['OWNER_API_TOKEN'], generatedTokens.ownerToken, 'auth setup: token Owner disimpan');
+eq(_props['TEAM_API_TOKEN'], generatedTokens.teamToken, 'auth setup: token Tim disimpan');
+
+delete _props['OWNER_API_TOKEN'];
+delete _props['TEAM_API_TOKEN'];
 delete _props['API_TOKEN'];
 
 // ---------- 10. Ringkasan ----------

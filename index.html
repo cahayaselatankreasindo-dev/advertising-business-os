@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Advertising Business OS — The Scales / CSK</title>
+  <title>CSK Business OS — Cahaya Selatan Kreasindo</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <meta name="theme-color" content="#1C2333">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Business OS">
+  <meta name="apple-mobile-web-app-title" content="CSK OS">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
@@ -91,7 +92,7 @@
 
     <!-- Role Dropdown -->
     <div class="px-4 py-3 border-b border-slate-800">
-      <label class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block mb-1">Hak Akses</label>
+      <label class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block mb-1">Mode Tampilan</label>
       <select id="role-select" onchange="onRoleChange(this.value)" class="w-full text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-amber-500">
         <option value="owner">Owner</option>
         <option value="team">Tim Kreatif / Admin</option>
@@ -343,6 +344,42 @@
         <div id="projects-container" class="space-y-3"></div>
       </section>
 
+      <section id="page-costings" class="page-content hidden space-y-5 pillar-finance">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"><div><span class="pillar-badge p2">Commercial Engine</span><h1 class="text-2xl font-bold font-heading text-slate-900">HPP & Quotation</h1><p class="text-sm text-slate-500">Kalkulasi biaya produksi hybrid dan penawaran B2B.</p></div><button onclick="resetCostingForm()" class="bg-amber-600 text-white text-sm font-semibold px-4 py-2 rounded-lg">+ Kalkulasi Baru</button></div>
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3"><div class="bg-white border rounded-xl p-3"><div class="text-xs text-slate-500">Draft</div><div id="cost-stat-draft" class="text-2xl font-bold">0</div></div><div class="bg-white border rounded-xl p-3"><div class="text-xs text-slate-500">Dikirim</div><div id="cost-stat-sent" class="text-2xl font-bold">0</div></div><div class="bg-white border rounded-xl p-3"><div class="text-xs text-slate-500">Disetujui</div><div id="cost-stat-approved" class="text-2xl font-bold text-emerald-600">0</div></div><div class="bg-white border rounded-xl p-3"><div class="text-xs text-slate-500">PO/SPK</div><div id="cost-stat-po" class="text-2xl font-bold text-blue-700">0</div></div><div class="bg-white border rounded-xl p-3"><div class="text-xs text-slate-500">Total HPP</div><div id="cost-stat-hpp" class="text-lg font-bold">Rp 0</div></div></div>
+        <div class="grid grid-cols-1 xl:grid-cols-5 gap-4">
+          <div class="xl:col-span-3 bg-white border rounded-xl p-4 space-y-4"><div class="flex justify-between"><h2 class="font-bold">Kalkulator biaya proyek</h2><span id="costing-id-label" class="text-xs text-slate-500">Baru</span></div><input type="hidden" id="costing-id">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><label class="text-xs font-semibold">Klien<input id="costing-client" list="costing-client-options" class="mt-1 w-full border rounded-lg p-2 text-sm"><datalist id="costing-client-options"></datalist></label><label class="text-xs font-semibold">Pekerjaan<input id="costing-title" class="mt-1 w-full border rounded-lg p-2 text-sm" placeholder="Rak display, booth, signage"></label><label class="text-xs font-semibold">Model produksi<select id="costing-model" class="mt-1 w-full border rounded-lg p-2 text-sm"><option value="hybrid">Hybrid</option><option value="internal">Internal</option><option value="vendor">Vendor</option></select></label><label class="text-xs font-semibold">Lead terkait<select id="costing-lead" class="mt-1 w-full border rounded-lg p-2 text-sm"><option value="">Tidak ditautkan</option></select></label>
+              <label class="text-xs font-semibold">Masa berlaku (hari)<input id="cost-validity" type="number" min="1" max="90" value="14" class="mt-1 w-full border rounded-lg p-2 text-sm"></label>
+              <label class="text-xs font-semibold">Estimasi pengerjaan (hari)<input id="cost-delivery" type="number" min="1" max="365" value="14" class="mt-1 w-full border rounded-lg p-2 text-sm"></label>
+              <label class="text-xs font-semibold sm:col-span-2">Syarat pembayaran<input id="cost-payment-terms" class="mt-1 w-full border rounded-lg p-2 text-sm" value="DP 50%, pelunasan sebelum pengiriman"></label>
+              <label class="text-xs font-semibold sm:col-span-2">Ruang lingkup pekerjaan<textarea id="cost-scope" rows="3" class="mt-1 w-full border rounded-lg p-2 text-sm" placeholder="Spesifikasi, jumlah unit, ukuran, material, finishing, pengiriman, instalasi."></textarea></label></div>
+            <div class="flex justify-between"><h3 class="font-bold text-sm">Rincian biaya</h3><button onclick="addCostItem()" class="text-xs border border-amber-400 text-amber-700 rounded-lg px-3 py-2">+ Tambah biaya</button></div>
+            <div class="overflow-x-auto"><table class="w-full text-xs min-w-[540px]"><thead><tr class="text-left text-slate-500 border-b"><th>Komponen</th><th>Kelompok</th><th>Sumber</th><th>Qty</th><th>Harga/unit</th><th></th></tr></thead><tbody id="cost-items-body"></tbody></table></div>
+            <div class="grid grid-cols-3 gap-2"><label class="text-xs">Overhead %<input id="cost-overhead" type="number" min="0" max="100" value="5" class="mt-1 w-full border rounded p-2"></label><label class="text-xs">Cadangan %<input id="cost-contingency" type="number" min="0" max="100" value="3" class="mt-1 w-full border rounded p-2"></label><label class="text-xs">Margin %<input id="cost-margin" type="number" min="0" max="90" value="30" class="mt-1 w-full border rounded p-2"></label></div><label class="block text-xs">Catatan internal<textarea id="cost-notes" rows="2" class="mt-1 w-full border rounded p-2"></textarea></label><div class="flex flex-wrap gap-2"><button onclick="calculateCosting()" class="bg-slate-900 text-white rounded px-4 py-2 text-xs">Hitung HPP</button><button onclick="saveCosting()" class="bg-amber-600 text-white rounded px-4 py-2 text-xs">Simpan Draft</button><button onclick="clearCostingForm()" class="border rounded px-4 py-2 text-xs">Kosongkan</button></div>
+          </div>
+          <div class="xl:col-span-2 bg-slate-900 text-white rounded-xl p-4 space-y-3"><h2 class="font-bold">Ringkasan kalkulasi</h2><div class="flex justify-between text-xs"><span>Biaya langsung</span><b id="cost-direct">Rp 0</b></div><div class="flex justify-between text-xs"><span>Overhead</span><b id="cost-overhead-value">Rp 0</b></div><div class="flex justify-between text-xs"><span>Cadangan risiko</span><b id="cost-contingency-value">Rp 0</b></div><div class="border-t border-slate-700 pt-3 flex justify-between"><b>HPP total</b><b id="cost-hpp" class="text-amber-400">Rp 0</b></div><div class="flex justify-between text-xs"><span>Harga jual</span><b id="cost-selling">Rp 0</b></div><div class="flex justify-between text-xs"><span>Laba estimasi</span><b id="cost-profit">Rp 0</b></div><p class="text-[10px] text-slate-400">Margin adalah persentase dari harga jual.</p></div>
+        </div><div class="bg-white border rounded-xl overflow-hidden"><div class="p-4 border-b font-bold text-sm">Pipeline quotation</div><div id="costings-list" class="divide-y divide-slate-100"></div></div>
+        <section class="bg-white border rounded-xl overflow-hidden">
+          <div class="p-4 border-b"><h2 class="font-bold text-sm">Project Cost Ledger — biaya aktual</h2><p class="text-xs text-slate-500 mt-1">Catat biaya yang benar-benar timbul dari pekerjaan internal atau vendor. Pembayaran direkonsiliasi terpisah melalui Finance.</p></div>
+          <div class="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <label class="text-xs font-semibold">Proyek<select id="pc-project" class="mt-1 w-full border rounded-lg p-2 text-sm"><option value="">Pilih proyek</option></select></label>
+            <label class="text-xs font-semibold">Kategori<select id="pc-category" class="mt-1 w-full border rounded-lg p-2 text-sm"><option value="material">Material</option><option value="labor">Tenaga kerja</option><option value="machine">Mesin</option><option value="finishing">Finishing</option><option value="transport">Transportasi</option><option value="installation">Instalasi</option><option value="other">Lainnya</option></select></label>
+            <label class="text-xs font-semibold">Sumber biaya<select id="pc-source" class="mt-1 w-full border rounded-lg p-2 text-sm"><option value="internal">Internal</option><option value="vendor">Vendor partner</option></select></label>
+            <label class="text-xs font-semibold md:col-span-2">Deskripsi biaya<input id="pc-description" class="mt-1 w-full border rounded-lg p-2 text-sm" placeholder="Contoh: cetak UV acrylic 5 mm"></label>
+            <label class="text-xs font-semibold">Vendor (jika ada)<input id="pc-vendor" class="mt-1 w-full border rounded-lg p-2 text-sm" placeholder="Nama vendor"></label>
+            <label class="text-xs font-semibold">Qty<input id="pc-qty" type="number" min="0.01" step="0.01" value="1" class="mt-1 w-full border rounded-lg p-2 text-sm"></label>
+            <label class="text-xs font-semibold">Harga satuan (Rp)<input id="pc-unit-cost" type="number" min="0" step="1000" class="mt-1 w-full border rounded-lg p-2 text-sm"></label>
+            <label class="text-xs font-semibold">Status pembayaran<select id="pc-payment-status" class="mt-1 w-full border rounded-lg p-2 text-sm"><option value="unpaid">Belum dibayar</option><option value="partial">Dibayar sebagian</option><option value="paid">Lunas</option></select></label>
+            <label class="text-xs font-semibold md:col-span-2">Referensi bukti / nomor invoice<input id="pc-reference" class="mt-1 w-full border rounded-lg p-2 text-sm" placeholder="Nomor invoice vendor atau referensi bukti"></label>
+            <label class="text-xs font-semibold md:col-span-3">Catatan<textarea id="pc-notes" rows="2" class="mt-1 w-full border rounded-lg p-2 text-sm"></textarea></label>
+            <div class="md:col-span-3"><button onclick="saveProjectCost()" class="bg-slate-900 text-white rounded-lg px-4 py-2 text-xs font-semibold">Simpan biaya aktual</button></div>
+          </div>
+          <div id="project-cost-summary" class="grid grid-cols-1 md:grid-cols-3 gap-3 px-4 pb-4"></div>
+          <div id="project-cost-list" class="divide-y divide-slate-100"></div>
+        </section>
+      </section>
+
       <!-- 5. FINANCE (Pilar 2 — Jurnal Keuangan) -->
       <section id="page-finance" class="page-content hidden space-y-6 pillar-finance">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -504,9 +541,9 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Token Akses (opsional, untuk keamanan):</label>
-            <input type="password" id="setting-api-token" placeholder="Token rahasia dari setupApiToken()" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-amber-500 font-mono">
-            <p class="text-[11px] text-slate-500 mt-1">Isi ini agar URL yang bocor tidak bisa dipakai orang lain. Jalankan <code>setupApiToken()</code> sekali di Apps Script, lalu paste token-nya di sini.</p>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Token Akses Wajib (Owner atau Tim):</label>
+            <input type="password" id="setting-api-token" autocomplete="off" placeholder="Tempel token Owner atau Tim dari setupApiTokens()" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-amber-500 font-mono">
+            <p class="text-[11px] text-slate-500 mt-1">Jalankan <code>setupApiTokens()</code> di Apps Script setelah backend baru di-deploy. Salin token sesuai peran. Token Tim hanya mengakses Leads, Klien, dan Proyek; token Owner memiliki akses penuh. Jangan bagikan token Owner.</p>
           </div>
 
           <div class="flex flex-wrap gap-2 pt-1">
@@ -555,6 +592,7 @@
       <button onclick="nav('leads')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
         <i class="fa fa-bullseye text-base mb-0.5"></i>Leads
       </button>
+      <button onclick="nav('costings')" class="mob-btn pillar-finance flex flex-col items-center text-[10px] text-slate-400"><i class="fa fa-calculator text-base mb-0.5"></i>HPP</button>
       <button onclick="nav('projects')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
         <i class="fa fa-briefcase text-base mb-0.5"></i>Proyek
       </button>
@@ -791,6 +829,13 @@
           <label class="block font-semibold text-slate-700 mb-1">Keterangan / Klien</label>
           <input type="text" id="fin-desc" required placeholder="Contoh: DP 50% Logo Bpk Hendra" class="w-full p-2 border border-slate-300 rounded-lg">
         </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Tautkan ke Proyek (opsional)</label>
+          <select id="fin-project" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+            <option value="">Tidak ditautkan ke proyek</option>
+          </select>
+          <p class="text-[10px] text-slate-400 mt-1">Tautkan DP, termin, atau pelunasan agar invoice menghitung sisa tagihan berdasarkan penerimaan aktual.</p>
+        </div>
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" onclick="closeModal('modal-finance')" class="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg font-semibold">Batal</button>
           <button type="submit" class="px-4 py-2 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700">Simpan Transaksi</button>
@@ -900,7 +945,7 @@
         <div class="flex items-center gap-2">
           <select id="inv-type-selector" onchange="switchInvoiceType(this.value)" class="bg-[#1C2333] text-white font-semibold text-xs px-2.5 py-1.5 rounded-lg border border-[#2E374D]">
             <option value="dp">Invoice DP 50%</option>
-            <option value="pelunasan">Invoice Pelunasan 100%</option>
+            <option value="pelunasan">Invoice Pelunasan (Sisa Tagihan)</option>
             <option value="penawaran">Surat Penawaran (Quotation)</option>
           </select>
           <button onclick="window.print()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition">
@@ -993,6 +1038,10 @@
                 <span>Nilai Total Proyek:</span>
                 <span id="inv-calc-total" class="font-semibold text-slate-800">Rp 0</span>
               </div>
+              <div id="inv-paid-row" class="flex justify-between text-slate-500" style="display:none;">
+                <span>Pembayaran diterima:</span>
+                <span id="inv-paid-total" class="font-semibold text-slate-800">Rp 0</span>
+              </div>
               <div class="flex justify-between text-slate-500">
                 <span id="inv-calc-label">Down Payment (DP 50%):</span>
                 <span id="inv-calc-sub" class="font-semibold text-slate-800">Rp 0</span>
@@ -1043,35 +1092,52 @@
 
   <script>
 
+    let serverRole = 'unknown'; // Peran berasal dari token yang diverifikasi server.
     const DB_KEY = 'csk_business_os_db';
+    const LEGACY_DEMO_BACKUP_KEY = DB_KEY + '_legacy_demo_backup_v1';
+    function archiveLegacyDemoSeeds() {
+      const signatures = {
+        leads: [
+          {id:'1',name:'Bpk. Hendra (Kopi Sore)',phone:'081234567890',value:8000000,notes:'Paket Branding Lengkap 8 Juta'},
+          {id:'2',name:'Ibu Maya (Fashion Hijab)',phone:'081398765432',value:1500000,notes:'Tanya logo UMKM 1.5jt'},
+          {id:'3',name:'Dr. Dimas (Klinik Gigi)',phone:'082155667788',value:5000000,notes:'Tertarik manajemen ads Meta bulanan'}
+        ],
+        clients:[{id:'1',name:'Bpk. Hendra (Kopi Sore)',phone:'081234567890',totalSpend:8000000,review:'Sangat puas dengan hasilnya!'}],
+        projects:[{id:'1',title:'Branding Identity Kopi Sore',client:'Bpk. Hendra (Kopi Sore)',value:8000000,deadline:'2026-09-20',notes:'Tahap penyusunan brand guidelines'}],
+        finance:[
+          {id:'1',date:'2026-09-02',type:'income',amount:4000000,description:'DP 50% Branding Kopi Sore'},
+          {id:'2',date:'2026-09-04',type:'expense',amount:500000,description:'Topup Meta Ads kampanye September'},
+          {id:'3',date:'2026-09-05',type:'expense',amount:250000,description:'Langganan tool desain'}
+        ],
+        memory:[{id:'1',date:'2026-09-02',title:'Formula 2 Paket: 1.5 Juta vs 8 Juta',category:'Strategi Penawaran'}],
+        marketingSpend:[{id:'1',date:'2026-09-04',platform:'Meta Ads',campaign:'September Brand Awareness - Kopi Sore',budget:1000000,spent:500000,leadsGenerated:8}]
+      };
+      const archived=[];
+      Object.keys(signatures).forEach(key=>{
+        const rows=Array.isArray(db[key])?db[key]:[];
+        db[key]=rows.filter(item=>{
+          const match=signatures[key].some(sig=>Object.keys(sig).every(k=>String(item&&item[k]!=null?item[k]:'')===String(sig[k])));
+          if(match)archived.push({collection:key,record:item});
+          return !match;
+        });
+      });
+      if(!archived.length)return 0;
+      try{
+        let backup={version:1,records:[]};
+        const raw=localStorage.getItem(LEGACY_DEMO_BACKUP_KEY);
+        if(raw){const parsed=JSON.parse(raw);if(parsed&&Array.isArray(parsed.records))backup=parsed;}
+        const seen=new Set(backup.records.map(x=>x.collection+'::'+JSON.stringify(x.record)));
+        archived.forEach(x=>{const key=x.collection+'::'+JSON.stringify(x.record);if(!seen.has(key)){backup.records.push(x);seen.add(key);}});
+        backup.archivedAt=new Date().toISOString();
+        localStorage.setItem(LEGACY_DEMO_BACKUP_KEY,JSON.stringify(backup));
+        localStorage.setItem(DB_KEY,JSON.stringify(db));
+        return archived.length;
+      }catch(err){console.warn('Demo backup failed; original records retained:',err.message);return 0;}
+    }
     let db = {
-      leads: [
-        { id: '1', date: '2026-09-01', name: 'Bpk. Hendra (Kopi Sore)', phone: '081234567890', source: 'Instagram Ads', value: 8000000, status: 'won', notes: 'Paket Branding Lengkap 8 Juta' },
-        { id: '2', date: '2026-09-03', name: 'Ibu Maya (Fashion Hijab)', phone: '081398765432', source: 'WhatsApp', value: 1500000, status: 'nego', notes: 'Tanya logo UMKM 1.5jt' },
-        { id: '3', date: '2026-09-05', name: 'Dr. Dimas (Klinik Gigi)', phone: '082155667788', source: 'Referensi', value: 5000000, status: 'new', notes: 'Tertarik manajemen ads Meta bulanan' }
-      ],
-      clients: [
-        { id: '1', name: 'Bpk. Hendra (Kopi Sore)', phone: '081234567890', projectsCount: 1, totalSpend: 8000000, notes: 'Klien loyal paket premium branding', rating: 5, review: 'Sangat puas dengan hasilnya!' }
-      ],
-      projects: [
-        { id: '1', title: 'Branding Identity Kopi Sore', client: 'Bpk. Hendra (Kopi Sore)', value: 8000000, status: 'ongoing', deadline: '2026-09-20', notes: 'Tahap penyusunan brand guidelines', sopChecklist: 'Brief:1;Produksi:1;Review:0;Revisi:0;Delivery:0' }
-      ],
-      finance: [
-        { id: '1', date: '2026-09-02', type: 'income', category: 'DP Proyek', amount: 4000000, description: 'DP 50% Branding Kopi Sore' },
-        { id: '2', date: '2026-09-04', type: 'expense', category: 'Biaya Iklan Meta/TikTok', amount: 500000, description: 'Topup Meta Ads kampanye September' },
-        { id: '3', date: '2026-09-05', type: 'expense', category: 'Tool/Software', amount: 250000, description: 'Langganan tool desain' }
-      ],
-      memory: [
-        { id: '1', date: '2026-09-02', category: 'Strategi Penawaran', title: 'Formula 2 Paket: 1.5 Juta vs 8 Juta', content: 'Calon klien UMKM ditawarkan logo mulai 1.5jt. Untuk bisnis mapan, tawarkan paket 8jt (Logo, guidelines, stationery, mockup, editable file). Ini membuat klien merasa punya opsi jelas.' }
-      ],
-      marketingSpend: [
-        { id: '1', date: '2026-09-04', platform: 'Meta Ads', campaign: 'September Brand Awareness - Kopi Sore', budget: 1000000, spent: 500000, leadsGenerated: 8, notes: '' }
-      ],
-      settings: {
-        googleSheetUrl: 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec',
-        lastSync: ''
-      },
-      role: 'owner'
+      leads: [], clients: [], projects: [], finance: [], memory: [], marketingSpend: [],
+      settings: { googleSheetUrl: 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec', lastSync: '' },
+      deletedRecords: [], costings: [], projectCosts: [], role: 'owner'
     };
 
     // ============== CORE STATE ==============
@@ -1088,6 +1154,9 @@
           db.finance        = parsed.finance        || [];
           db.memory         = parsed.memory         || [];
           db.marketingSpend = parsed.marketingSpend || [];
+          db.costings = Array.isArray(parsed.costings) ? parsed.costings : [];
+          db.projectCosts = Array.isArray(parsed.projectCosts) ? parsed.projectCosts : [];
+          db.deletedRecords = Array.isArray(parsed.deletedRecords) ? parsed.deletedRecords : [];
           db.settings       = parsed.settings       || { googleSheetUrl: '', lastSync: '' };
           db.role           = parsed.role           || 'owner';
         } catch (e) {
@@ -1096,18 +1165,57 @@
       }
       if (!db.settings) db.settings = { googleSheetUrl: 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec', lastSync: '' };
       if (!db.settings.googleSheetUrl) db.settings.googleSheetUrl = 'https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec';
+      const archivedCount=archiveLegacyDemoSeeds();
+      if(archivedCount)showToast(archivedCount+' data contoh lama diarsipkan secara lokal sebelum dikeluarkan dari data aktif.');
       document.getElementById('setting-google-url').value = db.settings.googleSheetUrl || '';
       const tokenEl = document.getElementById('setting-api-token');
       if (tokenEl) tokenEl.value = db.settings.apiToken || '';
-      // Set role selector
-      document.getElementById('role-select').value = db.role || 'owner';
-      const mobSel = document.getElementById('role-select-mob');
-      if (mobSel) mobSel.value = db.role || 'owner';
+      updateRoleControls();
       updateCloudIndicator();
       applyRoleUI();
     }
 
+    function deletionKey(sheet, id) {
+      return String(sheet || '') + '::' + String(id == null ? '' : id);
+    }
+
+    function addLocalDeletion(sheet, id) {
+      if (!Array.isArray(db.deletedRecords)) db.deletedRecords = [];
+      const key = deletionKey(sheet, id);
+      if (!db.deletedRecords.some(item => deletionKey(item.sheet, item.id) === key)) {
+        db.deletedRecords.push({ sheet: sheet, id: String(id), deletedAt: new Date().toISOString() });
+      }
+    }
+
+    function mergeDeletedRecords(serverRecords, localRecords) {
+      const map = new Map();
+      (serverRecords || []).concat(localRecords || []).forEach(item => {
+        if (!item || !item.sheet || item.id === undefined || item.id === null) return;
+        const key = deletionKey(item.sheet, item.id);
+        if (!map.has(key)) map.set(key, {
+          sheet: String(item.sheet),
+          id: String(item.id),
+          deletedAt: item.deletedAt || new Date().toISOString()
+        });
+      });
+      return Array.from(map.values());
+    }
+
+    function applyDeletedRecords() {
+      const deleted = new Set((db.deletedRecords || []).map(item => deletionKey(item.sheet, item.id)));
+      db.leads = (db.leads || []).filter(item => !deleted.has(deletionKey('Leads', item.id)));
+      db.clients = (db.clients || []).filter(item => !deleted.has(deletionKey('Clients', item.id)));
+      db.projects = (db.projects || []).filter(item => !deleted.has(deletionKey('Projects', item.id)));
+      db.finance = (db.finance || []).filter(item => !deleted.has(deletionKey('Finance', item.id)));
+      db.memory = (db.memory || []).filter(item => !deleted.has(deletionKey('Memory', item.id)));
+      db.marketingSpend = (db.marketingSpend || []).filter(item => !deleted.has(deletionKey('Marketing_Spend', item.id)));
+      db.costings = (db.costings || []).filter(item => !deleted.has(deletionKey('Costings', item.id)));
+      db.projectCosts = (db.projectCosts || []).filter(item => !deleted.has(deletionKey('Project_Costs', item.id)));
+    }
+
     function saveDB() {
+      if (!Array.isArray(db.deletedRecords)) db.deletedRecords = [];
+      applyDeletedRecords();
       localStorage.setItem(DB_KEY, JSON.stringify(db));
       renderAll();
       // Auto-sync in background if cloud URL is active
@@ -1118,6 +1226,24 @@
 
     function formatRp(num) {
       return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+      });
+    }
+
+    function jsArg(value) {
+      return escapeHtml(JSON.stringify(String(value == null ? '' : value)));
+    }
+
+    function safeHttpUrl(value) {
+      var url = String(value == null ? '' : value).trim();
+      var lower = url.toLowerCase();
+      var validScheme = lower.indexOf('https://') === 0 || lower.indexOf('http://') === 0;
+      var unsafe = /["'<>\s]/.test(url);
+      return validScheme && !unsafe ? escapeHtml(url) : '';
     }
 
     function showToast(msg, isError) {
@@ -1131,15 +1257,35 @@
 
     // ============== ROLE-BASED ACCESS ==============
 
+    function updateRoleControls() {
+      const verified = serverRole === 'owner' || serverRole === 'team';
+      const selectedRole = serverRole === 'owner' ? (db.role || 'owner') : 'team';
+      ['role-select', 'role-select-mob'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = selectedRole;
+        el.disabled = !verified || serverRole === 'team';
+        el.title = el.disabled ? 'Hak akses ditentukan oleh token server.' : 'Hanya mengubah mode tampilan.';
+      });
+    }
+
     function onRoleChange(role) {
-      db.role = role;
+      if (serverRole !== 'owner' && role === 'owner') {
+        db.role = 'team';
+        updateRoleControls();
+        applyRoleUI();
+        showToast('Akses Owner memerlukan token Owner dari server.', true);
+        return;
+      }
+      db.role = role === 'team' ? 'team' : 'owner';
       localStorage.setItem(DB_KEY, JSON.stringify(db));
+      updateRoleControls();
       applyRoleUI();
-      showToast(role === 'owner' ? 'Mode Owner aktif — akses penuh.' : 'Mode Tim/Admin — menu keuangan & riset disembunyikan.');
+      showToast(db.role === 'owner' ? 'Mode tampilan Owner aktif.' : 'Mode tampilan Tim aktif.');
     }
 
     function applyRoleUI() {
-      const isTeam = db.role !== 'owner';
+      const isTeam = serverRole !== 'owner' || db.role !== 'owner';
       const selectors = ['.pillar-finance', '.pillar-marketing', '.pillar-riset', '.pillar-marketing-mob'];
       selectors.forEach(sel => {
         document.querySelectorAll(sel).forEach(el => {
@@ -1285,6 +1431,8 @@
       renderProjects();
       renderFinance();
       renderMarketing();
+      renderCostings();
+      renderProjectCosts();
       renderMemory();
       renderAnalysis();
       applyRoleUI();
@@ -1335,8 +1483,8 @@
         dashProjEl.innerHTML = activeProj.map(p =>
           '<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">' +
             '<div>' +
-              '<div class="text-xs font-bold text-slate-800">' + p.title + '</div>' +
-              '<div class="text-[11px] text-slate-500">' + p.client + ' &bull; Deadline: ' + (p.deadline || '-') + '</div>' +
+              '<div class="text-xs font-bold text-slate-800">' + escapeHtml(p.title) + '</div>' +
+              '<div class="text-[11px] text-slate-500">' + escapeHtml(p.client) + ' &bull; Deadline: ' + escapeHtml(p.deadline || '-') + '</div>' +
             '</div>' +
             '<span class="badge ' + (p.status === 'ongoing' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800') + '">' +
               (p.status === 'ongoing' ? 'Pengerjaan' : 'Review') +
@@ -1354,12 +1502,12 @@
         dashLeadsEl.innerHTML = recentLeads.map(l =>
           '<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">' +
             '<div>' +
-              '<div class="text-xs font-bold text-slate-800">' + l.name + '</div>' +
-              '<div class="text-[11px] text-slate-500">' + l.source + ' &bull; ' + formatRp(l.value) + '</div>' +
+              '<div class="text-xs font-bold text-slate-800">' + escapeHtml(l.name) + '</div>' +
+              '<div class="text-[11px] text-slate-500">' + escapeHtml(l.source) + ' &bull; ' + formatRp(l.value) + '</div>' +
             '</div>' +
             '<div class="flex items-center gap-1.5">' +
               (l.phone ? '<a href="https://wa.me/' + cleanPhone(l.phone) + '" target="_blank" class="p-1.5 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200 text-xs"><i class="fa fa-whatsapp"></i> Chat</a>' : '') +
-              '<button onclick="convertLeadToWon(\'' + l.id + '\')" class="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs font-semibold">Deal</button>' +
+              '<button onclick="convertLeadToWon(' + jsArg(l.id) + ')" class="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs font-semibold">Deal</button>' +
             '</div>' +
           '</div>'
         ).join('');
@@ -1407,31 +1555,31 @@
         return '<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">' +
           '<div class="space-y-1">' +
             '<div class="flex items-center gap-2">' +
-              '<span class="font-heading font-bold text-sm text-slate-800">' + l.name + '</span>' +
-              '<span class="badge ' + badgeColor + '">' + statusLabel + '</span>' +
+              '<span class="font-heading font-bold text-sm text-slate-800">' + escapeHtml(l.name) + '</span>' +
+              '<span class="badge ' + badgeColor + '">' + escapeHtml(statusLabel) + '</span>' +
             '</div>' +
             '<div class="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">' +
-              '<span><i class="fa fa-tag text-slate-400"></i> ' + (l.source || 'Sumber tidak dicatat') + '</span>' +
+              '<span><i class="fa fa-tag text-slate-400"></i> ' + escapeHtml(l.source || 'Sumber tidak dicatat') + '</span>' +
               '<span><i class="fa fa-money text-slate-400"></i> ' + formatRp(l.value) + '</span>' +
-              (l.date ? '<span><i class="fa fa-calendar text-slate-400"></i> ' + l.date + '</span>' : '') +
+              (l.date ? '<span><i class="fa fa-calendar text-slate-400"></i> ' + escapeHtml(l.date) + '</span>' : '') +
             '</div>' +
-            (l.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + l.notes + '</div>' : '') +
-            (l.email ? '<div class="text-[11px] text-blue-600 font-mono mt-0.5"><i class="fa fa-envelope-o"></i> ' + l.email + '</div>' : '') +
+            (l.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + escapeHtml(l.notes) + '</div>' : '') +
+            (l.email ? '<div class="text-[11px] text-blue-600 font-mono mt-0.5"><i class="fa fa-envelope-o"></i> ' + escapeHtml(l.email) + '</div>' : '') +
             // ===== Data B2B (tampil bila ada) =====
             ((l.industry || l.pic || l.picTitle || l.website || l.score) ?
               '<div class="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 pt-1 border-t border-slate-100">' +
-                (l.industry ? '<span><i class="fa fa-industry text-slate-400"></i> ' + l.industry + '</span>' : '') +
-                (l.website ? '<a href="' + l.website + '" target="_blank" class="text-blue-600 hover:underline"><i class="fa fa-globe text-slate-400"></i> ' + String(l.website).replace(/^https?:\/\//,'') + '</a>' : '') +
-                (l.pic ? '<span><i class="fa fa-user text-slate-400"></i> ' + l.pic + (l.picTitle ? ' (' + l.picTitle + ')' : '') + '</span>' : '') +
-                (l.linkedin ? '<a href="' + l.linkedin + '" target="_blank" class="text-blue-600 hover:underline"><i class="fa fa-linkedin-square text-slate-400"></i> LinkedIn</a>' : '') +
-                (l.score ? '<span class="badge bg-amber-100 text-amber-800"><i class="fa fa-star"></i> Skor ' + l.score + '</span>' : '') +
+                (l.industry ? '<span><i class="fa fa-industry text-slate-400"></i> ' + escapeHtml(l.industry) + '</span>' : '') +
+                (l.website && safeHttpUrl(l.website) ? '<a href="' + safeHttpUrl(l.website) + '" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline"><i class="fa fa-globe text-slate-400"></i> ' + escapeHtml(String(l.website).replace(/^https?:\/\//,'')) + '</a>' : '') +
+                (l.pic ? '<span><i class="fa fa-user text-slate-400"></i> ' + escapeHtml(l.pic) + (l.picTitle ? ' (' + escapeHtml(l.picTitle) + ')' : '') + '</span>' : '') +
+                (l.linkedin && safeHttpUrl(l.linkedin) ? '<a href="' + safeHttpUrl(l.linkedin) + '" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline"><i class="fa fa-linkedin-square text-slate-400"></i> LinkedIn</a>' : '') +
+                (l.score ? '<span class="badge bg-amber-100 text-amber-800"><i class="fa fa-star"></i> Skor ' + escapeHtml(l.score) + '</span>' : '') +
               '</div>' : '') +
           '</div>' +
           '<div class="flex items-center gap-1.5 self-end sm:self-center flex-wrap">' +
-            (l.email ? '<button onclick="sendColdEmailLead(\'' + l.id + '\')" title="Kirim Cold Email Outreach via Gmail CSK" class="px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-paper-plane"></i> Email</button>' : '') +
+            (l.email ? '<button onclick="sendColdEmailLead(' + jsArg(l.id) + ')" title="Kirim Cold Email Outreach via Gmail CSK" class="px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-paper-plane"></i> Email</button>' : '') +
             (l.phone ? '<a href="https://wa.me/' + cleanPhone(l.phone) + '" target="_blank" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"><i class="fa fa-whatsapp"></i> WA</a>' : '') +
-            (l.status !== 'won' ? '<button onclick="convertLeadToWon(\'' + l.id + '\')" title="Tandai Deal" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Deal</button>' : '<span class="badge bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">✓ Deal</span>') +
-            '<button onclick="deleteLead(\'' + l.id + '\')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
+            (l.status !== 'won' ? '<button onclick="convertLeadToWon(' + jsArg(l.id) + ')" title="Tandai Deal" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Deal</button>' : '<span class="badge bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">✓ Deal</span>') +
+            '<button onclick="deleteLead(' + jsArg(l.id) + ')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -1451,16 +1599,16 @@
         return '<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">' +
           '<div class="flex items-start justify-between">' +
             '<div>' +
-              '<div class="font-heading font-bold text-sm text-slate-800">' + c.name + '</div>' +
-              '<div class="text-xs text-slate-500">' + (c.phone || '-') + '</div>' +
+              '<div class="font-heading font-bold text-sm text-slate-800">' + escapeHtml(c.name) + '</div>' +
+              '<div class="text-xs text-slate-500">' + escapeHtml(c.phone || '-') + '</div>' +
             '</div>' +
-            '<button onclick="deleteClient(\'' + c.id + '\')" class="text-slate-400 hover:text-red-600 text-xs p-1"><i class="fa fa-trash"></i></button>' +
+            '<button onclick="deleteClient(' + jsArg(c.id) + ')" class="text-slate-400 hover:text-red-600 text-xs p-1"><i class="fa fa-trash"></i></button>' +
           '</div>' +
           '<div class="flex items-center gap-2">' +
             renderStars(avgRating) +
             '<span class="text-xs text-slate-500">' + avgRating + '/5</span>' +
           '</div>' +
-          (reviewText ? '<p class="text-xs text-slate-600 italic bg-slate-50 p-2 rounded border border-slate-100">"' + reviewText + '"</p>' : '') +
+          (reviewText ? '<p class="text-xs text-slate-600 italic bg-slate-50 p-2 rounded border border-slate-100">"' + escapeHtml(reviewText) + '"</p>' : '') +
           '<div class="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg text-xs">' +
             '<div>' +
               '<div class="text-[10px] text-slate-400 font-semibold uppercase">Total Proyek</div>' +
@@ -1471,7 +1619,7 @@
               '<div class="font-bold text-emerald-600">' + formatRp(c.totalSpend || 0) + '</div>' +
             '</div>' +
           '</div>' +
-          (c.notes ? '<p class="text-xs text-slate-600">' + c.notes + '</p>' : '') +
+          (c.notes ? '<p class="text-xs text-slate-600">' + escapeHtml(c.notes) + '</p>' : '') +
           (c.phone ? '<a href="https://wa.me/' + cleanPhone(c.phone) + '" target="_blank" class="block w-full text-center py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded text-xs transition"><i class="fa fa-whatsapp text-emerald-600"></i> Hubungi Klien</a>' : '') +
         '</div>';
       }).join('');
@@ -1498,7 +1646,7 @@
       SOP_STAGES.forEach((stage, i) => {
         const checked = values[i] === 1;
         html += '<div class="sop-item flex items-center gap-2 text-xs">' +
-          '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleSOP(\'' + project.id + '\', ' + i + ', this.checked)" class="rounded">' +
+          '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleSOP(' + jsArg(project.id) + ', ' + i + ', this.checked)" class="rounded">' +
           '<label class="' + (checked ? 'text-emerald-700 font-semibold' : 'text-slate-600') + '">' + stage + '</label>' +
           '</div>';
       });
@@ -1539,21 +1687,21 @@
         return '<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-start justify-between gap-3">' +
           '<div class="space-y-1 flex-1">' +
             '<div class="flex items-center gap-2">' +
-              '<span class="font-heading font-bold text-sm text-slate-800">' + p.title + '</span>' +
-              '<span class="badge ' + badgeColor + '">' + statusLabel + '</span>' +
+              '<span class="font-heading font-bold text-sm text-slate-800">' + escapeHtml(p.title) + '</span>' +
+              '<span class="badge ' + badgeColor + '">' + escapeHtml(statusLabel) + '</span>' +
             '</div>' +
             '<div class="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">' +
-              '<span><i class="fa fa-user text-slate-400"></i> Klien: ' + p.client + '</span>' +
+              '<span><i class="fa fa-user text-slate-400"></i> Klien: ' + escapeHtml(p.client) + '</span>' +
               '<span><i class="fa fa-money text-slate-400"></i> ' + formatRp(p.value) + '</span>' +
-              '<span><i class="fa fa-clock-o text-slate-400"></i> Deadline: ' + (p.deadline || '-') + '</span>' +
+              '<span><i class="fa fa-clock-o text-slate-400"></i> Deadline: ' + escapeHtml(p.deadline || '-') + '</span>' +
             '</div>' +
-            (p.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + p.notes + '</div>' : '') +
+            (p.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + escapeHtml(p.notes) + '</div>' : '') +
             renderSOPChecklist(p) +
           '</div>' +
           '<div class="flex items-center gap-1.5 self-end sm:self-center shrink-0 flex-wrap">' +
-            '<button onclick="openInvoiceModal(\'' + p.id + '\')" title="Buat Invoice / Penawaran Resmi CSK" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm"><i class="fa fa-file-text-o"></i> Invoice</button>' +
-            (p.status !== 'done' ? '<button onclick="markProjectDone(\'' + p.id + '\')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Selesai</button>' : '') +
-            '<button onclick="deleteProject(\'' + p.id + '\')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
+            '<button onclick="openInvoiceModal(' + jsArg(p.id) + ')" title="Buat Invoice / Penawaran Resmi CSK" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm"><i class="fa fa-file-text-o"></i> Invoice</button>' +
+            (p.status !== 'done' ? '<button onclick="markProjectDone(' + jsArg(p.id) + ')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Selesai</button>' : '') +
+            '<button onclick="deleteProject(' + jsArg(p.id) + ')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -1568,25 +1716,35 @@
       document.getElementById('fin-expense').innerText = formatRp(expense);
       document.getElementById('fin-balance').innerText = formatRp(income - expense);
 
+      const projectSelect = document.getElementById('fin-project');
+      if (projectSelect) {
+        const selected = projectSelect.value;
+        projectSelect.innerHTML = '<option value="">Tidak ditautkan ke proyek</option>' +
+          (db.projects || []).map(p => '<option value="' + escapeHtml(p.id) + '">' + escapeHtml(p.title) + ' — ' + escapeHtml(p.client) + '</option>').join('');
+        projectSelect.value = selected;
+      }
+
       const tableEl = document.getElementById('finance-table');
       if (db.finance.length === 0) {
         tableEl.innerHTML = '<div class="p-6 text-center text-xs text-slate-400">Belum ada transaksi tercatat.</div>';
         return;
       }
-      tableEl.innerHTML = db.finance.slice().reverse().map(f =>
-        '<div class="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition">' +
+      tableEl.innerHTML = db.finance.slice().reverse().map(f => {
+        const linkedProject = (db.projects || []).find(p => String(p.id) === String(f.projectId || ''));
+        return '<div class="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition">' +
           '<div class="space-y-0.5">' +
-            '<div class="font-bold text-slate-800">' + f.description + '</div>' +
-            '<div class="text-[11px] text-slate-400">' + f.date + ' &bull; ' + f.category + '</div>' +
+            '<div class="font-bold text-slate-800">' + escapeHtml(f.description) + '</div>' +
+            '<div class="text-[11px] text-slate-400">' + escapeHtml(f.date) + ' &bull; ' + escapeHtml(f.category) +
+              (linkedProject ? ' &bull; Proyek: ' + escapeHtml(linkedProject.title) : '') + '</div>' +
           '</div>' +
           '<div class="flex items-center gap-3">' +
             '<span class="font-heading font-bold ' + (f.type === 'income' ? 'text-teal-600' : 'text-red-600') + '">' +
               (f.type === 'income' ? '+' : '-') + ' ' + formatRp(f.amount) +
             '</span>' +
-            '<button onclick="deleteFinance(\'' + f.id + '\')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
+            '<button onclick="deleteFinance(' + jsArg(f.id) + ')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
           '</div>' +
-        '</div>'
-      ).join('');
+        '</div>';
+      }).join('');
     }
 
     function updateFinanceCategories() {
@@ -1651,7 +1809,7 @@
           const platRoas = data.spent > 0 ? (wonValue / data.spent).toFixed(1) : '—';
           const platCpl = data.leads > 0 ? Math.round(data.spent / data.leads) : 0;
           roasHtml += '<div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-xs">' +
-            '<div><span class="font-semibold text-slate-700">' + plat + '</span> <span class="text-slate-400">| Budget: ' + formatRp(data.budget) + '</span></div>' +
+            '<div><span class="font-semibold text-slate-700">' + escapeHtml(plat) + '</span> <span class="text-slate-400">| Budget: ' + formatRp(data.budget) + '</span></div>' +
             '<div class="flex gap-3">' +
               '<span class="text-slate-500">CPL: <b class="text-slate-700">' + formatRp(platCpl) + '</b></span>' +
               '<span class="text-slate-500">Leads: <b class="text-slate-700">' + data.leads + '</b></span>' +
@@ -1671,13 +1829,13 @@
       tableEl.innerHTML = db.marketingSpend.slice().reverse().map(m =>
         '<div class="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition">' +
           '<div class="space-y-0.5">' +
-            '<div class="font-bold text-slate-800">' + m.campaign + '</div>' +
-            '<div class="text-[11px] text-slate-400">' + m.date + ' &bull; ' + m.platform + ' &bull; Budget: ' + formatRp(m.budget) + '</div>' +
+            '<div class="font-bold text-slate-800">' + escapeHtml(m.campaign) + '</div>' +
+            '<div class="text-[11px] text-slate-400">' + escapeHtml(m.date) + ' &bull; ' + escapeHtml(m.platform) + ' &bull; Budget: ' + formatRp(m.budget) + '</div>' +
           '</div>' +
           '<div class="flex items-center gap-4">' +
             '<span class="text-slate-500">Terpakai: <b class="text-slate-700">' + formatRp(m.spent) + '</b></span>' +
             '<span class="text-slate-500">Leads: <b class="text-slate-700">' + (m.leadsGenerated || 0) + '</b></span>' +
-            '<button onclick="deleteMarketing(\'' + m.id + '\')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
+            '<button onclick="deleteMarketing(' + jsArg(m.id) + ')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
           '</div>' +
         '</div>'
       ).join('');
@@ -1694,19 +1852,365 @@
       container.innerHTML = db.memory.map(m =>
         '<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-2 border-l-4 border-l-amber-500">' +
           '<div class="flex items-center justify-between text-xs text-slate-400">' +
-            '<span class="font-semibold text-amber-600">' + m.category + '</span>' +
+            '<span class="font-semibold text-amber-600">' + escapeHtml(m.category) + '</span>' +
             '<div class="flex items-center gap-2">' +
-              '<span>' + m.date + '</span>' +
-              '<button onclick="deleteMemory(\'' + m.id + '\')" class="hover:text-red-600"><i class="fa fa-trash"></i></button>' +
+              '<span>' + escapeHtml(m.date) + '</span>' +
+              '<button onclick="deleteMemory(' + jsArg(m.id) + ')" class="hover:text-red-600"><i class="fa fa-trash"></i></button>' +
             '</div>' +
           '</div>' +
-          '<h4 class="font-heading font-bold text-sm text-slate-800">' + m.title + '</h4>' +
-          '<p class="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">' + m.content + '</p>' +
+          '<h4 class="font-heading font-bold text-sm text-slate-800">' + escapeHtml(m.title) + '</h4>' +
+          '<p class="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">' + escapeHtml(m.content) + '</p>' +
         '</div>'
       ).join('');
     }
 
+    // ============== HPP & QUOTATION — COSTING ENGINE ==============
+    let costingItems = [];
+    let lastCostingCalculation = null;
+
+    function makeCostItem(item) {
+      return {
+        id: item && item.id ? String(item.id) : 'CI-' + Date.now() + '-' + Math.random().toString(36).slice(2,7),
+        name: String(item && item.name || ''),
+        category: String(item && item.category || 'material'),
+        source: String(item && item.source || 'vendor'),
+        qty: Math.max(0, Number(item && item.qty) || 0),
+        unitCost: Math.max(0, Number(item && item.unitCost) || 0)
+      };
+    }
+
+    function addCostItem(item) {
+      costingItems.push(makeCostItem(item || {}));
+      renderCostItems();
+      calculateCosting();
+    }
+
+    function removeCostItem(id) {
+      costingItems = costingItems.filter(item => item.id !== id);
+      renderCostItems();
+      calculateCosting();
+    }
+
+    function updateCostItem(id, field, value) {
+      const item = costingItems.find(row => row.id === id);
+      if (!item) return;
+      if (field === 'name' || field === 'category' || field === 'source') item[field] = value;
+      else item[field] = Math.max(0, Number(value) || 0);
+      calculateCosting();
+    }
+
+    function renderCostItems() {
+      const body = document.getElementById('cost-items-body');
+      if (!body) return;
+      if (!costingItems.length) {
+        body.innerHTML = '<tr><td colspan="6" class="py-5 text-center text-slate-400">Belum ada komponen biaya. Tambahkan material, tenaga, vendor, finishing, atau logistik.</td></tr>';
+        return;
+      }
+      body.innerHTML = costingItems.map(item => {
+        const id = jsArg(item.id);
+        return '<tr class="border-b border-slate-100">' +
+          '<td class="py-2 pr-2"><input value="' + escapeHtml(item.name) + '" onchange="updateCostItem(' + id + ',\'name\',this.value)" class="w-36 border rounded p-1.5" placeholder="Nama biaya"></td>' +
+          '<td class="pr-2"><select onchange="updateCostItem(' + id + ',\'category\',this.value)" class="border rounded p-1.5"><option value="material" ' + (item.category==='material'?'selected':'') + '>Material</option><option value="labor" ' + (item.category==='labor'?'selected':'') + '>Tenaga</option><option value="machine" ' + (item.category==='machine'?'selected':'') + '>Mesin</option><option value="finishing" ' + (item.category==='finishing'?'selected':'') + '>Finishing</option><option value="transport" ' + (item.category==='transport'?'selected':'') + '>Transport</option><option value="installation" ' + (item.category==='installation'?'selected':'') + '>Instalasi</option><option value="other" ' + (item.category==='other'?'selected':'') + '>Lainnya</option></select></td>' +
+          '<td class="pr-2"><select onchange="updateCostItem(' + id + ',\'source\',this.value)" class="border rounded p-1.5"><option value="internal" ' + (item.source==='internal'?'selected':'') + '>Internal</option><option value="vendor" ' + (item.source==='vendor'?'selected':'') + '>Vendor</option></select></td>' +
+          '<td class="pr-2"><input type="number" min="0" step="0.01" value="' + item.qty + '" onchange="updateCostItem(' + id + ',\'qty\',this.value)" class="w-20 text-right border rounded p-1.5"></td>' +
+          '<td class="pr-2"><input type="number" min="0" step="1000" value="' + item.unitCost + '" onchange="updateCostItem(' + id + ',\'unitCost\',this.value)" class="w-28 text-right border rounded p-1.5"></td>' +
+          '<td><button onclick="removeCostItem(' + id + ')" class="text-red-500 px-2">×</button></td></tr>';
+      }).join('');
+    }
+
+    function computeCostingTotals(items, overheadPct, contingencyPct, marginPct) {
+      const directCost=(items||[]).reduce((sum,item)=>sum+Math.max(0,Number(item.qty)||0)*Math.max(0,Number(item.unitCost)||0),0);
+      overheadPct=Math.min(100,Math.max(0,Number(overheadPct)||0));
+      contingencyPct=Math.min(100,Math.max(0,Number(contingencyPct)||0));
+      marginPct=Math.min(90,Math.max(0,Number(marginPct)||0));
+      const overheadAmount=Math.round(directCost*overheadPct/100);
+      const contingencyAmount=Math.round((directCost+overheadAmount)*contingencyPct/100);
+      const hpp=Math.round(directCost+overheadAmount+contingencyAmount);
+      const sellingPrice=hpp>0?Math.ceil((hpp/(1-marginPct/100))/1000)*1000:0;
+      const profit=sellingPrice-hpp;
+      return {directCost,overheadPct,overheadAmount,contingencyPct,contingencyAmount,hpp,marginPct,sellingPrice,profit};
+    }
+
+    function calculateCosting() {
+      const totals=computeCostingTotals(
+        costingItems,
+        document.getElementById('cost-overhead')?.value,
+        document.getElementById('cost-contingency')?.value,
+        document.getElementById('cost-margin')?.value
+      );
+      lastCostingCalculation=totals;
+      const put=(id,value)=>{const el=document.getElementById(id);if(el)el.innerText=formatRp(value);};
+      put('cost-direct',totals.directCost);put('cost-overhead-value',totals.overheadAmount);put('cost-contingency-value',totals.contingencyAmount);
+      put('cost-hpp',totals.hpp);put('cost-selling',totals.sellingPrice);put('cost-profit',totals.profit);
+      return totals;
+    }
+
+    function resetCostingForm() {
+      clearCostingForm();
+      const select=document.getElementById('costing-lead');
+      if(select) select.value='';
+      nav('costings');
+    }
+
+    function clearCostingForm() {
+      ['costing-id','costing-client','costing-title','costing-notes','cost-scope'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+      ['cost-validity','cost-delivery','cost-payment-terms'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=[14,14,'DP 50%, pelunasan sebelum pengiriman'][i];});
+      const model=document.getElementById('costing-model');if(model)model.value='hybrid';
+      ['cost-overhead','cost-contingency','cost-margin'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=[5,3,30][i];});
+      costingItems=[];renderCostItems();calculateCosting();
+      const label=document.getElementById('costing-id-label');if(label)label.innerText='Baru';
+    }
+
+    function editCosting(id) {
+      const record=(db.costings||[]).find(item=>String(item.id)===String(id));
+      if(!record)return;
+      document.getElementById('costing-id').value=record.id;
+      document.getElementById('costing-id-label').innerText=record.id;
+      document.getElementById('costing-client').value=record.client||'';
+      document.getElementById('costing-title').value=record.title||'';
+      document.getElementById('costing-model').value=record.productionModel||'hybrid';
+      document.getElementById('costing-lead').value=record.leadId||'';
+      document.getElementById('cost-validity').value=record.validityDays||14;
+      document.getElementById('cost-delivery').value=record.deliveryDays||14;
+      document.getElementById('cost-payment-terms').value=record.paymentTerms||'DP 50%, pelunasan sebelum pengiriman';
+      document.getElementById('cost-scope').value=record.scope||'';
+      document.getElementById('cost-overhead').value=record.overheadPct||0;
+      document.getElementById('cost-contingency').value=record.contingencyPct||0;
+      document.getElementById('cost-margin').value=record.marginPct||0;
+      document.getElementById('cost-notes').value=record.notes||'';
+      try{costingItems=JSON.parse(record.itemsJson||'[]').map(makeCostItem);}catch(e){costingItems=[];}
+      renderCostItems();calculateCosting();nav('costings');
+    }
+
+    function generateQuoteNo(id) {
+      const now=new Date();
+      const period=now.getFullYear()+String(now.getMonth()+1).padStart(2,'0');
+      const suffix=String(id||Date.now()).replace(/[^a-zA-Z0-9]/g,'').slice(-8).toUpperCase();
+      return 'QUO-CSK-'+period+'-'+suffix;
+    }
+
+    function saveCosting() {
+      const client=document.getElementById('costing-client').value.trim();
+      const title=document.getElementById('costing-title').value.trim();
+      if(!client||!title){showToast('Nama klien dan pekerjaan wajib diisi.',true);return;}
+      if(!costingItems.length){showToast('Tambahkan minimal satu komponen biaya.',true);return;}
+      if(costingItems.some(item=>!item.name.trim()||item.qty<=0||item.unitCost<0)){showToast('Periksa nama, kuantitas, dan harga setiap komponen.',true);return;}
+      const calc=calculateCosting();
+      if(calc.hpp<=0){showToast('HPP harus lebih besar dari nol.',true);return;}
+      const id=document.getElementById('costing-id').value||('COST-'+Date.now());
+      const existing=(db.costings||[]).find(item=>String(item.id)===String(id));
+      if(existing?.poConfirmedAt){showToast('Quotation yang sudah dikonfirmasi PO/SPK terkunci. Buat kalkulasi baru untuk perubahan kontrak.',true);return;}
+      const itemsJson=JSON.stringify(costingItems);
+      const validityDays=Math.max(1,Math.min(90,Number(document.getElementById('cost-validity').value)||14));
+      const deliveryDays=Math.max(1,Math.min(365,Number(document.getElementById('cost-delivery').value)||14));
+      const paymentTerms=document.getElementById('cost-payment-terms').value.trim();
+      const scope=document.getElementById('cost-scope').value.trim();
+      const notes=document.getElementById('cost-notes').value.trim();
+      const changed=!!existing&&(
+        existing.itemsJson!==itemsJson||Number(existing.hpp)!==calc.hpp||
+        Number(existing.sellingPrice)!==calc.sellingPrice||Number(existing.directCost)!==calc.directCost||
+        Number(existing.overheadPct)!==calc.overheadPct||Number(existing.contingencyPct)!==calc.contingencyPct||
+        Number(existing.marginPct)!==calc.marginPct||existing.productionModel!==document.getElementById('costing-model').value||
+        existing.scope!==scope||existing.paymentTerms!==paymentTerms||
+        Number(existing.validityDays)!==validityDays||Number(existing.deliveryDays)!==deliveryDays||
+        existing.title!==title||existing.client!==client
+      );
+      let history=[];
+      try{history=JSON.parse(existing?.quoteHistoryJson||'[]');if(!Array.isArray(history))history=[];}catch(e){history=[];}
+      if(changed)history.push({
+        version:Number(existing.quoteVersion)||1,savedAt:new Date().toISOString(),
+        title:existing.title,client:existing.client,itemsJson:existing.itemsJson,
+        hpp:existing.hpp,sellingPrice:existing.sellingPrice,status:existing.status,
+        scope:existing.scope||'',paymentTerms:existing.paymentTerms||''
+      });
+      const record={
+        id,date:existing?.date||new Date().toISOString().slice(0,10),client,title,
+        productionModel:document.getElementById('costing-model').value,
+        leadId:document.getElementById('costing-lead').value,itemsJson,
+        directCost:calc.directCost,overheadPct:calc.overheadPct,overheadAmount:calc.overheadAmount,
+        contingencyPct:calc.contingencyPct,contingencyAmount:calc.contingencyAmount,
+        hpp:calc.hpp,marginPct:calc.marginPct,sellingPrice:calc.sellingPrice,
+        status:changed?'draft':(existing?.status||'draft'),projectId:existing?.projectId||'',
+        notes,quoteNo:existing?.quoteNo||generateQuoteNo(id),
+        quoteVersion:Math.max(1,Number(existing?.quoteVersion)||1)+(changed?1:0),
+        validityDays,deliveryDays,paymentTerms,scope,
+        approvedAt:changed?'':(existing?.approvedAt||''),
+        poConfirmedAt:existing?.poConfirmedAt||'',
+        quoteHistoryJson:JSON.stringify(history),
+        sentAt:changed?'':(existing?.sentAt||'')
+      };
+      if(!Array.isArray(db.costings))db.costings=[];
+      const index=db.costings.findIndex(item=>String(item.id)===String(id));
+      if(index>=0)db.costings[index]=record;else db.costings.unshift(record);
+      saveDB();renderCostings();showToast(changed?'Revisi quotation tersimpan sebagai versi baru.':'Kalkulasi HPP dan draft quotation tersimpan.');
+    }
+
+    function printQuotation(id) {
+      const record=(db.costings||[]).find(item=>String(item.id)===String(id));
+      if(!record){showToast('Quotation tidak ditemukan.',true);return;}
+      const quoteDate=new Date(record.sentAt||record.date||Date.now());
+      const validUntil=new Date(quoteDate.getTime()+(Number(record.validityDays||14)*86400000));
+      const fmtDate=date=>date.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+      const w=window.open('','_blank','width=1000,height=800');
+      if(!w){showToast('Popup diblokir. Izinkan popup untuk mencetak quotation.',true);return;}
+      const logoUrl = new URL('logo-horizontal.svg', document.baseURI).href;
+      const doc='<!doctype html><html><head><meta charset="utf-8"><title>'+escapeHtml(record.quoteNo||record.id)+'</title><style>body{font-family:Arial,sans-serif;color:#172033;margin:36px}h1{font-size:22px;margin:0}.muted{color:#64748b}.top{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #d69e2e;padding-bottom:18px;gap:24px}.brand-logo{display:block;width:230px;max-width:100%;height:auto;max-height:76px;object-fit:contain;margin-bottom:8px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:22px 0}.box{border:1px solid #e2e8f0;padding:12px;border-radius:8px}.total{margin:24px 0 0 auto;width:330px}.total div{display:flex;justify-content:space-between;padding:8px 0}.grand{font-size:20px;font-weight:bold;border-top:2px solid #172033}.terms{margin-top:24px;line-height:1.55;font-size:13px}.sign{margin-top:48px;text-align:right}.sign strong{display:block;margin-top:56px}@media print{body{margin:18mm}}</style></head><body><div class="top"><div><img class="brand-logo" src="'+escapeHtml(logoUrl)+'" alt="Cahaya Selatan Kreasindo"><div class="muted">Integrated Production Partner · cahayaselatankreasindo.my.id</div></div><div style="text-align:right"><h2>QUOTATION</h2><b>'+escapeHtml(record.quoteNo||record.id)+'</b><div class="muted">Versi '+escapeHtml(record.quoteVersion||1)+'</div></div></div><div class="meta"><div class="box"><b>Ditujukan kepada</b><p>'+escapeHtml(record.client)+'</p><b>Pekerjaan</b><p>'+escapeHtml(record.title)+'</p></div><div class="box"><b>Tanggal</b><p>'+fmtDate(quoteDate)+'</p><b>Berlaku sampai</b><p>'+fmtDate(validUntil)+'</p><b>Estimasi pengerjaan</b><p>'+escapeHtml(record.deliveryDays||14)+' hari</p></div></div><div class="terms"><b>Ruang lingkup pekerjaan</b><p>'+escapeHtml(record.scope||'Sesuai spesifikasi yang disepakati bersama.').replace(/\n/g,'<br>')+'</p><b>Syarat pembayaran</b><p>'+escapeHtml(record.paymentTerms||'Sesuai kesepakatan tertulis.')+'</p></div><div class="total"><div class="grand"><span>Total penawaran</span><b>'+formatRp(record.sellingPrice)+'</b></div></div><div class="sign">Hormat kami,<br><b>Cahaya Selatan Kreasindo</b><strong>Zefry Dany Adi Syahputra</strong><span>Owner & Lead Project</span></div><script>window.onload=function(){window.print();};</scr'+'ipt></body></html>';
+      w.document.open();w.document.write(doc);w.document.close();
+    }
+
+    function updateCostingStatus(id,status) {
+      const record=(db.costings||[]).find(item=>String(item.id)===String(id));
+      if(!record)return;
+      if(record.poConfirmedAt||record.status==='po_confirmed'){showToast('Quotation terkunci setelah PO/SPK dikonfirmasi.',true);return;}
+      const allowed={draft:['sent','rejected'],sent:['approved','rejected'],approved:['rejected'],rejected:[]};
+      if(!allowed[record.status||'draft']||!allowed[record.status||'draft'].includes(status)){showToast('Perubahan status quotation tidak sesuai alur.',true);return;}
+      if(status==='sent'&&(!String(record.scope||'').trim()||!String(record.paymentTerms||'').trim())){showToast('Lengkapi ruang lingkup dan syarat pembayaran sebelum mengirim quotation.',true);return;}
+      if(status==='approved'){
+        const startDate=record.sentAt||record.date||new Date().toISOString();
+        const expiry=new Date(new Date(startDate).getTime()+(Number(record.validityDays||14)*86400000));
+        if(new Date()>expiry){showToast('Masa berlaku quotation sudah berakhir. Buat revisi dan kirim ulang.',true);return;}
+        if(!confirm('Catat persetujuan quotation? Proyek baru dibuat setelah PO/SPK dikonfirmasi.'))return;
+        record.approvedAt=new Date().toISOString();
+      }
+      if(status==='sent')record.sentAt=new Date().toISOString();
+      record.status=status;
+      saveDB();renderCostings();showToast(status==='approved'?'Quotation disetujui. Menunggu PO/SPK untuk membuat proyek.':'Status quotation diperbarui.');
+    }
+
+    function confirmQuotationPO(id) {
+      const record=(db.costings||[]).find(item=>String(item.id)===String(id));
+      if(!record||record.status!=='approved'){showToast('Quotation harus disetujui sebelum PO/SPK dikonfirmasi.',true);return;}
+      if(record.poConfirmedAt){showToast('PO/SPK quotation ini sudah pernah dikonfirmasi.',true);return;}
+      if(!confirm('Konfirmasi PO/SPK untuk '+(record.quoteNo||record.id)+'? Proyek akan dibuat atau ditautkan. Tidak ada pendapatan otomatis.'))return;
+      const lead=(db.leads||[]).find(item=>String(item.id)===String(record.leadId));
+      let project=(db.projects||[]).find(item=>String(item.id)===String(record.projectId||''));
+      if(!project&&lead){
+        const token='[LEAD-'+lead.id+']';
+        project=(db.projects||[]).find(item=>String(item.notes||'').includes(token));
+      }
+      if(!project){
+        const projectId='PRJ-QUO-'+record.id;
+        project=(db.projects||[]).find(item=>String(item.id)===projectId);
+        if(!project){
+          const deadline=new Date(Date.now()+(Number(record.deliveryDays)||14)*86400000).toISOString().slice(0,10);
+          project={id:projectId,title:record.title,client:record.client,value:Number(record.sellingPrice)||0,status:'plan',deadline,
+            notes:'Dibuat dari PO/SPK '+(record.quoteNo||record.id)+'; HPP estimasi '+formatRp(record.hpp)+'; model '+record.productionModel,
+            sopChecklist:'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'};
+          db.projects.unshift(project);
+        }
+      }
+      if (lead) {
+        const leadToken = '[LEAD-' + lead.id + ']';
+        if (!String(project.notes || '').includes(leadToken)) {
+          project.notes = (String(project.notes || '').trim() + ' ' + leadToken).trim();
+        }
+      }
+      record.projectId=project.id;
+      record.status='po_confirmed';
+      record.poConfirmedAt=new Date().toISOString();
+      if(lead&&lead.status!=='won')lead.status='won';
+      saveDB();renderCostings();renderProjects();renderProjectCosts();
+      showToast('PO/SPK dikonfirmasi. Proyek dibuat/ditautkan. Catat DP hanya setelah dana diterima.');
+    }
+
+    function deleteCosting(id) {
+      const record=(db.costings||[]).find(item=>String(item.id)===String(id));
+      if(record?.poConfirmedAt){showToast('Quotation yang sudah terikat PO/SPK tidak dapat dihapus.',true);return;}
+      if(!confirm('Hapus kalkulasi/quotation ini?'))return;
+      addLocalDeletion('Costings',id);
+      db.costings=(db.costings||[]).filter(item=>String(item.id)!==String(id));
+      saveDB();deleteOnCloud('Costings',id);renderCostings();showToast('Quotation dihapus.');
+    }
+
+    function renderCostings() {
+      if(!document.getElementById('costings-list'))return;
+      const items=db.costings||[];
+      const count=status=>items.filter(item=>item.status===status).length;
+      document.getElementById('cost-stat-draft').innerText=count('draft');
+      document.getElementById('cost-stat-sent').innerText=count('sent');
+      document.getElementById('cost-stat-approved').innerText=count('approved');
+      const poStat=document.getElementById('cost-stat-po');if(poStat)poStat.innerText=count('po_confirmed');
+      document.getElementById('cost-stat-hpp').innerText=formatRp(items.reduce((sum,item)=>sum+(Number(item.hpp)||0),0));
+      const leadSelect=document.getElementById('costing-lead');
+      const clientList=document.getElementById('costing-client-options');
+      if(leadSelect){const selected=leadSelect.value;leadSelect.innerHTML='<option value="">Tidak ditautkan</option>'+(db.leads||[]).map(l=>'<option value="'+escapeHtml(l.id)+'">'+escapeHtml(l.name)+' — '+escapeHtml(l.status)+'</option>').join('');leadSelect.value=selected;}
+      if(clientList)clientList.innerHTML=(db.clients||[]).map(c=>'<option value="'+escapeHtml(c.name)+'"></option>').join('');
+      const statusLabels={draft:'Draft',sent:'Dikirim',approved:'Disetujui — menunggu PO/SPK',po_confirmed:'PO/SPK dikonfirmasi',rejected:'Ditolak'};
+      document.getElementById('costings-list').innerHTML=items.length?items.map(item=>{
+        const status=item.status||'draft';
+        const locked=!!item.poConfirmedAt||status==='po_confirmed';
+        const color=status==='po_confirmed'?'text-blue-700 bg-blue-50':status==='approved'?'text-emerald-700 bg-emerald-50':status==='rejected'?'text-red-700 bg-red-50':'text-amber-700 bg-amber-50';
+        let actions='<button onclick="printQuotation('+jsArg(item.id)+')" class="border rounded px-2 py-1 text-xs">Cetak PDF</button>';
+        if(!locked)actions+='<button onclick="editCosting('+jsArg(item.id)+')" class="border rounded px-2 py-1 text-xs">Edit</button>';
+        if(status==='draft')actions+='<button onclick="updateCostingStatus('+jsArg(item.id)+',\'sent\')" class="border rounded px-2 py-1 text-xs">Tandai dikirim</button>';
+        if(status==='sent')actions+='<button onclick="updateCostingStatus('+jsArg(item.id)+',\'approved\')" class="border rounded px-2 py-1 text-xs">Setujui</button>';
+        if(status==='approved')actions+='<button onclick="confirmQuotationPO('+jsArg(item.id)+')" class="bg-emerald-600 text-white rounded px-2 py-1 text-xs">Konfirmasi PO/SPK</button>';
+        if(['draft','sent','approved'].includes(status))actions+='<button onclick="updateCostingStatus('+jsArg(item.id)+',\'rejected\')" class="border rounded px-2 py-1 text-xs">Tolak</button>';
+        if(!locked)actions+='<button onclick="deleteCosting('+jsArg(item.id)+')" class="text-red-600 px-2 py-1 text-xs">Hapus</button>';
+        return '<div class="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3"><div class="min-w-0"><div class="font-bold text-sm">'+escapeHtml(item.title)+'</div><div class="text-xs text-slate-500">'+escapeHtml(item.client)+' · '+escapeHtml(item.productionModel)+' · '+escapeHtml(item.date)+'</div><div class="text-xs text-slate-500">'+escapeHtml(item.quoteNo||item.id)+' · Versi '+escapeHtml(item.quoteVersion||1)+' · Berlaku '+escapeHtml(item.validityDays||14)+' hari</div><div class="text-xs mt-1">HPP '+formatRp(item.hpp)+' · Penawaran <b>'+formatRp(item.sellingPrice)+'</b> · Margin '+escapeHtml(item.marginPct)+'%</div><span class="inline-block mt-1 text-[10px] px-2 py-1 rounded '+color+'">'+(statusLabels[status]||escapeHtml(status))+'</span></div><div class="flex flex-wrap gap-1">'+actions+'</div></div>';
+      }).join(''):'<div class="p-6 text-center text-sm text-slate-400">Belum ada kalkulasi. Mulai dari biaya material, tenaga, vendor, finishing, transportasi, dan instalasi.</div>';
+    }
+
+    // ============== PROJECT COST LEDGER ==============
+    function saveProjectCost() {
+      const projectId=document.getElementById('pc-project').value;
+      const description=document.getElementById('pc-description').value.trim();
+      const qty=Number(document.getElementById('pc-qty').value)||0;
+      const unitCost=Number(document.getElementById('pc-unit-cost').value)||0;
+      const source=document.getElementById('pc-source').value;
+      const vendor=document.getElementById('pc-vendor').value.trim();
+      if(!projectId||!description||qty<=0||unitCost<=0){showToast('Pilih proyek dan isi deskripsi, kuantitas, serta harga satuan lebih dari nol.',true);return;}
+      if(source==='vendor'&&!vendor){showToast('Nama vendor wajib diisi untuk biaya vendor partner.',true);return;}
+      const record={
+        id:'PCOST-'+Date.now(),date:new Date().toISOString().slice(0,10),projectId,
+        category:document.getElementById('pc-category').value,source,description,vendor,
+        qty,unitCost,amount:Math.round(qty*unitCost),
+        paymentStatus:document.getElementById('pc-payment-status').value,
+        reference:document.getElementById('pc-reference').value.trim(),
+        notes:document.getElementById('pc-notes').value.trim()
+      };
+      if(!Array.isArray(db.projectCosts))db.projectCosts=[];
+      db.projectCosts.unshift(record);
+      ['pc-description','pc-vendor','pc-unit-cost','pc-reference','pc-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+      const qtyEl=document.getElementById('pc-qty');if(qtyEl)qtyEl.value=1;
+      saveDB();renderProjectCosts();showToast('Biaya aktual tersimpan. Catat pembayaran secara terpisah di Finance setelah benar-benar dibayar.');
+    }
+
+    function deleteProjectCost(id) {
+      if(!confirm('Hapus catatan biaya aktual ini?'))return;
+      addLocalDeletion('Project_Costs',id);
+      db.projectCosts=(db.projectCosts||[]).filter(item=>String(item.id)!==String(id));
+      saveDB();deleteOnCloud('Project_Costs',id);renderProjectCosts();showToast('Catatan biaya aktual dihapus.');
+    }
+
+    function renderProjectCosts() {
+      const list=document.getElementById('project-cost-list');
+      if(!list)return;
+      const projects=db.projects||[],costs=db.projectCosts||[];
+      const select=document.getElementById('pc-project');
+      if(select){
+        const selected=select.value;
+        select.innerHTML='<option value="">Pilih proyek</option>'+projects.map(p=>'<option value="'+escapeHtml(p.id)+'">'+escapeHtml(p.title)+' — '+escapeHtml(p.client)+'</option>').join('');
+        select.value=selected;
+      }
+      const summaries=projects.map(project=>{
+        const rows=costs.filter(cost=>String(cost.projectId)===String(project.id));
+        const actual=rows.reduce((sum,cost)=>sum+(Number(cost.amount)||0),0);
+        const costing=(db.costings||[]).find(item=>String(item.projectId)===String(project.id));
+        const estimated=Number(costing?.hpp)||0;
+        return {project,actual,estimated,variance:actual-estimated};
+      }).filter(item=>item.actual>0||item.estimated>0);
+      const summary=document.getElementById('project-cost-summary');
+      if(summary)summary.innerHTML=summaries.length?summaries.map(item=>'<div class="border rounded-lg p-3"><div class="text-xs font-semibold">'+escapeHtml(item.project.title)+'</div><div class="text-[10px] text-slate-500">'+escapeHtml(item.project.client)+'</div><div class="mt-2 text-xs">HPP estimasi: <b>'+formatRp(item.estimated)+'</b></div><div class="text-xs">Biaya aktual tercatat: <b>'+formatRp(item.actual)+'</b></div><div class="text-xs '+(item.variance>0?'text-red-600':'text-emerald-700')+'">Varians biaya: '+formatRp(item.variance)+'</div><div class="text-[10px] text-slate-400 mt-1">Nilai kontrak: '+formatRp(item.project.value)+'</div></div>').join(''):'<div class="text-xs text-slate-400 md:col-span-3">Belum ada biaya aktual. Perbandingan muncul setelah HPP dan biaya proyek dicatat.</div>';
+      list.innerHTML=costs.length?costs.map(item=>{
+        const project=projects.find(p=>String(p.id)===String(item.projectId));
+        return '<div class="p-3 flex flex-col md:flex-row md:items-center justify-between gap-2"><div><b class="text-xs">'+escapeHtml(item.description)+'</b><div class="text-[11px] text-slate-500">'+escapeHtml(project?.title||'Proyek tidak ditemukan')+' · '+escapeHtml(item.date)+' · '+escapeHtml(item.source)+' · '+escapeHtml(item.category)+'</div><div class="text-[11px] text-slate-500">'+escapeHtml(item.vendor||'Internal')+' · '+escapeHtml(item.paymentStatus||'unpaid')+' · '+escapeHtml(item.reference||'-')+'</div></div><div class="flex items-center gap-3"><b class="text-sm">'+formatRp(item.amount)+'</b><button onclick="deleteProjectCost('+jsArg(item.id)+')" class="text-red-600 text-xs">Hapus</button></div></div>';
+      }).join(''):'<div class="p-4 text-center text-xs text-slate-400">Belum ada biaya aktual yang dicatat.</div>';
+    }
+
     // ============== ANALYSIS ==============
+
+
 
     function renderAnalysis() {
       const wonLeads = db.leads.filter(l => l.status === 'won');
@@ -1771,8 +2275,8 @@
         return;
       }
 
-      if (!db.settings.googleSheetUrl) {
-        showToast('URL Google Apps Script belum diisi di Pengaturan.', true);
+      if (!db.settings.googleSheetUrl || !getApiToken() || serverRole !== 'owner') {
+        showToast('Pengiriman email hanya tersedia untuk Owner dengan token yang valid.', true);
         return;
       }
 
@@ -1793,7 +2297,7 @@
         const res = await fetch(db.settings.googleSheetUrl, {
           method: 'POST',
           mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
             action: 'send_cold_email',
             token: getApiToken(),
@@ -1803,16 +2307,8 @@
           })
         });
 
-        // Simpan increment counter lokal
-        localStorage.setItem(todayKey, String(sentCount + 1));
-
-        // Tandai status jadi contacted jika sebelumnya new
-        if (lead.status === 'new') {
-          lead.status = 'contacted';
-        }
-        lead.notes = (lead.notes ? lead.notes + ' | ' : '') + 'Cold email terkirim (' + (sentCount + 1) + '/50) ' + new Date().toISOString().slice(0, 10);
-        saveDB();
-        showToast('Cold email berhasil dikirim ke ' + lead.email + ' (' + (sentCount + 1) + '/50 hari ini)!');
+        // Respons no-cors bersifat opaque; status pengiriman harus diverifikasi di Gmail.
+        showToast('Permintaan email dikirim. Periksa folder Terkirim Gmail sebelum menandai lead sebagai contacted.');
       } catch (err) {
         console.error(err);
         showToast('Gagal mengirim email: ' + err.message, true);
@@ -1820,36 +2316,45 @@
     }
 
     function convertLeadToWon(id) {
-      const lead = db.leads.find(l => l.id === id);
-      if (!lead) return;
+      const lead = db.leads.find(l => String(l.id) === String(id));
+      if (!lead || lead.status === 'won') return;
       lead.status = 'won';
 
-      if (!db.clients.some(c => c.name.toLowerCase() === lead.name.toLowerCase())) {
+      const leadToken = '[LEAD-' + lead.id + ']';
+      const clientExists = db.clients.some(c =>
+        String(c.name || '').trim().toLowerCase() === String(lead.name || '').trim().toLowerCase()
+      );
+      if (!clientExists) {
         db.clients.unshift({
-          id: Date.now().toString(),
+          id: 'AUTO-CLI-' + lead.id,
           name: lead.name,
-          phone: lead.phone,
+          phone: lead.phone || '',
           projectsCount: 1,
-          totalSpend: lead.value,
-          notes: 'Dikonversi dari Lead (' + lead.source + ')',
+          totalSpend: 0,
+          notes: 'Dibuat otomatis dari Lead ' + leadToken,
           rating: 0,
           review: ''
         });
       }
 
-      db.projects.unshift({
-        id: Date.now().toString(),
-        title: 'Proyek ' + lead.name,
-        client: lead.name,
-        value: lead.value,
-        status: 'plan',
-        deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
-        notes: lead.notes || 'Hasil konversi Deal',
-        sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
-      });
+      const projectExists = db.projects.some(p =>
+        String(p.id) === 'AUTO-PRJ-' + lead.id || String(p.notes || '').includes(leadToken)
+      );
+      if (!projectExists) {
+        db.projects.unshift({
+          id: 'AUTO-PRJ-' + lead.id,
+          title: 'Proyek ' + lead.name,
+          client: lead.name,
+          value: Number(lead.value) || 0,
+          status: 'plan',
+          deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+          notes: 'Antrean otomatis dari Lead ' + leadToken,
+          sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
+        });
+      }
 
       saveDB();
-      showToast('Lead ditandai DEAL & otomatis masuk ke Klien, Proyek, dan jurnal Keuangan!');
+      showToast('Lead ditandai DEAL. Klien dan proyek dibuat otomatis; DP dicatat setelah pembayaran diterima.');
     }
 
     /**
@@ -1859,12 +2364,14 @@
      */
     async function deleteOnCloud(sheetName, id) {
       const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) return;
+      if (!url || !getApiToken()) return;
+      if (serverRole !== 'owner' && serverRole !== 'team') return;
+      if (serverRole === 'team' && !['Leads', 'Clients', 'Projects'].includes(sheetName)) return;
       try {
         await fetch(url, {
           method: 'POST',
           mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'delete', sheet: sheetName, id: id, token: getApiToken() })
         });
       } catch (err) {
@@ -1874,7 +2381,8 @@
 
     function deleteLead(id) {
       if (confirm('Yakin ingin menghapus lead ini?')) {
-        db.leads = db.leads.filter(l => l.id !== id);
+        addLocalDeletion('Leads', id);
+        db.leads = db.leads.filter(l => String(l.id) !== String(id));
         saveDB();
         deleteOnCloud('Leads', id);
         showToast('Lead dihapus.');
@@ -1903,7 +2411,8 @@
 
     function deleteClient(id) {
       if (confirm('Hapus klien ini?')) {
-        db.clients = db.clients.filter(c => c.id !== id);
+        addLocalDeletion('Clients', id);
+        db.clients = db.clients.filter(c => String(c.id) !== String(id));
         saveDB();
         deleteOnCloud('Clients', id);
         showToast('Klien dihapus.');
@@ -1942,7 +2451,8 @@
 
     function deleteProject(id) {
       if (confirm('Hapus proyek ini?')) {
-        db.projects = db.projects.filter(p => p.id !== id);
+        addLocalDeletion('Projects', id);
+        db.projects = db.projects.filter(p => String(p.id) !== String(id));
         saveDB();
         deleteOnCloud('Projects', id);
         showToast('Proyek dihapus.');
@@ -1954,8 +2464,29 @@
     let currentActiveProject = null;
     let currentInvoiceType = 'dp'; // 'dp' | 'pelunasan' | 'penawaran'
 
+    function calculateProjectInvoiceSummary(project, finance, type) {
+      const total = Math.max(0, Number(project && project.value) || 0);
+      const projectId = String(project && project.id != null ? project.id : '');
+      const paid = (finance || []).filter(item =>
+        item && item.type === 'income' && String(item.projectId || '') === projectId
+      ).reduce((sum, item) => sum + Math.max(0, Number(item.amount) || 0), 0);
+      const dpTarget = Math.round(total * 0.5);
+      const billAmount = type === 'dp'
+        ? Math.max(0, dpTarget - paid)
+        : (type === 'pelunasan' ? Math.max(0, total - paid) : total);
+      return { total, paid, dpTarget, billAmount, remaining: Math.max(0, total - paid) };
+    }
+
+    function invoiceDocumentNumber(project, type, date) {
+      const prefix = type === 'penawaran' ? 'QUO' : 'INV';
+      const stage = type === 'dp' ? 'DP' : (type === 'pelunasan' ? 'FINAL' : 'OFFER');
+      const projectKey = String(project && project.id != null ? project.id : 'PROJECT')
+        .replace(/[^a-z0-9]/gi, '').slice(-8).toUpperCase() || 'PROJECT';
+      return prefix + '-CSK-' + date.getFullYear() + '-' + projectKey + '-' + stage;
+    }
+
     function openInvoiceModal(projectId) {
-      const p = db.projects.find(x => x.id === projectId);
+      const p = db.projects.find(x => String(x.id) === String(projectId));
       if (!p) return;
       currentActiveProject = p;
       currentInvoiceType = 'dp';
@@ -1965,6 +2496,7 @@
     }
 
     function switchInvoiceType(type) {
+      if (!['dp','pelunasan','penawaran'].includes(type)) return;
       currentInvoiceType = type;
       renderInvoiceDocument();
     }
@@ -1972,103 +2504,96 @@
     function renderInvoiceDocument() {
       if (!currentActiveProject) return;
       const p = currentActiveProject;
-      const totalVal = Number(p.value || 0);
-      const todayStr = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+      const summary = calculateProjectInvoiceSummary(p, db.finance || [], currentInvoiceType);
+      const today = new Date();
+      const todayStr = today.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+      const dueDate = new Date(today.getTime());
+      dueDate.setDate(dueDate.getDate() + (currentInvoiceType === 'penawaran' ? 14 : 7));
 
-      // Hitung due date (7 hari ke depan untuk invoice, atau deadline proyek)
-      const dueDate = p.deadline ? new Date(p.deadline).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }) : '7 Hari dari tanggal invoice';
-
-      // Identitas Dokumen
-      const prefix = currentInvoiceType === 'penawaran' ? 'QUO-CSK' : 'INV-CSK';
-      const cleanId = String(p.id).slice(-4);
-      document.getElementById('inv-doc-no').innerText = prefix + '-' + new Date().getFullYear() + '-' + cleanId;
+      document.getElementById('inv-doc-no').innerText = invoiceDocumentNumber(p, currentInvoiceType, today);
       document.getElementById('inv-doc-date').innerText = todayStr;
-      document.getElementById('inv-doc-due').innerText = dueDate;
+      document.getElementById('inv-doc-due').innerText = dueDate.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
 
-      // Klien Info
       document.getElementById('inv-client-name').innerText = p.client || 'Klien CSK';
-      const matchedClient = db.clients.find(c => c.name.toLowerCase() === (p.client || '').toLowerCase());
+      const matchedClient = (db.clients || []).find(c => String(c.name || '').toLowerCase() === String(p.client || '').toLowerCase());
       document.getElementById('inv-client-phone').innerText = matchedClient ? (matchedClient.phone || '-') : '-';
       document.getElementById('inv-proj-status').innerText = p.title || 'Pekerjaan Produksi';
-      document.getElementById('inv-proj-deadline').innerText = 'Deadline: ' + (p.deadline || '-');
+      document.getElementById('inv-proj-deadline').innerText = 'Target Delivery: ' + (p.deadline || '-');
 
-      // Table Item & Kalkulasi
-      const tbody = document.getElementById('inv-items-body');
-      let itemTitle = p.title;
-      let billAmount = totalVal;
+      const isQuotation = currentInvoiceType === 'penawaran';
+      const paidRow = document.getElementById('inv-paid-row');
+      if (paidRow) paidRow.style.display = isQuotation ? 'none' : 'flex';
+      const paidTotal = document.getElementById('inv-paid-total');
+      if (paidTotal) paidTotal.innerText = formatRp(summary.paid);
+
       let badgeText = 'INVOICE DP 50%';
       let badgeClass = 'bg-amber-500 text-slate-950';
-
       if (currentInvoiceType === 'dp') {
-        billAmount = Math.round(totalVal * 0.5);
-        badgeText = 'INVOICE DP 50%';
-        badgeClass = 'bg-amber-500 text-slate-950';
-        document.getElementById('inv-calc-label').innerText = 'Down Payment (DP 50%):';
-        document.getElementById('inv-calc-sub').innerText = formatRp(billAmount);
+        badgeText = summary.billAmount > 0 ? (summary.paid > 0 ? 'INVOICE SISA DP 50%' : 'INVOICE DP 50%') : 'DP 50% SUDAH TERPENUHI';
+        document.getElementById('inv-calc-label').innerText = 'Target DP 50%:';
+        document.getElementById('inv-calc-sub').innerText = formatRp(summary.dpTarget);
       } else if (currentInvoiceType === 'pelunasan') {
-        billAmount = totalVal; // Pelunasan total
-        badgeText = 'INVOICE PELUNASAN';
+        badgeText = summary.billAmount > 0 ? 'INVOICE PELUNASAN' : 'PELUNASAN SUDAH LUNAS';
         badgeClass = 'bg-emerald-600 text-white';
-        document.getElementById('inv-calc-label').innerText = 'Pelunasan Akhir (100%):';
-        document.getElementById('inv-calc-sub').innerText = formatRp(billAmount);
+        document.getElementById('inv-calc-label').innerText = 'Sisa setelah pembayaran:';
+        document.getElementById('inv-calc-sub').innerText = formatRp(summary.remaining);
       } else {
-        billAmount = totalVal;
         badgeText = 'SURAT PENAWARAN (QUO)';
         badgeClass = 'bg-[#1C2333] text-white';
         document.getElementById('inv-calc-label').innerText = 'Estimasi Investasi Proyek:';
-        document.getElementById('inv-calc-sub').innerText = formatRp(billAmount);
+        document.getElementById('inv-calc-sub').innerText = formatRp(summary.total);
       }
 
       const badgeEl = document.getElementById('inv-doc-badge');
       badgeEl.innerText = badgeText;
       badgeEl.className = 'inline-block px-3 py-1 rounded font-extrabold text-xs uppercase tracking-wider mb-2 ' + badgeClass;
 
-      tbody.innerHTML = '<tr>' +
+      // Do not expose internal project notes or HPP on a customer-facing document.
+      document.getElementById('inv-items-body').innerHTML = '<tr>' +
         '<td class="py-3 px-3 font-semibold text-slate-900">' +
-          '<div>' + itemTitle + '</div>' +
-          (p.notes ? '<div class="text-[11px] font-normal text-slate-500 mt-0.5">' + p.notes + '</div>' : '') +
-          '<div class="text-[10px] text-amber-700 mt-1">&bull; Termasuk fabrikasi, perakitan, dan quality-control standar workshop CSK Serpong</div>' +
+          '<div>' + escapeHtml(p.title || 'Pekerjaan Produksi') + '</div>' +
+          '<div class="text-[10px] text-slate-500 mt-1">Ruang lingkup mengikuti spesifikasi dan PO/SPK yang disepakati.</div>' +
         '</td>' +
         '<td class="py-3 px-3 text-center text-slate-600 font-semibold">1 Lot</td>' +
-        '<td class="py-3 px-3 text-right font-bold text-slate-900">' + formatRp(billAmount) + '</td>' +
+        '<td class="py-3 px-3 text-right font-bold text-slate-900">' + formatRp(summary.billAmount) + '</td>' +
       '</tr>';
 
-      document.getElementById('inv-calc-total').innerText = formatRp(totalVal);
-      document.getElementById('inv-calc-grand').innerText = formatRp(billAmount);
+      document.getElementById('inv-calc-total').innerText = formatRp(summary.total);
+      document.getElementById('inv-calc-grand').innerText = formatRp(summary.billAmount);
     }
 
     function copyInvoiceWA() {
       if (!currentActiveProject) return;
       const p = currentActiveProject;
-      const totalVal = Number(p.value || 0);
-      const isDP = currentInvoiceType === 'dp';
-      const isQuo = currentInvoiceType === 'penawaran';
-      const billAmount = isDP ? Math.round(totalVal * 0.5) : totalVal;
-      const docType = isQuo ? 'Penawaran Resmi' : (isDP ? 'Invoice DP 50%' : 'Invoice Pelunasan');
+      const summary = calculateProjectInvoiceSummary(p, db.finance || [], currentInvoiceType);
+      const isQuotation = currentInvoiceType === 'penawaran';
+      const docType = isQuotation ? 'Penawaran Resmi' : (currentInvoiceType === 'dp' ? 'Invoice DP 50%' : 'Invoice Pelunasan');
       const docNo = document.getElementById('inv-doc-no').innerText;
-
-      const waText = 
+      let waText =
         '*' + docType.toUpperCase() + ' — CAHAYA SELATAN KREASINDO*\n' +
         'No: ' + docNo + '\n' +
         'Klien: ' + p.client + '\n' +
         'Pekerjaan: ' + p.title + '\n' +
-        '------------------------------------\n' +
-        (isDP ? 'Total Nilai Proyek: ' + formatRp(totalVal) + '\n' : '') +
-        '*Jumlah Tagihan: ' + formatRp(billAmount) + '*\n' +
-        '------------------------------------\n' +
-        '*Pembayaran Transfer ke Rekening Resmi:*\n' +
-        'Bank Jago Syariah\n' +
-        'No. Rek: *508705048143*\n' +
-        'A/n: Zefry dany adi syahputra\n\n' +
-        'Mohon kirimkan bukti transfer jika pembayaran sudah dilakukan ya Kak.\n' +
-        'Terima kasih atas kerja samanya!\n\n' +
+        'Nilai kontrak: ' + formatRp(summary.total) + '\n';
+      if (!isQuotation) waText += 'Pembayaran diterima dan tertaut: ' + formatRp(summary.paid) + '\n';
+      waText += '------------------------------------\n' +
+        '*Jumlah Tagihan Saat Ini: ' + formatRp(summary.billAmount) + '*\n' +
+        '------------------------------------\n';
+      if (!isQuotation && summary.billAmount > 0) {
+        waText += '*Pembayaran Transfer ke Rekening Resmi:*\n' +
+          'Bank Jago Syariah\n' +
+          'No. Rek: *508705048143*\n' +
+          'A/n: Zefry dany adi syahputra\n\n' +
+          'Mohon kirimkan bukti transfer setelah pembayaran dilakukan.\n';
+      }
+      waText += 'Terima kasih atas kerja samanya!\n\n' +
         'Salam,\n' +
         '*Zefry Dany*\n' +
         'Cahaya Selatan Kreasindo (CSK)\n' +
         'cahayaselatankreasindo.my.id';
 
       navigator.clipboard.writeText(waText).then(() => {
-        showToast('Teks tagihan WhatsApp berhasil disalin!');
+        showToast('Teks dokumen WhatsApp berhasil disalin!');
       }).catch(() => {
         showToast('Gagal menyalin teks WhatsApp', true);
       });
@@ -2082,7 +2607,8 @@
         date: document.getElementById('fin-date').value,
         category: document.getElementById('fin-category').value,
         amount: Number(document.getElementById('fin-amount').value || 0),
-        description: document.getElementById('fin-desc').value
+        description: document.getElementById('fin-desc').value,
+        projectId: document.getElementById('fin-project').value || ''
       };
       db.finance.unshift(fin);
       saveDB();
@@ -2093,8 +2619,10 @@
 
     function deleteFinance(id) {
       if (confirm('Hapus transaksi ini?')) {
-        db.finance = db.finance.filter(f => f.id !== id);
+        addLocalDeletion('Finance', id);
+        db.finance = db.finance.filter(f => String(f.id) !== String(id));
         saveDB();
+        deleteOnCloud('Finance', id);
         showToast('Transaksi dihapus.');
       }
     }
@@ -2120,8 +2648,10 @@
 
     function deleteMarketing(id) {
       if (confirm('Hapus campaign ini?')) {
-        db.marketingSpend = db.marketingSpend.filter(m => m.id !== id);
+        addLocalDeletion('Marketing_Spend', id);
+        db.marketingSpend = db.marketingSpend.filter(m => String(m.id) !== String(id));
         saveDB();
+        deleteOnCloud('Marketing_Spend', id);
         showToast('Campaign dihapus.');
       }
     }
@@ -2144,8 +2674,10 @@
 
     function deleteMemory(id) {
       if (confirm('Hapus catatan ini?')) {
-        db.memory = db.memory.filter(m => m.id !== id);
+        addLocalDeletion('Memory', id);
+        db.memory = db.memory.filter(m => String(m.id) !== String(id));
         saveDB();
+        deleteOnCloud('Memory', id);
         showToast('Catatan dihapus.');
       }
     }
@@ -2164,8 +2696,11 @@
       db.settings.googleSheetUrl = url;
       db.settings.apiToken = token;
       localStorage.setItem(DB_KEY, JSON.stringify(db));
+      serverRole = 'unknown';
+      updateRoleControls();
       updateCloudIndicator();
-      showToast('URL & token berhasil disimpan!');
+      applyRoleUI();
+      showToast(token ? 'URL & token tersimpan. Tarik data untuk memverifikasi hak akses.' : 'URL tersimpan, tetapi token akses wajib diisi.', !token);
     }
 
     /** Helper: ambil token akses (untuk disisipkan ke request). */
@@ -2176,21 +2711,27 @@
     function updateCloudIndicator() {
       const dot = document.getElementById('cloud-indicator');
       const text = document.getElementById('cloud-status-text');
-      const isCloud = !!(db.settings && db.settings.googleSheetUrl);
+      const hasUrl = !!(db.settings && db.settings.googleSheetUrl);
+      const hasToken = !!(db.settings && db.settings.apiToken);
+      const isCloud = hasUrl && hasToken && (serverRole === 'owner' || serverRole === 'team');
       if (dot) dot.className = isCloud ? 'w-2.5 h-2.5 rounded-full bg-emerald-500' : 'w-2.5 h-2.5 rounded-full bg-slate-500';
-      if (text) text.innerText = isCloud ? 'Tersambung Google' : 'Lokal Offline';
+      if (text) text.innerText = !hasUrl ? 'Lokal Offline' : (!hasToken ? 'Token belum diisi' : (serverRole === 'unknown' ? 'Verifikasi akses' : 'Tersambung (' + serverRole + ')'));
     }
 
     async function syncWithGoogle(isSilent = false) {
       const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) {
+      if (!url || !getApiToken()) {
         if (!isSilent) {
-          alert('URL Google Sheets belum disetel!');
+          showToast('URL Google Sheets dan token akses wajib diisi di Pengaturan.', true);
           nav('settings');
         }
         return;
       }
 
+      if (serverRole !== 'owner' && serverRole !== 'team') {
+        if (!isSilent) showToast('Sinkronisasi ditahan sampai token diverifikasi oleh server.', true);
+        return;
+      }
       if (!isSilent) showToast('Mengirim data ke Google Sheets...');
       try {
         const payload = {
@@ -2201,20 +2742,24 @@
           projects: db.projects,
           finance: db.finance,
           memory: db.memory,
-          marketingSpend: db.marketingSpend
+          marketingSpend: db.marketingSpend,
+          costings: serverRole === 'owner' ? (db.costings || []) : undefined,
+          projectCosts: serverRole === 'owner' ? (db.projectCosts || []) : undefined,
+          deletedRecords: (db.deletedRecords || []).filter(item =>
+            serverRole === 'owner' || ['Leads', 'Clients', 'Projects'].includes(item.sheet)
+          )
         };
 
         await fetch(url, {
           method: 'POST',
           mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
         });
 
-        db.settings.lastSync = new Date().toLocaleString('id-ID');
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
-        updateCloudIndicator();
-        if (!isSilent) showToast('Data berhasil dikirim ke Google Sheets!');
+        // no-cors hanya memastikan request dikirim browser, bukan membuktikan server
+        // berhasil memprosesnya. Status akan diverifikasi saat data ditarik kembali.
+        if (!isSilent) showToast('Permintaan sinkronisasi dikirim. Tarik data untuk memverifikasi hasilnya.');
       } catch (err) {
         if (!isSilent) showToast('Gagal sinkron: ' + err.message, true);
       }
@@ -2226,8 +2771,8 @@
      */
     async function pullData() {
       const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) {
-        alert('URL Google Sheets belum disetel! Buka Pengaturan dulu.');
+      if (!url || !getApiToken()) {
+        showToast('URL Google Sheets dan token akses wajib diisi di Pengaturan.', true);
         nav('settings');
         return;
       }
@@ -2240,17 +2785,26 @@
         if (json.status !== 'success' || !json.data) throw new Error('Respon tidak valid dari server.');
 
         const d = json.data;
+        serverRole = d.role || json.role || 'team';
+        db.deletedRecords = mergeDeletedRecords(d.deletedRecords, db.deletedRecords);
         db.leads          = d.leads          || [];
         db.clients        = d.clients        || [];
         db.projects       = d.projects       || [];
-        db.finance        = d.finance        || [];
-        db.memory         = d.memory         || [];
-        db.marketingSpend = d.marketingSpend || [];
+        db.finance        = serverRole === 'owner' ? (d.finance || []) : [];
+        db.memory         = serverRole === 'owner' ? (d.memory || []) : [];
+        db.marketingSpend = serverRole === 'owner' ? (d.marketingSpend || []) : [];
+        db.costings = serverRole === 'owner' ? (d.costings || []) : [];
+        db.projectCosts = serverRole === 'owner' ? (d.projectCosts || []) : [];
+        if (serverRole === 'team') db.role = 'team';
+        applyDeletedRecords();
         db.settings.lastSync = d.lastSynced || new Date().toISOString();
 
         localStorage.setItem(DB_KEY, JSON.stringify(db));
+        updateRoleControls();
+        applyRoleUI();
         updateCloudIndicator();
         renderAll();
+        if (db.deletedRecords.length) syncWithGoogle(true);
         showToast('Data berhasil ditarik dari cloud! (' + new Date().toLocaleTimeString('id-ID') + ')');
       } catch (err) {
         showToast('Gagal menarik data: ' + err.message, true);
@@ -2264,12 +2818,25 @@
      */
     async function pullAndMerge() {
       const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) return;
+      if (!url || !getApiToken()) return;
       try {
         const resp = await fetch(url + '?token=' + encodeURIComponent(getApiToken()));
         const json = await resp.json();
         if (json.status !== 'success' || !json.data) return;
         const d = json.data;
+        const serverDeletedRecords = Array.isArray(d.deletedRecords) ? d.deletedRecords : [];
+        const localDeletedRecords = Array.isArray(db.deletedRecords) ? db.deletedRecords.slice() : [];
+        const serverDeletedKeys = new Set(serverDeletedRecords.map(item => deletionKey(item.sheet, item.id)));
+        serverRole = d.role || json.role || 'team';
+        db.deletedRecords = mergeDeletedRecords(serverDeletedRecords, localDeletedRecords);
+        if (serverRole === 'team') {
+          db.role = 'team';
+          db.finance = [];
+          db.memory = [];
+          db.marketingSpend = [];
+          db.costings = [];
+          db.projectCosts = [];
+        }
 
         // Gabungkan: cloud + lokal, dedupe by id (lokal menang jika sama)
         const mergeById = (cloudArr, localArr) => {
@@ -2282,14 +2849,34 @@
         db.leads          = mergeById(d.leads, db.leads);
         db.clients        = mergeById(d.clients, db.clients);
         db.projects       = mergeById(d.projects, db.projects);
-        db.finance        = mergeById(d.finance, db.finance);
-        db.memory         = mergeById(d.memory, db.memory);
-        db.marketingSpend = mergeById(d.marketingSpend, db.marketingSpend);
+        if (serverRole === 'owner') {
+          db.finance        = mergeById(d.finance, db.finance);
+          db.memory         = mergeById(d.memory, db.memory);
+          db.marketingSpend = mergeById(d.marketingSpend, db.marketingSpend);
+          db.costings = mergeById(d.costings, db.costings);
+          db.projectCosts = mergeById(d.projectCosts, db.projectCosts);
+        } else {
+          db.finance = [];
+          db.memory = [];
+          db.marketingSpend = [];
+          db.costings = [];
+          db.projectCosts = [];
+        }
+        applyDeletedRecords();
         db.settings.lastSync = d.lastSynced || new Date().toISOString();
 
         localStorage.setItem(DB_KEY, JSON.stringify(db));
+        updateRoleControls();
+        applyRoleUI();
         renderAll();
         updateCloudIndicator();
+
+        localDeletedRecords.forEach(item => {
+          if (!serverDeletedKeys.has(deletionKey(item.sheet, item.id)) &&
+              (serverRole === 'owner' || ['Leads', 'Clients', 'Projects'].includes(item.sheet))) {
+            deleteOnCloud(item.sheet, item.id);
+          }
+        });
       } catch (err) {
         // Diamkan — offline tidak boleh mengganggu aplikasi
         console.warn('pullAndMerge gagal (offline?):', err.message);

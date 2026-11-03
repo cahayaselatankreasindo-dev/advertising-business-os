@@ -15,10 +15,9 @@
  * 5. Marketing_Spend-> Pilar Pemasaran (Biaya & Performa Iklan) — TAB BARU
  *
  * OTOMATISASI PILLAR (autoTriggerPillars):
- * - Dipicu setelah setiap sync_all atau update_status 'won'/'Deal Menang'
- * - Menulis baris Pendapatan ke Finance (kategori DP Proyek, token [LEAD-{id}])
- * - Menulis baris Antrean ke Projects (status plan, token [LEAD-{id}])
- * - Idempoten: tidak membuat duplikat jika dijalankan berulang
+ * - Dipicu setelah sync_all atau update_status 'won'/'Deal Menang'
+ * - Membuat/menautkan Client dan antrean Project secara idempoten
+ * - Tidak membuat transaksi Finance; pendapatan hanya dicatat setelah pembayaran diterima
  *
  * CARA PEMASANGAN (HANYA 2 MENIT):
  * 1. Buat Google Spreadsheet baru di Google Drive Anda (Beri nama: "Database CSK Business OS").
@@ -64,8 +63,8 @@ var FIELD_MAP = {
     fields:  ["id", "title", "client", "value", "status", "deadline", "notes", "sopChecklist", "pic"]
   },
   Finance: {
-    headers: ["ID", "Tanggal", "Tipe", "Kategori", "Nominal", "Keterangan"],
-    fields:  ["id", "date", "type", "category", "amount", "description"]
+    headers: ["ID", "Tanggal", "Tipe", "Kategori", "Nominal", "Keterangan", "ProjectID"],
+    fields:  ["id", "date", "type", "category", "amount", "description", "projectId"]
   },
   Memory: {
     headers: ["ID", "Tanggal", "Kategori", "Judul", "Isi"],
@@ -74,6 +73,14 @@ var FIELD_MAP = {
   Marketing_Spend: {
     headers: ["ID", "Tanggal", "Platform", "Kampanye", "Budget", "Terpakai", "LeadsDihasilkan", "Catatan"],
     fields:  ["id", "date", "platform", "campaign", "budget", "spent", "leadsGenerated", "notes"]
+  },
+  Costings: {
+    headers: ["ID", "Tanggal", "Klien", "NamaPekerjaan", "ModelProduksi", "LeadID", "ItemsJSON", "BiayaLangsung", "OverheadPersen", "OverheadNominal", "CadanganPersen", "CadanganNominal", "HPP", "MarginPersen", "HargaPenawaran", "Status", "ProjectID", "Catatan", "NomorQuotation", "VersiQuotation", "MasaBerlakuHari", "WaktuPengerjaanHari", "SyaratPembayaran", "RuangLingkup", "DisetujuiPada", "POConfirmedAt", "RiwayatQuotationJSON", "DikirimPada"],
+    fields:  ["id", "date", "client", "title", "productionModel", "leadId", "itemsJson", "directCost", "overheadPct", "overheadAmount", "contingencyPct", "contingencyAmount", "hpp", "marginPct", "sellingPrice", "status", "projectId", "notes", "quoteNo", "quoteVersion", "validityDays", "deliveryDays", "paymentTerms", "scope", "approvedAt", "poConfirmedAt", "quoteHistoryJson", "sentAt"]
+  },
+  Project_Costs: {
+    headers: ["ID", "Tanggal", "ProjectID", "Kategori", "Sumber", "Deskripsi", "Vendor", "Qty", "HargaSatuan", "Nominal", "StatusPembayaran", "Referensi", "Catatan"],
+    fields:  ["id", "date", "projectId", "category", "source", "description", "vendor", "qty", "unitCost", "amount", "paymentStatus", "reference", "notes"]
   }
 };
 var RATING_REVIEW_SEP = " | ";
@@ -182,8 +189,12 @@ function setupSheet() {
   const marketingHeaders = ["ID", "Tanggal", "Platform", "Kampanye", "Budget", "Terpakai", "LeadsDihasilkan", "Catatan"];
   ensureSheet(ss, "Marketing_Spend", marketingHeaders);
 
-  // Migrasi skema: rapi-kan dulu kolom duplikat, lalu pastikan kolom kontrak ada.
-  // Urutan penting: dedupe dulu (mis. "TANGGAL" & "Tanggal" dobel), baru tambah yang kurang.
+  // Tab Commercial Engine dan Project Cost Ledger — tab lama tidak diubah.
+  ensureSheet(ss, "Costings", FIELD_MAP.Costings.headers);
+  ensureSheet(ss, "Project_Costs", FIELD_MAP.Project_Costs.headers);
+
+  // Migrasi skema non-destruktif: header duplikat/kosong diberi nama legacy.
+  // Kolom dan nilai tetap dipertahankan; kolom kontrak yang kurang ditambah di kanan.
   Object.keys(FIELD_MAP).forEach(function (name) {
     dedupeHeaders(ss, name);
   });
@@ -258,42 +269,38 @@ function ensureAllHeaders(ss, sheetName) {
 // Menyimpan kemunculan PERTAMA saja; kolom duplikat dihapus.
 // Sekaligus merapikan urutan jadi persis FIELD_MAP.headers (jika tab kontrak).
 // Aman: data kolom yang dipertahankan ikut dipindah, isi tidak hilang.
+// Normalize duplicate/blank headers without deleting or moving any column.
+// Duplicate columns are renamed __LEGACY_N; blank headers get CSK_Legacy_Column_N.
 function dedupeHeaders(ss, sheetName) {
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() === 0) return 0;
-
   var lastCol = sheet.getLastColumn();
-  if (lastCol <= 1) return 0;
+  if (lastCol <= 0) return 0;
 
   var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-  var seen = {};
-  var keepCols = []; // index kolom (0-based) yang dipertahankan
-
-  headerRow.forEach(function (h, i) {
-    var key = String(h).trim().toLowerCase();
-    if (key === "") return;                 // kolom tanpa judul -> buang
-    if (seen[key]) return;                  // duplikat -> buang
-    seen[key] = true;
-    keepCols.push(i);
+  var used = {};
+  var renamed = 0;
+  headerRow.forEach(function (header, index) {
+    var original = String(header == null ? "" : header).trim();
+    var candidate = original;
+    if (!original) {
+      candidate = "CSK_Legacy_Column_" + (index + 1);
+    } else if (used[original.toLowerCase()]) {
+      var suffix = 2;
+      candidate = original + "__LEGACY_" + suffix;
+      while (used[candidate.toLowerCase()]) {
+        suffix++;
+        candidate = original + "__LEGACY_" + suffix;
+      }
+    }
+    used[candidate.toLowerCase()] = true;
+    if (candidate !== original) {
+      sheet.getRange(1, index + 1).setValue(candidate);
+      renamed++;
+    }
   });
-
-  if (keepCols.length === lastCol) return 0; // tidak ada duplikat
-
-  // Ambil seluruh data, lalu tulis ulang hanya kolom yang dipertahankan.
-  var data = sheet.getDataRange().getValues();
-  var newRows = data.map(function (r) {
-    return keepCols.map(function (i) { return r[i]; });
-  });
-
-  sheet.clear();
-  sheet.getRange(1, 1, newRows.length, newRows[0].length).setValues(newRows);
-  sheet.getRange(1, 1, 1, newRows[0].length)
-    .setFontWeight("bold").setBackground("#1C2333").setFontColor("#FFFFFF");
-  sheet.setFrozenRows(1);
-
-  var removed = lastCol - keepCols.length;
-  Logger.log("dedupeHeaders[" + sheetName + "]: hapus " + removed + " kolom duplikat.");
-  return removed;
+  if (renamed) Logger.log("dedupeHeaders[" + sheetName + "]: rename " + renamed + " header; no columns or values deleted.");
+  return renamed;
 }
 
 function findRowById(sheet, id) {
@@ -323,63 +330,151 @@ function readSheetData(ss, sheetName) {
   });
 }
 
-// ============== KEAMANAN: TOKEN API ==============
-// Token disimpan di Script Properties (BUKAN di kode/repo).
-// Set sekali lewat menu editor: jalankan fungsi setupApiToken().
-// Selama token belum diset, sistem berjalan TANPA proteksi (mode kompatibel).
-function getApiToken() {
-  return PropertiesService.getScriptProperties().getProperty("API_TOKEN") || "";
+// ============== KEAMANAN: TOKEN API & ROLE SERVER ==============
+// Token disimpan di Script Properties, bukan di source code atau repository.
+// OWNER_API_TOKEN memiliki akses penuh; TEAM_API_TOKEN hanya boleh mengakses
+// Leads, Clients, dan Projects. Tidak ada akses jika token belum dikonfigurasi.
+function getApiTokens() {
+  var props = PropertiesService.getScriptProperties();
+  return {
+    owner: props.getProperty("OWNER_API_TOKEN") || props.getProperty("API_TOKEN") || "",
+    team: props.getProperty("TEAM_API_TOKEN") || ""
+  };
+}
+
+function generateApiToken_() {
+  return Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
 }
 
 /**
- * Set/ubah token API. Jalankan sekali dari editor Apps Script.
- * Ganti nilai di bawah dengan token rahasia Anda (minimal 20 karakter acak).
+ * Jalankan sekali dari Apps Script Editor setelah deployment.
+ * Salin kedua token dari Execution log ke perangkat Owner dan Tim masing-masing.
+ * Fungsi ini merotasi token lama dan menghapus API_TOKEN legacy.
  */
+function setupApiTokens() {
+  var props = PropertiesService.getScriptProperties();
+  var ownerToken = generateApiToken_();
+  var teamToken = generateApiToken_();
+  props.setProperty("OWNER_API_TOKEN", ownerToken);
+  props.setProperty("TEAM_API_TOKEN", teamToken);
+  props.deleteProperty("API_TOKEN");
+  Logger.log("OWNER TOKEN (akses penuh): " + ownerToken);
+  Logger.log("TEAM TOKEN (Leads, Clients, Projects): " + teamToken);
+  return { ownerToken: ownerToken, teamToken: teamToken };
+}
+
 function setupApiToken() {
-  var token = "GANTI-DENGAN-TOKEN-RAHASIA-ANDA";
-  PropertiesService.getScriptProperties().setProperty("API_TOKEN", token);
-  Logger.log("API_TOKEN diset. Simpan token ini di app (Pengaturan → Token Akses).");
+  return setupApiTokens();
 }
 
-/**
- * Cek token dari request. Return true jika valid ATAU token belum diset
- * (mode kompatibel agar tidak memutus app lama).
- */
-function isAuthorized(payloadOrEvent, tokenParam) {
-  var expected = getApiToken();
-  if (expected === "") return true; // belum diaktifkan -> izinkan (kompatibel)
+function secureTokenEquals_(provided, expected) {
+  provided = String(provided || "");
+  expected = String(expected || "");
+  if (!provided || !expected || provided.length !== expected.length) return false;
+  var diff = 0;
+  for (var i = 0; i < expected.length; i++) diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
 
+function getRequestRole(payloadOrEvent, tokenParam) {
+  var tokens = getApiTokens();
   var provided = "";
-  if (payloadOrEvent && typeof payloadOrEvent === "object") {
-    provided = payloadOrEvent.token || "";
-  }
+  if (payloadOrEvent && typeof payloadOrEvent === "object") provided = payloadOrEvent.token || "";
   if (!provided && tokenParam) provided = tokenParam;
-  return String(provided) === String(expected);
+  if (secureTokenEquals_(provided, tokens.owner)) return "owner";
+  if (secureTokenEquals_(provided, tokens.team)) return "team";
+  return "";
+}
+
+function isAuthorized(payloadOrEvent, tokenParam) {
+  return getRequestRole(payloadOrEvent, tokenParam) !== "";
+}
+
+function isSheetAllowedForRole_(role, sheetName) {
+  var ownerSheets = Object.keys(FIELD_MAP);
+  var teamSheets = ["Leads", "Clients", "Projects"];
+  var allowed = role === "owner" ? ownerSheets : (role === "team" ? teamSheets : []);
+  return allowed.indexOf(sheetName) !== -1;
 }
 
 function unauthorizedResponse() {
-  return jsonResponse({ status: "error", message: "Tidak diizinkan: token akses salah atau kosong." });
+  return jsonResponse({ status: "error", message: "Tidak diizinkan: token akses tidak valid atau belum dikonfigurasi." });
+}
+
+function forbiddenResponse(message) {
+  return jsonResponse({ status: "error", message: message || "Role ini tidak memiliki izin untuk operasi tersebut." });
+}
+
+// ============== SOFT DELETE / TOMBSTONE LEDGER ==============
+var DELETION_LEDGER_SHEET = "_CSK_Deleted";
+var DELETION_LEDGER_HEADERS = ["Sheet", "ID", "DeletedAt"];
+
+function ensureDeletionLedger_(ss) {
+  return ensureSheet(ss, DELETION_LEDGER_SHEET, DELETION_LEDGER_HEADERS);
+}
+
+function readDeletedRecords_(ss, role) {
+  var sheet = ss.getSheetByName(DELETION_LEDGER_SHEET);
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+  var rows = sheet.getDataRange().getValues();
+  var allowed = role === "owner" ? Object.keys(FIELD_MAP) : ["Leads", "Clients", "Projects"];
+  var result = [];
+  for (var i = 1; i < rows.length; i++) {
+    var sheetName = String(rows[i][0] || "").trim();
+    var id = String(rows[i][1] || "").trim();
+    if (!sheetName || !id || allowed.indexOf(sheetName) === -1) continue;
+    result.push({ sheet: sheetName, id: id, deletedAt: rows[i][2] || "" });
+  }
+  return result;
+}
+
+function recordDeletedRecord_(ss, sheetName, id) {
+  if (!FIELD_MAP[sheetName]) throw new Error("Tab tidak dikenal untuk penghapusan: " + sheetName);
+  id = String(id === undefined || id === null ? "" : id).trim();
+  if (!id) throw new Error("ID penghapusan tidak boleh kosong.");
+  var ledger = ensureDeletionLedger_(ss);
+  var values = ledger.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][0]).trim() === sheetName && String(values[i][1]).trim() === id) {
+      return { inserted: false, sheet: sheetName, id: id };
+    }
+  }
+  ledger.appendRow([sheetName, id, new Date().toISOString()]);
+  return { inserted: true, sheet: sheetName, id: id };
+}
+
+function getDeletedRecordSet_(ss, sheetName) {
+  var records = readDeletedRecords_(ss, "owner");
+  var deleted = {};
+  records.forEach(function (record) {
+    if (record.sheet === sheetName) deleted[String(record.id)] = true;
+  });
+  return deleted;
 }
 
 // ============== GET — TARIK DATA SEMUA TAB ==============
 
 function doGet(e) {
   try {
-    // Proteksi token (via query string ?token=...)
     var tokenParam = (e && e.parameter) ? e.parameter.token : "";
-    if (!isAuthorized(null, tokenParam)) return unauthorizedResponse();
+    var role = getRequestRole(null, tokenParam);
+    if (!role) return unauthorizedResponse();
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const result = {
       leads: readSheetData(ss, "Leads"),
       clients: readSheetData(ss, "Clients"),
       projects: readSheetData(ss, "Projects"),
-      finance: readSheetData(ss, "Finance"),
-      memory: readSheetData(ss, "Memory"),
-      marketingSpend: readSheetData(ss, "Marketing_Spend"),
-      lastSynced: new Date().toISOString()
+      finance: role === "owner" ? readSheetData(ss, "Finance") : [],
+      memory: role === "owner" ? readSheetData(ss, "Memory") : [],
+      marketingSpend: role === "owner" ? readSheetData(ss, "Marketing_Spend") : [],
+      costings: role === "owner" ? readSheetData(ss, "Costings") : [],
+      projectCosts: role === "owner" ? readSheetData(ss, "Project_Costs") : [],
+      deletedRecords: readDeletedRecords_(ss, role),
+      lastSynced: new Date().toISOString(),
+      role: role
     };
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", data: result }))
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", data: result, role: role }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
@@ -393,8 +488,8 @@ function doPost(e) {
   try {
     const payload = JSON.parse(e.postData.contents);
 
-    // Proteksi token (via field payload.token)
-    if (!isAuthorized(payload)) return unauthorizedResponse();
+    var role = getRequestRole(payload);
+    if (!role) return unauthorizedResponse();
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const action = (payload.action || "").toLowerCase();
@@ -405,24 +500,50 @@ function doPost(e) {
       // Aman: lead yang sudah ada di Sheets tetap tersimpan; hanya ditambah/diupdate.
       case "sync_all": {
         var mergeSummary = {};
-        if (payload.leads)          mergeSummary.Leads           = mergeSheet(ss, "Leads",           payload.leads);
-        if (payload.clients)        mergeSummary.Clients         = mergeSheet(ss, "Clients",         payload.clients);
-        if (payload.projects)       mergeSummary.Projects        = mergeSheet(ss, "Projects",        payload.projects);
-        if (payload.finance)        mergeSummary.Finance         = mergeSheet(ss, "Finance",         payload.finance);
-        if (payload.memory)         mergeSummary.Memory          = mergeSheet(ss, "Memory",          payload.memory);
-        if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
-        // Setelah sinkronisasi, cek apakah ada lead baru yang won
+        var deletionSummary = { inserted: 0, skipped: 0 };
+        (payload.deletedRecords || []).forEach(function (record) {
+          if (!record || !record.sheet || record.id === undefined || record.id === null) {
+            deletionSummary.skipped++;
+            return;
+          }
+          if (!isSheetAllowedForRole_(role, record.sheet)) {
+            deletionSummary.skipped++;
+            return;
+          }
+          var saved = recordDeletedRecord_(ss, record.sheet, record.id);
+          if (saved.inserted) deletionSummary.inserted++;
+          else deletionSummary.skipped++;
+          var targetSheet = ss.getSheetByName(record.sheet);
+          if (targetSheet) {
+            var targetRow = findRowById(targetSheet, record.id);
+            if (targetRow > 1) targetSheet.deleteRow(targetRow);
+          }
+        });
+        if (payload.leads)    mergeSummary.Leads    = mergeSheet(ss, "Leads", payload.leads);
+        if (payload.clients)  mergeSummary.Clients  = mergeSheet(ss, "Clients", payload.clients);
+        if (payload.projects) mergeSummary.Projects = mergeSheet(ss, "Projects", payload.projects);
+        if (role === "owner") {
+          if (payload.finance)        mergeSummary.Finance         = mergeSheet(ss, "Finance", payload.finance);
+          if (payload.memory)         mergeSummary.Memory          = mergeSheet(ss, "Memory", payload.memory);
+          if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
+          if (payload.costings)      mergeSummary.Costings       = mergeSheet(ss, "Costings", payload.costings);
+          if (payload.projectCosts)  mergeSummary.Project_Costs  = mergeSheet(ss, "Project_Costs", payload.projectCosts);
+        }
+        // Otomasi hanya membuat Client/Project; tidak pernah mencatat pendapatan.
         autoTriggerPillars(ss);
-        return jsonResponse({ status: "success", message: "Data di-merge (tidak ada yang dihapus)", summary: mergeSummary });
+        return jsonResponse({ status: "success", message: "Data di-merge sesuai hak akses; penghapusan dilindungi tombstone.", role: role, summary: mergeSummary, deletions: deletionSummary });
       }
 
       // --- delete: hapus 1 baris berdasarkan ID (dipakai tombol hapus di app) ---
       case "delete": {
         const sheetName = payload.sheet || "Leads";
         const delId = payload.id;
+        if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh menghapus data " + sheetName + ".");
         if (!delId) throw new Error("Parameter id diperlukan untuk aksi delete.");
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
+        // Simpan tombstone SEBELUM menghapus baris agar stale sync tidak dapat memulihkannya.
+        recordDeletedRecord_(ss, sheetName, delId);
         const rowNum = findRowById(sheet, delId);
         if (rowNum === -1) {
           return jsonResponse({ status: "success", message: "Baris " + delId + " tidak ada (sudah terhapus)." });
@@ -437,6 +558,10 @@ function doPost(e) {
         const data = payload.data || {};
         if (!sheetName || !data.id) {
           throw new Error("Parameter sheet dan data.id diperlukan untuk aksi insert.");
+        }
+        if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh menambahkan data " + sheetName + ".");
+        if (FIELD_MAP[sheetName] && getDeletedRecordSet_(ss, sheetName)[String(data.id)]) {
+          throw new Error("ID ini sudah dihapus. Gunakan ID baru untuk membuat record baru.");
         }
         ensureSheet(ss, sheetName, FIELD_MAP[sheetName] ? FIELD_MAP[sheetName].headers : []);
         if (FIELD_MAP[sheetName]) {
@@ -456,6 +581,7 @@ function doPost(e) {
         const sheetName = payload.sheet || "Leads";
         const id = payload.id;
         const status = payload.status;
+        if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh mengubah data " + sheetName + ".");
         if (!id || !status) throw new Error("Parameter id dan status diperlukan.");
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
@@ -476,6 +602,7 @@ function doPost(e) {
 
       // --- send_cold_email: kirim outreach resmi via Gmail dengan batas kuota 50 & opt-out ---
       case "send_cold_email": {
+        if (role !== "owner") return forbiddenResponse("Pengiriman email outreach hanya dapat dilakukan Owner.");
         const toEmail = (payload.toEmail || "").trim();
         const name = (payload.name || "Kak").trim();
         const brand = (payload.brand || "Brand").trim();
@@ -550,67 +677,92 @@ function doPost(e) {
 
 /**
  * autoTriggerPillars()
- * Menelusuri tab Leads untuk baris dengan status 'won' / 'Deal Menang' yang
- * belum pernah ditandai dengan token [LEAD-{id}]. Baris tersebut akan:
- *   1. Ditulis sebagai Pendapatan di tab Finance (kategori "DP Proyek")
- *   2. Ditulis sebagai antrean proyek baru di tab Projects (status "plan")
- * Fungsi ini IDEMPOTEN: baris yang sudah punya token tidak akan diduplikasi.
+ * Membuat Client dan antrean Project untuk Lead berstatus won.
+ * ID dan token lead stabil sehingga proses aman dijalankan berulang kali.
+ *
+ * PENTING: Deal menang bukan bukti pembayaran. Fungsi ini TIDAK membuat
+ * transaksi Finance. Owner mencatat DP/pelunasan hanya setelah dana diterima.
  */
 function autoTriggerPillars(ss, forceLeadId) {
   const leadsSheet = ss.getSheetByName("Leads");
-  if (!leadsSheet || leadsSheet.getLastRow() <= 1) return { financeCreated: 0, projectCreated: 0 };
+  if (!leadsSheet || leadsSheet.getLastRow() <= 1) {
+    return { clientCreated: 0, projectCreated: 0, projectLinked: 0, projectAmbiguous: 0, financeCreated: 0 };
+  }
 
   const leads = readSheetData(ss, "Leads");
-  let financeCreated = 0;
-  let projectCreated = 0;
+  const clients = readSheetData(ss, "Clients");
+  const projects = readSheetData(ss, "Projects");
+  const projectsSheet = ss.getSheetByName("Projects");
+  let clientCreated = 0, projectCreated = 0, projectLinked = 0, projectAmbiguous = 0;
 
   leads.forEach(lead => {
     if (!isDealMenang(lead.status)) return;
-    // Lewati jika ini bukan baris yang difokuskan (kalau forceLeadId diberikan)
     if (forceLeadId && String(lead.id).trim() !== String(forceLeadId).trim()) return;
 
-    const refToken = "[LEAD-" + lead.id + "]";
+    const leadId = String(lead.id).trim();
+    const token = "[LEAD-" + leadId + "]";
+    const name = String(lead.name || "").trim();
+    if (!name) return;
+    const normalizedName = name.toLowerCase();
 
-    // Cek duplikat di Finance
-    const financeAlreadyExists = hasTokenInSheet(ss, "Finance", refToken);
-    // Cek duplikat di Projects
-    const projectAlreadyExists = hasTokenInSheet(ss, "Projects", refToken);
-
-    // Tulis ke Finance jika belum ada
-    if (!financeAlreadyExists) {
-      const financeRow = {
-        id: "AUTO-FIN-" + Date.now(),
-        date: new Date().toISOString().slice(0, 10),
-        type: "income",
-        category: "DP Proyek",
-        amount: Number(lead.value) || 0,
-        description: "Auto (Deal Menang) " + (lead.name || "") + " " + refToken
+    if (!clients.some(c => String(c.name || "").trim().toLowerCase() === normalizedName)) {
+      const client = {
+        id: "AUTO-CLI-" + leadId, name: name, phone: lead.phone || "",
+        projectsCount: 1, totalSpend: 0, notes: "Dibuat otomatis dari Lead " + token,
+        rating: 0, review: ""
       };
-      insertRecord(ss, "Finance", financeRow, ["id","date","type","category","amount","description"]);
-      financeCreated++;
+      insertRecord(ss, "Clients", client);
+      clients.push(client);
+      clientCreated++;
     }
 
-    // Tulis ke Projects jika belum ada
-    if (!projectAlreadyExists) {
-      const deadlineDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
-      const projectRow = {
-        id: "AUTO-PRJ-" + Date.now(),
-        title: "Proyek " + (lead.name || ""),
-        client: lead.name || "",
+    let projectExists = hasTokenInSheet(ss, "Projects", token);
+    if (!projectExists) {
+      // Adopsi satu proyek manual yang cocok agar tidak membuat proyek kedua.
+      const targetValue = Number(lead.value) || 0;
+      const candidates = projects.filter(p =>
+        String(p.client || "").trim().toLowerCase() === normalizedName &&
+        Number(p.value || 0) === targetValue &&
+        String(p.notes || "").indexOf("[LEAD-") === -1
+      );
+
+      if (candidates.length === 1 && projectsSheet) {
+        const candidate = candidates[0];
+        const rowNum = findRowById(projectsSheet, candidate.id);
+        const headers = projectsSheet.getRange(1, 1, 1, projectsSheet.getLastColumn()).getValues()[0];
+        const notesCol = headers.findIndex(h => String(h).trim().toLowerCase() === "catatan") + 1;
+        if (rowNum > 1 && notesCol > 0) {
+          candidate.notes = (String(candidate.notes || "").trim() + " " + token).trim();
+          projectsSheet.getRange(rowNum, notesCol).setValue(candidate.notes);
+          projectExists = true;
+          projectLinked++;
+        }
+      } else if (candidates.length > 1) {
+        projectAmbiguous++;
+        Logger.log("Beberapa proyek cocok untuk Lead " + leadId + "; pembuatan baru dilewati.");
+        projectExists = true;
+      }
+    }
+
+    if (!projectExists) {
+      const project = {
+        id: "AUTO-PRJ-" + leadId,
+        title: "Proyek " + name,
+        client: name,
         value: Number(lead.value) || 0,
         status: "plan",
-        deadline: deadlineDate,
-        notes: "Antrean otomatis dari Lead [LEAD-" + lead.id + "]",
+        deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+        notes: "Antrean otomatis dari Lead " + token,
         sopChecklist: "Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0"
       };
-      insertRecord(ss, "Projects", projectRow, ["id","title","client","value","status","deadline","notes","sopChecklist"]);
+      insertRecord(ss, "Projects", project);
+      projects.push(project);
       projectCreated++;
     }
   });
 
-  return { financeCreated: financeCreated, projectCreated: projectCreated };
+  return { clientCreated, projectCreated, projectLinked, projectAmbiguous, financeCreated: 0 };
 }
-
 function hasTokenInSheet(ss, sheetName, token) {
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() <= 1) return false;
@@ -843,7 +995,21 @@ function mergeSheet(ss, sheetName, items) {
   }
 
   items = items || [];
-  var result = { inserted: 0, updated: 0, skipped: 0, total: items.length };
+  var result = { inserted: 0, updated: 0, skipped: 0, deleted: 0, total: items.length };
+  var deletedIds = getDeletedRecordSet_(ss, sheetName);
+
+  // Hapus baris lama yang sudah memiliki tombstone, termasuk jika payload kosong.
+  var existingLastRow = sheet.getLastRow();
+  if (existingLastRow > 1 && Object.keys(deletedIds).length) {
+    var existingIds = sheet.getRange(2, 1, existingLastRow - 1, 1).getValues();
+    for (var di = existingIds.length - 1; di >= 0; di--) {
+      var existingId = String(existingIds[di][0] || "").trim();
+      if (deletedIds[existingId]) {
+        sheet.deleteRow(di + 2);
+        result.deleted++;
+      }
+    }
+  }
   if (items.length === 0) return result;
 
   var lastRow = sheet.getLastRow();
@@ -873,11 +1039,12 @@ function mergeSheet(ss, sheetName, items) {
   }
 
   // Ubah record -> array nilai SEJAJAR dengan header AKTUAL sheet (by name, case-insensitive)
-  function buildRow(item) {
-    var contractRow = recordToRow(sheetName, item); // sejajar FIELD_MAP.headers
-    return headerRow.map(function (h) {
+  function buildRow(item, previousRow) {
+    var contractRow = recordToRow(sheetName, item);
+    return headerRow.map(function (h, columnIndex) {
       var pos = contractPos[String(h).trim().toLowerCase()];
-      return pos === undefined ? "" : contractRow[pos];
+      if (pos === undefined) return previousRow && previousRow[columnIndex] !== undefined ? previousRow[columnIndex] : "";
+      return contractRow[pos];
     });
   }
 
@@ -887,13 +1054,15 @@ function mergeSheet(ss, sheetName, items) {
   items.forEach(function (item) {
     var id = String(item.id === undefined || item.id === null ? "" : item.id).trim();
     if (id === "") { result.skipped++; return; }
+    if (deletedIds[id]) { result.skipped++; return; }
 
-    var newRow = buildRow(item);
+    var existingRow = idToRow[id] ? (dataRange[idToRow[id] - 2] || []) : null;
+    var newRow = buildRow(item, existingRow);
 
     if (idToRow[id]) {
       // Baris sudah ada di sheet -> update HANYA kolom yang berubah
       var rowIdx = idToRow[id] - 2; // index di dataRange
-      var oldRow = dataRange[rowIdx] || [];
+      var oldRow = existingRow || [];
       var changed = false;
       for (var c = 0; c < newRow.length; c++) {
         // Normalisasi angka vs string agar tidak update palsu

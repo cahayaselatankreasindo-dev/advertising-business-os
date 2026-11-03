@@ -1,12 +1,28 @@
-# Advertising Business OS — 5 Pilar Terpadu (v2)
+# CSK Business OS — Commercial & Operations (v3)
 
 Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertising / CSK**
 
-> **Versi 2.0** — Arsitektur 5 Pilar Bisnis Terpadu dengan otomasi antar-tab dan UI berjenjang hak akses.
+> **Versi 3.0 (pengembangan)** — lima pilar operasional ditambah Commercial Engine HPP & Quotation. Model operasi CSK: produksi hybrid (internal + vendor), owner-led, dan pemasaran hemat biaya (di bawah Rp1 juta/bulan).
 
 ---
 
 ## 📱 Fitur Utama Aplikasi
+
+### Commercial Engine — HPP & Quotation
+- Kalkulasi biaya material, tenaga internal, mesin, vendor, finishing, transportasi, dan instalasi.
+- Pemisahan sumber biaya internal dan vendor partner untuk model produksi hybrid.
+- Overhead, cadangan risiko, HPP, margin dari harga jual, dan pembulatan harga penawaran.
+- Pipeline quotation: Draft → Dikirim → Disetujui → PO/SPK dikonfirmasi, atau Ditolak.
+- Nomor quotation otomatis, masa berlaku, estimasi pengerjaan, ruang lingkup, syarat pembayaran, dan riwayat revisi.
+- Cetak quotation melalui browser ke PDF. Harga internal, HPP, dan margin tidak ditampilkan kepada pelanggan.
+- Persetujuan quotation tidak otomatis membuat proyek atau mencatat pendapatan; proyek baru dibuat/ditautkan setelah PO/SPK dikonfirmasi.
+- Data Costings disimpan di tab Google Sheets `Costings` dan hanya dapat diakses token Owner.
+
+### Project Cost Ledger
+- Biaya aktual per proyek disimpan di tab `Project_Costs`.
+- Catatan meliputi kategori, sumber internal/vendor, vendor, kuantitas, harga satuan, nominal, status pembayaran, referensi bukti, dan catatan.
+- Dashboard membandingkan HPP estimasi dengan biaya aktual tercatat. Varians biaya bukan otomatis laba bersih; pembayaran dan pendapatan harus direkonsiliasi di Finance.
+- Data hanya dapat diakses dan diubah oleh Owner.
 
 ### Pilar 1 — Leads CRM
 - Pencatatan calon klien dari WhatsApp, Instagram Ads, TikTok, dan Referensi
@@ -15,7 +31,7 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 
 ### Pilar 2 — Financial Journal
 - Pencatatan DP Proyek, Pelunasan, Retainer Iklan, Expense, dll
-- **Auto-trigger**: saat lead berubah jadi Deal Menang, skrip otomatis membuat baris pendapatan di tab Finance (kategori *DP Proyek*)
+- Pencatatan DP, termin, pelunasan, dan pengeluaran hanya berdasarkan transaksi aktual yang sudah diterima/dibayarkan.
 
 ### Pilar 3 — Production Projects
 - Pelacakan deadline, status Brief/Pengerjaan/Review/Selesai
@@ -26,6 +42,11 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - Database klien tetap dengan riwayat kerja sama & LTV
 - **Rating bintang (1–5)** dan **review teks** per klien
 - Indikator PMF melalui repeat order dan kepuasan
+
+### Model Operasi CSK
+- **Produksi:** hybrid — biaya internal dan vendor dicatat terpisah pada setiap HPP.
+- **Tim:** owner-led — CRM menampilkan follow-up dan pipeline untuk membantu Owner mengelola proses penjualan.
+- **Marketing:** anggaran di bawah Rp1 juta/bulan — prioritaskan SEO lokal, Google Business Profile, konten portofolio, referral, dan outbound terarah; iklan berbayar harus dibatasi dan diukur.
 
 ### Pilar 5 — Marketing Spend
 - Catatan biaya iklan per platform (Meta Ads, TikTok, Google, LinkedIn)
@@ -38,10 +59,10 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 
 | Role | Akses |
 |------|-------|
-| **Owner** | Semua menu, Keuangan, Riset, Marketing |
-| **Tim Kreatif / Admin** | Leads, Proyek, Klien — menu Keuangan & Marketing disembunyikan |
+| **Owner** | Semua modul dan seluruh operasi database |
+| **Tim Kreatif / Admin** | Leads, Clients, Projects; Finance, Memory, Marketing, dan cold email ditolak oleh backend |
 
-Pilih role via dropdown di pojok kiri atas (desktop) atau header (mobile).
+Hak akses ditentukan server berdasarkan token yang diverifikasi, bukan hanya dropdown browser. Dropdown hanya mengubah mode tampilan setelah server mengenali role.
 
 ---
 
@@ -49,11 +70,11 @@ Pilih role via dropdown di pojok kiri atas (desktop) atau header (mobile).
 
 Ketika status Lead diubah menjadi **Deal Menang**, sistem akan secara otomatis:
 
-1. ✅ Menulis baris **Pendapatan** ke tab Finance (kategori: DP Proyek)
-2. ✅ Menulis baris **Antrean Proyek** ke tab Projects (status: plan, deadline +14 hari)
-3. ✅ Menciptakan entri Klien baru jika belum ada
+1. ✅ Membuat entri Client jika belum ada.
+2. ✅ Membuat antrean Project (status: plan, deadline +14 hari) dengan referensi Lead yang stabil; satu proyek manual yang cocok dengan klien dan nilai Lead akan ditautkan, bukan diduplikasi.
+3. ✅ Mencegah duplikasi Client/Project ketika sinkronisasi atau trigger berjalan berulang kali.
 
-**Mekanisme idempoten**: token `[LEAD-{id}]` mencegah duplikasi baris meskipun trigger berjalan berulang kali.
+**Penting untuk akurasi keuangan:** Deal Menang atau quotation disetujui bukan bukti pembayaran. Sistem tidak membuat pendapatan otomatis. Owner mencatat DP/termin/pelunasan di Finance setelah dana benar-benar diterima dan diverifikasi.
 
 ### Cara Mengaktifkan Auto-Trigger (Sekali Setup)
 
@@ -68,9 +89,10 @@ Ketika status Lead diubah menjadi **Deal Menang**, sistem akan secara otomatis:
 
 Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 
-- **Kirim (Push)**: setiap perubahan di aplikasi otomatis tersinkron ke Google Sheets (sync_all)
-- **Tarik (Pull)**: tombol **"Tarik Data"** di Dashboard mengambil data terbaru dari cloud dan menimpa penyimpanan lokal
-- **Catatan**: Pull bersifat *server overwrites local* — pastikan perubahan lokal sudah disinkronkan terlebih dahulu
+- **Kirim (Push)**: perubahan lokal dikirim setelah token diverifikasi server sebagai Owner atau Tim. Saat role belum diverifikasi, push dan delete cloud ditahan.
+- **Tarik & Gabungkan**: saat aplikasi dibuka, data cloud dan lokal digabung berdasarkan ID; data contoh lama yang dikenali dipindahkan ke cadangan lokal sebelum dikeluarkan dari data aktif.
+- **Tarik Data**: tindakan manual menimpa data lokal dengan data server setelah konfirmasi. Ekspor backup terlebih dahulu jika ada perubahan lokal yang belum tersinkron.
+- **Verifikasi**: request POST memakai `no-cors`, sehingga browser tidak dapat memastikan hasil server; tarik data kembali untuk memeriksa hasil sinkronisasi.
 
 ---
 
@@ -99,22 +121,37 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
    - Execute as: **Me**
    - Who has access: **Anyone**
 8. Klik **Deploy** → salin URL Web App yang berakhiran `/exec`
-9. Buka aplikasi → masuk ke menu **Pengaturan & Cloud** → tempelkan URL → **Simpan URL**
-10. *(Opsional)* Jalankan fungsi **`installAutoTrigger`** sekali untuk mengaktifkan otomasi Deal Menang
+9. Setelah backend baru di-deploy, jalankan fungsi **`setupApiTokens`** di Apps Script Editor. Salin token Owner dan Tim dari Execution log dan simpan secara rahasia.
+10. Buka aplikasi → **Pengaturan & Cloud** → masukkan URL dan token sesuai peran → **Simpan URL**, lalu **Tarik Data** untuk memverifikasi role.
+11. Jalankan fungsi **`installAutoTrigger`** sekali jika otomasi edit langsung di Google Sheets memang diperlukan. Tanpa token valid, semua request API ditolak.
 
 ---
 
-## 📂 Struktur Database (5 Pilar)
+## 📂 Struktur Database (8 tab operasional + ledger penghapusan)
 
 | Pilar | Tab Google Sheets | Kolom Kunci |
 |-------|-------------------|-------------|
 | **Leads CRM** | Leads | ID, Tanggal, Nama, WA, Sumber, EstimasiNilai, Status, Catatan |
-| **Financial Journal** | Finance | ID, Tanggal, Tipe, Kategori, Nominal, Keterangan |
+| **Financial Journal** | Finance | ID, Tanggal, Tipe, Kategori, Nominal, Keterangan, ProjectID |
 | **Production Projects** | Projects | ID, NamaProyek, Klien, Nilai, Status, Deadline, Catatan, **SOP_Checklist** |
 | **Product-Market Fit** | Clients | ID, NamaKlien, WA, TotalProyek, TotalBelanja, Catatan, **Rating_Review** |
-| **Marketing Spend** | Marketing_Spend *(baru)* | ID, Tanggal, Platform, Kampanye, Budget, Terpakai, LeadsDihasilkan, Catatan |
+| **Marketing Spend** | Marketing_Spend | ID, Tanggal, Platform, Kampanye, Budget, Terpakai, LeadsDihasilkan, Catatan |
+| **HPP & Quotation** | Costings | ID, klien, pekerjaan, komponen, HPP, harga penawaran, status, versi, PO/SPK |
+| **Biaya Aktual Proyek** | Project_Costs | ID, ProjectID, kategori, sumber, vendor, qty, harga satuan, nominal, status pembayaran, referensi |
 
 ---
+
+## 🔧 Changelog v3.0 — branch pengembangan
+
+- Commercial Engine HPP & Quotation dengan margin berbasis harga jual.
+- Finance ProjectID mendukung rekonsiliasi pembayaran per proyek.
+- Header migration mempertahankan kolom duplikat dan kolom tanpa judul melalui rename non-destruktif.
+- Metadata quotation, versi revisi, masa berlaku, ruang lingkup, syarat pembayaran, dan cetak customer-facing.
+- Persetujuan quotation dipisahkan dari konfirmasi PO/SPK; proyek hasil PO ditautkan ke Lead agar auto-trigger tidak membuat proyek ganda.
+- Finance memiliki tautan opsional ProjectID untuk menghitung DP dan sisa pelunasan berdasarkan penerimaan aktual.
+- Migrasi header duplikat/kolom tanpa judul tidak menghapus kolom; header legacy diberi nama agar seluruh nilai tetap utuh.
+- Project Cost Ledger untuk biaya aktual internal dan vendor.
+- Costings dan Project_Costs dibatasi server untuk Owner.
 
 ## 🔧 Changelog v2.0
 
@@ -124,9 +161,13 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 - ✅ Fungsi **autoTriggerPillars()** — idempoten via token `[LEAD-{id}]`
 - ✅ Fungsi **installAutoTrigger()** — pasang onEdit + time-driven trigger
 - ✅ doPost mendukung aksi: `sync_all`, `insert`, `update_status`
-- ✅ doGet mengembalikan semua tab termasuk Marketing_Spend & lastSynced
+- ✅ doGet membatasi data sesuai role server; Finance/Memory/Marketing hanya untuk Owner
+- ✅ API fail-closed saat token belum dikonfigurasi
+- ✅ Tombstone ledger `_CSK_Deleted` mencegah data terhapus muncul kembali setelah stale sync
+- ✅ POST no-cors memakai Content-Type text/plain agar tidak memicu preflight
+- ✅ Tampilan tidak mengklaim push/email berhasil hanya dari respons no-cors
 - ✅ UI 5 pilar terpadu dengan badge penanda pilar
-- ✅ Dropdown **Hak Akses** (Owner / Tim Kreatif)
+- ✅ Token API terpisah Owner/Tim dan otorisasi server-side
 - ✅ **SOP Checklist interaktif** per proyek (Brief → Delivery)
 - ✅ **Rating bintang & review** per klien
 - ✅ View **Marketing Spend** baru dengan kalkulasi CPL & ROAS
