@@ -52,6 +52,10 @@ These tests use an emulated backend / local browser fixtures. A green CI result 
 **Owner-reported validation:** The project owner states that the Business OS was already tested end-to-end by the prior Astra development agent and is ready for operational use. This is recorded as owner confirmation; automated CI remains a separate source-level regression check.
 
 ## Release gates that must remain open
+
+- **BLOCKER — Apps Script target identity mismatch:** `apps-script/.clasp.json` currently references a Script ID that differs from the LAB Script ID documented in `docs/lab-api-guard.md`. Resolve this against the actual Apps Script editor and bound dummy spreadsheet before any `clasp` command, manual bundle copy, or deployment. Do not guess which ID is authoritative. The deployment helper remains fail-closed.
+- **Live Apps Script verification is not available from repository CI:** source-level tests do not prove that the deployed Web App runs these handlers. The owner must verify the active project ID, bound spreadsheet ID/name, installed `doGet/doPost` guards, and private `MYSELF` access in the Apps Script editor before running the non-mutating handler check.
+
 1. Isolated Google Spreadsheet + Apps Script deployment with dummy data only. Confirm connected project IDs, active guard handlers and `LAB_HANDLER_GUARD_PASS`.
 2. Real browser-to-Apps Script POST read/write over HTTP on Android, desktop and iPhone; verify GET returns `POST_REQUIRED`, and check CORS, ContentService redirects, rate limits, offline and retry.
 3. Two-device race: simultaneous edit, stale delete, conflict review, and recovery under `LockService`.
