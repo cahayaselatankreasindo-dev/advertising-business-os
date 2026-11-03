@@ -57,7 +57,9 @@ function createBackend() {
     Projects: sheet(['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim']),
     Finance: sheet(['ID','Tanggal','Tipe','Kategori','Nominal','Keterangan']),
     Memory: sheet(['ID','Tanggal','Kategori','Judul','Isi']),
-    Marketing_Spend: sheet(['ID','Tanggal','Platform','Kampanye','Budget','Terpakai','LeadsDihasilkan','Catatan'])
+    Marketing_Spend: sheet(['ID','Tanggal','Platform','Kampanye','Budget','Terpakai','LeadsDihasilkan','Catatan']),
+    Costings: sheet(['ID','Tanggal','Klien','NamaPekerjaan','ModelProduksi','LeadID','ItemsJSON','BiayaLangsung','OverheadPersen','OverheadNominal','CadanganPersen','CadanganNominal','HPP','MarginPersen','HargaPenawaran','Status','ProjectID','Catatan','NomorQuotation','VersiQuotation','MasaBerlakuHari','WaktuPengerjaanHari','SyaratPembayaran','RuangLingkup','DisetujuiPada','POConfirmedAt','RiwayatQuotationJSON','DikirimPada']),
+    Project_Costs: sheet(['ID','Tanggal','ProjectID','Kategori','Sumber','Deskripsi','Vendor','Qty','HargaSatuan','Nominal','StatusPembayaran','Referensi','Catatan'])
   };
   const props = { API_TOKEN: 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE' };
   const backend = {
@@ -73,12 +75,20 @@ function createBackend() {
     },
     ContentService: { MimeType: { JSON: 'JSON' }, createTextOutput: text => ({ text, getContent(){return this.text;}, setMimeType(){ return this; } }) },
     PropertiesService: { getScriptProperties: () => ({
-      getProperty: key => props[key] || null, setProperty: (key,val) => {props[key]=val;}
+      getProperty: key => props[key] || null,
+      setProperty: (key,val) => {props[key]=val;},
+      deleteProperty: key => {delete props[key];}
     }) },
     ScriptApp: { getProjectTriggers: () => [] },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     MailApp: { getRemainingDailyQuota: () => 100, sendEmail: () => {} },
-    Utilities: { formatDate: () => '2026-10-31', getUuid: () => '0e53d4f6-137d-4bdc-86c2-67fa792a5237' },
+    Utilities: {
+      formatDate: () => '2026-10-31',
+      getUuid: (() => { let uuidCounter = 0; return () => {
+        uuidCounter++;
+        return '00000000-0000-4000-8000-' + String(uuidCounter).padStart(12,'0');
+      }; })()
+    },
     Logger: { log() {} },
     console
   };
@@ -93,7 +103,8 @@ function createBackend() {
       const payload = Object.assign({ protocolVersion: 2 }, data);
       const areaSheets = {
         leads: 'Leads', clients: 'Clients', projects: 'Projects',
-        finance: 'Finance', memory: 'Memory', marketingSpend: 'Marketing_Spend'
+        finance: 'Finance', memory: 'Memory', marketingSpend: 'Marketing_Spend',
+        costings: 'Costings', projectCosts: 'Project_Costs'
       };
       if (payload.action === 'sync_all' && !payload.expectedRecords) {
         payload.expectedRecords = {};
@@ -312,6 +323,24 @@ test('LAB gateway guard allows only authorized synthetic data', () => {
       'invalid request should be blocked: '+JSON.stringify(payload).slice(0,90));
   }
   assert.equal(api.sent.length, 0, 'guard validation performs no network writes');
+});
+
+test('LAB Owner/Team role isolation filters five private modules and rejects writes/deletes', () => {
+  const api = createBackend();
+  const ctx = api.sandbox;
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script','LabSelfTest.gs'),'utf8'),ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script','LabRequestGuard.gs'),'utf8'),ctx);
+  const result = ctx.cskLabRunRoleIsolationTests();
+  assert.equal(result.status,'LAB_ROLE_ISOLATION_PASS');
+  assert.equal(result.labIdVerified,true);
+  assert.equal(result.ownerReadAllowed,true);
+  assert.equal(result.teamReadAllowed,true);
+  assert.equal(result.teamPrivateAreasFiltered,5);
+  assert.equal(result.teamFinanceWriteRejected,true);
+  assert.equal(result.teamCostingsWriteRejected,true);
+  assert.equal(result.teamFinanceDeleteRejected,true);
+  assert.equal(result.privateSheetRowsUnchanged,true);
+  assert.equal(api.sent.length,0);
 });
 
 test('LAB gateway guard refuses execution against production spreadsheet', () => {
