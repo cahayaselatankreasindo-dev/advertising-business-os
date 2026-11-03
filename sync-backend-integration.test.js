@@ -15,18 +15,29 @@ const { createEngine } = require('./sync-safe.js');
 
 function sheet(headers) {
   const rows = [headers.slice()];
+  let dataRangeReadCount = 0;
+  const rangeReadShapes = [];
+  const rangeWriteShapes = [];
   return {
     rows,
+    getDataRangeReadCount() { return dataRangeReadCount; },
+    getRangeReadShapes() { return rangeReadShapes.slice(); },
+    getRangeWriteShapes() { return rangeWriteShapes.slice(); },
     getLastRow() { return rows.length; },
     getLastColumn() { return Math.max(...rows.map(x => x.length)); },
-    getDataRange() { return { getValues() { return rows.map(x => x.slice()); } }; },
+    getDataRange() {
+      dataRangeReadCount++;
+      return { getValues() { return rows.map(x => x.slice()); } };
+    },
     getRange(row, col, countRows = 1, countCols = 1) {
       return {
         getValues() {
+          rangeReadShapes.push({row,col,countRows,countCols});
           return Array.from({ length: countRows }, (_, i) =>
             Array.from({ length: countCols }, (_, j) => (rows[row - 1 + i] || [])[col - 1 + j] ?? ''));
         },
         setValues(v) {
+          rangeWriteShapes.push({row,col,countRows,countCols,rows:v.length});
           v.forEach((items, i) => {
             if (!rows[row - 1 + i]) rows[row - 1 + i] = [];
             items.forEach((value,j) => { rows[row - 1 + i][col - 1 + j] = value; });
@@ -34,6 +45,7 @@ function sheet(headers) {
           return this;
         },
         setValue(v) {
+          rangeWriteShapes.push({row,col,countRows:1,countCols:1,rows:1,single:true});
           if (!rows[row - 1]) rows[row - 1] = [];
           rows[row - 1][col - 1] = v;
           return this;
@@ -184,7 +196,7 @@ test('real backend + real frontend delta: edit -> POST -> GET readback', async (
   local.leads[0].name='Dummy B';
   engine.track(local);
   assert.equal(engine.countPending(),1);
-  const result = await engine.flush('https://example.test/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
+  const result = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
   assert.equal(result.status,'verified');
   assert.equal(engine.countPending(),0);
   assert.equal(api.read().data.leads.find(x=>x.id==='TEST-1').name,'Dummy B');
@@ -201,7 +213,7 @@ test('real backend + frontend: delete -> GET confirms missing', async () => {
   engine.merge(api.read().data,local);
   local.finance=[];
   engine.track(local);
-  const result=await engine.flush('https://example.test/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
+  const result=await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
   assert.equal(result.status,'verified');
   assert.equal(api.read().data.finance.length,0);
   assert.equal(api.sent[0].action,'delete');
@@ -251,7 +263,7 @@ test('real backend + frontend: two-client edit conflicts without writing', async
   local.leads[0].name='Phone edit';
   engine.track(local);
   api.post({action:'sync_all',token:'TEST_ONLY_LAB_API_TOKEN_2026_SAFE',leads:[{...initial,name:'PC edit'}]});
-  const result=await engine.flush('https://example.test/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
+  const result=await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
   assert.equal(result.status,'conflict');
   assert.equal(api.read().data.leads[0].name,'PC edit');
   assert.equal(api.sent.length,0);
@@ -265,7 +277,7 @@ test('backend rejected POST but browser opaque: no success claim', async () => {
   local.projects.push({id:'P-TEST',title:'Dummy Project',client:'Dummy',value:5000000,status:'plan',deadline:'2026-11-15',notes:'',sopChecklist:'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0',pic:''});
   engine.track(local);
   api.suppressPosts(true);
-  const result=await engine.flush('https://example.test/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
+  const result=await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
   assert.equal(result.status,'unverified');
   assert.equal(engine.countPending(),1);
   assert.equal(api.read().data.projects.length,0);
@@ -309,7 +321,7 @@ test('LAB gateway guard allows only authorized synthetic data', () => {
     '19le34ltpZCMIHmjw2n_JbEvrtZBWNTKd61U-xEAoR5Y');
   const guardSmoke = ctx.cskLabRunGuardNegativeTests();
   assert.equal(guardSmoke.status,'LAB_GUARD_PASS');
-  assert.equal(guardSmoke.blockedUnsafeRequests,16);
+  assert.equal(guardSmoke.blockedUnsafeRequests,18);
   assert.equal(guardSmoke.databaseWritesPerformed,0);
   assert.equal(guardSmoke.emailSendsPerformed,0);
 
@@ -505,4 +517,302 @@ test('missing backend API token rejects reads and writes (fail closed)', () => {
   assert.equal(api.tables.Leads.getLastRow(), 1);
   const read = api.read();
   assert.equal(read.status, 'error', 'tokenless server cannot disclose cloud rows');
+});
+
+
+test('sync_all rejects unknown payload keys and more than 40 records before writing', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const before = api.tables.Leads.getLastRow();
+  const unknown = api.post({
+    action:'sync_all', token, role:'owner', expectedRecords:{}
+  });
+  assert.equal(unknown.code,'INVALID_PAYLOAD');
+  assert.equal(api.tables.Leads.getLastRow(),before);
+
+  const leads = Array.from({length:21},(_,i)=>({
+    id:'TEST-LIMIT-L-'+i,date:'2026-11-03',name:'Limit lead '+i,status:'new'
+  }));
+  const projects = Array.from({length:20},(_,i)=>({
+    id:'TEST-LIMIT-P-'+i,title:'Limit project '+i,status:'plan'
+  }));
+  const expectedRecords = {Leads:{},Projects:{}};
+  leads.forEach(row => { expectedRecords.Leads[row.id] = null; });
+  projects.forEach(row => { expectedRecords.Projects[row.id] = null; });
+  const limited = api.post({action:'sync_all',token,leads,projects,expectedRecords});
+  assert.equal(limited.code,'SYNC_BATCH_LIMIT');
+  assert.equal(api.tables.Leads.getLastRow(),before);
+  assert.equal(api.tables.Projects.getLastRow(),1);
+});
+
+test('compare-and-set reads each affected sheet once per bounded batch', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const rows = Array.from({length:40},(_,i)=>({
+    id:'TEST-READ-ONCE-'+i,date:'2026-11-03',name:'Read once '+i,status:'new'
+  }));
+  const expectedRecords = {Leads:{}};
+  rows.forEach(row => { expectedRecords.Leads[row.id] = null; });
+  api.tables.Leads.appendRow([
+    'SEED-READ-ONCE','2026-11-02','Seed','','QA',0,'new','','','','','','','',0
+  ]);
+  const before = api.tables.Leads.getDataRangeReadCount();
+  const result = api.post({action:'sync_all',token,leads:rows,expectedRecords});
+  assert.equal(result.status,'success');
+  assert.equal(api.tables.Leads.getDataRangeReadCount()-before,1,
+    'CAS must read the Leads sheet once, not once per record');
+});
+
+test('Team token cannot read or mutate private modules and cannot trigger Owner automation', () => {
+  const api = createBackend();
+  const props = api.sandbox.PropertiesService.getScriptProperties();
+  const ownerToken = 'TEST_ONLY_OWNER_TOKEN_2026_SAFE';
+  const teamToken = 'TEST_ONLY_TEAM_TOKEN_2026_SAFE';
+  props.setProperty('OWNER_API_TOKEN',ownerToken);
+  props.setProperty('TEAM_API_TOKEN',teamToken);
+  props.deleteProperty('API_TOKEN');
+  props.setProperty('AUTO_PROJECT_FROM_WON','true');
+
+  const teamRead = JSON.parse(api.sandbox.doGet({
+    parameter:{token:teamToken,protocolVersion:2}
+  }).text);
+  assert.equal(teamRead.status,'success');
+  assert.equal(teamRead.data.role,'team');
+  for(const area of ['finance','memory','marketingSpend','costings','projectCosts']) {
+    assert.deepEqual(teamRead.data[area],[], 'Team must not read '+area);
+  }
+  assert.equal(api.sandbox.getRequestRole({token:teamToken,role:'owner'}),'team',
+    'client-supplied role must not elevate the token');
+
+  const financeWrite = api.post({
+    action:'sync_all',token:teamToken,
+    finance:[{id:'TEST-TEAM-FINANCE',date:'2026-11-03',type:'income',amount:100}],
+    expectedRecords:{Finance:{'TEST-TEAM-FINANCE':null}}
+  });
+  assert.notEqual(financeWrite.status,'success');
+  assert.equal(api.tables.Finance.getLastRow(),1);
+
+  const financeDelete = api.post({
+    action:'delete',token:teamToken,sheet:'Finance',id:'TEST-PRIVATE',
+    expectedFingerprint:'TEST-FINGERPRINT'
+  });
+  assert.equal(financeDelete.code,'FORBIDDEN');
+
+  const wonLead = {id:'TEST-TEAM-WON',date:'2026-11-03',name:'Team won test',status:'won',value:500000};
+  const teamWon = api.post({
+    action:'sync_all',token:teamToken,leads:[wonLead],
+    expectedRecords:{Leads:{[wonLead.id]:null}}
+  });
+  assert.equal(teamWon.status,'success');
+  assert.equal(api.tables.Projects.getLastRow(),1,
+    'Team lead changes must not run Owner-only project automation');
+  assert.equal(api.tables.Finance.getLastRow(),1,
+    'won lead must not fabricate cash receipts');
+});
+
+
+test('backend stores prototype-named IDs as normal records without index collisions', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const leads = [
+    {id:'__proto__',date:'2026-11-03',name:'Prototype ID',status:'new'},
+    {id:'constructor',date:'2026-11-03',name:'Constructor ID',status:'new'}
+  ];
+  const versions = Object.create(null);
+  leads.forEach(row => { versions[row.id] = null; });
+  const result = api.post({action:'sync_all',token,leads,expectedRecords:{Leads:versions}});
+  assert.equal(result.status,'success');
+  const saved = api.read().data.leads;
+  assert.equal(saved.find(row=>row.id==='__proto__').name,'Prototype ID');
+  assert.equal(saved.find(row=>row.id==='constructor').name,'Constructor ID');
+});
+
+
+test('checked-in LAB Code.gs runs its wired guards, role isolation and dummy smoke test', () => {
+  const api = createBackend();
+  const ctx = api.sandbox;
+  ctx.PropertiesService.getScriptProperties().setProperty(
+    'TEAM_API_TOKEN','LAB-SYNTHETIC-TEAM-TOKEN-FOR-EMULATOR-ONLY'
+  );
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script/Code.gs'),'utf8'),ctx);
+  for(const file of ['LabRequestGuard.gs','LabSelfTest.gs','LabHandlerVerification.gs']) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script',file),'utf8'),ctx);
+  }
+
+  const handler = ctx.cskLabVerifyActiveHandlers();
+  assert.equal(handler.status,'LAB_HANDLER_GUARD_PASS');
+  const guard = ctx.cskLabRunGuardNegativeTests();
+  assert.equal(guard.status,'LAB_GUARD_PASS');
+  assert.equal(guard.databaseWritesPerformed,0);
+  const roles = ctx.cskLabRunRoleIsolationTests();
+  assert.equal(roles.status,'LAB_ROLE_ISOLATION_PASS');
+  assert.equal(roles.privateSheetRowsUnchanged,true);
+  const smoke = ctx.cskLabRunIsolatedSmokeTest();
+  assert.equal(smoke.inserted,true);
+  assert.equal(smoke.updated,true);
+  assert.equal(smoke.deleted,true);
+  assert.equal(smoke.verified,true);
+  for(const table of Object.values(api.tables)) {
+    assert.equal(table.getLastRow(),1,'LAB smoke test must clean up all dummy rows');
+  }
+  assert.equal(api.sent.length,0,'LAB checks must not send email');
+});
+
+
+test('won aliases normalize consistently and Owner automation remains opt-in and payload-scoped', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  for (const status of ['won','Deal Menang','deal-menang','deal_menang','dealwin','Deal Win']) {
+    assert.equal(api.sandbox.isDealMenang(status),true,'status alias: '+status);
+  }
+  for (const status of ['new','proposal','lost','in progress']) {
+    assert.equal(api.sandbox.isDealMenang(status),false,'non-won status: '+status);
+  }
+
+  const props = api.sandbox.PropertiesService.getScriptProperties();
+  props.setProperty('AUTO_PROJECT_FROM_WON','true');
+  const won = {id:'TEST-WON-ALIAS',date:'2026-11-03',name:'Alias client',value:250000,status:'deal_menang'};
+  const expectedRecords = {Leads:{'TEST-WON-ALIAS':null}};
+  const result = api.post({action:'sync_all',token,leads:[won],expectedRecords});
+  assert.equal(result.status,'success');
+  assert.equal(api.tables.Projects.getLastRow(),2,'Owner won alias creates one project only when feature flag is enabled');
+  assert.equal(api.tables.Finance.getLastRow(),1,'won status must never fabricate a cash receipt');
+
+  const unrelated = {id:'TEST-NON-WON',date:'2026-11-03',name:'Unrelated',value:1,status:'new'};
+  const nonWon = api.post({
+    action:'sync_all',token,leads:[unrelated],
+    expectedRecords:{Leads:{'TEST-NON-WON':null}}
+  });
+  assert.equal(nonWon.status,'success');
+  assert.equal(api.tables.Projects.getLastRow(),2,'non-won payload must not run the automation');
+});
+
+
+test('sync_all accepts identical duplicate rows once and rejects conflicting duplicates atomically', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const first = {id:'TEST-DUP-EXACT',date:'2026-11-03',name:'Exact duplicate',status:'new'};
+  const exact = api.post({
+    action:'sync_all',token,
+    leads:[first,{...first}],
+    expectedRecords:{Leads:{'TEST-DUP-EXACT':null}}
+  });
+  assert.equal(exact.status,'success');
+  assert.equal(api.read().data.leads.filter(row=>row.id===first.id).length,1);
+
+  const before = api.tables.Leads.getLastRow();
+  const conflicting = api.post({
+    action:'sync_all',token,
+    leads:[{...first,id:'TEST-DUP-CONFLICT',name:'First value'},
+      {...first,id:'TEST-DUP-CONFLICT',name:'Different value'}],
+    expectedRecords:{Leads:{'TEST-DUP-CONFLICT':null}}
+  });
+  assert.equal(conflicting.status,'error');
+  assert.equal(conflicting.code,'EXPECTED_VERSION_REQUIRED');
+  assert.equal(api.tables.Leads.getLastRow(),before,
+    'ambiguous duplicate payload must not write any row');
+});
+
+
+test('mergeSheet reads the data block once and coalesces contiguous updates into one write', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const seeds = Array.from({length:4},(_,i)=>({
+    id:'TEST-BULK-'+i,date:'2026-11-03',name:'Bulk '+i,phone:'',source:'QA',
+    value:i,status:'new',notes:'',email:'',website:'',industry:'',pic:'',
+    picTitle:'',linkedin:'',score:0
+  }));
+  seeds.forEach(row=>api.tables.Leads.appendRow([
+    row.id,row.date,row.name,row.phone,row.source,row.value,row.status,row.notes,
+    row.email,row.website,row.industry,row.pic,row.picTitle,row.linkedin,row.score
+  ]));
+  const expectedRecords = {Leads:{}};
+  seeds.forEach(row=>{
+    const current = api.read().data.leads.find(item=>item.id===row.id);
+    expectedRecords.Leads[row.id] = api.sandbox.stableRecordFingerprint_(current);
+  });
+  const beforeReads = api.tables.Leads.getRangeReadShapes().length;
+  const beforeWrites = api.tables.Leads.getRangeWriteShapes().length;
+  const updated = seeds.map(row=>({...row,name:row.name+' updated'}));
+  const result = api.post({action:'sync_all',token,leads:updated,expectedRecords});
+  assert.equal(result.status,'success');
+  assert.equal(result.summary.Leads.updated,4);
+
+  const reads = api.tables.Leads.getRangeReadShapes().slice(beforeReads);
+  assert.ok(reads.some(r=>r.row===2&&r.col===1&&r.countRows===4&&r.countCols===15),
+    'one full data block should supply both ID indexing and old-row comparison');
+  assert.equal(reads.filter(r=>r.row===2&&r.col===1&&r.countRows===4&&r.countCols===1).length,0,
+    'the separate ID-only column scan must be removed');
+
+  const writes = api.tables.Leads.getRangeWriteShapes().slice(beforeWrites);
+  assert.equal(writes.filter(w=>w.row===2&&w.col===1&&w.countRows===4&&w.countCols===15&&!w.single).length,1,
+    'four adjacent updates must be coalesced into one setValues call');
+  assert.equal(api.read().data.leads.find(row=>row.id==='TEST-BULK-3').name,'Bulk 3 updated');
+});
+
+
+test('legacy insert and update_status enforce expected versions and Owner-only automation', () => {
+  const api = createBackend();
+  const props = api.sandbox.PropertiesService.getScriptProperties();
+  const ownerToken = 'TEST_ONLY_OWNER_TOKEN_LEGACY_API';
+  const teamToken = 'TEST_ONLY_TEAM_TOKEN_LEGACY_API';
+  props.setProperty('OWNER_API_TOKEN',ownerToken);
+  props.setProperty('TEAM_API_TOKEN',teamToken);
+  props.deleteProperty('API_TOKEN');
+  props.setProperty('AUTO_PROJECT_FROM_WON','true');
+  const readOwner = () => JSON.parse(api.sandbox.doGet({
+    parameter:{token:ownerToken,protocolVersion:2}
+  }).text).data;
+
+  const lead = {id:'TEST-LEGACY-STATUS',date:'2026-11-03',name:'Legacy status',status:'new',value:100};
+  const insertedLead = api.post({
+    action:'sync_all',token:ownerToken,leads:[lead],
+    expectedRecords:{Leads:{[lead.id]:null}}
+  });
+  assert.equal(insertedLead.status,'success');
+  const original = readOwner().leads.find(row=>row.id===lead.id);
+  const originalFingerprint = api.sandbox.stableRecordFingerprint_(original);
+
+  const missingFingerprint = api.post({
+    action:'update_status',token:ownerToken,sheet:'Leads',id:lead.id,status:'won'
+  });
+  assert.equal(missingFingerprint.code,'EXPECTED_VERSION_REQUIRED');
+  assert.equal(api.tables.Projects.getLastRow(),1);
+
+  const teamUpdate = api.post({
+    action:'update_status',token:teamToken,sheet:'Leads',id:lead.id,status:'won',
+    expectedFingerprint:originalFingerprint
+  });
+  assert.equal(teamUpdate.status,'success');
+  assert.equal(api.tables.Projects.getLastRow(),1,
+    'Team must not trigger Owner-only won-lead automation');
+
+  const updatedLead = readOwner().leads.find(row=>row.id===lead.id);
+  const ownerUpdate = api.post({
+    action:'update_status',token:ownerToken,sheet:'Leads',id:lead.id,status:'won',
+    expectedFingerprint:api.sandbox.stableRecordFingerprint_(updatedLead)
+  });
+  assert.equal(ownerUpdate.status,'success');
+  assert.equal(api.tables.Projects.getLastRow(),2,
+    'Owner may trigger the opt-in automation after a CAS-verified status update');
+
+  const beforeInsert = api.tables.Memory.getLastRow();
+  const missingAbsent = api.post({
+    action:'insert',token:ownerToken,sheet:'Memory',
+    data:{id:'TEST-LEGACY-INSERT',date:'2026-11-03',category:'QA',title:'No baseline',content:'Reject'}
+  });
+  assert.equal(missingAbsent.code,'EXPECTED_VERSION_REQUIRED');
+  assert.equal(api.tables.Memory.getLastRow(),beforeInsert);
+
+  const validInsert = api.post({
+    action:'insert',token:ownerToken,sheet:'Memory',expectedAbsent:true,
+    data:{id:'TEST-LEGACY-INSERT',date:'2026-11-03',category:'QA',title:'CAS insert',content:'Allowed'}
+  });
+  assert.equal(validInsert.status,'success');
+  const duplicateInsert = api.post({
+    action:'insert',token:ownerToken,sheet:'Memory',expectedAbsent:true,
+    data:{id:'TEST-LEGACY-INSERT',date:'2026-11-03',category:'QA',title:'Duplicate',content:'Rejected'}
+  });
+  assert.equal(duplicateInsert.code,'SYNC_CONFLICT');
+  assert.equal(api.tables.Memory.getLastRow(),beforeInsert+1);
 });

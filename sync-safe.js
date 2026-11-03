@@ -16,6 +16,7 @@
     projectCosts: { sheet: 'Project_Costs', fields: ['id','date','projectId','category','source','description','vendor','qty','unitCost','amount','paymentStatus','reference','notes'] }
   };
   const PROTOCOL_VERSION = 2;
+  const MAX_BATCH_RECORDS = 40;
   const STATE_KEY = 'csk_business_os_safe_sync_v1';
   const LEGACY_BACKUP_KEY = 'csk_business_os_legacy_local_backup_v1';
 
@@ -25,7 +26,7 @@
     return JSON.stringify(keys.map(k => [k, value[k]]));
   }
   function byId(rows) {
-    const result = {};
+    const result = Object.create(null);
     (rows || []).forEach(row => {
       if (row && row.id !== undefined && row.id !== null && String(row.id).trim()) {
         result[String(row.id)] = row;
@@ -35,8 +36,18 @@
   }
   function emptyQueue() {
     const q = {};
-    Object.keys(DATA).forEach(k => { q[k] = { upserts: {}, deletes: {} }; });
+    Object.keys(DATA).forEach(k => {
+      q[k] = { upserts: Object.create(null), deletes: Object.create(null) };
+    });
     return q;
+  }
+  function copyIndex(source, accept) {
+    const result = Object.create(null);
+    if (!source || typeof source !== 'object' || Array.isArray(source)) return result;
+    Object.keys(source).forEach(key => {
+      if (accept(source[key])) result[key] = source[key];
+    });
+    return result;
   }
   function normalized(value, field) {
     if (value === undefined || value === null) return '';
@@ -51,6 +62,22 @@
     return DATA[area].fields.every(field =>
       normalized(expected[field], field) === normalized(remote[field], field)
     );
+  }
+  function validateEndpoint(value) {
+    let parsed;
+    try {
+      parsed = new URL(String(value || ''));
+    } catch (_) {
+      throw new Error('URL Google Apps Script tidak valid.');
+    }
+    const standardPath = /^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(parsed.pathname);
+    const workspacePath = /^\/a\/macros\/[A-Za-z0-9.-]+\/s\/[A-Za-z0-9_-]+\/exec$/.test(parsed.pathname);
+    if (parsed.protocol !== 'https:' || parsed.hostname !== 'script.google.com' ||
+        parsed.port || parsed.username || parsed.password || parsed.search || parsed.hash ||
+        (!standardPath && !workspacePath)) {
+      throw new Error('Gunakan URL HTTPS deployment Google Apps Script yang valid (/macros/s/.../exec).');
+    }
+    return parsed.origin + parsed.pathname;
   }
   function createEngine(storage, fetcher) {
     const network = fetcher || root.fetch.bind(root);
@@ -73,7 +100,7 @@
     function takeSnapshot(db) {
       const next = {};
       Object.keys(DATA).forEach(area => {
-        next[area] = {};
+        next[area] = Object.create(null);
         (db[area] || []).forEach(item => {
           if (item && item.id !== undefined && item.id !== null) {
             next[area][String(item.id)] = JSON.stringify(item);
@@ -87,12 +114,19 @@
         const raw = JSON.parse(storage.getItem(STATE_KEY) || 'null');
         if (raw && raw.queue) {
           Object.keys(DATA).forEach(area => {
+            const savedArea = raw.queue[area] || {};
             queue[area] = {
-              upserts: (raw.queue[area] && raw.queue[area].upserts) || {},
-              deletes: (raw.queue[area] && raw.queue[area].deletes) || {}
+              upserts: copyIndex(savedArea.upserts, value =>
+                !!value && typeof value === 'object' && !Array.isArray(value)),
+              deletes: copyIndex(savedArea.deletes, value => value === true)
             };
           });
-          baseline = raw.baseline || {};
+          baseline = {};
+          Object.keys(DATA).forEach(area => {
+            const savedBaseline = raw.baseline && raw.baseline[area];
+            baseline[area] = copyIndex(savedBaseline, value =>
+              typeof value === 'string' && value.length > 0);
+          });
           verifiedAt = raw.verifiedAt || '';
           conflicts = Array.isArray(raw.conflicts) ? raw.conflicts.filter(key => {
             if (typeof key !== 'string') return false;
@@ -132,7 +166,7 @@
     }
     function rebaseline(area, remoteRows) {
       const old = baseline[area] || {};
-      const next = {};
+      const next = Object.create(null);
       // Keep the record version the user edited, until their pending edit is settled.
       Object.keys(queue[area].upserts).concat(Object.keys(queue[area].deletes)).forEach(id => {
         if (old[id]) next[id] = old[id];
@@ -199,7 +233,7 @@
       const recordId = String(id);
       const cloudRows = Array.isArray(remote && remote[area]) ? remote[area] : [];
       const cloudRecord = byId(cloudRows)[recordId] || null;
-      if (!baseline[area]) baseline[area] = {};
+      if (!baseline[area]) baseline[area] = Object.create(null);
       const localRows = Array.isArray(db[area]) ? db[area] : (db[area] = []);
       const localIndex = localRows.findIndex(item => item && String(item.id) === recordId);
       const hasUpsert = Object.prototype.hasOwnProperty.call(queue[area].upserts, recordId);
@@ -240,8 +274,8 @@
     }
 
     async function readCloud(url, token) {
-      const separator = url.includes('?') ? '&' : '?';
-      const address = url + separator + 'token=' + encodeURIComponent(token || '') +
+      const endpoint = validateEndpoint(url);
+      const address = endpoint + '?token=' + encodeURIComponent(token || '') +
         '&protocolVersion=' + PROTOCOL_VERSION + '&_t=' + Date.now();
       const response = await network(address, { cache: 'no-store' });
       if (!response || !response.ok) throw new Error('Tidak bisa membaca respons Google Sheets.');
@@ -255,8 +289,10 @@
       return json.data;
     }
     async function send(url, body) {
+      // Validate again at the write boundary; never disclose a token to an arbitrary URL.
+      const endpoint = validateEndpoint(url);
       // Apps Script cross-origin POST returns an opaque response. Only GET readback is proof.
-      await network(url, {
+      await network(endpoint, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
@@ -274,16 +310,38 @@
         const remote = await readCloud(url, token);
         const foundConflicts = [];
         const nothingToDelete = [];
+        const alreadyApplied = [];
         Object.keys(DATA).forEach(area => {
           const onServer = byId(remote[area]);
           const base = baseline[area] || {};
-          Object.keys(work[area].upserts).concat(Object.keys(work[area].deletes)).forEach(id => {
+          Object.keys(work[area].upserts).forEach(id => {
             const now = onServer[id];
             const prior = base[id];
-            // Unknown server record or changed record -> never overwrite silently.
-            if ((now && (!prior || stableFingerprint(now) !== prior)) ||
-                (!now && !!prior)) foundConflicts.push(area + '/' + id);
-            if (!now && work[area].deletes[id]) nothingToDelete.push([area, id]);
+            // A previous POST may have committed while its readback failed. If the
+            // current cloud row already matches our queued desired state, reconcile
+            // it idempotently rather than misclassifying our own write as a conflict.
+            if (now && matchesWrittenRecord(area, work[area].upserts[id], now)) {
+              alreadyApplied.push({ area, id, record: work[area].upserts[id], remote: now });
+              return;
+            }
+            // Unknown or concurrently changed server record -> never overwrite silently.
+            if (now && (!prior || stableFingerprint(now) !== prior)) {
+              foundConflicts.push(area + '/' + id);
+            }
+            if (!now && !!prior) foundConflicts.push(area + '/' + id);
+          });
+          Object.keys(work[area].deletes).forEach(id => {
+            const now = onServer[id];
+            const prior = base[id];
+            // A missing row is already the desired state for a queued deletion,
+            // including after a partial commit or an interrupted readback.
+            if (!now) {
+              nothingToDelete.push([area, id]);
+              return;
+            }
+            if (!prior || stableFingerprint(now) !== prior) {
+              foundConflicts.push(area + '/' + id);
+            }
           });
         });
         if (foundConflicts.length) {
@@ -292,10 +350,23 @@
           persist();
           return { status: 'conflict', conflicts: conflicts.slice(), pending: countPending() };
         }
-        conflicts = [];
+
+        for (const item of alreadyApplied) {
+          delete work[item.area].upserts[item.id];
+          const current = queue[item.area].upserts[item.id];
+          if (current && JSON.stringify(current) === JSON.stringify(item.record)) {
+            delete queue[item.area].upserts[item.id];
+          }
+          if (!baseline[item.area]) baseline[item.area] = Object.create(null);
+          baseline[item.area][item.id] = stableFingerprint(item.remote);
+        }
         for (const [area, id] of nothingToDelete) {
           if (queue[area].deletes[id]) delete queue[area].deletes[id];
+          if (baseline[area]) delete baseline[area][id];
         }
+        if (alreadyApplied.length || nothingToDelete.length) persist();
+
+        const sentDeletes = [];
         for (const area of Object.keys(DATA)) {
           for (const id of Object.keys(work[area].deletes)) {
             if (nothingToDelete.some(x => x[0] === area && x[1] === id)) continue;
@@ -307,89 +378,137 @@
               return { status: 'conflict', conflicts: conflicts.slice(), pending: countPending() };
             }
             await send(url, { action: 'delete', sheet: DATA[area].sheet, id, token, expectedFingerprint });
+            sentDeletes.push([area, id]);
           }
-        }
-        const payload = { action: 'sync_all', token };
-        const expectedRecords = {};
-        let hasUpserts = false;
-        Object.keys(DATA).forEach(area => {
-          const records = Object.values(work[area].upserts);
-          if (records.length) {
-            payload[area] = records;
-            hasUpserts = true;
-            const versions = {};
-            const prior = baseline[area] || {};
-            records.forEach(record => {
-              const id = String(record.id);
-              versions[id] = Object.prototype.hasOwnProperty.call(prior, id) ? prior[id] : null;
-            });
-            expectedRecords[DATA[area].sheet] = versions;
-          }
-        });
-        if (hasUpserts) {
-          payload.expectedRecords = expectedRecords;
-          await send(url, payload);
         }
 
-        // A no-cors POST cannot report success. Verify actual record values with GET.
-        let confirmed = null;
-        let allVerified = false;
-        for (let attempt = 0; attempt < 3; attempt++) {
-          if (attempt) await new Promise(resolve => setTimeout(resolve, attempt * 900));
-          confirmed = await readCloud(url, token);
-          allVerified = Object.keys(DATA).every(area => {
-            const cloud = byId(confirmed[area]);
-            return Object.values(work[area].upserts).every(record =>
-              matchesWrittenRecord(area, record, cloud[String(record.id)])) &&
-              Object.keys(work[area].deletes).every(id => !cloud[id]);
-          });
-          if (allVerified) break;
-        }
-        if (!allVerified) {
-          const racedConflicts = [];
-          Object.keys(DATA).forEach(area => {
-            const cloud = byId(confirmed[area]);
-            const prior = baseline[area] || {};
-            Object.keys(work[area].upserts).forEach(id => {
-              const now = cloud[id];
-              const expected = work[area].upserts[id];
-              if (now && matchesWrittenRecord(area, expected, now)) return;
-              if ((now && (!prior[id] || stableFingerprint(now) !== prior[id])) ||
-                  (!now && !!prior[id])) racedConflicts.push(area + '/' + id);
-            });
-            Object.keys(work[area].deletes).forEach(id => {
-              const now = cloud[id];
-              if (now && (!prior[id] || stableFingerprint(now) !== prior[id])) {
-                racedConflicts.push(area + '/' + id);
-              }
-            });
-          });
-          if (racedConflicts.length) {
-            lastError = 'Konflik terdeteksi saat penyimpanan. Tidak ada perubahan cloud yang ditimpa; periksa record yang ditandai.';
-            conflicts = Array.from(new Set(racedConflicts));
-            persist();
-            return { status: 'conflict', conflicts: conflicts.slice(), pending: countPending() };
-          }
-          lastError = 'Data dikirim, tetapi belum terverifikasi di Google Sheets. Perubahan tetap mengantre.';
-          persist();
-          return { status: 'unverified', pending: countPending() };
-        }
+        // LAB guard and production backend both cap one sync_all request at 40 records.
+        // Process larger local queues in bounded batches and verify each batch before
+        // clearing its local queue entries. A failed later batch cannot undo verified work.
+        const upserts = [];
         Object.keys(DATA).forEach(area => {
-          const cloud = byId(confirmed[area]);
           Object.keys(work[area].upserts).forEach(id => {
-            if (JSON.stringify(queue[area].upserts[id]) === JSON.stringify(work[area].upserts[id])) {
-              delete queue[area].upserts[id];
+            upserts.push({ area, id, record: work[area].upserts[id] });
+          });
+        });
+
+        for (let offset = 0; offset < upserts.length; offset += MAX_BATCH_RECORDS) {
+          const batch = upserts.slice(offset, offset + MAX_BATCH_RECORDS);
+          const payload = { action: 'sync_all', token, expectedRecords: Object.create(null) };
+          batch.forEach(item => {
+            if (!payload[item.area]) payload[item.area] = [];
+            payload[item.area].push(item.record);
+            const sheetName = DATA[item.area].sheet;
+            if (!payload.expectedRecords[sheetName]) payload.expectedRecords[sheetName] = Object.create(null);
+            const prior = baseline[item.area] || {};
+            payload.expectedRecords[sheetName][item.id] =
+              Object.prototype.hasOwnProperty.call(prior, item.id) ? prior[item.id] : null;
+          });
+          await send(url, payload);
+
+          let confirmed = null;
+          let batchVerified = false;
+          let readError = null;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            if (attempt) await new Promise(resolve => setTimeout(resolve, attempt * 900));
+            try {
+              confirmed = await readCloud(url, token);
+              readError = null;
+            } catch (error) {
+              readError = error;
+              continue;
             }
-            if (cloud[id]) {
-              if (!baseline[area]) baseline[area] = {};
-              baseline[area][id] = stableFingerprint(cloud[id]);
+            const cloudByArea = {};
+            batch.forEach(item => {
+              if (!cloudByArea[item.area]) cloudByArea[item.area] = byId(confirmed[item.area]);
+            });
+            batchVerified = batch.every(item =>
+              matchesWrittenRecord(item.area, item.record, cloudByArea[item.area][item.id]));
+            if (batchVerified) break;
+          }
+
+          if (!confirmed && readError) throw readError;
+          if (!batchVerified) {
+            const racedConflicts = [];
+            batch.forEach(item => {
+              const now = byId(confirmed && confirmed[item.area])[item.id];
+              const prior = (baseline[item.area] || {})[item.id];
+              if (now && matchesWrittenRecord(item.area, item.record, now)) return;
+              if ((now && (!prior || stableFingerprint(now) !== prior)) ||
+                  (!now && !!prior)) racedConflicts.push(item.area + '/' + item.id);
+            });
+            if (racedConflicts.length) {
+              lastError = 'Konflik terdeteksi saat penyimpanan. Tidak ada data cloud yang ditimpa; periksa record yang ditandai.';
+              conflicts = Array.from(new Set(racedConflicts));
+              persist();
+              return { status: 'conflict', conflicts: conflicts.slice(), pending: countPending() };
+            }
+            lastError = 'Batch dikirim, tetapi belum terverifikasi di Google Sheets. Perubahan yang tersisa tetap mengantre.';
+            persist();
+            return { status: 'unverified', pending: countPending() };
+          }
+
+          batch.forEach(item => {
+            const current = queue[item.area].upserts[item.id];
+            if (current && JSON.stringify(current) === JSON.stringify(item.record)) {
+              delete queue[item.area].upserts[item.id];
+            }
+            const cloudRecord = byId(confirmed[item.area])[item.id];
+            if (cloudRecord) {
+              if (!baseline[item.area]) baseline[item.area] = Object.create(null);
+              baseline[item.area][item.id] = stableFingerprint(cloudRecord);
             }
           });
+          // Persist each verified batch so a reload never resends already confirmed rows.
+          // Do not rebaseline unrelated records: a concurrent remote edit must stay a conflict.
+          persist();
+        }
+
+        if (sentDeletes.length) {
+          let confirmed = null;
+          let deletesVerified = false;
+          let readError = null;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            if (attempt) await new Promise(resolve => setTimeout(resolve, attempt * 900));
+            try {
+              confirmed = await readCloud(url, token);
+              readError = null;
+            } catch (error) {
+              readError = error;
+              continue;
+            }
+            const cloudByArea = {};
+            sentDeletes.forEach(([area]) => {
+              if (!cloudByArea[area]) cloudByArea[area] = byId(confirmed[area]);
+            });
+            deletesVerified = sentDeletes.every(([area, id]) => !cloudByArea[area][id]);
+            if (deletesVerified) break;
+          }
+          if (!confirmed && readError) throw readError;
+          if (!deletesVerified) {
+            const racedConflicts = [];
+            sentDeletes.forEach(([area, id]) => {
+              const now = byId(confirmed && confirmed[area])[id];
+              const prior = (baseline[area] || {})[id];
+              if (now && (!prior || stableFingerprint(now) !== prior)) racedConflicts.push(area + '/' + id);
+            });
+            if (racedConflicts.length) {
+              lastError = 'Konflik terdeteksi saat penghapusan. Data cloud tidak ditimpa.';
+              conflicts = Array.from(new Set(racedConflicts));
+              persist();
+              return { status: 'conflict', conflicts: conflicts.slice(), pending: countPending() };
+            }
+            lastError = 'Penghapusan dikirim, tetapi belum terverifikasi di Google Sheets. Perubahan tetap mengantre.';
+            persist();
+            return { status: 'unverified', pending: countPending() };
+          }
+        }
+
+        Object.keys(DATA).forEach(area => {
           Object.keys(work[area].deletes).forEach(id => {
             if (queue[area].deletes[id]) delete queue[area].deletes[id];
             if (baseline[area]) delete baseline[area][id];
           });
-          rebaseline(area, confirmed[area]);
         });
         conflicts = [];
         verifiedAt = new Date().toISOString();
@@ -410,7 +529,7 @@
       get busy() { return busy; }
     };
   }
-  const api = { createEngine, DATA, matchesWrittenRecord };
+  const api = { createEngine, DATA, matchesWrittenRecord, validateEndpoint, MAX_BATCH_RECORDS };
   root.CSKSafeSync = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : {});

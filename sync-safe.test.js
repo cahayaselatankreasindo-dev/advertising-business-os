@@ -6,8 +6,9 @@ const test = require('node:test');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const { createEngine } = require('./sync-safe.js');
-const columns = ['leads', 'clients', 'projects', 'finance', 'memory', 'marketingSpend'];
-const sheetKey = { Leads:'leads', Clients:'clients', Projects:'projects', Finance:'finance', Memory:'memory', Marketing_Spend:'marketingSpend' };
+const CSK = require('./sync-safe.js');
+const columns = ['leads', 'clients', 'projects', 'finance', 'memory', 'marketingSpend', 'costings', 'projectCosts'];
+const sheetKey = { Leads:'leads', Clients:'clients', Projects:'projects', Finance:'finance', Memory:'memory', Marketing_Spend:'marketingSpend', Costings:'costings', Project_Costs:'projectCosts' };
 
 function store() {
   const data = {};
@@ -16,7 +17,7 @@ function store() {
 function fixture(name='Original') {
   return {
     leads:[{id:'lead-1', date:'2026-10-31', name, phone:'', source:'WhatsApp', value:100, status:'new', notes:'', email:'', website:'', industry:'', pic:'', picTitle:'', linkedin:'', score:0}],
-    clients:[], projects:[], finance:[], memory:[], marketingSpend:[]
+    clients:[], projects:[], finance:[], memory:[], marketingSpend:[], costings:[], projectCosts:[]
   };
 }
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
@@ -76,7 +77,7 @@ test('send ONLY changed lead and confirm real cloud state', async ()=>{
   db.leads[0].name='Updated';
   engine.track(db);
   assert.equal(engine.countPending(),1);
-  const result=await engine.flush('https://example.test/exec','');
+  const result=await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
   assert.equal(result.status,'verified');
   assert.equal(engine.countPending(),0);
   assert.equal(cloud.rows.leads[0].name,'Updated');
@@ -94,7 +95,7 @@ test('new client refuses a backend with a different protocol version', async () 
   engine.init(db);
   db.leads[0].name = 'Must remain pending';
   engine.track(db);
-  const result = await engine.flush('https://example.test/exec', '');
+  const result = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec', '');
   assert.equal(result.status, 'error');
   assert.match(result.message, /Versi backend tidak cocok/);
   assert.equal(posts, 0, 'no write may be sent to a mismatched backend');
@@ -111,7 +112,7 @@ test('delete is queued, verified, and does not resurrect record on pull',async()
   engine.track(db);
   engine.merge(clone(cloud.rows),db);
   assert.equal(db.leads.length,0);
-  const result=await engine.flush('https://example.test/exec','');
+  const result=await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
   assert.equal(result.status,'verified');
   assert.equal(cloud.rows.leads.length,0);
   assert.equal(typeof cloud.calls[0].expectedFingerprint, 'string');
@@ -129,7 +130,7 @@ test('server-side version check catches an edit racing after client preflight', 
   engine.merge(clone(cloud.rows), db);
   db.leads[0].name = 'Edited on first device';
   engine.track(db);
-  const result = await engine.flush('https://example.test/exec', '');
+  const result = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec', '');
   assert.equal(result.status, 'conflict');
   assert.deepEqual(result.conflicts, ['leads/lead-1']);
   assert.equal(cloud.rows.leads[0].name, 'Edited on second device');
@@ -145,7 +146,7 @@ test('conflicting remote edit stops all cloud writes',async()=>{
   db.leads[0].name='Edited locally';
   engine.track(db);
   cloud.rows.leads[0].name='Edited on phone';
-  const result=await engine.flush('https://example.test/exec','');
+  const result=await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
   assert.equal(result.status,'conflict');
   assert.equal(cloud.calls.length,0);
   assert.equal(engine.countPending(),1);
@@ -160,7 +161,7 @@ test('conflict resolution can safely adopt the latest cloud record', async () =>
   db.leads[0].name = 'Edited locally';
   engine.track(db);
   cloud.rows.leads[0].name = 'Edited on phone';
-  const conflict = await engine.flush('https://example.test/exec', '');
+  const conflict = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec', '');
   assert.equal(conflict.status, 'conflict');
   assert.deepEqual(engine.conflicts, ['leads/lead-1']);
 
@@ -181,14 +182,14 @@ test('explicit local conflict choice rebases to the latest cloud version before 
   db.leads[0].name = 'Edited locally';
   engine.track(db);
   cloud.rows.leads[0].name = 'Edited on phone';
-  const conflict = await engine.flush('https://example.test/exec', '');
+  const conflict = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec', '');
   assert.equal(conflict.status, 'conflict');
 
   const resolved = engine.resolveConflict('leads', 'lead-1', 'local', clone(cloud.rows), db);
   assert.equal(resolved.pending, 1);
   assert.deepEqual(resolved.conflicts, []);
   assert.equal(engine.countPending(), 1);
-  const retry = await engine.flush('https://example.test/exec', '');
+  const retry = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec', '');
   assert.equal(retry.status, 'verified');
   assert.equal(cloud.rows.leads[0].name, 'Edited locally');
   assert.equal(engine.countPending(), 0);
@@ -204,7 +205,7 @@ test('conflict IDs survive reload until explicitly resolved', async () => {
   db.leads[0].name = 'Local';
   engine.track(db);
   cloud.rows.leads[0].name = 'Remote';
-  await engine.flush('https://example.test/exec', '');
+  await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec', '');
   const reopened = createEngine(storage, cloud.fetch);
   reopened.init(clone(db));
   assert.deepEqual(reopened.conflicts, ['leads/lead-1']);
@@ -218,7 +219,7 @@ test('a POST without actual server save is never considered verified',async()=>{
   engine.merge(clone(cloud.rows),db);
   db.leads[0].name='Not persisted';
   engine.track(db);
-  const result=await engine.flush('https://example.test/exec','');
+  const result=await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
   assert.equal(result.status,'unverified');
   assert.equal(engine.countPending(),1);
 });
@@ -295,4 +296,206 @@ test('imported customer text is escaped before HTML rendering', () => {
   assert.match(html, /safeExternalHref\(l\.website\)/);
   assert.match(html, /safeExternalHref\(l\.linkedin\)/);
   assert.match(html, /safeInlineId\(l\.id\)/);
+});
+
+
+test('Google Apps Script endpoint validation blocks token exfiltration to arbitrary hosts and paths', async () => {
+  const valid = 'https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec';
+  assert.equal(CSK.validateEndpoint(valid), valid);
+  assert.equal(CSK.validateEndpoint('https://script.google.com/a/macros/example.com/s/TEST_DEPLOYMENT_ID/exec'),
+    'https://script.google.com/a/macros/example.com/s/TEST_DEPLOYMENT_ID/exec');
+  const invalid = [
+    'http://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec',
+    'https://script.google.com.evil.example/macros/s/TEST_DEPLOYMENT_ID/exec',
+    'https://evil.example/macros/s/TEST_DEPLOYMENT_ID/exec',
+    'https://script.google.com/anything/exec',
+    'https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec?redirect=https://evil.example',
+    'https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec#token',
+    'https://user:pass@script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec'
+  ];
+  invalid.forEach(url => assert.throws(() => CSK.validateEndpoint(url), /URL HTTPS deployment Google Apps Script/));
+  let networkCalls = 0;
+  const engine = createEngine(store(), async () => { networkCalls++; throw new Error('network must not run'); });
+  await assert.rejects(engine.readCloud('https://evil.example/macros/s/TEST_DEPLOYMENT_ID/exec', 'secret-token'),
+    /URL HTTPS deployment Google Apps Script/);
+  assert.equal(networkCalls, 0, 'token-bearing request must be blocked before network access');
+});
+
+test('large pending changes are sent in verified batches of at most 40 across all modules', async () => {
+  const initial = fixture();
+  initial.leads = Array.from({length:85}, (_,i) => ({
+    ...initial.leads[0], id:'lead-batch-'+i, name:'Lead '+i
+  }));
+  const cloud = fakeCloud(initial);
+  const db = clone(initial);
+  const engine = createEngine(store(), cloud.fetch);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads.forEach((lead,i) => { lead.name = 'Updated '+i; });
+  engine.track(db);
+  assert.equal(engine.countPending(),85);
+  const result = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(result.status,'verified');
+  assert.equal(engine.countPending(),0);
+  const batches = cloud.calls.filter(call => call.action === 'sync_all');
+  assert.deepEqual(batches.map(batch => batch.leads.length),[40,40,5]);
+  assert.ok(batches.every(batch => Object.values(batch).filter(Array.isArray).flat().length <= 40));
+  assert.equal(cloud.rows.leads.every((lead,i) => lead.name === 'Updated '+i),true);
+});
+
+test('unrelated cloud edits remain conflicts after a different record is successfully synced', async () => {
+  const initial = fixture();
+  initial.leads.push({...initial.leads[0],id:'lead-2',name:'Second original'});
+  const cloud = fakeCloud(initial);
+  const db = clone(initial);
+  let raced = false;
+  const raceFetcher = async (url, options={}) => {
+    if (options.method === 'POST' && !raced) {
+      const payload = JSON.parse(options.body);
+      if (payload.action === 'sync_all') {
+        cloud.rows.leads[1].name = 'Changed on second device';
+        raced = true;
+      }
+    }
+    return cloud.fetch(url, options);
+  };
+  const engine = createEngine(store(), raceFetcher);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads[0].name = 'First device edit';
+  engine.track(db);
+  const first = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(first.status,'verified');
+  assert.equal(db.leads[1].name,'Second original','local copy remains unchanged until explicit cloud merge');
+  db.leads[1].notes = 'Local follow-up';
+  engine.track(db);
+  const second = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(second.status,'conflict','unrelated remote edit must not be silently rebaselined');
+  assert.deepEqual(second.conflicts,['leads/lead-2']);
+  assert.equal(cloud.rows.leads[1].name,'Changed on second device');
+});
+
+
+test('prototype-named record IDs survive queue persistence and verified sync', async () => {
+  const storage = store();
+  const cloud = fakeCloud(fixture());
+  const db = fixture();
+  const engine = createEngine(storage, cloud.fetch);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads.push(
+    {...db.leads[0],id:'__proto__',name:'Prototype ID'},
+    {...db.leads[0],id:'constructor',name:'Constructor ID'}
+  );
+  engine.track(db);
+  assert.equal(engine.countPending(),2);
+  const reopened = createEngine(storage, cloud.fetch);
+  reopened.init(clone(db));
+  assert.equal(reopened.countPending(),2);
+  const result = await reopened.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(result.status,'verified');
+  assert.equal(reopened.countPending(),0);
+  assert.equal(cloud.rows.leads.find(row=>row.id==='__proto__').name,'Prototype ID');
+  assert.equal(cloud.rows.leads.find(row=>row.id==='constructor').name,'Constructor ID');
+});
+
+
+test('retry reconciles a committed write when all immediate readbacks fail', async () => {
+  const cloud = fakeCloud(fixture());
+  const db = fixture();
+  let failReadbacks = 0;
+  const flaky = async (url, options={}) => {
+    if (options.method === 'POST') {
+      const result = await cloud.fetch(url, options);
+      failReadbacks = 3;
+      return result;
+    }
+    if (failReadbacks > 0) {
+      failReadbacks--;
+      throw new Error('temporary readback failure');
+    }
+    return cloud.fetch(url, options);
+  };
+  const storage = store();
+  const engine = createEngine(storage, flaky);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads[0].name = 'Committed but readback unavailable';
+  engine.track(db);
+  const first = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(first.status,'error');
+  assert.equal(engine.countPending(),1);
+  assert.equal(cloud.rows.leads[0].name,'Committed but readback unavailable');
+
+  const postCount = cloud.calls.length;
+  const second = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(second.status,'verified',JSON.stringify({
+    second,lastError:engine.lastError,pending:engine.countPending(),remote:cloud.rows.leads[0]
+  }));
+  assert.equal(engine.countPending(),0);
+  assert.equal(cloud.calls.length,postCount,'retry must reconcile, not duplicate the committed POST');
+});
+
+test('retry safely reconciles a deletion committed before a later delete request fails', async () => {
+  const initial = fixture();
+  initial.leads.push({...initial.leads[0],id:'lead-2',name:'Second lead'});
+  const cloud = fakeCloud(initial);
+  const db = clone(initial);
+  let failSecondDelete = true;
+  const flaky = async (url, options={}) => {
+    if (options.method === 'POST') {
+      const payload = JSON.parse(options.body);
+      if (payload.action === 'delete' && payload.id === 'lead-2' && failSecondDelete) {
+        failSecondDelete = false;
+        throw new Error('temporary network interruption');
+      }
+    }
+    return cloud.fetch(url, options);
+  };
+  const engine = createEngine(store(), flaky);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads = [];
+  engine.track(db);
+  const first = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(first.status,'error');
+  assert.equal(cloud.rows.leads.some(row=>row.id==='lead-1'),false);
+  assert.equal(cloud.rows.leads.some(row=>row.id==='lead-2'),true);
+  assert.equal(engine.countPending(),2);
+
+  const second = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(second.status,'verified');
+  assert.equal(engine.countPending(),0);
+  assert.equal(cloud.rows.leads.length,0);
+});
+
+
+test('retry after a partial delete clears the already absent row and does not conflict', async () => {
+  const initial = fixture();
+  initial.leads.push({...initial.leads[0],id:'lead-2',name:'Second lead'});
+  const cloud = fakeCloud(initial);
+  const db = clone(initial);
+  let interrupted = false;
+  const flaky = async (url, options={}) => {
+    if (options.method === 'POST' && !interrupted) {
+      const payload = JSON.parse(options.body);
+      if (payload.action === 'delete' && payload.id === 'lead-2') {
+        interrupted = true;
+        throw new Error('interrupted before second delete');
+      }
+    }
+    return cloud.fetch(url, options);
+  };
+  const engine = createEngine(store(), flaky);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads = [];
+  engine.track(db);
+  const first = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(first.status,'error');
+  assert.equal(engine.countPending(),2);
+  const second = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(second.status,'verified');
+  assert.equal(engine.countPending(),0);
+  assert.equal(cloud.rows.leads.length,0);
 });

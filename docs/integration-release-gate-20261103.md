@@ -1,6 +1,6 @@
 # CSK Business OS — Integration Release Gate (3 Nov 2026)
 
-> **Status: STAGING SOURCE, NOT PRODUCTION.** Draft PR #4. Do not merge, expose a shared Web App, run setupSheet on the production database, rotate production secrets, or deploy to live Google Apps Script without a backup and release approval.
+> **Status: STAGING SOURCE, NOT PRODUCTION.** Integration baseline: Draft PR #4. Optimization hardening: Draft PR #6. Do not merge, expose a shared Web App, run setupSheet on the production database, rotate production secrets, or deploy to live Google Apps Script without a backup and release approval.
 
 ## Integrated architecture
 - Frontend: `index.html` PWA, `sync-safe.js` record-based delta queue with GET readback and UI for reconciliation.
@@ -11,12 +11,30 @@
 - Marketing: Auto-send cold email disabled. Drafts are manually reviewed.
 - PWA branding: official logo, local favicon, app icon, and updated cache.
 
+## Optimization hardening — Draft PR #6
+
+The optimization branch adds the following safeguards without changing the production deployment:
+
+- Token-bearing requests are restricted to HTTPS Google Apps Script `/exec` deployment URLs; arbitrary hosts, query strings, credentials, and lookalike domains are rejected before network access.
+- Local upserts are sent in verified batches of at most 40 records. A POST is not treated as saved until GET readback confirms the expected state.
+- A committed write whose readback was interrupted is reconciled idempotently on retry; partially completed deletes can resume without overwriting a concurrent edit.
+- Compare-and-set validation reads each affected sheet once per batch. Sheet merge reuses one data block for ID indexing and row comparison, and coalesces adjacent updates into a single `setValues` write.
+- Exact duplicate rows in one payload remain idempotent; conflicting duplicate IDs are rejected before any write.
+- Prototype-safe record indexes protect special IDs such as `__proto__` and `constructor`.
+- Owner-only project automation is payload-scoped and remains opt-in; Team writes cannot trigger it.
+- Legacy `insert` and `update_status` API actions also require explicit compare-and-set expectations; Team status updates cannot invoke Owner-only project automation.
+- The PWA defers pinned CDN scripts and caches only approved static CDN assets. Apps Script API traffic remains outside the service-worker cache.
+
 ## Automated gates
 GitHub Actions workflow: `Check Business OS safe sync`, including:
 ```bash
 node --check sync-safe.js
 node sync-safe.test.js
 node sync-backend-integration.test.js
+node service-worker.test.js
+node apps-script/lab-contract.test.cjs
+node apps-script/build-lab-bundle.cjs --check
+node apps-script/lab-bundle.test.cjs
 node mapping.test.js
 node commercial-costing.test.js
 node commercial-invoice.test.js
@@ -35,7 +53,7 @@ These tests use an emulated backend / local browser fixtures. A green CI result 
 5. Backup/restore on local and staging database, including deleted records, orphaned cost references and round-trip of `projectId`.
 6. Quotation print/PDF visual QA and invoice receipt reconciliation with real browser print engine. Verify no HPP/margin leak on customer copies.
 7. Security assessment: tokens in URL/LocalStorage are vulnerable on shared devices; do not treat token as per-person login. Do not open access broadly.
-8. Review PR #4, obtain release approval, prepare rollback plan, then deploy backend and frontend in coordinated sequence.
+8. Review PR #4 and optimization PR #6, obtain release approval, prepare rollback plan, then deploy backend and frontend in coordinated sequence.
 
 ## Rollback
 Keep source on `main` untouched during staging. Preserve production Google Sheets backup and production Apps Script deployment version identifier before release. Roll back frontend to last verified GitHub Pages commit and backend to last verified Apps Script deployment if live smoke checks fail. Never overwrite production data with a staging export.

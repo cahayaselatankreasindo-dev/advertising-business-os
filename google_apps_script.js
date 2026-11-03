@@ -187,11 +187,7 @@ function setupSheet() {
   const marketingHeaders = ["ID", "Tanggal", "Platform", "Kampanye", "Budget", "Terpakai", "LeadsDihasilkan", "Catatan"];
   ensureSheet(ss, "Marketing_Spend", marketingHeaders);
 
-  // Migrasi skema: rapi-kan dulu kolom duplikat, lalu pastikan kolom kontrak ada.
-  // Urutan penting: dedupe dulu (mis. "TANGGAL" & "Tanggal" dobel), baru tambah yang kurang.
-  Object.keys(FIELD_MAP).forEach(function (name) {
-    dedupeHeaders(ss, name);
-  });
+  // Normalisasi header, deduplikasi, dan migrasi kolom kontrak dalam satu pass.
   Object.keys(FIELD_MAP).forEach(function (name) {
     ensureAllHeaders(ss, name);
   });
@@ -239,24 +235,62 @@ function ensureColumn(ss, sheetName, columnName) {
  */
 function ensureAllHeaders(ss, sheetName) {
   var map = FIELD_MAP[sheetName];
-  if (!map) return;
+  if (!map) return [];
   var sheet = ss.getSheetByName(sheetName);
-  if (!sheet || sheet.getLastRow() === 0) return;
+  if (!sheet) return [];
 
-  var current = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
-    .map(function (h) { return String(h).trim().toLowerCase(); });
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(map.headers);
+    sheet.getRange(1, 1, 1, map.headers.length)
+      .setFontWeight("bold").setBackground("#1C2333").setFontColor("#FFFFFF");
+    sheet.setFrozenRows(1);
+    return map.headers.slice();
+  }
 
+  var lastCol = sheet.getLastColumn();
+  var headerRow = lastCol > 0
+    ? sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+    : [];
+  var seen = Object.create(null);
+  var keepCols = [];
+
+  headerRow.forEach(function (h, i) {
+    var key = String(h).trim().toLowerCase();
+    if (key === "" || Object.prototype.hasOwnProperty.call(seen, key)) return;
+    seen[key] = true;
+    keepCols.push(i);
+  });
+
+  // Deduplicate/compact headers and their data in one pass.
+  if (keepCols.length !== lastCol) {
+    var data = sheet.getDataRange().getValues();
+    var newRows = data.map(function (row) {
+      return keepCols.map(function (index) { return row[index]; });
+    });
+    sheet.clear();
+    if (newRows.length && newRows[0].length) {
+      sheet.getRange(1, 1, newRows.length, newRows[0].length).setValues(newRows);
+      sheet.getRange(1, 1, 1, newRows[0].length)
+        .setFontWeight("bold").setBackground("#1C2333").setFontColor("#FFFFFF");
+      sheet.setFrozenRows(1);
+    }
+    headerRow = newRows[0] || [];
+  }
+
+  var current = headerRow.map(function (h) { return String(h).trim().toLowerCase(); });
   map.headers.forEach(function (h) {
     if (current.indexOf(h.toLowerCase()) === -1) {
-      var col = sheet.getLastColumn() + 1;
+      var col = headerRow.length + 1;
       sheet.getRange(1, col).setValue(h);
       sheet.getRange(1, col)
         .setFontWeight("bold")
         .setBackground("#1C2333")
         .setFontColor("#FFFFFF");
+      headerRow.push(h);
       current.push(h.toLowerCase());
     }
   });
+  return headerRow.map(function (h) { return String(h).trim(); });
 }
 
 // Bersihkan kolom HEADER DUPLIKAT (mis. "Tanggal" & "TANGGAL" muncul 2x).
@@ -347,6 +381,7 @@ var CSK_SYNC_PAYLOAD_AREAS_ = {
   finance: "Finance", memory: "Memory", marketingSpend: "Marketing_Spend",
   costings: "Costings", projectCosts: "Project_Costs"
 };
+var CSK_SYNC_MAX_RECORDS_PER_REQUEST_ = 40;
 
 function stableRecordFingerprint_(record) {
   if (!record) return "";
@@ -376,6 +411,8 @@ function validateExpectedRecords_(ss, payload) {
   }
   var missing = [];
   var conflicts = [];
+  var totalRecords = 0;
+  var currentBySheet = Object.create(null);
   Object.keys(CSK_SYNC_PAYLOAD_AREAS_).forEach(function (area) {
     if (!(area in payload)) return;
     var items = payload[area];
@@ -384,20 +421,44 @@ function validateExpectedRecords_(ss, payload) {
       return;
     }
     if (!items.length) return;
+    totalRecords += items.length;
+    if (totalRecords > CSK_SYNC_MAX_RECORDS_PER_REQUEST_) return;
+
     var sheetName = CSK_SYNC_PAYLOAD_AREAS_[area];
     var versions = expectedRecords[sheetName];
     if (!versions || typeof versions !== "object" || Array.isArray(versions)) {
       missing.push(sheetName);
       return;
     }
+
+    // Read each sheet once per request, then compare all records in memory.
+    // This avoids a full Sheets read for every item in a large sync batch.
+    if (!currentBySheet[sheetName]) {
+      currentBySheet[sheetName] = Object.create(null);
+      readSheetData(ss, sheetName).forEach(function (record) {
+        if (record && record.id !== undefined && record.id !== null) {
+          currentBySheet[sheetName][String(record.id)] = record;
+        }
+      });
+    }
+    var seenIds = Object.create(null);
     items.forEach(function (item) {
       var id = String(item && item.id != null ? item.id : "").trim();
       if (!id || !Object.prototype.hasOwnProperty.call(versions, id)) {
         missing.push(sheetName + "/" + id);
         return;
       }
+      if (Object.prototype.hasOwnProperty.call(seenIds, id)) {
+        // Preserve legacy idempotent behavior for exact duplicate payload rows,
+        // but reject ambiguous duplicates that disagree about the desired record.
+        if (stableRecordFingerprint_(seenIds[id]) !== stableRecordFingerprint_(item)) {
+          missing.push(sheetName + "/" + id + " duplikat berbeda");
+        }
+        return;
+      }
+      seenIds[id] = item;
       var expected = versions[id];
-      var current = findRecordById_(ss, sheetName, id);
+      var current = currentBySheet[sheetName][id] || null;
       if (expected === null) {
         if (current) conflicts.push(sheetName + "/" + id);
       } else if (typeof expected !== "string" || !expected ||
@@ -406,15 +467,33 @@ function validateExpectedRecords_(ss, payload) {
       }
     });
   });
+  if (totalRecords > CSK_SYNC_MAX_RECORDS_PER_REQUEST_) {
+    return { ok: false, code: "SYNC_BATCH_LIMIT",
+      message: "Maksimum " + CSK_SYNC_MAX_RECORDS_PER_REQUEST_ + " record per batch. Pecah sinkronisasi menjadi beberapa batch." };
+  }
   if (missing.length) {
     return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
-      message: "Versi dasar record tidak lengkap. Tidak ada data yang diubah.", conflicts: missing };
+      message: "Versi dasar record tidak lengkap atau ID duplikat. Tidak ada data yang diubah.", conflicts: missing };
   }
   if (conflicts.length) {
     return { ok: false, code: "SYNC_CONFLICT",
       message: "Data cloud berubah sejak terakhir dibaca. Tidak ada data yang diubah.", conflicts: conflicts };
   }
   return { ok: true };
+}
+
+function validateExpectedUpdate_(ss, sheetName, id, expectedFingerprint) {
+  if (typeof expectedFingerprint !== "string" || !expectedFingerprint) {
+    return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
+      message: "Pembaruan status ditolak: expectedFingerprint wajib dikirim." };
+  }
+  var current = findRecordById_(ss, sheetName, id);
+  if (!current || stableRecordFingerprint_(current) !== expectedFingerprint) {
+    return { ok: false, code: "SYNC_CONFLICT",
+      message: "Record berubah atau sudah dihapus oleh perangkat lain. Tidak ada data yang diubah.",
+      conflicts: [sheetName + "/" + String(id)] };
+  }
+  return { ok: true, record: current };
 }
 
 function validateExpectedDelete_(ss, sheetName, id, expectedFingerprint) {
@@ -574,6 +653,17 @@ function doPost(e) {
       // --- sync_all (MERGE / UPSERT — tidak pernah menghapus data lama) ---
       // Aman: lead yang sudah ada di Sheets tetap tersimpan; hanya ditambah/diupdate.
       case "sync_all": {
+        // Strict contract: reject unknown keys instead of silently ignoring typos
+        // or accepting forged client-only role metadata.
+        var allowedSyncKeys = ["action", "token", "protocolVersion", "expectedRecords"]
+          .concat(Object.keys(CSK_SYNC_PAYLOAD_AREAS_));
+        var unknownSyncKeys = Object.keys(payload).filter(function (key) {
+          return allowedSyncKeys.indexOf(key) === -1;
+        });
+        if (unknownSyncKeys.length) return jsonResponse({
+          status: "error", code: "INVALID_PAYLOAD", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Field sinkronisasi tidak dikenal: " + unknownSyncKeys.join(", ")
+        });
         // Team may only submit Leads, Clients, and Projects. Reject rather than
         // silently accepting private data in a forged or stale payload.
         Object.keys(CSK_SYNC_PAYLOAD_AREAS_).forEach(function (area) {
@@ -596,13 +686,25 @@ function doPost(e) {
         if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
         if (payload.costings)       mergeSummary.Costings        = mergeSheet(ss, "Costings",        payload.costings);
         if (payload.projectCosts)   mergeSummary.Project_Costs   = mergeSheet(ss, "Project_Costs",   payload.projectCosts);
-        // Setelah sinkronisasi, cek apakah ada lead baru yang won
-        autoTriggerPillars(ss);
+        // Only an Owner write that actually contains a won lead may trigger
+        // the explicitly opt-in project automation. Team edits and unrelated
+        // module syncs must never activate Owner-side automation.
+        var hasWonLeadInPayload = role === "owner" && Array.isArray(payload.leads) &&
+          payload.leads.some(function (lead) { return isDealMenang(lead && lead.status); });
+        if (hasWonLeadInPayload) autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge (tidak ada yang dihapus)", summary: mergeSummary });
       }
 
       // --- delete: hapus 1 baris berdasarkan ID (dipakai tombol hapus di app) ---
       case "delete": {
+        var allowedDeleteKeys = ["action", "token", "protocolVersion", "sheet", "id", "expectedFingerprint"];
+        var unknownDeleteKeys = Object.keys(payload).filter(function (key) {
+          return allowedDeleteKeys.indexOf(key) === -1;
+        });
+        if (unknownDeleteKeys.length) return jsonResponse({
+          status: "error", code: "INVALID_PAYLOAD", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Field penghapusan tidak dikenal: " + unknownDeleteKeys.join(", ")
+        });
         const sheetName = payload.sheet || "Leads";
         const delId = payload.id;
         if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh menghapus data " + sheetName + ".");
@@ -636,47 +738,76 @@ function doPost(e) {
 
       // --- insert: tambahkan 1 baris ke tab tertentu ---
       case "insert": {
+        var allowedInsertKeys = ["action", "token", "protocolVersion", "sheet", "data", "expectedAbsent"];
+        var unknownInsertKeys = Object.keys(payload).filter(function (key) {
+          return allowedInsertKeys.indexOf(key) === -1;
+        });
+        if (unknownInsertKeys.length) return jsonResponse({
+          status: "error", code: "INVALID_PAYLOAD", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Field insert tidak dikenal: " + unknownInsertKeys.join(", ")
+        });
         const sheetName = payload.sheet;
         const data = payload.data || {};
         if (!sheetName || !data.id) {
           throw new Error("Parameter sheet dan data.id diperlukan untuk aksi insert.");
         }
+        if (!FIELD_MAP[sheetName]) return jsonResponse({
+          status: "error", code: "INVALID_SHEET", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Insert hanya diizinkan untuk tab Business OS yang terdaftar."
+        });
         if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh menambahkan data " + sheetName + ".");
-        ensureSheet(ss, sheetName, FIELD_MAP[sheetName] ? FIELD_MAP[sheetName].headers : []);
-        if (FIELD_MAP[sheetName]) {
-          insertRecord(ss, sheetName, data);
-        } else {
-          // Tab di luar kontrak: ikut header Sheet apa adanya.
-          const sheet = ss.getSheetByName(sheetName);
-          const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-          const row = headers.map(h => data[String(h).toLowerCase()] !== undefined ? data[String(h).toLowerCase()] : "");
-          sheet.appendRow(row);
-        }
-        return jsonResponse({ status: "success", message: "Baris berhasil disisipkan di " + sheetName, id: data.id });
+        if (payload.expectedAbsent !== true) return jsonResponse({
+          status: "error", code: "EXPECTED_VERSION_REQUIRED", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Insert ditolak: expectedAbsent:true wajib dikirim."
+        });
+        if (findRecordById_(ss, sheetName, data.id)) return jsonResponse({
+          status: "error", code: "SYNC_CONFLICT", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "ID sudah ada. Tidak ada baris yang ditambahkan.",
+          conflicts: [sheetName + "/" + String(data.id)]
+        });
+        ensureSheet(ss, sheetName, FIELD_MAP[sheetName].headers);
+        insertRecord(ss, sheetName, data);
+        return jsonResponse({ status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Baris berhasil disisipkan di " + sheetName, id: data.id });
       }
 
-      // --- update_status: ubah kolom Status baris berdasarkan ID ---
       case "update_status": {
+        var allowedUpdateKeys = ["action", "token", "protocolVersion", "sheet", "id", "status", "expectedFingerprint"];
+        var unknownUpdateKeys = Object.keys(payload).filter(function (key) {
+          return allowedUpdateKeys.indexOf(key) === -1;
+        });
+        if (unknownUpdateKeys.length) return jsonResponse({
+          status: "error", code: "INVALID_PAYLOAD", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Field update_status tidak dikenal: " + unknownUpdateKeys.join(", ")
+        });
         const sheetName = payload.sheet || "Leads";
         const id = payload.id;
         const status = payload.status;
         if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh mengubah data " + sheetName + ".");
+        if (["Leads", "Projects"].indexOf(sheetName) === -1) return jsonResponse({
+          status: "error", code: "INVALID_SHEET", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "update_status hanya diizinkan untuk Leads dan Projects."
+        });
         if (!id || !status) throw new Error("Parameter id dan status diperlukan.");
+        var updateCheck = validateExpectedUpdate_(ss, sheetName, id, payload.expectedFingerprint);
+        if (!updateCheck.ok) return jsonResponse({
+          status: "error", code: updateCheck.code, protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: updateCheck.message, conflicts: updateCheck.conflicts || []
+        });
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
         const rowNum = findRowById(sheet, id);
         if (rowNum === -1) throw new Error("Baris dengan ID " + id + " tidak ditemukan di " + sheetName);
-        // Kolom Status adalah kolom ke-7 untuk Leads, Projects — umum di kolom terakhir sebelum catatan
-        // Kita cari indeks header "status" (case-insensitive)
         const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
         let statusCol = headers.findIndex(h => String(h).toLowerCase() === "status");
-        if (statusCol === -1) statusCol = 6; // fallback kolom G (index 7)
+        if (statusCol === -1) statusCol = 6;
         sheet.getRange(rowNum, statusCol + 1).setValue(status);
-        // Jika status berubah jadi deal menang → jalankan otomasi
-        if ((sheetName === "Leads" || sheetName === "Leads_CRM") && isDealMenang(status)) {
+        // Only an Owner can trigger project automation; Team status changes remain data-only.
+        if (role === "owner" && sheetName === "Leads" && isDealMenang(status)) {
           autoTriggerPillars(ss, id);
         }
-        return jsonResponse({ status: "success", message: "Status diperbarui di " + sheetName, row: rowNum });
+        return jsonResponse({ status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Status diperbarui di " + sheetName, row: rowNum });
       }
 
       // --- send_cold_email: kirim outreach resmi via Gmail dengan batas kuota 50 & opt-out ---
@@ -747,8 +878,8 @@ function hasTokenInSheet(ss, sheetName, token) {
 }
 
 function isDealMenang(status) {
-  const s = String(status || "").toLowerCase().replace(/\s/g, "");
-  return s === "won" || s === "dealmenang" || s === "deal-menang" || s === "dealwin";
+  const s = String(status || "").toLowerCase().replace(/[\s_-]/g, "");
+  return s === "won" || s === "dealmenang" || s === "dealwin";
 }
 
 function insertRecord(ss, sheetName, recordObj, keyOrder) {
@@ -892,85 +1023,96 @@ function mergeSheet(ss, sheetName, items) {
     }
   }
 
-  // Rapikan kolom duplikat dulu (mis. "TANGGAL" & "Tanggal"), lalu pastikan
-  // semua kolom kontrak ada (kolom baru ditambah di kanan).
-  if (map) {
-    dedupeHeaders(ss, sheetName);
-    ensureAllHeaders(ss, sheetName);
-  }
-
   items = items || [];
   var result = { inserted: 0, updated: 0, skipped: 0, total: items.length };
   if (items.length === 0) return result;
 
+  // Normalize headers once and reuse the returned header row for mapping.
+  var headerRow = map
+    ? ensureAllHeaders(ss, sheetName)
+    : sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+        .map(function (h) { return String(h).trim(); });
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
 
-  // Header aktual sheet -> posisi kolom
-  var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
-    .map(function (h) { return String(h).trim(); });
-
-  // Bangun indeks ID -> nomor baris (ID selalu kolom 1)
-  var idToRow = {};
-  if (lastRow > 1) {
-    var idValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-    for (var i = 0; i < idValues.length; i++) {
-      var key = String(idValues[i][0]).trim();
-      if (key !== "") idToRow[key] = i + 2;
-    }
+  // One full data read supplies both the ID index and update comparison rows.
+  var dataRange = lastRow > 1
+    ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues()
+    : [];
+  var idToRow = Object.create(null);
+  for (var i = 0; i < dataRange.length; i++) {
+    var key = String(dataRange[i][0]).trim();
+    if (key !== "") idToRow[key] = i + 2;
   }
 
-  // Ambil seluruh data sekali (untuk perbandingan & update)
-  var dataRange = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues() : [];
-
-  // Peta nama header kontrak (lowercase) -> posisi di FIELD_MAP.headers
-  var contractPos = {};
+  var contractPos = Object.create(null);
   if (map) {
-    map.headers.forEach(function (h, i) { contractPos[h.toLowerCase()] = i; });
+    map.headers.forEach(function (h, i) {
+      contractPos[String(h).trim().toLowerCase()] = i;
+    });
   }
 
-  // Ubah record -> array nilai SEJAJAR dengan header AKTUAL sheet (by name, case-insensitive)
   function buildRow(item) {
-    var contractRow = recordToRow(sheetName, item); // sejajar FIELD_MAP.headers
+    if (!map) {
+      return headerRow.map(function (h) {
+        return item[String(h).trim().toLowerCase()] === undefined
+          ? "" : item[String(h).trim().toLowerCase()];
+      });
+    }
+    var contractRow = recordToRow(sheetName, item);
     return headerRow.map(function (h) {
       var pos = contractPos[String(h).trim().toLowerCase()];
       return pos === undefined ? "" : contractRow[pos];
     });
   }
 
+  var rowsToUpdate = [];
   var rowsToAppend = [];
-  var seenNewIds = {}; // cegah duplikat ID di dalam 1 payload
+  var seenPayloadIds = Object.create(null);
 
   items.forEach(function (item) {
-    var id = String(item.id === undefined || item.id === null ? "" : item.id).trim();
+    var id = String(item && item.id !== undefined && item.id !== null ? item.id : "").trim();
     if (id === "") { result.skipped++; return; }
+    if (Object.prototype.hasOwnProperty.call(seenPayloadIds, id)) {
+      result.skipped++;
+      return;
+    }
+    seenPayloadIds[id] = true;
 
     var newRow = buildRow(item);
-
-    if (idToRow[id]) {
-      // Baris sudah ada di sheet -> update HANYA kolom yang berubah
-      var rowIdx = idToRow[id] - 2; // index di dataRange
+    if (Object.prototype.hasOwnProperty.call(idToRow, id)) {
+      var rowIdx = idToRow[id] - 2;
       var oldRow = dataRange[rowIdx] || [];
       var changed = false;
       for (var c = 0; c < newRow.length; c++) {
-        // Normalisasi angka vs string agar tidak update palsu
         if (String(oldRow[c]) !== String(newRow[c])) { changed = true; break; }
       }
       if (changed) {
-        sheet.getRange(idToRow[id], 1, 1, newRow.length).setValues([newRow]);
+        rowsToUpdate.push({ row: idToRow[id], values: newRow });
         result.updated++;
       } else {
         result.skipped++;
       }
-    } else if (seenNewIds[id]) {
-      // Duplikat ID di dalam payload yang sama -> cukup sekali
-      result.skipped++;
     } else {
-      seenNewIds[id] = true;
       rowsToAppend.push(newRow);
       result.inserted++;
     }
   });
+
+  // Coalesce adjacent row updates into a single Sheets write per contiguous range.
+  rowsToUpdate.sort(function (a, b) { return a.row - b.row; });
+  for (var u = 0; u < rowsToUpdate.length;) {
+    var startRow = rowsToUpdate[u].row;
+    var groupedRows = [rowsToUpdate[u].values];
+    var next = u + 1;
+    while (next < rowsToUpdate.length &&
+        rowsToUpdate[next].row === startRow + groupedRows.length) {
+      groupedRows.push(rowsToUpdate[next].values);
+      next++;
+    }
+    sheet.getRange(startRow, 1, groupedRows.length, headerRow.length).setValues(groupedRows);
+    u = next;
+  }
 
   if (rowsToAppend.length > 0) {
     sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAppend.length, rowsToAppend[0].length)

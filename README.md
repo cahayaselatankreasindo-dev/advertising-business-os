@@ -83,6 +83,7 @@ Gunakan data dummy untuk pengujian. Jangan menyimpan API token, password, email 
 ## Status integrasi 3 November 2026
 
 - Branch integrasi: `integration/secure-safe-sync-20261103` ([Draft PR #4](https://github.com/cahayaselatankreasindo-dev/advertising-business-os/pull/4)).
+- Branch optimasi keamanan/performa: `optimization/sync-security-performance-20261103` ([Draft PR #6](https://github.com/cahayaselatankreasindo-dev/advertising-business-os/pull/6)); perubahan masih ditinjau dan belum di-merge.
 - Origin fitur: Draft PR #2 (safe sync, operations, email, estimator HPP lokal), Draft PR #3 (commercial HPP, project ledger, invoice, role), disatukan secara selektif tanpa merge ke `main`.
 - Dua domain HPP berbeda: `page-hpp` untuk estimator **lokal** dan `page-costings` untuk quotation terkait proyek yang ikut delta sync.
 - Akun Team hanya memiliki akses server ke Leads, Clients dan Projects; pembatasan yang benar-benar aman untuk data lokal memerlukan perangkat/profile browser terpisah.
