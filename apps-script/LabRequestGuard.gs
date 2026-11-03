@@ -109,7 +109,7 @@ function cskLabGuardPost_(payload) {
         throw new Error("LAB guard: expected version format invalid.");
       }
       if (area === "leads") {
-        var status = String(row.status || "").toLowerCase().replace(/[\\s_-]/g, "");
+        var status = String(row.status || "").toLowerCase().replace(/[\s_-]/g, "");
         if (status === "won" || status === "dealmenang" || status === "dealwin") {
           // Avoid automatic Finance/Projects entries in autoTriggerPillars.
           throw new Error("LAB guard: won leads are forbidden.");
@@ -169,6 +169,12 @@ function cskLabRunGuardNegativeTests() {
     { action: "sync_all", protocolVersion: 2, token: token,
       expectedRecords: {Leads: {"QA-LAB-FORBIDDEN-DEAL": null}},
       leads: [{id:"QA-LAB-FORBIDDEN-DEAL", status:"Deal Menang"}] },
+    { action: "sync_all", protocolVersion: 2, token: token,
+      expectedRecords: {Leads: {"QA-LAB-FORBIDDEN-HYPHEN": null}},
+      leads: [{id:"QA-LAB-FORBIDDEN-HYPHEN", status:"deal-menang"}] },
+    { action: "sync_all", protocolVersion: 2, token: token,
+      expectedRecords: {Leads: {"QA-LAB-FORBIDDEN-WIN": null}},
+      leads: [{id:"QA-LAB-FORBIDDEN-WIN", status:"dealwin"}] },
     { action: "sync_all", protocolVersion: 2, token: token,
       expectedRecords: {Leads: {"QA-LAB-OK": null}},
       leads: [{id:"QA-LAB-OK", status:"new"}], extra: "not_allowed" },
