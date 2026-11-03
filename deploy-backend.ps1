@@ -1,20 +1,21 @@
-# SAFE BLOCK — deployment is intentionally disabled in this repository branch.
-# The committed apps-script/.clasp.json points to the isolated LAB project.
-# The old script copied google_apps_script.js over the guarded LAB Code.gs,
-# then ran clasp push/deploy. That could remove LAB-only protections.
+# SAFE BLOCK — deployment is intentionally disabled in this staging branch.
+# apps-script/.clasp.json points to the PRODUCTION Script ID.
+# apps-script/Code.gs in this branch is LAB-ONLY guarded source, not production source.
+# Running clasp push/deploy from apps-script/ could therefore overwrite production
+# with the wrong backend. The isolated LAB uses a separate Script ID documented in
+# docs/lab-api-guard.md; it needs its own verified working directory/configuration.
 #
-# Do not replace the LAB script with production backend source.
-# A production release requires a separately verified production Script ID,
-# a verified Google Sheets backup, a reviewed versioned deployment, and owner approval.
-# None of those production target details are configured in this repository.
+# Do not run clasp from this branch until the target and source are deliberately paired.
+# Production release requires a reviewed production backend, verified backup,
+# versioned deployment and explicit owner approval.
 
 $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "DEPLOYMENT BLOCKED — CSK Business OS" -ForegroundColor Red
-Write-Host "This repository is configured for an isolated TEST ONLY Apps Script project." -ForegroundColor Yellow
+Write-Host "Staging source is LAB-only, but .clasp.json points to PRODUCTION. Do not run clasp here." -ForegroundColor Yellow
 Write-Host "No files were copied. No clasp push or deploy was executed." -ForegroundColor Yellow
-Write-Host "Use the documented release gate and a separately verified production Apps Script project." -ForegroundColor Cyan
+Write-Host "Use a separately verified LAB working directory for LAB tests; production release requires separate approval." -ForegroundColor Cyan
 Write-Host ""
 
 exit 1
