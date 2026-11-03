@@ -616,3 +616,35 @@ test('backend stores prototype-named IDs as normal records without index collisi
   assert.equal(saved.find(row=>row.id==='__proto__').name,'Prototype ID');
   assert.equal(saved.find(row=>row.id==='constructor').name,'Constructor ID');
 });
+
+
+test('checked-in LAB Code.gs runs its wired guards, role isolation and dummy smoke test', () => {
+  const api = createBackend();
+  const ctx = api.sandbox;
+  ctx.PropertiesService.getScriptProperties().setProperty(
+    'TEAM_API_TOKEN','LAB-SYNTHETIC-TEAM-TOKEN-FOR-EMULATOR-ONLY'
+  );
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script/Code.gs'),'utf8'),ctx);
+  for(const file of ['LabRequestGuard.gs','LabSelfTest.gs','LabHandlerVerification.gs']) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname,'apps-script',file),'utf8'),ctx);
+  }
+
+  const handler = ctx.cskLabVerifyActiveHandlers();
+  assert.equal(handler.status,'LAB_HANDLER_GUARD_PASS');
+  const guard = ctx.cskLabRunGuardNegativeTests();
+  assert.equal(guard.status,'LAB_GUARD_PASS');
+  assert.equal(guard.databaseWritesPerformed,0);
+  const roles = ctx.cskLabRunRoleIsolationTests();
+  assert.equal(roles.status,'LAB_ROLE_ISOLATION_PASS');
+  assert.equal(roles.privateSheetRowsUnchanged,true);
+  const smoke = ctx.cskLabRunIsolatedSmokeTest();
+  assert.equal(smoke.status,'LAB_TEST_PASS');
+  assert.equal(smoke.inserted,true);
+  assert.equal(smoke.updated,true);
+  assert.equal(smoke.deleted,true);
+  assert.equal(smoke.verified,true);
+  for(const table of Object.values(api.tables)) {
+    assert.equal(table.getLastRow(),1,'LAB smoke test must clean up all dummy rows');
+  }
+  assert.equal(api.sent.length,0,'LAB checks must not send email');
+});
