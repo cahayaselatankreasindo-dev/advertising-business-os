@@ -165,11 +165,7 @@ function setupSheet() {
   const marketingHeaders = ["ID", "Tanggal", "Platform", "Kampanye", "Budget", "Terpakai", "LeadsDihasilkan", "Catatan"];
   ensureSheet(ss, "Marketing_Spend", marketingHeaders);
 
-  // Migrasi skema: rapi-kan dulu kolom duplikat, lalu pastikan kolom kontrak ada.
-  // Urutan penting: dedupe dulu (mis. "TANGGAL" & "Tanggal" dobel), baru tambah yang kurang.
-  Object.keys(FIELD_MAP).forEach(function (name) {
-    dedupeHeaders(ss, name);
-  });
+  // Normalisasi header, deduplikasi, dan migrasi kolom kontrak dalam satu pass.
   Object.keys(FIELD_MAP).forEach(function (name) {
     ensureAllHeaders(ss, name);
   });
@@ -217,24 +213,62 @@ function ensureColumn(ss, sheetName, columnName) {
  */
 function ensureAllHeaders(ss, sheetName) {
   var map = FIELD_MAP[sheetName];
-  if (!map) return;
+  if (!map) return [];
   var sheet = ss.getSheetByName(sheetName);
-  if (!sheet || sheet.getLastRow() === 0) return;
+  if (!sheet) return [];
 
-  var current = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
-    .map(function (h) { return String(h).trim().toLowerCase(); });
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(map.headers);
+    sheet.getRange(1, 1, 1, map.headers.length)
+      .setFontWeight("bold").setBackground("#1C2333").setFontColor("#FFFFFF");
+    sheet.setFrozenRows(1);
+    return map.headers.slice();
+  }
 
+  var lastCol = sheet.getLastColumn();
+  var headerRow = lastCol > 0
+    ? sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+    : [];
+  var seen = Object.create(null);
+  var keepCols = [];
+
+  headerRow.forEach(function (h, i) {
+    var key = String(h).trim().toLowerCase();
+    if (key === "" || Object.prototype.hasOwnProperty.call(seen, key)) return;
+    seen[key] = true;
+    keepCols.push(i);
+  });
+
+  // Deduplicate/compact headers and their data in one pass.
+  if (keepCols.length !== lastCol) {
+    var data = sheet.getDataRange().getValues();
+    var newRows = data.map(function (row) {
+      return keepCols.map(function (index) { return row[index]; });
+    });
+    sheet.clear();
+    if (newRows.length && newRows[0].length) {
+      sheet.getRange(1, 1, newRows.length, newRows[0].length).setValues(newRows);
+      sheet.getRange(1, 1, 1, newRows[0].length)
+        .setFontWeight("bold").setBackground("#1C2333").setFontColor("#FFFFFF");
+      sheet.setFrozenRows(1);
+    }
+    headerRow = newRows[0] || [];
+  }
+
+  var current = headerRow.map(function (h) { return String(h).trim().toLowerCase(); });
   map.headers.forEach(function (h) {
     if (current.indexOf(h.toLowerCase()) === -1) {
-      var col = sheet.getLastColumn() + 1;
+      var col = headerRow.length + 1;
       sheet.getRange(1, col).setValue(h);
       sheet.getRange(1, col)
         .setFontWeight("bold")
         .setBackground("#1C2333")
         .setFontColor("#FFFFFF");
+      headerRow.push(h);
       current.push(h.toLowerCase());
     }
   });
+  return headerRow.map(function (h) { return String(h).trim(); });
 }
 
 // Bersihkan kolom HEADER DUPLIKAT (mis. "Tanggal" & "TANGGAL" muncul 2x).
@@ -912,85 +946,96 @@ function mergeSheet(ss, sheetName, items) {
     }
   }
 
-  // Rapikan kolom duplikat dulu (mis. "TANGGAL" & "Tanggal"), lalu pastikan
-  // semua kolom kontrak ada (kolom baru ditambah di kanan).
-  if (map) {
-    dedupeHeaders(ss, sheetName);
-    ensureAllHeaders(ss, sheetName);
-  }
-
   items = items || [];
   var result = { inserted: 0, updated: 0, skipped: 0, total: items.length };
   if (items.length === 0) return result;
 
+  // Normalize headers once and reuse the returned header row for mapping.
+  var headerRow = map
+    ? ensureAllHeaders(ss, sheetName)
+    : sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+        .map(function (h) { return String(h).trim(); });
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
 
-  // Header aktual sheet -> posisi kolom
-  var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
-    .map(function (h) { return String(h).trim(); });
-
-  // Bangun indeks ID -> nomor baris (ID selalu kolom 1)
+  // One full data read supplies both the ID index and update comparison rows.
+  var dataRange = lastRow > 1
+    ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues()
+    : [];
   var idToRow = Object.create(null);
-  if (lastRow > 1) {
-    var idValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-    for (var i = 0; i < idValues.length; i++) {
-      var key = String(idValues[i][0]).trim();
-      if (key !== "") idToRow[key] = i + 2;
-    }
+  for (var i = 0; i < dataRange.length; i++) {
+    var key = String(dataRange[i][0]).trim();
+    if (key !== "") idToRow[key] = i + 2;
   }
 
-  // Ambil seluruh data sekali (untuk perbandingan & update)
-  var dataRange = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues() : [];
-
-  // Peta nama header kontrak (lowercase) -> posisi di FIELD_MAP.headers
-  var contractPos = {};
+  var contractPos = Object.create(null);
   if (map) {
-    map.headers.forEach(function (h, i) { contractPos[h.toLowerCase()] = i; });
+    map.headers.forEach(function (h, i) {
+      contractPos[String(h).trim().toLowerCase()] = i;
+    });
   }
 
-  // Ubah record -> array nilai SEJAJAR dengan header AKTUAL sheet (by name, case-insensitive)
   function buildRow(item) {
-    var contractRow = recordToRow(sheetName, item); // sejajar FIELD_MAP.headers
+    if (!map) {
+      return headerRow.map(function (h) {
+        return item[String(h).trim().toLowerCase()] === undefined
+          ? "" : item[String(h).trim().toLowerCase()];
+      });
+    }
+    var contractRow = recordToRow(sheetName, item);
     return headerRow.map(function (h) {
       var pos = contractPos[String(h).trim().toLowerCase()];
       return pos === undefined ? "" : contractRow[pos];
     });
   }
 
+  var rowsToUpdate = [];
   var rowsToAppend = [];
-  var seenNewIds = Object.create(null); // cegah duplikat ID di dalam 1 payload
+  var seenPayloadIds = Object.create(null);
 
   items.forEach(function (item) {
-    var id = String(item.id === undefined || item.id === null ? "" : item.id).trim();
+    var id = String(item && item.id !== undefined && item.id !== null ? item.id : "").trim();
     if (id === "") { result.skipped++; return; }
+    if (Object.prototype.hasOwnProperty.call(seenPayloadIds, id)) {
+      result.skipped++;
+      return;
+    }
+    seenPayloadIds[id] = true;
 
     var newRow = buildRow(item);
-
-    if (idToRow[id]) {
-      // Baris sudah ada di sheet -> update HANYA kolom yang berubah
-      var rowIdx = idToRow[id] - 2; // index di dataRange
+    if (Object.prototype.hasOwnProperty.call(idToRow, id)) {
+      var rowIdx = idToRow[id] - 2;
       var oldRow = dataRange[rowIdx] || [];
       var changed = false;
       for (var c = 0; c < newRow.length; c++) {
-        // Normalisasi angka vs string agar tidak update palsu
         if (String(oldRow[c]) !== String(newRow[c])) { changed = true; break; }
       }
       if (changed) {
-        sheet.getRange(idToRow[id], 1, 1, newRow.length).setValues([newRow]);
+        rowsToUpdate.push({ row: idToRow[id], values: newRow });
         result.updated++;
       } else {
         result.skipped++;
       }
-    } else if (seenNewIds[id]) {
-      // Duplikat ID di dalam payload yang sama -> cukup sekali
-      result.skipped++;
     } else {
-      seenNewIds[id] = true;
       rowsToAppend.push(newRow);
       result.inserted++;
     }
   });
+
+  // Coalesce adjacent row updates into a single Sheets write per contiguous range.
+  rowsToUpdate.sort(function (a, b) { return a.row - b.row; });
+  for (var u = 0; u < rowsToUpdate.length;) {
+    var startRow = rowsToUpdate[u].row;
+    var groupedRows = [rowsToUpdate[u].values];
+    var next = u + 1;
+    while (next < rowsToUpdate.length &&
+        rowsToUpdate[next].row === startRow + groupedRows.length) {
+      groupedRows.push(rowsToUpdate[next].values);
+      next++;
+    }
+    sheet.getRange(startRow, 1, groupedRows.length, headerRow.length).setValues(groupedRows);
+    u = next;
+  }
 
   if (rowsToAppend.length > 0) {
     sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAppend.length, rowsToAppend[0].length)
