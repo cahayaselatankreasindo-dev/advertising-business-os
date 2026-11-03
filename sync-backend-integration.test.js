@@ -15,11 +15,16 @@ const { createEngine } = require('./sync-safe.js');
 
 function sheet(headers) {
   const rows = [headers.slice()];
+  let dataRangeReadCount = 0;
   return {
     rows,
+    getDataRangeReadCount() { return dataRangeReadCount; },
     getLastRow() { return rows.length; },
     getLastColumn() { return Math.max(...rows.map(x => x.length)); },
-    getDataRange() { return { getValues() { return rows.map(x => x.slice()); } }; },
+    getDataRange() {
+      dataRangeReadCount++;
+      return { getValues() { return rows.map(x => x.slice()); } };
+    },
     getRange(row, col, countRows = 1, countCols = 1) {
       return {
         getValues() {
@@ -505,4 +510,92 @@ test('missing backend API token rejects reads and writes (fail closed)', () => {
   assert.equal(api.tables.Leads.getLastRow(), 1);
   const read = api.read();
   assert.equal(read.status, 'error', 'tokenless server cannot disclose cloud rows');
+});
+
+
+test('sync_all rejects unknown payload keys and more than 40 records before writing', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const before = api.tables.Leads.getLastRow();
+  const unknown = api.post({
+    action:'sync_all', token, role:'owner', expectedRecords:{}
+  });
+  assert.equal(unknown.code,'INVALID_PAYLOAD');
+  assert.equal(api.tables.Leads.getLastRow(),before);
+
+  const leads = Array.from({length:21},(_,i)=>({
+    id:'TEST-LIMIT-L-'+i,date:'2026-11-03',name:'Limit lead '+i,status:'new'
+  }));
+  const projects = Array.from({length:20},(_,i)=>({
+    id:'TEST-LIMIT-P-'+i,title:'Limit project '+i,status:'plan'
+  }));
+  const expectedRecords = {Leads:{},Projects:{}};
+  leads.forEach(row => { expectedRecords.Leads[row.id] = null; });
+  projects.forEach(row => { expectedRecords.Projects[row.id] = null; });
+  const limited = api.post({action:'sync_all',token,leads,projects,expectedRecords});
+  assert.equal(limited.code,'SYNC_BATCH_LIMIT');
+  assert.equal(api.tables.Leads.getLastRow(),before);
+  assert.equal(api.tables.Projects.getLastRow(),1);
+});
+
+test('compare-and-set reads each affected sheet once per bounded batch', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const rows = Array.from({length:40},(_,i)=>({
+    id:'TEST-READ-ONCE-'+i,date:'2026-11-03',name:'Read once '+i,status:'new'
+  }));
+  const expectedRecords = {Leads:{}};
+  rows.forEach(row => { expectedRecords.Leads[row.id] = null; });
+  const before = api.tables.Leads.getDataRangeReadCount();
+  const result = api.post({action:'sync_all',token,leads:rows,expectedRecords});
+  assert.equal(result.status,'success');
+  assert.equal(api.tables.Leads.getDataRangeReadCount()-before,1,
+    'CAS must read the Leads sheet once, not once per record');
+});
+
+test('Team token cannot read or mutate private modules and cannot trigger Owner automation', () => {
+  const api = createBackend();
+  const props = api.sandbox.PropertiesService.getScriptProperties();
+  const ownerToken = 'TEST_ONLY_OWNER_TOKEN_2026_SAFE';
+  const teamToken = 'TEST_ONLY_TEAM_TOKEN_2026_SAFE';
+  props.setProperty('OWNER_API_TOKEN',ownerToken);
+  props.setProperty('TEAM_API_TOKEN',teamToken);
+  props.deleteProperty('API_TOKEN');
+  props.setProperty('AUTO_PROJECT_FROM_WON','true');
+
+  const teamRead = JSON.parse(api.sandbox.doGet({
+    parameter:{token:teamToken,protocolVersion:2}
+  }).text);
+  assert.equal(teamRead.status,'success');
+  assert.equal(teamRead.data.role,'team');
+  for(const area of ['finance','memory','marketingSpend','costings','projectCosts']) {
+    assert.deepEqual(teamRead.data[area],[], 'Team must not read '+area);
+  }
+  assert.equal(api.sandbox.getRequestRole({token:teamToken,role:'owner'}),'team',
+    'client-supplied role must not elevate the token');
+
+  const financeWrite = api.post({
+    action:'sync_all',token:teamToken,
+    finance:[{id:'TEST-TEAM-FINANCE',date:'2026-11-03',type:'income',amount:100}],
+    expectedRecords:{Finance:{'TEST-TEAM-FINANCE':null}}
+  });
+  assert.notEqual(financeWrite.status,'success');
+  assert.equal(api.tables.Finance.getLastRow(),1);
+
+  const financeDelete = api.post({
+    action:'delete',token:teamToken,sheet:'Finance',id:'TEST-PRIVATE',
+    expectedFingerprint:'TEST-FINGERPRINT'
+  });
+  assert.equal(financeDelete.code,'FORBIDDEN');
+
+  const wonLead = {id:'TEST-TEAM-WON',date:'2026-11-03',name:'Team won test',status:'won',value:500000};
+  const teamWon = api.post({
+    action:'sync_all',token:teamToken,leads:[wonLead],
+    expectedRecords:{Leads:{[wonLead.id]:null}}
+  });
+  assert.equal(teamWon.status,'success');
+  assert.equal(api.tables.Projects.getLastRow(),1,
+    'Team lead changes must not run Owner-only project automation');
+  assert.equal(api.tables.Finance.getLastRow(),1,
+    'won lead must not fabricate cash receipts');
 });
