@@ -356,7 +356,7 @@ function validateExpectedRecords_(ss, payload) {
   var missing = [];
   var conflicts = [];
   var totalRecords = 0;
-  var currentBySheet = {};
+  var currentBySheet = Object.create(null);
   Object.keys(CSK_SYNC_PAYLOAD_AREAS_).forEach(function (area) {
     if (!(area in payload)) return;
     var items = payload[area];
@@ -378,14 +378,14 @@ function validateExpectedRecords_(ss, payload) {
     // Read each sheet once per request, then compare all records in memory.
     // This avoids a full Sheets read for every item in a large sync batch.
     if (!currentBySheet[sheetName]) {
-      currentBySheet[sheetName] = {};
+      currentBySheet[sheetName] = Object.create(null);
       readSheetData(ss, sheetName).forEach(function (record) {
         if (record && record.id !== undefined && record.id !== null) {
           currentBySheet[sheetName][String(record.id)] = record;
         }
       });
     }
-    var seenIds = {};
+    var seenIds = Object.create(null);
     items.forEach(function (item) {
       var id = String(item && item.id != null ? item.id : "").trim();
       if (!id || !Object.prototype.hasOwnProperty.call(versions, id)) {
@@ -927,7 +927,7 @@ function mergeSheet(ss, sheetName, items) {
     .map(function (h) { return String(h).trim(); });
 
   // Bangun indeks ID -> nomor baris (ID selalu kolom 1)
-  var idToRow = {};
+  var idToRow = Object.create(null);
   if (lastRow > 1) {
     var idValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
     for (var i = 0; i < idValues.length; i++) {
@@ -955,7 +955,7 @@ function mergeSheet(ss, sheetName, items) {
   }
 
   var rowsToAppend = [];
-  var seenNewIds = {}; // cegah duplikat ID di dalam 1 payload
+  var seenNewIds = Object.create(null); // cegah duplikat ID di dalam 1 payload
 
   items.forEach(function (item) {
     var id = String(item.id === undefined || item.id === null ? "" : item.id).trim();
