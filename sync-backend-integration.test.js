@@ -599,3 +599,20 @@ test('Team token cannot read or mutate private modules and cannot trigger Owner 
   assert.equal(api.tables.Finance.getLastRow(),1,
     'won lead must not fabricate cash receipts');
 });
+
+
+test('backend stores prototype-named IDs as normal records without index collisions', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const leads = [
+    {id:'__proto__',date:'2026-11-03',name:'Prototype ID',status:'new'},
+    {id:'constructor',date:'2026-11-03',name:'Constructor ID',status:'new'}
+  ];
+  const versions = Object.create(null);
+  leads.forEach(row => { versions[row.id] = null; });
+  const result = api.post({action:'sync_all',token,leads,expectedRecords:{Leads:versions}});
+  assert.equal(result.status,'success');
+  const saved = api.read().data.leads;
+  assert.equal(saved.find(row=>row.id==='__proto__').name,'Prototype ID');
+  assert.equal(saved.find(row=>row.id==='constructor').name,'Constructor ID');
+});
