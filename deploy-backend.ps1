@@ -1,8 +1,9 @@
 # SAFE BLOCK — deployment is intentionally disabled in this staging branch.
 # apps-script/.clasp.json points to the PRODUCTION Script ID.
-# apps-script/Code.gs is LAB-only source, while the root google_apps_script.js is
-# an integration backend. The old helper copied that integration backend into Code.gs
-# then pushed it to the production target. That could publish unreviewed staging code.
+# apps-script/Code.gs and appsscript.json are LAB-only source/manifest, while
+# .clasp.json still points to the production Script ID. A manual clasp push could
+# send LAB code or the MYSELF manifest to production. The old helper copied the
+# integration backend into Code.gs and pushed to production, bypassing review.
 # The isolated LAB uses a separate Script ID documented in docs/lab-api-guard.md and
 # requires its own verified working directory/configuration.
 #
@@ -14,7 +15,7 @@ $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "DEPLOYMENT BLOCKED — CSK Business OS" -ForegroundColor Red
-Write-Host "Staging deployment would push unreviewed integration code to PRODUCTION. Do not run clasp here." -ForegroundColor Yellow
+Write-Host "LAB source/manifest and PRODUCTION .clasp target are mismatched. Do not run clasp here." -ForegroundColor Yellow
 Write-Host "No files were copied. No clasp push or deploy was executed." -ForegroundColor Yellow
 Write-Host "Use a separately verified LAB working directory for LAB tests; production release requires separate approval." -ForegroundColor Cyan
 Write-Host ""
