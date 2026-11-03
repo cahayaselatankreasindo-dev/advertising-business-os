@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#FFFFFF"/>
-  <image href="./logo-horizontal.svg" x="4" y="22" width="56" height="18" preserveAspectRatio="xMidYMid meet"/>
+  <rect width="64" height="64" rx="12" fill="#1C2333"/>
+  <text x="32" y="39" text-anchor="middle" font-family="Arial,sans-serif" font-size="20" font-weight="800" letter-spacing="-1" fill="#F97316">CSK</text>
 </svg>
