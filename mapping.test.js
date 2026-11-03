@@ -282,13 +282,21 @@ callDoPost({ action: 'sync_all', leads: [
 eq(sheets['Leads'].rows.length, leadsBefore3 + 1, 'sync_all: ID duplikat dalam 1 payload hanya ditulis sekali');
 
 // ---------- 8. Tes update_status tetap jalan ----------
-const upd = callDoPost({ action: 'update_status', sheet: 'Leads', id: 'L9', status: 'nego' });
+const currentL9 = sandbox.readSheetData(sandbox.SpreadsheetApp.getActiveSpreadsheet(), 'Leads')
+  .find(row => String(row.id) === 'L9');
+const upd = callDoPost({
+  action: 'update_status', sheet: 'Leads', id: 'L9', status: 'nego',
+  expectedFingerprint: sandbox.stableRecordFingerprint_(currentL9)
+});
 eq(upd.status, 'success', 'update_status nego success');
 const l9Row = sheets['Leads'].rows.find(r => String(r[0]) === 'L9');
 eq(l9Row[6], 'nego', 'update_status menulis kolom Status yang benar');
 
 // ---------- 9. Tes insert memakai header Sheet ----------
-const ins = callDoPost({ action: 'insert', sheet: 'Memory', data: { id: 'M10', date: '2026-09-11', category: 'Ide', title: 'x', content: 'y' } });
+const ins = callDoPost({
+  action: 'insert', sheet: 'Memory', expectedAbsent: true,
+  data: { id: 'M10', date: '2026-09-11', category: 'Ide', title: 'x', content: 'y' }
+});
 eq(ins.status, 'success', 'insert Memory success');
 const lastMem = sheets['Memory'].rows[sheets['Memory'].rows.length - 1];
 eq(lastMem[3], 'x', 'insert Memory: Judul di kolom D (ikut header Sheet, bukan keyOrder lama)');
