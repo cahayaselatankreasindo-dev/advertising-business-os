@@ -28,6 +28,9 @@ on:
       - 'sync-backend-integration.test.js'
       - 'google_apps_script.js'
       - 'outreach-safety.test.js'
+      - 'apps-script/Code.gs'
+      - 'apps-script/LabHandlerVerification.gs'
+      - 'apps-script/lab-contract.test.cjs'
       - 'apps-script/LabSelfTest.gs'
       - 'apps-script/LabRequestGuard.gs'
       - 'sw.js'
@@ -89,6 +92,13 @@ jobs:
           node photo-lab.test.js
       - name: Validate existing sheet mapping
         run: node mapping.test.js
+      - name: Validate isolated Apps Script LAB source and guard wiring
+        run: |
+          node --check --input-type=commonjs < apps-script/Code.gs
+          node --check --input-type=commonjs < apps-script/LabRequestGuard.gs
+          node --check --input-type=commonjs < apps-script/LabSelfTest.gs
+          node --check --input-type=commonjs < apps-script/LabHandlerVerification.gs
+          node apps-script/lab-contract.test.cjs
       - name: Install browser test runtime
         run: |
           npm install --no-save --no-package-lock playwright@1.55.0
