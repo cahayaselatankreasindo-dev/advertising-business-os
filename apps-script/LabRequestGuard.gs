@@ -11,7 +11,8 @@
  */
 var CSK_LAB_WRITE_KEYS_ = {
   leads: "Leads", clients: "Clients", projects: "Projects",
-  finance: "Finance", memory: "Memory", marketingSpend: "Marketing_Spend"
+  finance: "Finance", memory: "Memory", marketingSpend: "Marketing_Spend",
+  costings: "Costings", projectCosts: "Project_Costs"
 };
 
 function cskLabGuardRead_() {
@@ -72,7 +73,7 @@ function cskLabGuardPost_(payload) {
     return;
   }
 
-  // sync_all: write only six known domains; never allow opaque extra actions.
+  // sync_all: write only eight known domains; never allow opaque extra actions.
   var permittedKeys = ["action", "token", "protocolVersion", "expectedRecords"].concat(Object.keys(CSK_LAB_WRITE_KEYS_));
   Object.keys(payload).forEach(function(k) {
     if (permittedKeys.indexOf(k) === -1) {
