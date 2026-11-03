@@ -374,3 +374,27 @@ test('unrelated cloud edits remain conflicts after a different record is success
   assert.deepEqual(second.conflicts,['leads/lead-2']);
   assert.equal(cloud.rows.leads[1].name,'Changed on second device');
 });
+
+
+test('prototype-named record IDs survive queue persistence and verified sync', async () => {
+  const storage = store();
+  const cloud = fakeCloud(fixture());
+  const db = fixture();
+  const engine = createEngine(storage, cloud.fetch);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads.push(
+    {...db.leads[0],id:'__proto__',name:'Prototype ID'},
+    {...db.leads[0],id:'constructor',name:'Constructor ID'}
+  );
+  engine.track(db);
+  assert.equal(engine.countPending(),2);
+  const reopened = createEngine(storage, cloud.fetch);
+  reopened.init(clone(db));
+  assert.equal(reopened.countPending(),2);
+  const result = await reopened.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(result.status,'verified');
+  assert.equal(reopened.countPending(),0);
+  assert.equal(cloud.rows.leads.find(row=>row.id==='__proto__').name,'Prototype ID');
+  assert.equal(cloud.rows.leads.find(row=>row.id==='constructor').name,'Constructor ID');
+});
