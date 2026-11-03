@@ -325,7 +325,7 @@
     <!-- Role Dropdown -->
     <div class="px-4 py-3 border-b border-slate-800">
       <label for="role-select" class="text-[11px] text-slate-300 font-semibold uppercase tracking-wider block mb-1">Mode tampilan</label>
-      <p class="mb-2 text-[11px] leading-snug text-slate-400">Hanya menyembunyikan menu; bukan login atau pembatasan akses data.</p>
+      <p class="mb-2 text-[11px] leading-snug text-slate-400">Hak akses data ditentukan oleh token yang diverifikasi server. Mode tampilan tidak memberikan izin tambahan.</p>
       <select id="role-select" onchange="onRoleChange(this.value)" class="w-full text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-amber-500">
         <option value="owner">Owner</option>
         <option value="team">Tim Kreatif / Admin</option>
@@ -1394,6 +1394,7 @@
 
     const DB_KEY = 'csk_business_os_db';
     let safeSync = null;
+    let serverRole = 'unknown'; // Only updated from a successful authenticated server read.
     let autoSyncTimer = null;
     function scheduleCloudSync() {
       if (!db.settings || !safeSync || cloudConfigError(db.settings.googleSheetUrl, getApiToken())) return;
@@ -1444,6 +1445,8 @@
       document.getElementById('role-select').value = db.role || 'owner';
       const mobSel = document.getElementById('role-select-mob');
       if (mobSel) mobSel.value = db.role || 'owner';
+      serverRole = 'unknown';
+      updateRoleControls();
       applyRoleUI();
       // Initial state is read without sending older local records to the cloud.
       safeSync = window.CSKSafeSync.createEngine(localStorage);
@@ -1498,54 +1501,55 @@
 
     function onRoleChange(role) {
       if (role !== 'owner' && role !== 'team') return;
+      if (serverRole !== 'owner' && role === 'owner') {
+        db.role = 'team';
+        updateRoleControls();
+        applyRoleUI();
+        showToast('Akses Owner memerlukan token Owner yang diverifikasi server.', true);
+        return;
+      }
       db.role = role;
       localStorage.setItem(DB_KEY, JSON.stringify(db));
+      updateRoleControls();
       applyRoleUI();
       nav('dashboard');
-      showToast('Mode tampilan diubah. Ini bukan login atau pengamanan akses data.');
+      showToast('Mode tampilan diubah. Hak akses data tetap ditentukan server.');
+    }
+
+    function updateRoleControls() {
+      const verified = serverRole === 'owner' || serverRole === 'team';
+      const selectedRole = serverRole === 'team' ? 'team' : (db.role || 'team');
+      ['role-select', 'role-select-mob'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = selectedRole;
+        el.disabled = !verified || serverRole === 'team';
+        el.title = el.disabled ? 'Role ditentukan token server; verifikasi koneksi terlebih dahulu.' : 'Mode tampilan Owner/Tim.';
+      });
     }
 
     function applyRoleUI() {
-      const isTeam = db.role !== 'owner';
+      const isTeam = serverRole !== 'owner' || db.role !== 'owner';
       const selectors = ['.pillar-finance', '.pillar-marketing', '.pillar-riset', '.pillar-marketing-mob'];
       selectors.forEach(sel => {
-        document.querySelectorAll(sel).forEach(el => {
-          el.style.display = isTeam ? 'none' : '';
-        });
+        document.querySelectorAll(sel).forEach(el => { el.style.display = isTeam ? 'none' : ''; });
       });
-      // Owner-only card: workload chart
       const workloadCard = document.getElementById('owner-workload-card');
       if (workloadCard) workloadCard.style.display = isTeam ? 'none' : 'block';
-      // Hide mobile nav items for team
-      document.querySelectorAll('.pillar-marketing-mob').forEach(el => {
-        el.closest('nav')?.querySelectorAll('.mob-btn').forEach(btn => {
-          // We'll hide specific buttons by checking their onclick
-        });
-      });
-      // More targeted: hide mobile nav buttons for finance/marketing/riset
       document.querySelectorAll('.mob-btn').forEach(btn => {
         const onclick = btn.getAttribute('onclick') || '';
-        let hidden = false;
-        if (isTeam && (onclick.includes("'finance'") || onclick.includes("'marketing'") || onclick.includes("'analysis'") || onclick.includes("'memory'"))) {
-          hidden = true;
-        }
-        btn.closest('nav').style.display = ''; // keep nav visible
-        if (hidden) btn.style.display = 'none';
-        else btn.style.display = '';
+        const restricted = onclick.includes("'finance'") || onclick.includes("'marketing'") ||
+          onclick.includes("'analysis'") || onclick.includes("'memory'") ||
+          onclick.includes("'costings'") || onclick.includes("'hpp'");
+        btn.style.display = isTeam && restricted ? 'none' : '';
       });
-      // Show/hide settings subsections
-      document.querySelectorAll('.pillar-finance').forEach(el => el.style.display = isTeam ? 'none' : '');
-      document.querySelectorAll('.pillar-marketing').forEach(el => el.style.display = isTeam ? 'none' : '');
-      document.querySelectorAll('.pillar-riset').forEach(el => el.style.display = isTeam ? 'none' : '');
-      const mktMobNav = document.querySelector('.pillar-marketing-mob');
-      if (mktMobNav) mktMobNav.style.display = isTeam ? 'none' : '';
     }
 
     // ============== NAVIGATION ==============
 
     function nav(page) {
-      if (db.role === 'team' && ['finance','marketing','analysis','settings','hpp','email','ops'].includes(page)) {
-        // This limits the UI only; real data authorization MUST be server-side.
+      if ((serverRole !== 'owner' || db.role === 'team') && ['finance','marketing','analysis','memory','settings','hpp','costings','email','ops'].includes(page)) {
+        // UI defense in depth; the Apps Script backend independently enforces the role.
         page = 'dashboard';
       }
       document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
@@ -2494,6 +2498,9 @@
       db.settings.googleSheetUrl = url;
       db.settings.apiToken = token;
       db.settings.lastSync = '';
+      serverRole = 'unknown';
+      updateRoleControls();
+      applyRoleUI();
       localStorage.setItem(DB_KEY, JSON.stringify(db));
       updateCloudIndicator();
       showToast(url
@@ -2677,6 +2684,15 @@
       if (autoSyncTimer) { clearTimeout(autoSyncTimer); autoSyncTimer = null; }
       if (!isSilent) showToast('Memverifikasi perubahan di Google Sheets…');
       const result = await safeSync.flush(url, getApiToken());
+      if (result.status === 'verified' || result.status === 'clean') {
+        try {
+          const verifiedData = await safeSync.readCloud(url, getApiToken());
+          serverRole = verifiedData.role || 'unknown';
+          if (serverRole === 'team') db.role = 'team';
+          updateRoleControls();
+          applyRoleUI();
+        } catch (_) { serverRole = 'unknown'; updateRoleControls(); applyRoleUI(); }
+      }
       if (result.status === 'verified') {
         db.settings.lastSync = result.verifiedAt;
         localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -2714,6 +2730,10 @@
       if (!confirm('Tarik versi terbaru dari Google Sheets? Salinan sebelumnya disimpan dalam browser ini. Unduh backup sebelum melanjutkan.')) return;
       try {
         const remote = await safeSync.readCloud(url, getApiToken());
+        serverRole = remote.role || 'unknown';
+        if (serverRole === 'team') db.role = 'team';
+        updateRoleControls();
+        applyRoleUI();
         localStorage.setItem('csk_business_os_before_manual_pull', JSON.stringify(db));
         safeSync.replaceFromCloud(remote, db);
         db.settings.lastSync = new Date().toISOString();
@@ -2735,6 +2755,10 @@
       if (!safeSync || cloudConfigError(url, getApiToken())) { updateCloudIndicator(); return; }
       try {
         const remote = await safeSync.readCloud(url, getApiToken());
+        serverRole = remote.role || 'unknown';
+        if (serverRole === 'team') db.role = 'team';
+        updateRoleControls();
+        applyRoleUI();
         safeSync.merge(remote, db);
         localStorage.setItem(DB_KEY, JSON.stringify(db));
         renderAll();
