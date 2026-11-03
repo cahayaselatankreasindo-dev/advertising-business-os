@@ -408,9 +408,16 @@
 
           let confirmed = null;
           let batchVerified = false;
+          let readError = null;
           for (let attempt = 0; attempt < 3; attempt++) {
             if (attempt) await new Promise(resolve => setTimeout(resolve, attempt * 900));
-            confirmed = await readCloud(url, token);
+            try {
+              confirmed = await readCloud(url, token);
+              readError = null;
+            } catch (error) {
+              readError = error;
+              continue;
+            }
             const cloudByArea = {};
             batch.forEach(item => {
               if (!cloudByArea[item.area]) cloudByArea[item.area] = byId(confirmed[item.area]);
@@ -420,6 +427,7 @@
             if (batchVerified) break;
           }
 
+          if (!confirmed && readError) throw readError;
           if (!batchVerified) {
             const racedConflicts = [];
             batch.forEach(item => {
@@ -459,9 +467,16 @@
         if (sentDeletes.length) {
           let confirmed = null;
           let deletesVerified = false;
+          let readError = null;
           for (let attempt = 0; attempt < 3; attempt++) {
             if (attempt) await new Promise(resolve => setTimeout(resolve, attempt * 900));
-            confirmed = await readCloud(url, token);
+            try {
+              confirmed = await readCloud(url, token);
+              readError = null;
+            } catch (error) {
+              readError = error;
+              continue;
+            }
             const cloudByArea = {};
             sentDeletes.forEach(([area]) => {
               if (!cloudByArea[area]) cloudByArea[area] = byId(confirmed[area]);
@@ -469,6 +484,7 @@
             deletesVerified = sentDeletes.every(([area, id]) => !cloudByArea[area][id]);
             if (deletesVerified) break;
           }
+          if (!confirmed && readError) throw readError;
           if (!deletesVerified) {
             const racedConflicts = [];
             sentDeletes.forEach(([area, id]) => {
