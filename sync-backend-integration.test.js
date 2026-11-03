@@ -164,6 +164,27 @@ function localStorageStub() {
   return { getItem: k => values[k] || null, setItem: (k,v) => {values[k]=v;} };
 }
 
+test('legacy Finance schema appends ProjectID safely and round-trips project references', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const project = {id:'TEST-PROJECT-FINANCE-ROUNDTRIP',title:'Dummy project',client:'Dummy',value:1500,status:'active'};
+  const finance = {id:'TEST-FINANCE-ROUNDTRIP',date:'2026-11-04',type:'expense',category:'Material',amount:500,description:'Dummy linked cost',projectId:project.id};
+  const result = api.post({
+    action:'sync_all',token,protocolVersion:2,
+    expectedRecords:{
+      Projects:{[project.id]:null},
+      Finance:{[finance.id]:null}
+    },
+    projects:[project],finance:[finance]
+  });
+  assert.equal(result.status,'success');
+  const headers = api.tables.Finance.rows[0];
+  assert.deepEqual(headers.slice(0,6),['ID','Tanggal','Tipe','Kategori','Nominal','Keterangan']);
+  assert.equal(headers[6],'ProjectID','new relation column must be appended without moving legacy columns');
+  const saved = api.read().data.finance.find(row=>row.id===finance.id);
+  assert.equal(saved.projectId,project.id,'Finance projectId must survive a write/read round trip');
+});
+
 test('Finance and project cost writes reject missing project references atomically', () => {
   const api = createBackend();
   const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
