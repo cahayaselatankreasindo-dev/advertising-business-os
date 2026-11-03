@@ -2,6 +2,8 @@
 
 Status: **BELUM AKTIF DI APPS SCRIPT LAB**. Kode repo adalah persiapan; deploy LAB tetap **Only myself**. Aplikasi produksi dan Google Sheets produksi **jangan disentuh**.
 
+Konfigurasi manifest `apps-script/appsscript.json` dikunci ke `webapp.access: MYSELF` dan `executeAs: USER_DEPLOYING`. CI memeriksa kedua nilai ini; jangan mengubahnya menjadi `ANYONE` atau `ANYONE_ANONYMOUS`.
+
 ## Bukti yang sudah didapat
 - LAB_TEST_PASS dari Apps Script LAB: create/update/delete/readback data dummy.
 - GET /exec tanpa token dari browser pemilik LAB menghasilkan status error Tidak diizinkan.
