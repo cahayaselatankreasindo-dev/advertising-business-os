@@ -422,35 +422,75 @@ function validateExpectedDelete_(ss, sheetName, id, expectedFingerprint) {
   return { ok: true };
 }
 
-// FAIL CLOSED: no configured secret -> no GET/POST access.
-// For production use an authenticated backend, not an openly shared static app.
-function getApiToken() {
-  return PropertiesService.getScriptProperties().getProperty("API_TOKEN") || "";
+// Server-side role authentication. API_TOKEN remains a temporary Owner-only
+// migration fallback; setupApiTokens() replaces it with separate role secrets.
+function getApiTokens() {
+  var props = PropertiesService.getScriptProperties();
+  return {
+    owner: props.getProperty("OWNER_API_TOKEN") || props.getProperty("API_TOKEN") || "",
+    team: props.getProperty("TEAM_API_TOKEN") || ""
+  };
 }
 
-/** Generate a random token in Script Properties; never print it to logs. */
+function generateApiToken_() {
+  return Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
+}
+
+/**
+ * Run once after deploying this backend. It rotates both role credentials.
+ * Copy OWNER_API_TOKEN and TEAM_API_TOKEN from Project Settings > Script Properties.
+ * Never store either value in source control or share the Owner token with Team.
+ */
+function setupApiTokens() {
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty("OWNER_API_TOKEN", generateApiToken_());
+  props.setProperty("TEAM_API_TOKEN", generateApiToken_());
+  props.deleteProperty("API_TOKEN");
+  Logger.log("Owner and Team API tokens generated in Script Properties. Do not share the Owner token.");
+  return { ownerConfigured: true, teamConfigured: true };
+}
+
+// Legacy menu entry now rotates both credentials; update old setup instructions.
 function setupApiToken() {
-  var existing = getApiToken();
-  if (existing && existing.length >= 20 && existing !== "GANTI-DENGAN-TOKEN-RAHASIA-ANDA") {
-    return "Token sudah ada; lihat Script Properties (jangan kirim lewat chat).";
-  }
-  var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
-  PropertiesService.getScriptProperties().setProperty("API_TOKEN", token);
-  Logger.log("API_TOKEN baru disimpan pada Script Properties. Jangan bagikan token.");
-  return "Token dibuat di Script Properties. Buka Project Settings untuk menyalinnya sendiri.";
+  return setupApiTokens();
 }
 
-function isAuthorized(payloadOrEvent, tokenParam) {
-  var expected = getApiToken();
-  if (!expected || expected.length < 20 || expected === "GANTI-DENGAN-TOKEN-RAHASIA-ANDA") return false;
+function secureTokenEquals_(provided, expected) {
+  provided = String(provided || "");
+  expected = String(expected || "");
+  if (!provided || !expected || expected.length < 20 || provided.length !== expected.length) return false;
+  var diff = 0;
+  for (var i = 0; i < expected.length; i++) diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
+
+function getRequestRole(payloadOrEvent, tokenParam) {
+  var tokens = getApiTokens();
   var provided = "";
   if (payloadOrEvent && typeof payloadOrEvent === "object") provided = payloadOrEvent.token || "";
   if (!provided && tokenParam) provided = tokenParam;
-  return String(provided) === String(expected);
+  if (secureTokenEquals_(provided, tokens.owner)) return "owner";
+  if (secureTokenEquals_(provided, tokens.team)) return "team";
+  return "";
+}
+
+function isAuthorized(payloadOrEvent, tokenParam) {
+  return getRequestRole(payloadOrEvent, tokenParam) !== "";
+}
+
+function isSheetAllowedForRole_(role, sheetName) {
+  var ownerSheets = Object.keys(FIELD_MAP);
+  var teamSheets = ["Leads", "Clients", "Projects"];
+  var allowed = role === "owner" ? ownerSheets : (role === "team" ? teamSheets : []);
+  return allowed.indexOf(sheetName) !== -1;
 }
 
 function unauthorizedResponse() {
-  return jsonResponse({ status: "error", code: "UNAUTHORIZED", protocolVersion: CSK_API_PROTOCOL_VERSION, message: "Tidak diizinkan: token akses salah atau kosong." });
+  return jsonResponse({ status: "error", code: "UNAUTHORIZED", protocolVersion: CSK_API_PROTOCOL_VERSION, message: "Tidak diizinkan: token akses tidak valid atau belum dikonfigurasi." });
+}
+
+function forbiddenResponse(message) {
+  return jsonResponse({ status: "error", code: "FORBIDDEN", protocolVersion: CSK_API_PROTOCOL_VERSION, message: message || "Role ini tidak memiliki izin untuk operasi tersebut." });
 }
 
 // ============== GET — TARIK DATA SEMUA TAB ==============
@@ -461,7 +501,8 @@ function doGet(e) {
   try {
     // Authenticate before disclosing protocol details or reading cloud data.
     var tokenParam = (e && e.parameter) ? e.parameter.token : "";
-    if (!isAuthorized(null, tokenParam)) return unauthorizedResponse();
+    var role = getRequestRole(null, tokenParam);
+    if (!role) return unauthorizedResponse();
     // Reject stale clients after authentication, before exposing any cloud data.
     var requestedProtocol = (e && e.parameter) ? e.parameter.protocolVersion : "";
     if (Number(requestedProtocol) !== CSK_API_PROTOCOL_VERSION) return protocolMismatchResponse();
@@ -475,10 +516,11 @@ function doGet(e) {
       leads: readSheetData(ss, "Leads"),
       clients: readSheetData(ss, "Clients"),
       projects: readSheetData(ss, "Projects"),
-      finance: readSheetData(ss, "Finance"),
-      memory: readSheetData(ss, "Memory"),
-      marketingSpend: readSheetData(ss, "Marketing_Spend"),
-      lastSynced: new Date().toISOString()
+      finance: role === "owner" ? readSheetData(ss, "Finance") : [],
+      memory: role === "owner" ? readSheetData(ss, "Memory") : [],
+      marketingSpend: role === "owner" ? readSheetData(ss, "Marketing_Spend") : [],
+      lastSynced: new Date().toISOString(),
+      role: role
     };
     return ContentService.createTextOutput(JSON.stringify({ status: "success", protocolVersion: CSK_API_PROTOCOL_VERSION, data: result }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -498,7 +540,8 @@ function doPost(e) {
   try {
     const payload = JSON.parse(e.postData.contents);
     // Authenticate before disclosing protocol details or processing a write.
-    if (!isAuthorized(payload)) return unauthorizedResponse();
+    var role = getRequestRole(payload);
+    if (!role) return unauthorizedResponse();
     // Reject legacy/stale write contracts before any sheet mutation.
     if (Number(payload.protocolVersion) !== CSK_API_PROTOCOL_VERSION) return protocolMismatchResponse();
 
@@ -514,6 +557,14 @@ function doPost(e) {
       // --- sync_all (MERGE / UPSERT — tidak pernah menghapus data lama) ---
       // Aman: lead yang sudah ada di Sheets tetap tersimpan; hanya ditambah/diupdate.
       case "sync_all": {
+        // Team may only submit Leads, Clients, and Projects. Reject rather than
+        // silently accepting private data in a forged or stale payload.
+        Object.keys(CSK_SYNC_PAYLOAD_AREAS_).forEach(function (area) {
+          if (Object.prototype.hasOwnProperty.call(payload, area) &&
+              !isSheetAllowedForRole_(role, CSK_SYNC_PAYLOAD_AREAS_[area])) {
+            throw new Error("Role " + role + " tidak boleh menyinkronkan " + CSK_SYNC_PAYLOAD_AREAS_[area] + ".");
+          }
+        });
         var expectedCheck = validateExpectedRecords_(ss, payload);
         if (!expectedCheck.ok) return jsonResponse({
           status: "error", code: expectedCheck.code, protocolVersion: CSK_API_PROTOCOL_VERSION,
@@ -535,6 +586,7 @@ function doPost(e) {
       case "delete": {
         const sheetName = payload.sheet || "Leads";
         const delId = payload.id;
+        if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh menghapus data " + sheetName + ".");
         if (!delId) throw new Error("Parameter id diperlukan untuk aksi delete.");
         if (!FIELD_MAP[sheetName]) return jsonResponse({
           status: "error", code: "INVALID_SHEET", protocolVersion: CSK_API_PROTOCOL_VERSION,
@@ -570,6 +622,7 @@ function doPost(e) {
         if (!sheetName || !data.id) {
           throw new Error("Parameter sheet dan data.id diperlukan untuk aksi insert.");
         }
+        if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh menambahkan data " + sheetName + ".");
         ensureSheet(ss, sheetName, FIELD_MAP[sheetName] ? FIELD_MAP[sheetName].headers : []);
         if (FIELD_MAP[sheetName]) {
           insertRecord(ss, sheetName, data);
@@ -588,6 +641,7 @@ function doPost(e) {
         const sheetName = payload.sheet || "Leads";
         const id = payload.id;
         const status = payload.status;
+        if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh mengubah data " + sheetName + ".");
         if (!id || !status) throw new Error("Parameter id dan status diperlukan.");
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
