@@ -1,7 +1,7 @@
 // Service Worker — CSK Business OS
 // Strategi: NETWORK-FIRST untuk HTML (biar update app langsung kepakai),
 // cache-first untuk aset statis (logo, manifest).
-const CACHE_NAME = 'csk-business-os-v2.13-photo-lab-staging';
+const CACHE_NAME = 'csk-business-os-integration-v3-20261103';
 const ASSETS = [
   './',
   './index.html',
@@ -14,7 +14,9 @@ const ASSETS = [
   './persona-leads.js',
   './operations-core.js',
   './operations-ui.js',
-  './logo-horizontal.svg'
+  './logo-horizontal.svg',
+  './favicon.svg',
+  './app-icon.svg'
 ];
 
 self.addEventListener('install', event => {
