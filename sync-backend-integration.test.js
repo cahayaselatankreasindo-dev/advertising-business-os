@@ -197,6 +197,39 @@ test('project deletion is blocked while Finance, HPP or Project_Costs still refe
   assert.ok(api.read().data.projects.some(x=>x.id===project.id),'referenced project must remain intact');
 });
 
+test('legacy insert validates Project_Costs and Finance references before writing', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const orphanCost = {id:'TEST-INSERT-ORPHAN',date:'2026-11-03',projectId:'MISSING-PROJECT',description:'Dummy',qty:1,unitCost:1000,amount:1000};
+  const rejected = api.post({action:'insert',token,sheet:'Project_Costs',data:orphanCost,expectedAbsent:true});
+  assert.equal(rejected.status,'error');
+  assert.equal(rejected.code,'PROJECT_REFERENCE_INVALID');
+  assert.equal(api.read().data.projectCosts.length,0);
+
+  const project = {id:'TEST-INSERT-PROJECT',title:'Dummy project',client:'Dummy',value:1000,status:'active'};
+  const seeded = api.post({action:'sync_all',token,projects:[project]});
+  assert.equal(seeded.status,'success');
+  const validCost = {...orphanCost,id:'TEST-INSERT-VALID',projectId:project.id};
+  const inserted = api.post({action:'insert',token,sheet:'Project_Costs',data:validCost,expectedAbsent:true});
+  assert.equal(inserted.status,'success');
+  assert.ok(api.read().data.projectCosts.some(x=>x.id===validCost.id));
+});
+
+test('lead deletion is blocked while an HPP costing still references it', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const lead = {id:'TEST-LEAD-LOCK',date:'2026-11-03',name:'Dummy lead',status:'new'};
+  const costing = {id:'TEST-COSTING-LEAD-LOCK',date:'2026-11-03',leadId:lead.id,client:'Dummy',title:'Dummy job',hpp:1000,sellingPrice:1500,status:'draft'};
+  const seeded = api.post({action:'sync_all',token,leads:[lead],costings:[costing]});
+  assert.equal(seeded.status,'success');
+  const row = api.read().data.leads.find(x=>x.id===lead.id);
+  const fingerprint = api.sandbox.stableRecordFingerprint_(row);
+  const deleted = api.post({action:'delete',token,sheet:'Leads',id:lead.id,expectedFingerprint:fingerprint});
+  assert.equal(deleted.status,'error');
+  assert.equal(deleted.code,'RECORD_IN_USE');
+  assert.ok(api.read().data.leads.some(x=>x.id===lead.id));
+});
+
 // Regression: both commercial modules must be persisted, not merely accepted.
 test('Owner sync persists HPP quotations and project cost entries', () => {
   const api = createBackend();
