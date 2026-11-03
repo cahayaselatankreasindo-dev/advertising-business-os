@@ -117,6 +117,23 @@ test('backup merges IDs without overwriting existing records and protects relati
  assert.throws(()=>ops.load({...ops.empty(),schemaVersion:999}),/Versi backup/);
  assert.throws(()=>ops.mergeBackup(ops.empty(),{...ops.empty(),invoices:[{quoteId:'missing',number:'INV',issued:'2026-11-02',due:'2026-11-03',amount:10}]}),/tanpa penawaran/);
 });
+test('backup import validates duplicate invoices, document numbers, orphan payments and overpayment',()=>{
+ let base=quote(ops.empty());const q=base.quotes[0];
+ base=ops.update(base,'quotes',q.id,{status:'accepted'});
+ base=ops.newInvoice(base,q.id,'INV-BASE','2026-11-02','2026-11-15');
+ const inv=base.invoices[0];
+ const duplicateInvoice={...inv,id:'INV-DUP',number:'INV-DUP'};
+ assert.throws(()=>ops.load({...base,invoices:[inv,duplicateInvoice]}),/satu penawaran/i);
+ assert.throws(()=>ops.load({...base,invoices:[inv,{...inv,id:'INV-2'}]}),/nomor invoice duplikat/i);
+ assert.throws(()=>ops.load({...base,payments:[{id:'PAY-ORPHAN',invoiceId:'missing',date:'2026-11-03',amount:1}]}),/pembayaran tanpa invoice/i);
+ assert.throws(()=>ops.load({...base,payments:[{id:'PAY-1',invoiceId:inv.id,date:'2026-11-03',amount:inv.amount+1}]}),/melebihi nilai invoice/i);
+ const other=quote(ops.empty());const q2=other.quotes[0];
+ const second=ops.update(other,'quotes',q2.id,{status:'accepted'});
+ const incoming=ops.newInvoice(second,q2.id,'INV-BASE','2026-11-02','2026-11-15');
+ assert.throws(()=>ops.mergeBackup(base,incoming),/nomor invoice duplikat/i);
+});
+
+
 test('photo LAB launcher resolves the real CRM title and safely carries project ID plus stage',()=>{
  const project={id:'PRJ-42',title:'Booth Aktivasi Brand',client:'Brand Contoh'};
  assert.equal(ui.projectDisplayName(project),'Booth Aktivasi Brand');
