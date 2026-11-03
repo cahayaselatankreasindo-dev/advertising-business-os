@@ -40,6 +40,7 @@ Backend staging kini menggunakan token **OWNER_API_TOKEN** dan **TEAM_API_TOKEN*
 - Backend staging sudah memakai `LockService` dan compare-and-set fingerprint (`expectedRecords` dan `expectedFingerprint`) untuk menolak perubahan stale. Keandalan HTTP dan konflik pada **Apps Script LAB aktif** tetap belum diverifikasi.
 - Manifest kedua proyek Apps Script di repo kini dibatasi ke `MYSELF` / `USER_DEPLOYING`; CI memeriksa agar `ANYONE` dan `ANYONE_ANONYMOUS` tidak masuk kembali. Ini mengamankan konfigurasi sumber, bukan membuktikan pengaturan deployment yang sudah aktif.
 - Backend historis pada file `backups` sudah dinonaktifkan: handler `doGet`/`doPost` dan `setupSheet` diganti nama, dan CI memastikan file arsip itu tidak bisa dipakai sebagai Web App atau setup aktif secara tidak sengaja.
+- `deploy-backend.ps1` sekarang fail-closed. Versi lama menyalin backend produksi ke proyek LAB yang dikonfigurasi oleh `.clasp.json`, lalu menjalankan `clasp push/deploy`; jalur itu dinonaktifkan agar guard LAB tidak tertimpa.
 
 ## Pengujian dan pengembangan
 
@@ -51,6 +52,7 @@ node sync-safe.test.js
 node sync-backend-integration.test.js
 node apps-script/lab-contract.test.cjs
 node legacy-backup-safety.test.cjs
+node deploy-backend-safety.test.cjs
 node ui-render-safety.test.cjs
 # UI render safety: imported CRM/marketing values are HTML-escaped before insertion.
 node mapping.test.js
