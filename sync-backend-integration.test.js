@@ -189,7 +189,7 @@ test('real backend + real frontend delta: edit -> POST -> GET readback', async (
   local.leads[0].name='Dummy B';
   engine.track(local);
   assert.equal(engine.countPending(),1);
-  const result = await engine.flush('https://example.test/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
+  const result = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
   assert.equal(result.status,'verified');
   assert.equal(engine.countPending(),0);
   assert.equal(api.read().data.leads.find(x=>x.id==='TEST-1').name,'Dummy B');
@@ -206,7 +206,7 @@ test('real backend + frontend: delete -> GET confirms missing', async () => {
   engine.merge(api.read().data,local);
   local.finance=[];
   engine.track(local);
-  const result=await engine.flush('https://example.test/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
+  const result=await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
   assert.equal(result.status,'verified');
   assert.equal(api.read().data.finance.length,0);
   assert.equal(api.sent[0].action,'delete');
@@ -256,7 +256,7 @@ test('real backend + frontend: two-client edit conflicts without writing', async
   local.leads[0].name='Phone edit';
   engine.track(local);
   api.post({action:'sync_all',token:'TEST_ONLY_LAB_API_TOKEN_2026_SAFE',leads:[{...initial,name:'PC edit'}]});
-  const result=await engine.flush('https://example.test/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
+  const result=await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
   assert.equal(result.status,'conflict');
   assert.equal(api.read().data.leads[0].name,'PC edit');
   assert.equal(api.sent.length,0);
@@ -270,7 +270,7 @@ test('backend rejected POST but browser opaque: no success claim', async () => {
   local.projects.push({id:'P-TEST',title:'Dummy Project',client:'Dummy',value:5000000,status:'plan',deadline:'2026-11-15',notes:'',sopChecklist:'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0',pic:''});
   engine.track(local);
   api.suppressPosts(true);
-  const result=await engine.flush('https://example.test/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
+  const result=await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','TEST_ONLY_LAB_API_TOKEN_2026_SAFE');
   assert.equal(result.status,'unverified');
   assert.equal(engine.countPending(),1);
   assert.equal(api.read().data.projects.length,0);
@@ -314,7 +314,7 @@ test('LAB gateway guard allows only authorized synthetic data', () => {
     '19le34ltpZCMIHmjw2n_JbEvrtZBWNTKd61U-xEAoR5Y');
   const guardSmoke = ctx.cskLabRunGuardNegativeTests();
   assert.equal(guardSmoke.status,'LAB_GUARD_PASS');
-  assert.equal(guardSmoke.blockedUnsafeRequests,16);
+  assert.equal(guardSmoke.blockedUnsafeRequests,18);
   assert.equal(guardSmoke.databaseWritesPerformed,0);
   assert.equal(guardSmoke.emailSendsPerformed,0);
 
@@ -546,6 +546,9 @@ test('compare-and-set reads each affected sheet once per bounded batch', () => {
   }));
   const expectedRecords = {Leads:{}};
   rows.forEach(row => { expectedRecords.Leads[row.id] = null; });
+  api.tables.Leads.appendRow([
+    'SEED-READ-ONCE','2026-11-02','Seed','','QA',0,'new','','','','','','','',0
+  ]);
   const before = api.tables.Leads.getDataRangeReadCount();
   const result = api.post({action:'sync_all',token,leads:rows,expectedRecords});
   assert.equal(result.status,'success');
