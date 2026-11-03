@@ -93,6 +93,7 @@ function add(state,kind,input){
  if(kind==='invoices'){
   const quote=get(state,'quotes',item.quoteId);
   if(!quote||quote.status!=='accepted')throw Error('Invoice harus berasal dari penawaran yang sudah diterima.');
+  if(state.invoices.some(x=>x.quoteId===item.quoteId))throw Error('Satu penawaran hanya boleh memiliki satu invoice aktif.');
   if(item.amount!==quote.price)throw Error('Nilai invoice harus sesuai penawaran; pajak belum dihitung.');
  }
  if(kind==='payments'){
@@ -106,6 +107,14 @@ function update(state,kind,recordId,changes){
  if(!existing)throw Error('Catatan tidak ditemukan.');
  if(kind==='payments'||kind==='quotes'&&state.invoices.some(x=>x.quoteId===recordId)||kind==='invoices'&&state.payments.some(x=>x.invoiceId===recordId))throw Error('Catatan keuangan terkait tidak dapat diubah; buat revisi baru.');
  const item=normalize(kind,{...existing,...changes,id:recordId,createdAt:existing.createdAt});
+ if(kind==='quotes'||kind==='invoices'){
+  if(state[kind].some(x=>x.id!==recordId&&x.number.toLowerCase()===item.number.toLowerCase()))throw Error('Nomor dokumen sudah digunakan pada perangkat ini.');
+ }
+ if(kind==='invoices'){
+  if(item.quoteId!==existing.quoteId)throw Error('Relasi invoice ke penawaran tidak dapat diubah.');
+  const quote=get(state,'quotes',existing.quoteId);
+  if(!quote||quote.status!=='accepted'||item.amount!==quote.price)throw Error('Nilai invoice harus tetap sesuai penawaran yang diterima.');
+ }
  return {...state,[kind]:state[kind].map(x=>x.id===recordId?item:x)};
 }
 function remove(state,kind,recordId){
