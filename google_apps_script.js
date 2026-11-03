@@ -61,8 +61,8 @@ var FIELD_MAP = {
     fields:  ["id", "title", "client", "value", "status", "deadline", "notes", "sopChecklist", "pic"]
   },
   Finance: {
-    headers: ["ID", "Tanggal", "Tipe", "Kategori", "Nominal", "Keterangan"],
-    fields:  ["id", "date", "type", "category", "amount", "description"]
+    headers: ["ID", "Tanggal", "Tipe", "Kategori", "Nominal", "Keterangan", "ProjectID"],
+    fields:  ["id", "date", "type", "category", "amount", "description", "projectId"]
   },
   Memory: {
     headers: ["ID", "Tanggal", "Kategori", "Judul", "Isi"],
@@ -71,6 +71,14 @@ var FIELD_MAP = {
   Marketing_Spend: {
     headers: ["ID", "Tanggal", "Platform", "Kampanye", "Budget", "Terpakai", "LeadsDihasilkan", "Catatan"],
     fields:  ["id", "date", "platform", "campaign", "budget", "spent", "leadsGenerated", "notes"]
+  },
+  Costings: {
+    headers: ["ID", "Tanggal", "Klien", "NamaPekerjaan", "ModelProduksi", "LeadID", "ItemsJSON", "BiayaLangsung", "OverheadPersen", "OverheadNominal", "CadanganPersen", "CadanganNominal", "HPP", "MarginPersen", "HargaPenawaran", "Status", "ProjectID", "Catatan", "NomorQuotation", "VersiQuotation", "MasaBerlakuHari", "WaktuPengerjaanHari", "SyaratPembayaran", "RuangLingkup", "DisetujuiPada", "POConfirmedAt", "RiwayatQuotationJSON", "DikirimPada"],
+    fields:  ["id", "date", "client", "title", "productionModel", "leadId", "itemsJson", "directCost", "overheadPct", "overheadAmount", "contingencyPct", "contingencyAmount", "hpp", "marginPct", "sellingPrice", "status", "projectId", "notes", "quoteNo", "quoteVersion", "validityDays", "deliveryDays", "paymentTerms", "scope", "approvedAt", "poConfirmedAt", "quoteHistoryJson", "sentAt"]
+  },
+  Project_Costs: {
+    headers: ["ID", "Tanggal", "ProjectID", "Kategori", "Sumber", "Deskripsi", "Vendor", "Qty", "HargaSatuan", "Nominal", "StatusPembayaran", "Referensi", "Catatan"],
+    fields:  ["id", "date", "projectId", "category", "source", "description", "vendor", "qty", "unitCost", "amount", "paymentStatus", "reference", "notes"]
   }
 };
 var RATING_REVIEW_SEP = " | ";
@@ -336,7 +344,8 @@ function protocolMismatchResponse() {
 
 var CSK_SYNC_PAYLOAD_AREAS_ = {
   leads: "Leads", clients: "Clients", projects: "Projects",
-  finance: "Finance", memory: "Memory", marketingSpend: "Marketing_Spend"
+  finance: "Finance", memory: "Memory", marketingSpend: "Marketing_Spend",
+  costings: "Costings", projectCosts: "Project_Costs"
 };
 
 function stableRecordFingerprint_(record) {
@@ -519,6 +528,8 @@ function doGet(e) {
       finance: role === "owner" ? readSheetData(ss, "Finance") : [],
       memory: role === "owner" ? readSheetData(ss, "Memory") : [],
       marketingSpend: role === "owner" ? readSheetData(ss, "Marketing_Spend") : [],
+      costings: role === "owner" ? readSheetData(ss, "Costings") : [],
+      projectCosts: role === "owner" ? readSheetData(ss, "Project_Costs") : [],
       lastSynced: new Date().toISOString(),
       role: role
     };
