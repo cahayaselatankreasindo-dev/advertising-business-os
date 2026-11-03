@@ -28,6 +28,9 @@ on:
       - 'sync-backend-integration.test.js'
       - 'google_apps_script.js'
       - 'outreach-safety.test.js'
+      - 'apps-script/CSK-LAB-BUNDLE.gs'
+      - 'apps-script/build-lab-bundle.cjs'
+      - 'apps-script/lab-bundle.test.cjs'
       - 'apps-script/Code.gs'
       - 'apps-script/LabHandlerVerification.gs'
       - 'apps-script/lab-contract.test.cjs'
@@ -99,6 +102,9 @@ jobs:
           node --check --input-type=commonjs < apps-script/LabSelfTest.gs
           node --check --input-type=commonjs < apps-script/LabHandlerVerification.gs
           node apps-script/lab-contract.test.cjs
+          node --check --input-type=commonjs < apps-script/CSK-LAB-BUNDLE.gs
+          node apps-script/build-lab-bundle.cjs --check
+          node apps-script/lab-bundle.test.cjs
       - name: Install browser test runtime
         run: |
           npm install --no-save --no-package-lock playwright@1.55.0
