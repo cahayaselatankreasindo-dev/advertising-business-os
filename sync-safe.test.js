@@ -279,7 +279,9 @@ test('staged backend never treats a won lead as a cash deposit', () => {
   const source = fs.readFileSync('google_apps_script.js', 'utf8');
   assert.doesNotMatch(source, /id:\s*"AUTO-FIN-/);
   assert.match(source, /AUTO_PROJECT_FROM_WON/);
-  assert.match(source, /if \(!expected \|\| expected\.length < 20/);
+  assert.match(source, /function secureTokenEquals_\\(/);
+  assert.match(source, /expected.length < 20/);
+  assert.match(source, /function getRequestRole\\(/);
 });
 
 test('imported customer text is escaped before HTML rendering', () => {
