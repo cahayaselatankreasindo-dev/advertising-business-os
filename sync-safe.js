@@ -26,7 +26,7 @@
     return JSON.stringify(keys.map(k => [k, value[k]]));
   }
   function byId(rows) {
-    const result = {};
+    const result = Object.create(null);
     (rows || []).forEach(row => {
       if (row && row.id !== undefined && row.id !== null && String(row.id).trim()) {
         result[String(row.id)] = row;
@@ -36,8 +36,18 @@
   }
   function emptyQueue() {
     const q = {};
-    Object.keys(DATA).forEach(k => { q[k] = { upserts: {}, deletes: {} }; });
+    Object.keys(DATA).forEach(k => {
+      q[k] = { upserts: Object.create(null), deletes: Object.create(null) };
+    });
     return q;
+  }
+  function copyIndex(source, accept) {
+    const result = Object.create(null);
+    if (!source || typeof source !== 'object' || Array.isArray(source)) return result;
+    Object.keys(source).forEach(key => {
+      if (accept(source[key])) result[key] = source[key];
+    });
+    return result;
   }
   function normalized(value, field) {
     if (value === undefined || value === null) return '';
@@ -74,7 +84,7 @@
     function takeSnapshot(db) {
       const next = {};
       Object.keys(DATA).forEach(area => {
-        next[area] = {};
+        next[area] = Object.create(null);
         (db[area] || []).forEach(item => {
           if (item && item.id !== undefined && item.id !== null) {
             next[area][String(item.id)] = JSON.stringify(item);
@@ -88,12 +98,19 @@
         const raw = JSON.parse(storage.getItem(STATE_KEY) || 'null');
         if (raw && raw.queue) {
           Object.keys(DATA).forEach(area => {
+            const savedArea = raw.queue[area] || {};
             queue[area] = {
-              upserts: (raw.queue[area] && raw.queue[area].upserts) || {},
-              deletes: (raw.queue[area] && raw.queue[area].deletes) || {}
+              upserts: copyIndex(savedArea.upserts, value =>
+                !!value && typeof value === 'object' && !Array.isArray(value)),
+              deletes: copyIndex(savedArea.deletes, value => value === true)
             };
           });
-          baseline = raw.baseline || {};
+          baseline = {};
+          Object.keys(DATA).forEach(area => {
+            const savedBaseline = raw.baseline && raw.baseline[area];
+            baseline[area] = copyIndex(savedBaseline, value =>
+              typeof value === 'string' && value.length > 0);
+          });
           verifiedAt = raw.verifiedAt || '';
           conflicts = Array.isArray(raw.conflicts) ? raw.conflicts.filter(key => {
             if (typeof key !== 'string') return false;
@@ -133,7 +150,7 @@
     }
     function rebaseline(area, remoteRows) {
       const old = baseline[area] || {};
-      const next = {};
+      const next = Object.create(null);
       // Keep the record version the user edited, until their pending edit is settled.
       Object.keys(queue[area].upserts).concat(Object.keys(queue[area].deletes)).forEach(id => {
         if (old[id]) next[id] = old[id];
@@ -200,7 +217,7 @@
       const recordId = String(id);
       const cloudRows = Array.isArray(remote && remote[area]) ? remote[area] : [];
       const cloudRecord = byId(cloudRows)[recordId] || null;
-      if (!baseline[area]) baseline[area] = {};
+      if (!baseline[area]) baseline[area] = Object.create(null);
       const localRows = Array.isArray(db[area]) ? db[area] : (db[area] = []);
       const localIndex = localRows.findIndex(item => item && String(item.id) === recordId);
       const hasUpsert = Object.prototype.hasOwnProperty.call(queue[area].upserts, recordId);
@@ -345,12 +362,12 @@
 
         for (let offset = 0; offset < upserts.length; offset += MAX_BATCH_RECORDS) {
           const batch = upserts.slice(offset, offset + MAX_BATCH_RECORDS);
-          const payload = { action: 'sync_all', token, expectedRecords: {} };
+          const payload = { action: 'sync_all', token, expectedRecords: Object.create(null) };
           batch.forEach(item => {
             if (!payload[item.area]) payload[item.area] = [];
             payload[item.area].push(item.record);
             const sheetName = DATA[item.area].sheet;
-            if (!payload.expectedRecords[sheetName]) payload.expectedRecords[sheetName] = {};
+            if (!payload.expectedRecords[sheetName]) payload.expectedRecords[sheetName] = Object.create(null);
             const prior = baseline[item.area] || {};
             payload.expectedRecords[sheetName][item.id] =
               Object.prototype.hasOwnProperty.call(prior, item.id) ? prior[item.id] : null;
@@ -398,7 +415,7 @@
             }
             const cloudRecord = byId(confirmed[item.area])[item.id];
             if (cloudRecord) {
-              if (!baseline[item.area]) baseline[item.area] = {};
+              if (!baseline[item.area]) baseline[item.area] = Object.create(null);
               baseline[item.area][item.id] = stableFingerprint(cloudRecord);
             }
           });
