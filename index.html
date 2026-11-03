@@ -3372,9 +3372,17 @@
             ? ' Backup ini memuat ' + restored.pendingChangesAtExport + ' perubahan lokal yang belum terverifikasi saat diekspor.'
             : '';
           if (!confirm('Pulihkan data dari file ke perangkat ini? Data lokal saat ini akan diganti. Sinkronisasi cloud akan NONAKTIF sampai dikonfigurasi ulang.' + pendingNote)) return;
-          const previousRecovery = localStorage.getItem('csk_business_os_conflict_recovery_v1') || '[]';
+          let previousRecovery = [];
+          try {
+            const stored = JSON.parse(localStorage.getItem('csk_business_os_conflict_recovery_v1') || '[]');
+            if (Array.isArray(stored)) previousRecovery = stored.slice(-20);
+          } catch (_) {
+            previousRecovery = [];
+          }
+          const beforeImport = JSON.parse(JSON.stringify(db));
+          beforeImport.settings = { googleSheetUrl: '', lastSync: beforeImport.settings?.lastSync || '' };
           localStorage.setItem('csk_business_os_before_import', JSON.stringify({
-            format: 'csk-business-os-local-recovery', data: db, conflictRecovery: JSON.parse(previousRecovery)
+            format: 'csk-business-os-local-recovery', data: beforeImport, conflictRecovery: previousRecovery
           }));
           db = data;
           // Historical backup records stay local; never enqueue them for automatic cloud upload.
