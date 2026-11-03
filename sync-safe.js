@@ -352,6 +352,7 @@
         }
 
         for (const item of alreadyApplied) {
+          delete work[item.area].upserts[item.id];
           const current = queue[item.area].upserts[item.id];
           if (current && JSON.stringify(current) === JSON.stringify(item.record)) {
             delete queue[item.area].upserts[item.id];
