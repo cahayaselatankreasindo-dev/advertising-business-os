@@ -9,8 +9,8 @@ CSK Business OS adalah aplikasi internal Cahaya Selatan Kreasindo untuk CRM B2B,
 - CSS aplikasi operasional di `index.html`, meta theme, `manifest.json` dan cache `sw.js` diperbarui.
 - **Preview interaktif offline** di [preview/CSK-Business-OS-Brand-Preview.html](../preview/CSK-Business-OS-Brand-Preview.html). Data seluruhnya fiktif; halaman tidak terkoneksi ke API.
 - Test preview: [preview/brand-preview.test.js](../preview/brand-preview.test.js) memastikan satu file tanpa external JS/API, brand, navigasi, dan sintaks inline script.
-- Safe-sync delta queue: perubahan lokal per ID, GET readback setelah POST, deteksi konflik preflight, status sinkronisasi yang tidak mengaku 'tersimpan' sebelum terbukti, dan antrean offline.
-- Akses private LAB diperiksa: GET tanpa login memerlukan login Google; GET login tapi tanpa token ditolak.
+- Safe-sync delta queue: perubahan lokal per ID, authenticated POST readback setelah POST write, deteksi konflik preflight, status sinkronisasi yang tidak mengaku 'tersimpan' sebelum terbukti, dan antrean offline.
+- Akses private LAB diperiksa: GET /exec tidak lagi mengembalikan data dan merespons `POST_REQUIRED`; POST action `read` memerlukan token di request body.
 - Pengujian **backend LAB** yang dikonfirmasi owner: `LAB_TEST_PASS`, `LAB_GUARD_PASS` (12 request terlarang ditolak), `LAB_HANDLER_GUARD_PASS`.
 - Pengujian browser frontend dummy: **6/6 PASS**, semua request dimock, tidak ada permintaan API luar.
 - Workflow CI menjalankan test safe sync, integrasi backend emulator, mapping dan pemeriksaan brand preview.
@@ -24,7 +24,7 @@ CSK Business OS adalah aplikasi internal Cahaya Selatan Kreasindo untuk CRM B2B,
 ## Syarat wajib sebelum produksi (belum terpenuhi)
 1. **Tes live browser ↔ Google Apps Script LAB** belum selesai. `Only myself` memerlukan login Google, sementara frontend di GitHub Pages menggunakan origin lain dan tidak otomatis dapat akses/CORS. Jangan mengubah ke `Anyone` sebelum model autentikasi dan eksposur data disetujui.
 2. **Proteksi konflik atomik sisi server** (misalnya LockService dan verifikasi revisi yang diharapkan) belum aktif. GET preflight client saja punya celah race condition.
-3. Audit penyimpanan token frontend, akses pengguna, dan kontrol action backend. API token yang tersimpan di browser bukan otentikasi pengguna.
+3. Audit penyimpanan token frontend, akses pengguna, dan kontrol action backend. Token kini hanya berada di memori tab dan dikirim lewat POST body, tetapi tetap bearer credential, bukan identitas pengguna.
 4. Audit migrasi record lama, ID duplikat, data localStorage, antrean pending, dan multi-device. Tidak boleh terjadi kehilangan data atau muncul kembali data yang telah dihapus.
 5. Periksa logika Finance: nominal deal bukan otomatis DP diterima; ROAS, laba dan arus kas harus ditampilkan berdasarkan data yang benar.
 6. Lakukan staging end-to-end: create/update/delete, offline→online, 2 browser mengedit record sama, request gagal, rollback, dan pemulihan dari backup.

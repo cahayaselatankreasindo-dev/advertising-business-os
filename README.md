@@ -26,17 +26,17 @@ Aplikasi PWA untuk mencatat prospek, klien, proyek produksi, transaksi kas, akti
 
 Aplikasi memiliki tampilan responsif untuk ponsel dan desktop, navigasi bawah seluler, form lead/proyek/transaksi, indikator status sinkronisasi persisten, dan opsi ekspor/impor backup lokal. Tambahan UX staging: halaman mendukung zoom, fokus keyboard lebih terlihat, elemen form memiliki label, modal memakai semantik dialog, dan status cloud membedakan **lokal**, **menunggu**, **gagal/konflik**, serta **terverifikasi**.
 
-Backend staging kini menggunakan token **OWNER_API_TOKEN** dan **TEAM_API_TOKEN** terpisah. Server membatasi akses Tim ke Leads, Clients dan Projects; Finance, Marketing, Memory, Costings dan Project_Costs hanya untuk Owner. Dropdown di frontend **bukan login multi-user**. Kredensial bearer token yang disimpan browser masih dapat diekstrak dari perangkat itu, sehingga jangan gunakan perangkat bersama untuk data rahasia. Perubahan role dan pembatasan sinkronisasi harus diverifikasi pada staging sebelum produksi.
+Backend staging kini menggunakan token **OWNER_API_TOKEN** dan **TEAM_API_TOKEN** terpisah. Server membatasi akses Tim ke Leads, Clients dan Projects; Finance, Marketing, Memory, Costings dan Project_Costs hanya untuk Owner. Dropdown di frontend **bukan login multi-user**. Token hanya berada di memori tab selama sesi aktif dan tetap dapat diekstrak dari sesi browser; jangan gunakan perangkat bersama untuk data rahasia. Perubahan role dan pembatasan sinkronisasi harus diverifikasi pada staging sebelum produksi.
 
 ### Prinsip sinkronisasi staging
 
 - Instalasi baru mulai **kosong dan terputus dari cloud**. Data browser yang sudah ada tetap dipertahankan saat upgrade.
 - Setiap perubahan disimpan lokal dan dimasukkan ke antrean per-record, bukan dianggap langsung berhasil di Google Sheets.
-- POST Apps Script yang bersifat opaque **bukan bukti tersimpan**; harus diikuti GET readback yang berhasil.
+- POST write Apps Script yang bersifat opaque **bukan bukti tersimpan**; harus diikuti pembacaan ulang terautentikasi melalui POST action `read`.
 - Tarik manual dari cloud **diblokir saat ada perubahan lokal yang belum terverifikasi** agar tidak menghilangkan pekerjaan.
 - Backup JSON yang diunduh **tidak menyertakan token dan URL API**, tetapi tetap berisi informasi bisnis sensitif; simpan privat.
 - Pemulihan file backup **hanya lokal** dan memutus konfigurasi cloud untuk mencegah histori lama tersinkron kembali tanpa pemeriksaan.
-- Setiap peran memakai token berbeda yang diverifikasi server. Token masih disimpan di `localStorage` browser dan token GET masih berada di query string; ini bukan login per-pengguna. Jangan gunakan perangkat bersama dan jangan membagikan URL request. Sebelum akses multi-user yang lebih luas, pindahkan autentikasi ke mekanisme identitas server-side.
+- Setiap peran memakai token berbeda yang diverifikasi server. Token hanya berada di memori tab selama sesi aktif dan dikirim di body POST, bukan di `localStorage` atau query URL. Token tetap bearer credential yang dapat diekstrak dari sesi browser; ini bukan login per-pengguna. Jangan gunakan perangkat bersama dan jangan membagikan URL request. Sebelum akses multi-user yang lebih luas, pindahkan autentikasi ke mekanisme identitas server-side.
 - Backend staging sudah memakai `LockService` dan compare-and-set fingerprint (`expectedRecords` dan `expectedFingerprint`) untuk menolak perubahan stale. Keandalan HTTP dan konflik pada **Apps Script LAB aktif** tetap belum diverifikasi.
 - Manifest kedua proyek Apps Script di repo kini dibatasi ke `MYSELF` / `USER_DEPLOYING`; CI memeriksa agar `ANYONE` dan `ANYONE_ANONYMOUS` tidak masuk kembali. Ini mengamankan konfigurasi sumber, bukan membuktikan pengaturan deployment yang sudah aktif.
 - Backend historis pada file `backups` sudah dinonaktifkan: handler `doGet`/`doPost` dan `setupSheet` diganti nama, dan CI memastikan file arsip itu tidak bisa dipakai sebagai Web App atau setup aktif secara tidak sengaja.
@@ -69,7 +69,7 @@ Referensi teknis: [Safe Sync rollout](docs/safe-sync-rollout.md), [LAB API guard
 
 1. Cadangan produksi diverifikasi dan skenario pemulihan disimulasikan pada database dummy.
 2. Pasang `LabRequestGuard.gs`, `LabHandlerVerification.gs`, dan panggilan guard pada **Apps Script LAB saja**; periksa output `LAB_HANDLER_GUARD_PASS`. Jangan mengubah database produksi.
-3. Gunakan endpoint/staging terpisah untuk verifikasi browser → Apps Script → Google Sheets melalui HTTP nyata; cek CORS, token, retry, offline dan dua browser berbeda.
+3. Gunakan endpoint/staging terpisah untuk verifikasi browser → Apps Script → Google Sheets melalui HTTP nyata; cek CORS untuk POST read/write, redirect, token, retry, offline dan dua browser berbeda.
 4. Verifikasi live di LAB bahwa mekanisme atomik `expectedRecords` / `expectedFingerprint` + `LockService` benar-benar menolak stale client dan race antardua perangkat.
 5. Uji backend role Owner/Team pada LAB dengan data dummy, termasuk penolakan akses lintas modul. Token browser belum menjadi autentikasi per-pengguna; pertimbangkan provider identitas sebelum akses multi-user produksi.
 6. Audit dan harden frontend terhadap injeksi konten saat menampilkan data pengguna; backup dan restore diuji di perangkat seluler.

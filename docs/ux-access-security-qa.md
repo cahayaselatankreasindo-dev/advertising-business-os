@@ -30,11 +30,11 @@
 
 **Gate B: LAB.** Gunakan Apps Script dan Spreadsheet salinan dummy LAB yang sudah ditetapkan. Source `Code.gs` memanggil `cskLabGuardRead_()` / `cskLabGuardPost_(payload)` dan contract test memeriksa wiring-nya. Manifest kedua proyek dibatasi `MYSELF` / `USER_DEPLOYING`. Tetap verifikasi project ID, handler aktif, dan `LAB_HANDLER_GUARD_PASS` pada deployment LAB nyata. Jangan membuka permission LAB ke Anyone.
 
-**Gate C: HTTP.** Browser test nyata terhadap endpoint staging terpisah dan terautentikasi; lakukan GET/POST, readback, koneksi timeout, POST blocked, offline, multi-device, rollback, dan cek CORS dengan Google Apps Script. **Belum terpenuhi.**
+**Gate C: HTTP.** Browser test nyata terhadap endpoint staging terpisah dan terautentikasi; lakukan POST read/write, readback, koneksi timeout, POST blocked, offline, multi-device, rollback, redirect ContentService, dan cek CORS dengan Google Apps Script. GET harus mengembalikan `POST_REQUIRED` tanpa data. **Belum terpenuhi.**
 
 **Gate D: Concurrency.** Source backend memakai LockService dan compare-and-set (`expectedRecords` untuk upsert, `expectedFingerprint` untuk delete); emulator menguji stale write dan konflik dua perangkat. UI menampilkan kedua versi, menyediakan pilihan cloud/perangkat, dan menyimpan recovery lokal sebelum keputusan. Verifikasi live multi-device dan protocol gate pada endpoint staging tetap wajib.
 
-**Gate E: Server access.** Source staging sudah memverifikasi token Owner/Team di backend dan membatasi tab Finance, Marketing, Memory, Costings, serta Project Costs untuk Owner. Namun token browser masih bearer token yang tersimpan di `localStorage`, token GET dikirim melalui query string, dan belum ada identitas per pengguna/user admin. Uji HTTP langsung pada deployment aktual belum dilakukan. **Belum terpenuhi untuk pembukaan akses multi-user luas.**
+**Gate E: Server access.** Source staging sudah memverifikasi token Owner/Team di backend dan membatasi tab Finance, Marketing, Memory, Costings, serta Project Costs untuk Owner. Token browser kini hanya berada di memori tab dan dikirim di body POST, bukan di `localStorage` atau query string. Namun token tetap bearer credential yang bisa diekstrak selama sesi aktif, dan belum ada identitas per pengguna/user admin. Uji HTTP langsung pada deployment aktual belum dilakukan. **Belum terpenuhi untuk pembukaan akses multi-user luas.**
 
 **Gate F: Release.** Backup produksi + uji restore, persetujuan owner, staging smoke test, deployment bertahap, rencana rollback, dan pemantauan hasil verifikasi. **Belum terpenuhi.**
 
@@ -42,4 +42,4 @@
 
 Fitur berikutnya hanya dijadikan target setelah release gate selesai: HPP fabrikasi/margin, biaya vendor dan supplier, daftar pekerjaan beserta material, progress proyek, penawaran/invoice dengan DP aktual, KPI konversi dari WhatsApp dan iklan. Hindari mencatat deal sebagai pembayaran, mencampur biaya marketing dengan jurnal expense, atau menyajikan ROAS tanpa sumber atribusi.
 
-**Keamanan:** Token bearer tetap dapat diakses dari browser lokal, disimpan di `localStorage`, dan token GET muncul di query URL. Ini bukan login per-pengguna. Jangan gunakan perangkat bersama atau membagikan URL request, token, ID klien, maupun database bisnis asli ke GitHub/issue/hasil test.
+**Keamanan:** Token bearer tetap dapat diakses dari browser selama sesi aktif, tetapi tidak lagi disimpan di `localStorage` atau dikirim melalui query URL. Ini bukan login per-pengguna. Jangan gunakan perangkat bersama atau membagikan URL request, token, ID klien, maupun database bisnis asli ke GitHub/issue/hasil test.

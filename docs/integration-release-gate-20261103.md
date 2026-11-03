@@ -3,7 +3,7 @@
 > **Status: INTEGRATION STAGING, NOT YET MERGED TO MAIN.** Integration baseline: Draft PR #4. Optimization hardening PR #6 has been merged into this branch. Do not merge, expose a shared Web App, run setupSheet on the production database, rotate production secrets, or deploy to live Google Apps Script without a backup and release approval.
 
 ## Integrated architecture
-- Frontend: `index.html` PWA, `sync-safe.js` record-based delta queue with GET readback and UI for reconciliation.
+- Frontend: `index.html` PWA, `sync-safe.js` record-based delta queue with authenticated POST readback and UI for reconciliation.
 - Backend: `google_apps_script.js`, protocol version 2, Google Sheets eight-module contract, `LockService` + compare-and-set fingerprints.
 - Roles: Owner token reads/writes eight modules; Team token only Leads, Clients, Projects. Frontend role display does not grant server permissions.
 - Commercial Engine: `costings` (quotation, HPP, margin) + `projectCosts` (cost ledger); separate local estimator is still available at `page-hpp`.
@@ -15,8 +15,8 @@
 
 PR #6 has been squash-merged into `integration/secure-safe-sync-20261103` (commit `647555d5efa37e3445af5b8ad90e645c895c7964`). The following safeguards are now part of the integration staging source; production remains unchanged:
 
-- Token-bearing requests are restricted to HTTPS Google Apps Script `/exec` deployment URLs; arbitrary hosts, query strings, credentials, and lookalike domains are rejected before network access.
-- Local upserts are sent in verified batches of at most 40 records. A POST is not treated as saved until GET readback confirms the expected state.
+- Token-bearing requests are restricted to HTTPS Google Apps Script `/exec` deployment URLs; arbitrary hosts, query strings, credentials, and lookalike domains are rejected before network access. The bearer token is sent only in POST bodies.
+- Local upserts are sent in verified batches of at most 40 records. A write POST is not treated as saved until an authenticated POST action `read` confirms the expected state.
 - A committed write whose readback was interrupted is reconciled idempotently on retry; partially completed deletes can resume without overwriting a concurrent edit.
 - Compare-and-set validation reads each affected sheet once per batch. Sheet merge reuses one data block for ID indexing and row comparison, and coalesces adjacent updates into a single `setValues` write.
 - Exact duplicate rows in one payload remain idempotent; conflicting duplicate IDs are rejected before any write.
@@ -49,12 +49,12 @@ These tests use an emulated backend / local browser fixtures. A green CI result 
 
 ## Release gates that must remain open
 1. Isolated Google Spreadsheet + Apps Script deployment with dummy data only. Confirm connected project IDs, active guard handlers and `LAB_HANDLER_GUARD_PASS`.
-2. Real browser-to-Apps Script GET and POST over HTTP on Android, desktop and iPhone; check CORS, redirects, rate limits, offline and retry.
+2. Real browser-to-Apps Script POST read/write over HTTP on Android, desktop and iPhone; verify GET returns `POST_REQUIRED`, and check CORS, ContentService redirects, rate limits, offline and retry.
 3. Two-device race: simultaneous edit, stale delete, conflict review, and recovery under `LockService`.
 4. Security: missing/wrong Owner and Team tokens; forged role; Team POST/GET Finance, Costings, Project_Costs and Memory; stale PWA protocol rejection.
 5. Backup/restore on local and staging database, including deleted records, orphaned cost references and round-trip of `projectId`.
 6. Quotation print/PDF visual QA and invoice receipt reconciliation with real browser print engine. Verify no HPP/margin leak on customer copies.
-7. Security assessment: tokens in URL/LocalStorage are vulnerable on shared devices; do not treat token as per-person login. Do not open access broadly.
+7. Security assessment: token is memory-only and no longer sent in the URL, but remains a bearer credential extractable during an active browser session; it is not per-person login. Do not open access broadly.
 8. Review PR #4, obtain release approval, prepare rollback plan, then deploy backend and frontend in coordinated sequence.
 
 ## Rollback
