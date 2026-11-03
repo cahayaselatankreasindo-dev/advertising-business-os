@@ -715,6 +715,55 @@ test('sync_all accepts identical duplicate rows once and rejects conflicting dup
 });
 
 
+test('all write paths fail closed when existing cloud rows contain duplicate IDs', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const lead = {
+    id:'TEST-CLOUD-DUPLICATE',date:'2026-11-03',name:'Original lead',phone:'',
+    source:'QA',value:100,status:'new',notes:'',email:'',website:'',industry:'',
+    pic:'',picTitle:'',linkedin:'',score:0
+  };
+  const seeded = api.post({
+    action:'sync_all',token,leads:[lead],
+    expectedRecords:{Leads:{[lead.id]:null}}
+  });
+  assert.equal(seeded.status,'success');
+
+  api.tables.Leads.appendRow([
+    lead.id,lead.date,'Duplicate row','','QA',100,'new','duplicate row',
+    '','','','','','',0
+  ]);
+  const baseline = api.read().data.leads.find(row=>row.id===lead.id);
+  const fingerprint = api.sandbox.stableRecordFingerprint_(baseline);
+  const before = JSON.stringify(api.tables.Leads.rows);
+
+  const sync = api.post({
+    action:'sync_all',token,
+    leads:[{...lead,name:'Must not overwrite'}],
+    expectedRecords:{Leads:{[lead.id]:fingerprint}}
+  });
+  assert.equal(sync.status,'error');
+  assert.equal(sync.code,'DUPLICATE_CLOUD_ID');
+  assert.ok(sync.conflicts.includes('Leads/'+lead.id));
+
+  const deletion = api.post({
+    action:'delete',token,sheet:'Leads',id:lead.id,expectedFingerprint:fingerprint
+  });
+  assert.equal(deletion.status,'error');
+  assert.equal(deletion.code,'DUPLICATE_CLOUD_ID');
+
+  const status = api.post({
+    action:'update_status',token,sheet:'Leads',id:lead.id,status:'contacted',
+    expectedFingerprint:fingerprint
+  });
+  assert.equal(status.status,'error');
+  assert.equal(status.code,'DUPLICATE_CLOUD_ID');
+
+  assert.equal(JSON.stringify(api.tables.Leads.rows),before,
+    'ambiguous cloud IDs must block sync, delete, and status changes without mutation');
+});
+
+
 test('mergeSheet reads the data block once and coalesces contiguous updates into one write', () => {
   const api = createBackend();
   const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
