@@ -1,3 +1,15 @@
+/**
+ * ARCHIVED LEGACY BACKEND — DO NOT DEPLOY OR COPY INTO ANY LIVE APPS SCRIPT PROJECT.
+ *
+ * This historical version has NO authentication or authorization:
+ * - legacy GET exposed Leads, Clients, Projects, Finance, and Memory to callers.
+ * - legacy POST overwrote entire sheet tabs and could destroy newer records.
+ *
+ * Its public Web App entry points and setup function have been deliberately
+ * renamed to disabled names. Keep this file only as a historical reference.
+ * Use the reviewed backend source and release gate; never deploy this archive.
+ */
+
 function myFunction() {
   
 }
@@ -8,25 +20,14 @@ function myFunction() {
  * Skrip ini berfungsi sebagai jembatan (API) gratis untuk menghubungkan
  * aplikasi Advertising Business OS di HP/Laptop Anda ke Google Sheets.
  *
- * CARA PEMASANGAN (HANYA 2 MENIT):
- * 1. Buat Google Spreadsheet baru di Google Drive Anda (Beri nama: "Database CSK Business OS").
- * 2. Klik menu "Extensions" (Ekstensi) -> "Apps Script".
- * 3. Hapus semua kode yang ada di editor Apps Script, lalu PASTE seluruh kode ini.
- * 4. Klik tombol simpan (ikon disket / Ctrl+S).
- * 5. Jalankan fungsi "setupSheet" sekali dengan memilih "setupSheet" di dropdown atas, lalu klik "Run".
- *    (Berikan izin akses akun Google Anda jika diminta).
- * 6. Klik tombol "Deploy" (Terapkan) di kanan atas -> "New deployment" (Penerapan baru).
- * 7. Pilih tipe: "Web app" (Aplikasi Web).
- * 8. Konfigurasi:
- *    - Description: "CSK OS API"
- *    - Execute as: "Me" (Email Google Anda)
- *    - Who has access: "Anyone" (Siapa saja)
- * 9. Klik "Deploy", lalu SALIN URL Web App yang dihasilkan.
- * 10. Buka aplikasi CSK Business OS -> Menu Settings -> Tempelkan URL tersebut ke kolom "Google Sheets Web App URL".
+ * ARSIP SAJA — TIDAK ADA LANGKAH PEMASANGAN.
+ * Jangan jalankan, deploy, atau salin file ini ke Apps Script aktif.
+ * Fungsi setupSheet/doGet/doPost telah diganti nama menjadi fungsi DISABLED.
+ * Backend historis ini tidak memiliki autentikasi dan tidak aman untuk data bisnis.
  * =====================================================================
  */
 
-function setupSheet() {
+function setupSheet_DISABLED_DO_NOT_RUN() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
   const sheets = [
@@ -70,7 +71,7 @@ function setupSheet() {
   }
 }
 
-function doGet(e) {
+function legacyDoGet_DISABLED_DO_NOT_DEPLOY(e) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const result = {
@@ -90,7 +91,7 @@ function doGet(e) {
   }
 }
 
-function doPost(e) {
+function legacyDoPost_DISABLED_DO_NOT_DEPLOY(e) {
   try {
     const payload = JSON.parse(e.postData.contents);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
