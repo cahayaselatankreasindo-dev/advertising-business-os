@@ -431,6 +431,12 @@ function validateExpectedDelete_(ss, sheetName, id, expectedFingerprint) {
   return { ok: true };
 }
 
+// Backward-compatible server-side helper required by the isolated LAB test
+// harness; it returns only the Owner credential inside Apps Script.
+function getApiToken() {
+  return getApiTokens().owner;
+}
+
 // Server-side role authentication. API_TOKEN remains a temporary Owner-only
 // migration fallback; setupApiTokens() replaces it with separate role secrets.
 function getApiTokens() {
