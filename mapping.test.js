@@ -104,6 +104,7 @@ const PropertiesServiceStub = {
     return {
       getProperty(k) { return (k in _props) ? _props[k] : null; },
       setProperty(k, v) { _props[k] = v; },
+      deleteProperty(k) { delete _props[k]; },
     };
   },
 };
@@ -409,6 +410,33 @@ eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'OKAUTH-1'), true, 'auth: d
 
 // Restore the fixture token for any subsequent test phases.
 _props['API_TOKEN'] = TEST_API_TOKEN;
+
+// ---------- 9f. Role server-side Owner / Team ----------
+_props['OWNER_API_TOKEN'] = 'OWNER_TEST_TOKEN_FOR_MAPPING_2026';
+_props['TEAM_API_TOKEN'] = 'TEAM_TEST_TOKEN_FOR_MAPPING_2026';
+eq(sandbox.getRequestRole({token:'OWNER_TEST_TOKEN_FOR_MAPPING_2026'}), 'owner', 'role: token Owner dikenali server');
+eq(sandbox.getRequestRole({token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026'}), 'team', 'role: token Tim dikenali server');
+eq(sandbox.getRequestRole({token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026'}), 'team', 'role: role tidak berasal dari payload browser');
+const teamRead = JSON.parse(sandbox.doGet({parameter:{token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026',protocolVersion:2}})._t);
+eq(teamRead.data.role, 'team', 'role: GET mengembalikan role terverifikasi');
+eq(teamRead.data.finance.length, 0, 'role: Team tidak menerima data Finance');
+eq(teamRead.data.costings.length, 0, 'role: Team tidak menerima data HPP');
+eq(teamRead.data.projectCosts.length, 0, 'role: Team tidak menerima data biaya proyek');
+const teamWrite = JSON.parse(sandbox.doPost({postData:{contents:JSON.stringify({
+  protocolVersion:2,token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026',action:'sync_all',
+  expectedRecords:{Leads:{}},
+  leads:[{id:'TEAM-ALLOWED',date:'2026-11-03',name:'Team Allowed',phone:'',source:'QA',value:0,status:'new',notes:''}]
+})}})._t);
+eq(teamWrite.status,'success','role: Team boleh menulis Leads');
+const teamFinanceWrite = JSON.parse(sandbox.doPost({postData:{contents:JSON.stringify({
+  protocolVersion:2,token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026',action:'sync_all',
+  expectedRecords:{Finance:{'TEAM-FINANCE-BLOCKED':null}},
+  finance:[{id:'TEAM-FINANCE-BLOCKED',date:'2026-11-03',type:'income',category:'QA',amount:1,description:'blocked'}]
+})}})._t);
+eq(teamFinanceWrite.status,'error','role: Team tidak dapat menulis Finance');
+eq(!!sheets['Finance'].rows.find(r=>String(r[0])==='TEAM-FINANCE-BLOCKED'),false,'role: data Finance Team tidak tersimpan');
+delete _props['OWNER_API_TOKEN'];
+delete _props['TEAM_API_TOKEN'];
 
 // ---------- 10. Ringkasan ----------
 console.log(`\nmapping.test.js: ${pass} lolos, ${fail} gagal`);
