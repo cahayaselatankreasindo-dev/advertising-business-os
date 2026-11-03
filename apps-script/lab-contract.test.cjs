@@ -7,6 +7,7 @@ const self = fs.readFileSync('apps-script/LabSelfTest.gs','utf8');
 const verify = fs.readFileSync('apps-script/LabHandlerVerification.gs','utf8');
 const backend = fs.readFileSync('google_apps_script.js','utf8');
 const manifest = JSON.parse(fs.readFileSync('apps-script/appsscript.json','utf8'));
+const photoLabManifest = JSON.parse(fs.readFileSync('photo-lab/appsscript.json','utf8'));
 
 function fn(source, name, nextName) {
   const start = source.indexOf('function ' + name + '(');
@@ -49,5 +50,7 @@ assert.doesNotMatch(self,/Logger\.log\([^\n]*tokens?\.(?:owner|team)/i,'role tok
 
 assert.equal(manifest.webapp && manifest.webapp.access, 'MYSELF', 'Apps Script LAB Web App must be owner-only; public anonymous access is forbidden');
 assert.equal(manifest.webapp && manifest.webapp.executeAs, 'USER_DEPLOYING', 'Apps Script LAB must execute as the deploying owner');
+assert.equal(photoLabManifest.webapp && photoLabManifest.webapp.access, 'MYSELF', 'Photo LAB Web App must remain owner-only');
+assert.equal(photoLabManifest.webapp && photoLabManifest.webapp.executeAs, 'USER_DEPLOYING', 'Photo LAB must execute as the deploying owner');
 
 console.log('LAB source contract passed');
