@@ -1604,7 +1604,7 @@
     // ============== NAVIGATION ==============
 
     function nav(page) {
-      if ((serverRole !== 'owner' || db.role === 'team') && ['finance','marketing','analysis','memory','settings','hpp','costings','email','ops'].includes(page)) {
+      if ((serverRole !== 'owner' || db.role === 'team') && ['finance','marketing','analysis','memory','hpp','costings','email','ops'].includes(page)) {
         // UI defense in depth; the Apps Script backend independently enforces the role.
         page = 'dashboard';
       }
