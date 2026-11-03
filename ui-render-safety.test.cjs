@@ -6,11 +6,11 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
-const helper = html.match(/function escapeHTML\\(value\\) \\{[\\s\\S]*?\\n    \\}/);
+const helper = html.match(/function escapeHTML\(value\) \{[\s\S]*?\n    \}/);
 assert.ok(helper, 'index.html must define the shared HTML escaping helper');
 
 const sandbox = {};
-vm.runInNewContext(helper[0] + '\\nglobalThis.escapeHTML = escapeHTML;', sandbox);
+vm.runInNewContext(helper[0] + '\nglobalThis.escapeHTML = escapeHTML;', sandbox);
 assert.equal(
   sandbox.escapeHTML('<img src=x onerror=alert(1)> "quoted" & text'),
   '&lt;img src=x onerror=alert(1)&gt; &quot;quoted&quot; &amp; text'
@@ -39,4 +39,4 @@ for (const view of protectedViews) {
   assert.ok(!html.includes(view.unsafe), view.label + ' must not interpolate untrusted values directly');
 }
 
-process.stdout.write('UI render safety: HTML escaping and imported CRM/marketing fields passed.\\n');
+process.stdout.write('UI render safety: HTML escaping and imported CRM/marketing fields passed.\n');
