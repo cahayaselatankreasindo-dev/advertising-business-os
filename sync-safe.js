@@ -63,6 +63,22 @@
       normalized(expected[field], field) === normalized(remote[field], field)
     );
   }
+  function validateEndpoint(value) {
+    let parsed;
+    try {
+      parsed = new URL(String(value || ''));
+    } catch (_) {
+      throw new Error('URL Google Apps Script tidak valid.');
+    }
+    const standardPath = /^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(parsed.pathname);
+    const workspacePath = /^\/a\/macros\/[A-Za-z0-9.-]+\/s\/[A-Za-z0-9_-]+\/exec$/.test(parsed.pathname);
+    if (parsed.protocol !== 'https:' || parsed.hostname !== 'script.google.com' ||
+        parsed.port || parsed.username || parsed.password || parsed.search || parsed.hash ||
+        (!standardPath && !workspacePath)) {
+      throw new Error('Gunakan URL HTTPS deployment Google Apps Script yang valid (/macros/s/.../exec).');
+    }
+    return parsed.origin + parsed.pathname;
+  }
   function createEngine(storage, fetcher) {
     const network = fetcher || root.fetch.bind(root);
     let queue = emptyQueue();
@@ -257,22 +273,6 @@
       return { strategy, pending: countPending(), conflicts: conflicts.slice() };
     }
 
-    function validateEndpoint(value) {
-      let parsed;
-      try {
-        parsed = new URL(String(value || ''));
-      } catch (_) {
-        throw new Error('URL Google Apps Script tidak valid.');
-      }
-      const standardPath = /^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(parsed.pathname);
-      const workspacePath = /^\/a\/macros\/[A-Za-z0-9.-]+\/s\/[A-Za-z0-9_-]+\/exec$/.test(parsed.pathname);
-      if (parsed.protocol !== 'https:' || parsed.hostname !== 'script.google.com' ||
-          parsed.port || parsed.username || parsed.password || parsed.search || parsed.hash ||
-          (!standardPath && !workspacePath)) {
-        throw new Error('Gunakan URL HTTPS deployment Google Apps Script yang valid (/macros/s/.../exec).');
-      }
-      return parsed.origin + parsed.pathname;
-    }
     async function readCloud(url, token) {
       const endpoint = validateEndpoint(url);
       const address = endpoint + '?token=' + encodeURIComponent(token || '') +
