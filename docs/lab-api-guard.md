@@ -1,5 +1,8 @@
 # CSK LAB — pengamanan endpoint sebelum uji browser
 
+> **RELEASE BLOCKER — SCRIPT ID BELUM TEREKONSILIASI.** Pada branch ini, `apps-script/.clasp.json` menunjuk ke Apps Script project ID yang berbeda dari ID proyek LAB yang disebut pada langkah verifikasi di dokumen ini. Jangan jalankan `clasp push`, `clasp deploy`, atau menyalin bundle ke Apps Script sampai pemilik proyek memverifikasi Script ID yang benar melalui editor Apps Script dan mengonfirmasi spreadsheet LAB yang terikat. Jangan menebak atau mengganti ID berdasarkan salah satu file saja.
+
+
 Status: **BELUM AKTIF DI APPS SCRIPT LAB**. Kode repo adalah persiapan; deploy LAB tetap **Only myself**. Aplikasi produksi dan Google Sheets produksi **jangan disentuh**.
 
 Konfigurasi manifest kedua proyek (`apps-script/appsscript.json` dan `photo-lab/appsscript.json`) dikunci ke `webapp.access: MYSELF` dan `executeAs: USER_DEPLOYING`. CI memeriksa keempat nilai ini; jangan mengubahnya menjadi `ANYONE` atau `ANYONE_ANONYMOUS`.
