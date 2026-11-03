@@ -62,6 +62,32 @@ function normalize(kind,input){
  if(kind==='invoices'&&r.due<r.issued)throw Error('Jatuh tempo tidak boleh sebelum tanggal invoice.');
  return r;
 }
+function validateState(state){
+ const quoteNumbers=new Set(),invoiceNumbers=new Set(),invoiceQuotes=new Set();
+ state.quotes.forEach(function(q){
+  const key=q.number.toLowerCase();
+  if(quoteNumbers.has(key))throw Error('Nomor penawaran duplikat dalam data.');
+  quoteNumbers.add(key);
+ });
+ state.invoices.forEach(function(inv){
+  const key=inv.number.toLowerCase();
+  if(invoiceNumbers.has(key))throw Error('Nomor invoice duplikat dalam data.');
+  invoiceNumbers.add(key);
+  const quote=get(state,'quotes',inv.quoteId);
+  if(!quote)throw Error('Data invoice tanpa penawaran.');
+  if(quote.status!=='accepted')throw Error('Invoice harus berasal dari penawaran yang sudah diterima.');
+  if(invoiceQuotes.has(inv.quoteId))throw Error('Satu penawaran hanya boleh memiliki satu invoice aktif.');
+  invoiceQuotes.add(inv.quoteId);
+  if(inv.amount!==quote.price)throw Error('Nilai invoice tidak sesuai penawaran.');
+ });
+ state.payments.forEach(function(payment){
+  if(!get(state,'invoices',payment.invoiceId))throw Error('Data pembayaran tanpa invoice.');
+ });
+ state.invoices.forEach(function(inv){
+  if(balance(state,inv.id).overpaid)throw Error('Total pembayaran melebihi nilai invoice.');
+ });
+ return state;
+}
 function load(parsed){
  if(parsed==null)return empty();
  if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||parsed.schemaVersion!==VERSION)throw Error('Versi backup Operations tidak dikenali.');
@@ -75,7 +101,7 @@ function load(parsed){
    seen.add(row.id);return row;
   });
  }
- return result;
+ return validateState(result);
 }
 function get(state,kind,recordId){assertKind(kind);return state[kind].find(x=>x.id===recordId)}
 function balance(state,invoiceId){
@@ -190,10 +216,8 @@ function mergeBackup(existing,incoming){
   merged[kind]=[...current[kind],...additions];
   report[kind]={added:additions.length,skipped:importState[kind].length-additions.length};
  }
- // Preserve references even when imported arrays are not sorted in dependency order.
- for(const i of merged.invoices)if(!merged.quotes.some(q=>q.id===i.quoteId))throw Error('Backup memiliki invoice tanpa penawaran.');
- for(const p of merged.payments)if(!merged.invoices.some(i=>i.id===p.invoiceId))throw Error('Backup memiliki pembayaran tanpa invoice.');
- for(const inv of merged.invoices)if(balance(merged,inv.id).overpaid)throw Error('Backup membuat pembayaran melebihi invoice.');
+ // Validate the combined state as well: separate valid backups can conflict after merge.
+ validateState(merged);
  return {state:merged,report};
 }
 const API={KEY,VERSION,KINDS,STAGES,empty,load,normalize,add,update,remove,get,balance,quoteFromHpp,newInvoice,projectProgress,campaignSummary,summary,mergeBackup,today,id};
