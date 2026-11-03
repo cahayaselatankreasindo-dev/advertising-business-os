@@ -152,6 +152,27 @@ function localStorageStub() {
   return { getItem: k => values[k] || null, setItem: (k,v) => {values[k]=v;} };
 }
 
+// Regression: both commercial modules must be persisted, not merely accepted.
+test('Owner sync persists HPP quotations and project cost entries', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const costing = {id:'TEST-QUO-HOTFIX',date:'2026-11-03',client:'Dummy',title:'Booth test',hpp:200000,sellingPrice:300000,status:'draft'};
+  const cost = {id:'TEST-PCOST-HOTFIX',date:'2026-11-03',projectId:'TEST-PROJECT',description:'Material dummy',qty:1,unitCost:1000,amount:1000};
+  const result = api.post({action:'sync_all',token,costings:[costing],projectCosts:[cost]});
+  assert.equal(result.status,'success');
+  const cloud = api.read().data;
+  assert.equal(cloud.costings.find(x => x.id === costing.id)?.hpp,200000);
+  assert.equal(cloud.projectCosts.find(x => x.id === cost.id)?.amount,1000);
+  assert.equal(cloud.finance.length,0,'quotation and costs must not fabricate cash receipts');
+});
+
+test('backup restoration preserves both commercial arrays in staged HTML source', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'index.html'),'utf8');
+  const restore = html.slice(html.indexOf('    function importData(e) {'), html.indexOf('    function importData(e) {') + 2500);
+  assert.match(restore,/costings: Array\.isArray\(data\.costings\)/);
+  assert.match(restore,/projectCosts: Array\.isArray\(data\.projectCosts\)/);
+});
+
 test('real backend + real frontend delta: edit -> POST -> GET readback', async () => {
   const api = createBackend();
   const original = { id:'TEST-1', date:'2026-10-31', name:'Dummy A', phone:'0', source:'QA', value:1, status:'new', notes:'',email:'',website:'',industry:'',pic:'',picTitle:'',linkedin:'',score:0 };

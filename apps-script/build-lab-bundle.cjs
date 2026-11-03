@@ -18,18 +18,18 @@ const preamble = [
   ' * Never paste into production. Never deploy publicly. LAB Web App access must remain Only myself.',
   ' * Regenerate with: node apps-script/build-lab-bundle.cjs',
   ' */'
-].join('\\n');
+].join('\n');
 const sections = modules.map(file => {
-  let source = fs.readFileSync(path.join(root, file), 'utf8').replace(/\\s+$/, '');
+  let source = fs.readFileSync(path.join(root, file), 'utf8').replace(/\s+$/, '');
   if (file === 'apps-script/Code.gs') {
     source = source.replace(
       'Requires LabSelfTest.gs, LabRequestGuard.gs and LabHandlerVerification.gs.',
       'Guard and LAB test helpers are appended in this generated one-file bundle.'
     );
   }
-  return '// ===== BEGIN ' + file + ' =====\\n' + source + '\\n// ===== END ' + file + ' =====';
+  return '// ===== BEGIN ' + file + ' =====\n' + source + '\n// ===== END ' + file + ' =====';
 });
-const expected = preamble + '\\n\\n' + sections.join('\\n\\n') + '\\n';
+const expected = preamble + '\n\n' + sections.join('\n\n') + '\n';
 if (process.argv.includes('--check')) {
   const actual = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf8') : '';
   if (actual !== expected) {
