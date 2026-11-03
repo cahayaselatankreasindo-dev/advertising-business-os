@@ -8,7 +8,9 @@ const vm = require('node:vm');
 const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 const helper = html.match(/function escapeHTML\(value\) \{[\s\S]*?\n    \}/);
 assert.ok(helper, 'index.html must define the shared HTML escaping helper');
-assert.match(html, /Token disimpan di browser ini dan token baca dikirim melalui parameter URL/, 'settings must disclose browser token persistence and URL exposure');
+assert.match(html, /Token hanya dipakai sementara selama tab ini terbuka; token tidak disimpan ke localStorage atau file backup/, 'settings must disclose memory-only token handling');
+assert.match(html, /Baca dan tulis dikirim melalui body POST, bukan query URL/, 'settings must disclose POST body token transport');
+assert.doesNotMatch(html, /token baca dikirim melalui parameter URL/, 'settings must not describe query-string token transport as current');
 
 const sandbox = {};
 vm.runInNewContext(helper[0] + '\nglobalThis.escapeHTML = escapeHTML;', sandbox);
