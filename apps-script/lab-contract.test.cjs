@@ -38,6 +38,9 @@ for (const [key,sheet] of Object.entries({
 }
 
 assert.ok(self.includes('function cskLabRunRoleIsolationTests()'), 'live LAB role isolation test exists');
+assert.match(guard,/replace\\(\\/\\[\\\\s_-\\]\\/g/,'LAB guard normalizes whitespace, underscore and hyphen status aliases');
+assert.match(self,/replace\\(\\/\\[\\\\s_-\\]\\/g/,'LAB preflight normalizes won status aliases');
+assert.ok(guard.includes('status === "dealwin"'), 'LAB guard blocks dealwin status alias');
 assert.ok(self.includes('teamPrivateReadFiltered:true'), 'smoke test reports Team read filtering');
 assert.ok(verify.includes('cskLabGuardRead_()') && verify.includes('cskLabGuardPost_(payload)'), 'handler verifier checks real guard wiring');
 assert.doesNotMatch(self,/Logger\.log\([^\n]*tokens?\.(?:owner|team)/i,'role tokens must never be logged');
