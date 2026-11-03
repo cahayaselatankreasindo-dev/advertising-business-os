@@ -16,9 +16,13 @@ const { createEngine } = require('./sync-safe.js');
 function sheet(headers) {
   const rows = [headers.slice()];
   let dataRangeReadCount = 0;
+  const rangeReadShapes = [];
+  const rangeWriteShapes = [];
   return {
     rows,
     getDataRangeReadCount() { return dataRangeReadCount; },
+    getRangeReadShapes() { return rangeReadShapes.slice(); },
+    getRangeWriteShapes() { return rangeWriteShapes.slice(); },
     getLastRow() { return rows.length; },
     getLastColumn() { return Math.max(...rows.map(x => x.length)); },
     getDataRange() {
@@ -28,10 +32,12 @@ function sheet(headers) {
     getRange(row, col, countRows = 1, countCols = 1) {
       return {
         getValues() {
+          rangeReadShapes.push({row,col,countRows,countCols});
           return Array.from({ length: countRows }, (_, i) =>
             Array.from({ length: countCols }, (_, j) => (rows[row - 1 + i] || [])[col - 1 + j] ?? ''));
         },
         setValues(v) {
+          rangeWriteShapes.push({row,col,countRows,countCols,rows:v.length});
           v.forEach((items, i) => {
             if (!rows[row - 1 + i]) rows[row - 1 + i] = [];
             items.forEach((value,j) => { rows[row - 1 + i][col - 1 + j] = value; });
@@ -39,6 +45,7 @@ function sheet(headers) {
           return this;
         },
         setValue(v) {
+          rangeWriteShapes.push({row,col,countRows:1,countCols:1,rows:1,single:true});
           if (!rows[row - 1]) rows[row - 1] = [];
           rows[row - 1][col - 1] = v;
           return this;
@@ -704,4 +711,41 @@ test('sync_all accepts identical duplicate rows once and rejects conflicting dup
   assert.equal(conflicting.code,'EXPECTED_VERSION_REQUIRED');
   assert.equal(api.tables.Leads.getLastRow(),before,
     'ambiguous duplicate payload must not write any row');
+});
+
+
+test('mergeSheet reads the data block once and coalesces contiguous updates into one write', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const seeds = Array.from({length:4},(_,i)=>({
+    id:'TEST-BULK-'+i,date:'2026-11-03',name:'Bulk '+i,phone:'',source:'QA',
+    value:i,status:'new',notes:'',email:'',website:'',industry:'',pic:'',
+    picTitle:'',linkedin:'',score:0
+  }));
+  seeds.forEach(row=>api.tables.Leads.appendRow([
+    row.id,row.date,row.name,row.phone,row.source,row.value,row.status,row.notes,
+    row.email,row.website,row.industry,row.pic,row.picTitle,row.linkedin,row.score
+  ]));
+  const expectedRecords = {Leads:{}};
+  seeds.forEach(row=>{
+    const current = api.read().data.leads.find(item=>item.id===row.id);
+    expectedRecords.Leads[row.id] = api.sandbox.stableRecordFingerprint_(current);
+  });
+  const beforeReads = api.tables.Leads.getRangeReadShapes().length;
+  const beforeWrites = api.tables.Leads.getRangeWriteShapes().length;
+  const updated = seeds.map(row=>({...row,name:row.name+' updated'}));
+  const result = api.post({action:'sync_all',token,leads:updated,expectedRecords});
+  assert.equal(result.status,'success');
+  assert.equal(result.summary.Leads.updated,4);
+
+  const reads = api.tables.Leads.getRangeReadShapes().slice(beforeReads);
+  assert.ok(reads.some(r=>r.row===2&&r.col===1&&r.countRows===4&&r.countCols===15),
+    'one full data block should supply both ID indexing and old-row comparison');
+  assert.equal(reads.filter(r=>r.row===2&&r.col===1&&r.countRows===4&&r.countCols===1).length,0,
+    'the separate ID-only column scan must be removed');
+
+  const writes = api.tables.Leads.getRangeWriteShapes().slice(beforeWrites);
+  assert.equal(writes.filter(w=>w.row===2&&w.col===1&&w.countRows===4&&w.countCols===15&&!w.single).length,1,
+    'four adjacent updates must be coalesced into one setValues call');
+  assert.equal(api.read().data.leads.find(row=>row.id==='TEST-BULK-3').name,'Bulk 3 updated');
 });
