@@ -1886,7 +1886,7 @@
                 (l.website ? '<a href="' + safeExternalHref(l.website) + '" rel="noopener noreferrer" target="_blank" class="text-blue-600 hover:underline"><i class="fa fa-globe text-slate-400"></i> ' + escapeHTML(String(l.website).replace(/^https?:\/\//,'')) + '</a>' : '') +
                 (l.pic ? '<span><i class="fa fa-user text-slate-400"></i> ' + escapeHTML(l.pic) + (l.picTitle ? ' (' + escapeHTML(l.picTitle) + ')' : '') + '</span>' : '') +
                 (l.linkedin ? '<a href="' + safeExternalHref(l.linkedin) + '" rel="noopener noreferrer" target="_blank" class="text-blue-600 hover:underline"><i class="fa fa-linkedin-square text-slate-400"></i> LinkedIn</a>' : '') +
-                (l.score ? '<span class="badge bg-amber-100 text-amber-800"><i class="fa fa-star"></i> Skor ' + l.score + '</span>' : '') +
+                (l.score ? '<span class="badge bg-amber-100 text-amber-800"><i class="fa fa-star"></i> Skor ' + escapeHTML(l.score) + '</span>' : '') +
               '</div>' : '') +
           '</div>' +
           '<div class="flex items-center gap-1.5 self-end sm:self-center flex-wrap">' +
@@ -1926,7 +1926,7 @@
           '<div class="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg text-xs">' +
             '<div>' +
               '<div class="text-[10px] text-slate-400 font-semibold uppercase">Total Proyek</div>' +
-              '<div class="font-bold text-slate-800">' + (c.projectsCount || 0) + ' Proyek</div>' +
+              '<div class="font-bold text-slate-800">' + escapeHTML(c.projectsCount || 0) + ' Proyek</div>' +
             '</div>' +
             '<div>' +
               '<div class="text-[10px] text-slate-400 font-semibold uppercase">LTV Total</div>' +
@@ -2132,7 +2132,7 @@
           '</div>' +
           '<div class="flex items-center gap-4">' +
             '<span class="text-slate-500">Terpakai: <b class="text-slate-700">' + formatRp(m.spent) + '</b></span>' +
-            '<span class="text-slate-500">Leads: <b class="text-slate-700">' + (m.leadsGenerated || 0) + '</b></span>' +
+            '<span class="text-slate-500">Leads: <b class="text-slate-700">' + escapeHTML(m.leadsGenerated || 0) + '</b></span>' +
             '<button onclick="deleteMarketing(\'' + safeInlineId(m.id) + '\')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
           '</div>' +
         '</div>'
