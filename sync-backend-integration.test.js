@@ -164,13 +164,47 @@ function localStorageStub() {
   return { getItem: k => values[k] || null, setItem: (k,v) => {values[k]=v;} };
 }
 
+test('Finance and project cost writes reject missing project references atomically', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const finance = {id:'TEST-FIN-ORPHAN',date:'2026-11-03',type:'expense',category:'Material',amount:1000,description:'Dummy',projectId:'MISSING-PROJECT'};
+  const cost = {id:'TEST-PCOST-ORPHAN',date:'2026-11-03',projectId:'MISSING-PROJECT',category:'Material',description:'Dummy',qty:1,unitCost:1000,amount:1000};
+  const before = JSON.stringify(Object.fromEntries(Object.entries(api.tables).map(([k,v])=>[k,v.rows])));
+  const result = api.post({action:'sync_all',token,finance:[finance],projectCosts:[cost]});
+  assert.equal(result.status,'error');
+  assert.equal(result.code,'PROJECT_REFERENCE_INVALID');
+  assert.ok(result.conflicts.some(x=>x.includes('TEST-FIN-ORPHAN')));
+  assert.ok(result.conflicts.some(x=>x.includes('TEST-PCOST-ORPHAN')));
+  assert.equal(JSON.stringify(Object.fromEntries(Object.entries(api.tables).map(([k,v])=>[k,v.rows]))),before,
+    'invalid project references must not partially write Finance or Project_Costs');
+});
+
+test('project deletion is blocked while Finance, HPP or Project_Costs still reference it', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const project = {id:'TEST-PROJECT-LOCK',title:'Dummy project',client:'Dummy',value:1000,status:'active'};
+  const finance = {id:'TEST-FIN-LOCK',date:'2026-11-03',type:'expense',category:'Material',amount:1000,description:'Dummy',projectId:project.id};
+  const costing = {id:'TEST-COSTING-LOCK',date:'2026-11-03',client:'Dummy',title:'Dummy',projectId:project.id,hpp:1000,sellingPrice:1500,status:'draft'};
+  const projectCost = {id:'TEST-PCOST-LOCK',date:'2026-11-03',projectId:project.id,category:'Material',description:'Dummy',qty:1,unitCost:1000,amount:1000};
+  const seeded = api.post({action:'sync_all',token,projects:[project],finance:[finance],costings:[costing],projectCosts:[projectCost]});
+  assert.equal(seeded.status,'success');
+  const row = api.read().data.projects.find(x=>x.id===project.id);
+  const fingerprint = api.sandbox.stableRecordFingerprint_(row);
+  const deleted = api.post({action:'delete',token,sheet:'Projects',id:project.id,expectedFingerprint:fingerprint});
+  assert.equal(deleted.status,'error');
+  assert.equal(deleted.code,'RECORD_IN_USE');
+  assert.deepEqual(JSON.parse(JSON.stringify(deleted.references)),{finance:1,costings:1,projectCosts:1});
+  assert.ok(api.read().data.projects.some(x=>x.id===project.id),'referenced project must remain intact');
+});
+
 // Regression: both commercial modules must be persisted, not merely accepted.
 test('Owner sync persists HPP quotations and project cost entries', () => {
   const api = createBackend();
   const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
-  const costing = {id:'TEST-QUO-HOTFIX',date:'2026-11-03',client:'Dummy',title:'Booth test',hpp:200000,sellingPrice:300000,status:'draft'};
-  const cost = {id:'TEST-PCOST-HOTFIX',date:'2026-11-03',projectId:'TEST-PROJECT',description:'Material dummy',qty:1,unitCost:1000,amount:1000};
-  const result = api.post({action:'sync_all',token,costings:[costing],projectCosts:[cost]});
+  const project = {id:'TEST-PROJECT',title:'Booth test',client:'Dummy',value:300000,status:'draft'};
+  const costing = {id:'TEST-QUO-HOTFIX',date:'2026-11-03',client:'Dummy',title:'Booth test',projectId:project.id,hpp:200000,sellingPrice:300000,status:'draft'};
+  const cost = {id:'TEST-PCOST-HOTFIX',date:'2026-11-03',projectId:project.id,description:'Material dummy',qty:1,unitCost:1000,amount:1000};
+  const result = api.post({action:'sync_all',token,projects:[project],costings:[costing],projectCosts:[cost]});
   assert.equal(result.status,'success');
   const cloud = api.read().data;
   assert.equal(cloud.costings.find(x => x.id === costing.id)?.hpp,200000);
