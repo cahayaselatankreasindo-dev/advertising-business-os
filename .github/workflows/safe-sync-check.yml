@@ -6,6 +6,8 @@ on:
       - 'hpp-calculator.js'
       - 'hpp-ui.js'
       - 'hpp-calculator.test.js'
+      - 'commercial-costing.test.js'
+      - 'commercial-invoice.test.js'
       - 'email-marketing.js'
       - 'email-marketing-ui.js'
       - 'email-marketing.test.js'
@@ -57,6 +59,10 @@ jobs:
           node --check hpp-calculator.js
           node --check hpp-ui.js
           node hpp-calculator.test.js
+      - name: Test integrated commercial costing and invoice receipts
+        run: |
+          node commercial-costing.test.js
+          node commercial-invoice.test.js
       - name: Test Email Marketing safety and segmentation
         run: |
           node --check email-marketing.js
