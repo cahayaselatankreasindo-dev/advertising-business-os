@@ -334,6 +334,7 @@ var CSK_SYNC_PAYLOAD_AREAS_ = {
   finance: "Finance", memory: "Memory", marketingSpend: "Marketing_Spend",
   costings: "Costings", projectCosts: "Project_Costs"
 };
+var CSK_SYNC_MAX_RECORDS_PER_REQUEST_ = 40;
 
 function stableRecordFingerprint_(record) {
   if (!record) return "";
@@ -363,6 +364,8 @@ function validateExpectedRecords_(ss, payload) {
   }
   var missing = [];
   var conflicts = [];
+  var totalRecords = 0;
+  var currentBySheet = Object.create(null);
   Object.keys(CSK_SYNC_PAYLOAD_AREAS_).forEach(function (area) {
     if (!(area in payload)) return;
     var items = payload[area];
@@ -371,20 +374,40 @@ function validateExpectedRecords_(ss, payload) {
       return;
     }
     if (!items.length) return;
+    totalRecords += items.length;
+    if (totalRecords > CSK_SYNC_MAX_RECORDS_PER_REQUEST_) return;
+
     var sheetName = CSK_SYNC_PAYLOAD_AREAS_[area];
     var versions = expectedRecords[sheetName];
     if (!versions || typeof versions !== "object" || Array.isArray(versions)) {
       missing.push(sheetName);
       return;
     }
+
+    // Read each sheet once per request, then compare all records in memory.
+    // This avoids a full Sheets read for every item in a large sync batch.
+    if (!currentBySheet[sheetName]) {
+      currentBySheet[sheetName] = Object.create(null);
+      readSheetData(ss, sheetName).forEach(function (record) {
+        if (record && record.id !== undefined && record.id !== null) {
+          currentBySheet[sheetName][String(record.id)] = record;
+        }
+      });
+    }
+    var seenIds = Object.create(null);
     items.forEach(function (item) {
       var id = String(item && item.id != null ? item.id : "").trim();
       if (!id || !Object.prototype.hasOwnProperty.call(versions, id)) {
         missing.push(sheetName + "/" + id);
         return;
       }
+      if (seenIds[id]) {
+        missing.push(sheetName + "/" + id + " duplikat");
+        return;
+      }
+      seenIds[id] = true;
       var expected = versions[id];
-      var current = findRecordById_(ss, sheetName, id);
+      var current = currentBySheet[sheetName][id] || null;
       if (expected === null) {
         if (current) conflicts.push(sheetName + "/" + id);
       } else if (typeof expected !== "string" || !expected ||
@@ -393,9 +416,13 @@ function validateExpectedRecords_(ss, payload) {
       }
     });
   });
+  if (totalRecords > CSK_SYNC_MAX_RECORDS_PER_REQUEST_) {
+    return { ok: false, code: "SYNC_BATCH_LIMIT",
+      message: "Maksimum " + CSK_SYNC_MAX_RECORDS_PER_REQUEST_ + " record per batch. Pecah sinkronisasi menjadi beberapa batch." };
+  }
   if (missing.length) {
     return { ok: false, code: "EXPECTED_VERSION_REQUIRED",
-      message: "Versi dasar record tidak lengkap. Tidak ada data yang diubah.", conflicts: missing };
+      message: "Versi dasar record tidak lengkap atau ID duplikat. Tidak ada data yang diubah.", conflicts: missing };
   }
   if (conflicts.length) {
     return { ok: false, code: "SYNC_CONFLICT",
@@ -565,6 +592,17 @@ function doPost(e) {
       // --- sync_all (MERGE / UPSERT — tidak pernah menghapus data lama) ---
       // Aman: lead yang sudah ada di Sheets tetap tersimpan; hanya ditambah/diupdate.
       case "sync_all": {
+        // Strict contract: reject unknown keys instead of silently ignoring typos
+        // or accepting forged client-only role metadata.
+        var allowedSyncKeys = ["action", "token", "protocolVersion", "expectedRecords"]
+          .concat(Object.keys(CSK_SYNC_PAYLOAD_AREAS_));
+        var unknownSyncKeys = Object.keys(payload).filter(function (key) {
+          return allowedSyncKeys.indexOf(key) === -1;
+        });
+        if (unknownSyncKeys.length) return jsonResponse({
+          status: "error", code: "INVALID_PAYLOAD", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Field sinkronisasi tidak dikenal: " + unknownSyncKeys.join(", ")
+        });
         // Team may only submit Leads, Clients, and Projects. Reject rather than
         // silently accepting private data in a forged or stale payload.
         Object.keys(CSK_SYNC_PAYLOAD_AREAS_).forEach(function (area) {
@@ -587,13 +625,25 @@ function doPost(e) {
         if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
         if (payload.costings)       mergeSummary.Costings        = mergeSheet(ss, "Costings",        payload.costings);
         if (payload.projectCosts)   mergeSummary.Project_Costs   = mergeSheet(ss, "Project_Costs",   payload.projectCosts);
-        // Setelah sinkronisasi, cek apakah ada lead baru yang won
-        autoTriggerPillars(ss);
+        // Only an Owner write that actually contains a won lead may trigger
+        // the explicitly opt-in project automation. Team edits and unrelated
+        // module syncs must never activate Owner-side automation.
+        var hasWonLeadInPayload = role === "owner" && Array.isArray(payload.leads) &&
+          payload.leads.some(function (lead) { return isDealMenang(lead && lead.status); });
+        if (hasWonLeadInPayload) autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge (tidak ada yang dihapus)", summary: mergeSummary });
       }
 
       // --- delete: hapus 1 baris berdasarkan ID (dipakai tombol hapus di app) ---
       case "delete": {
+        var allowedDeleteKeys = ["action", "token", "protocolVersion", "sheet", "id", "expectedFingerprint"];
+        var unknownDeleteKeys = Object.keys(payload).filter(function (key) {
+          return allowedDeleteKeys.indexOf(key) === -1;
+        });
+        if (unknownDeleteKeys.length) return jsonResponse({
+          status: "error", code: "INVALID_PAYLOAD", protocolVersion: CSK_API_PROTOCOL_VERSION,
+          message: "Field penghapusan tidak dikenal: " + unknownDeleteKeys.join(", ")
+        });
         const sheetName = payload.sheet || "Leads";
         const delId = payload.id;
         if (!isSheetAllowedForRole_(role, sheetName)) return forbiddenResponse("Role " + role + " tidak boleh menghapus data " + sheetName + ".");
@@ -886,7 +936,7 @@ function mergeSheet(ss, sheetName, items) {
     .map(function (h) { return String(h).trim(); });
 
   // Bangun indeks ID -> nomor baris (ID selalu kolom 1)
-  var idToRow = {};
+  var idToRow = Object.create(null);
   if (lastRow > 1) {
     var idValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
     for (var i = 0; i < idValues.length; i++) {
@@ -914,7 +964,7 @@ function mergeSheet(ss, sheetName, items) {
   }
 
   var rowsToAppend = [];
-  var seenNewIds = {}; // cegah duplikat ID di dalam 1 payload
+  var seenNewIds = Object.create(null); // cegah duplikat ID di dalam 1 payload
 
   items.forEach(function (item) {
     var id = String(item.id === undefined || item.id === null ? "" : item.id).trim();
@@ -1073,9 +1123,8 @@ function cskLabGuardPost_(payload) {
         throw new Error("LAB guard: expected version format invalid.");
       }
       if (area === "leads") {
-        var status = String(row.status || "").toLowerCase().trim();
-        if (status === "won" || status === "deal menang" ||
-            status === "deal_menang") {
+        var status = String(row.status || "").toLowerCase().replace(/[\s_-]/g, "");
+        if (status === "won" || status === "dealmenang" || status === "dealwin") {
           // Avoid automatic Finance/Projects entries in autoTriggerPillars.
           throw new Error("LAB guard: won leads are forbidden.");
         }
@@ -1134,6 +1183,12 @@ function cskLabRunGuardNegativeTests() {
     { action: "sync_all", protocolVersion: 2, token: token,
       expectedRecords: {Leads: {"QA-LAB-FORBIDDEN-DEAL": null}},
       leads: [{id:"QA-LAB-FORBIDDEN-DEAL", status:"Deal Menang"}] },
+    { action: "sync_all", protocolVersion: 2, token: token,
+      expectedRecords: {Leads: {"QA-LAB-FORBIDDEN-HYPHEN": null}},
+      leads: [{id:"QA-LAB-FORBIDDEN-HYPHEN", status:"deal-menang"}] },
+    { action: "sync_all", protocolVersion: 2, token: token,
+      expectedRecords: {Leads: {"QA-LAB-FORBIDDEN-WIN": null}},
+      leads: [{id:"QA-LAB-FORBIDDEN-WIN", status:"dealwin"}] },
     { action: "sync_all", protocolVersion: 2, token: token,
       expectedRecords: {Leads: {"QA-LAB-OK": null}},
       leads: [{id:"QA-LAB-OK", status:"new"}], extra: "not_allowed" },
@@ -1232,8 +1287,8 @@ function cskLabRequireDummySheet_() {
   var leads = typeof readSheetData === "function"
     ? readSheetData(ss, "Leads") : [];
   if (leads.some(function (l) {
-    var status = String(l.status || "").toLowerCase();
-    return status === "won" || status === "deal menang";
+    var status = String(l.status || "").toLowerCase().replace(/[\s_-]/g, "");
+    return status === "won" || status === "dealmenang" || status === "dealwin";
   })) {
     throw new Error("DIBATALKAN: ada Lead WON di LAB. Tidak aman untuk tes.");
   }
