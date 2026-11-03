@@ -398,3 +398,71 @@ test('prototype-named record IDs survive queue persistence and verified sync', a
   assert.equal(cloud.rows.leads.find(row=>row.id==='__proto__').name,'Prototype ID');
   assert.equal(cloud.rows.leads.find(row=>row.id==='constructor').name,'Constructor ID');
 });
+
+
+test('retry reconciles a committed write when all immediate readbacks fail', async () => {
+  const cloud = fakeCloud(fixture());
+  const db = fixture();
+  let failReadbacks = 0;
+  const flaky = async (url, options={}) => {
+    if (options.method === 'POST') {
+      const result = await cloud.fetch(url, options);
+      failReadbacks = 3;
+      return result;
+    }
+    if (failReadbacks > 0) {
+      failReadbacks--;
+      throw new Error('temporary readback failure');
+    }
+    return cloud.fetch(url, options);
+  };
+  const storage = store();
+  const engine = createEngine(storage, flaky);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads[0].name = 'Committed but readback unavailable';
+  engine.track(db);
+  const first = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(first.status,'error');
+  assert.equal(engine.countPending(),1);
+  assert.equal(cloud.rows.leads[0].name,'Committed but readback unavailable');
+
+  const postCount = cloud.calls.length;
+  const second = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(second.status,'verified');
+  assert.equal(engine.countPending(),0);
+  assert.equal(cloud.calls.length,postCount,'retry must reconcile, not duplicate the committed POST');
+});
+
+test('retry safely reconciles a deletion committed before a later delete request fails', async () => {
+  const initial = fixture();
+  initial.leads.push({...initial.leads[0],id:'lead-2',name:'Second lead'});
+  const cloud = fakeCloud(initial);
+  const db = clone(initial);
+  let failSecondDelete = true;
+  const flaky = async (url, options={}) => {
+    if (options.method === 'POST') {
+      const payload = JSON.parse(options.body);
+      if (payload.action === 'delete' && payload.id === 'lead-2' && failSecondDelete) {
+        failSecondDelete = false;
+        throw new Error('temporary network interruption');
+      }
+    }
+    return cloud.fetch(url, options);
+  };
+  const engine = createEngine(store(), flaky);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads = [];
+  engine.track(db);
+  const first = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(first.status,'error');
+  assert.equal(cloud.rows.leads.some(row=>row.id==='lead-1'),false);
+  assert.equal(cloud.rows.leads.some(row=>row.id==='lead-2'),true);
+  assert.equal(engine.countPending(),2);
+
+  const second = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec','');
+  assert.equal(second.status,'verified');
+  assert.equal(engine.countPending(),0);
+  assert.equal(cloud.rows.leads.length,0);
+});
