@@ -764,6 +764,40 @@ test('all write paths fail closed when existing cloud rows contain duplicate IDs
 });
 
 
+test('read-only duplicate ID audit reports duplicate rows without mutating Sheets', () => {
+  const api = createBackend();
+  api.tables.Leads.appendRow([
+    'TEST-AUDIT-DUP','2026-11-03','Audit lead A','','QA',0,'new','','','','','','','',0
+  ]);
+  api.tables.Leads.appendRow([
+    'TEST-AUDIT-DUP','2026-11-03','Audit lead B','','QA',0,'new','','','','','','','',0
+  ]);
+  api.tables.Finance.appendRow([
+    'TEST-AUDIT-FIN','2026-11-03','expense','QA',1000,'Dummy audit',''
+  ]);
+  api.tables.Finance.appendRow([
+    'TEST-AUDIT-FIN','2026-11-03','expense','QA',1000,'Dummy audit',''
+  ]);
+  const beforeLeads = JSON.stringify(api.tables.Leads.rows);
+  const beforeFinance = JSON.stringify(api.tables.Finance.rows);
+
+  const report = api.sandbox.auditDuplicateRecordIds();
+  assert.equal(report.status,'DUPLICATE_IDS_FOUND');
+  assert.equal(report.totalDuplicateKeys,2);
+  assert.equal(report.totalDuplicateRows,2);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(report.sheets.Leads.duplicateIds)),
+    [{id:'TEST-AUDIT-DUP',rows:2}]
+  );
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(report.sheets.Finance.duplicateIds)),
+    [{id:'TEST-AUDIT-FIN',rows:2}]
+  );
+  assert.equal(JSON.stringify(api.tables.Leads.rows),beforeLeads);
+  assert.equal(JSON.stringify(api.tables.Finance.rows),beforeFinance);
+});
+
+
 test('mergeSheet reads the data block once and coalesces contiguous updates into one write', () => {
   const api = createBackend();
   const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
