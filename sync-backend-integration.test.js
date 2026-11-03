@@ -679,3 +679,29 @@ test('won aliases normalize consistently and Owner automation remains opt-in and
   assert.equal(nonWon.status,'success');
   assert.equal(api.tables.Projects.getLastRow(),2,'non-won payload must not run the automation');
 });
+
+
+test('sync_all accepts identical duplicate rows once and rejects conflicting duplicates atomically', () => {
+  const api = createBackend();
+  const token = 'TEST_ONLY_LAB_API_TOKEN_2026_SAFE';
+  const first = {id:'TEST-DUP-EXACT',date:'2026-11-03',name:'Exact duplicate',status:'new'};
+  const exact = api.post({
+    action:'sync_all',token,
+    leads:[first,{...first}],
+    expectedRecords:{Leads:{'TEST-DUP-EXACT':null}}
+  });
+  assert.equal(exact.status,'success');
+  assert.equal(api.read().data.leads.filter(row=>row.id===first.id).length,1);
+
+  const before = api.tables.Leads.getLastRow();
+  const conflicting = api.post({
+    action:'sync_all',token,
+    leads:[{...first,id:'TEST-DUP-CONFLICT',name:'First value'},
+      {...first,id:'TEST-DUP-CONFLICT',name:'Different value'}],
+    expectedRecords:{Leads:{'TEST-DUP-CONFLICT':null}}
+  });
+  assert.equal(conflicting.status,'error');
+  assert.equal(conflicting.code,'EXPECTED_VERSION_REQUIRED');
+  assert.equal(api.tables.Leads.getLastRow(),before,
+    'ambiguous duplicate payload must not write any row');
+});
