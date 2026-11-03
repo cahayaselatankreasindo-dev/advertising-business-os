@@ -408,6 +408,46 @@ function findRecordById_(ss, sheetName, id) {
 }
 
 /**
+ * Read-only data-quality audit. Reports duplicate record IDs in each Business OS tab.
+ * This function never edits, deletes, or repairs rows; review the report before manual cleanup.
+ */
+function auditDuplicateRecordIds() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var report = {
+    status: "NO_DUPLICATE_IDS",
+    totalDuplicateKeys: 0,
+    totalDuplicateRows: 0,
+    sheets: {}
+  };
+  Object.keys(FIELD_MAP).forEach(function (sheetName) {
+    var rows = readSheetData(ss, sheetName);
+    var counts = Object.create(null);
+    rows.forEach(function (record) {
+      var id = String(record && record.id != null ? record.id : "").trim();
+      if (!id) return;
+      counts[id] = (counts[id] || 0) + 1;
+    });
+    var duplicateIds = Object.keys(counts).filter(function (id) {
+      return counts[id] > 1;
+    }).sort().map(function (id) {
+      return { id: id, rows: counts[id] };
+    });
+    report.sheets[sheetName] = {
+      recordCount: rows.length,
+      duplicateIdCount: duplicateIds.length,
+      duplicateIds: duplicateIds
+    };
+    report.totalDuplicateKeys += duplicateIds.length;
+    duplicateIds.forEach(function (item) {
+      report.totalDuplicateRows += item.rows - 1;
+    });
+  });
+  if (report.totalDuplicateKeys) report.status = "DUPLICATE_IDS_FOUND";
+  Logger.log(JSON.stringify(report));
+  return report;
+}
+
+/**
  * Compare every sync_all upsert with the record version the client edited.
  * Must run while holding the script lock, immediately before the write.
  * A null expected fingerprint means the record must still be absent.
