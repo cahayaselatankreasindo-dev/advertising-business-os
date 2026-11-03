@@ -760,6 +760,9 @@ test('legacy insert and update_status enforce expected versions and Owner-only a
   props.setProperty('TEAM_API_TOKEN',teamToken);
   props.deleteProperty('API_TOKEN');
   props.setProperty('AUTO_PROJECT_FROM_WON','true');
+  const readOwner = () => JSON.parse(api.sandbox.doGet({
+    parameter:{token:ownerToken,protocolVersion:2}
+  }).text).data;
 
   const lead = {id:'TEST-LEGACY-STATUS',date:'2026-11-03',name:'Legacy status',status:'new',value:100};
   const insertedLead = api.post({
@@ -767,7 +770,7 @@ test('legacy insert and update_status enforce expected versions and Owner-only a
     expectedRecords:{Leads:{[lead.id]:null}}
   });
   assert.equal(insertedLead.status,'success');
-  const original = api.read().data.leads.find(row=>row.id===lead.id);
+  const original = readOwner().leads.find(row=>row.id===lead.id);
   const originalFingerprint = api.sandbox.stableRecordFingerprint_(original);
 
   const missingFingerprint = api.post({
@@ -784,7 +787,7 @@ test('legacy insert and update_status enforce expected versions and Owner-only a
   assert.equal(api.tables.Projects.getLastRow(),1,
     'Team must not trigger Owner-only won-lead automation');
 
-  const updatedLead = api.read().data.leads.find(row=>row.id===lead.id);
+  const updatedLead = readOwner().leads.find(row=>row.id===lead.id);
   const ownerUpdate = api.post({
     action:'update_status',token:ownerToken,sheet:'Leads',id:lead.id,status:'won',
     expectedFingerprint:api.sandbox.stableRecordFingerprint_(updatedLead)
