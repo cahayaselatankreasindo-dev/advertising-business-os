@@ -163,6 +163,55 @@ test('server-side version check catches an edit racing after client preflight', 
   assert.equal(engine.countPending(), 1);
 });
 
+test('two independent devices racing to edit one record cannot silently overwrite each other', async () => {
+  const cloud = fakeCloud(fixture());
+  const dbA = fixture();
+  const dbB = fixture();
+  const engineA = createEngine(store(), cloud.fetch);
+  const engineB = createEngine(store(), cloud.fetch);
+  engineA.init(dbA); engineB.init(dbB);
+  engineA.merge(clone(cloud.rows), dbA);
+  engineB.merge(clone(cloud.rows), dbB);
+  dbA.leads[0].name = 'Device A edit';
+  dbB.leads[0].name = 'Device B edit';
+  engineA.track(dbA); engineB.track(dbB);
+
+  const results = await Promise.all([
+    engineA.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec', ''),
+    engineB.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec', '')
+  ]);
+  assert.equal(results.filter(x => x.status === 'verified').length, 1);
+  assert.equal(results.filter(x => x.status === 'conflict').length, 1);
+  assert.ok(['Device A edit', 'Device B edit'].includes(cloud.rows.leads[0].name));
+  const loser = results[0].status === 'conflict' ? engineA : engineB;
+  assert.equal(loser.countPending(), 1, 'losing device must retain its local edit');
+  assert.deepEqual(loser.conflicts, ['leads/lead-1']);
+});
+
+test('stale delete from one device cannot remove a record edited by another device', async () => {
+  const cloud = fakeCloud(fixture());
+  const dbA = fixture();
+  const dbB = fixture();
+  const engineA = createEngine(store(), cloud.fetch);
+  const engineB = createEngine(store(), cloud.fetch);
+  engineA.init(dbA); engineB.init(dbB);
+  engineA.merge(clone(cloud.rows), dbA);
+  engineB.merge(clone(cloud.rows), dbB);
+
+  dbB.leads[0].name = 'Updated on device B';
+  engineB.track(dbB);
+  const update = await engineB.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec', '');
+  assert.equal(update.status, 'verified');
+
+  dbA.leads = [];
+  engineA.track(dbA);
+  const deletion = await engineA.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec', '');
+  assert.equal(deletion.status, 'conflict');
+  assert.deepEqual(deletion.conflicts, ['leads/lead-1']);
+  assert.equal(cloud.rows.leads[0].name, 'Updated on device B');
+  assert.equal(engineA.countPending(), 1);
+});
+
 test('conflicting remote edit stops all cloud writes',async()=>{
   const cloud=fakeCloud(fixture());
   const db=fixture();
@@ -269,6 +318,50 @@ test('browser inline script still parses',()=>{
   assert.doesNotThrow(()=>new vm.Script(scripts[scripts.length-1][1],{filename:'index.html'}));
 });
 
+
+test('local restore clears persisted conflict state as well as the pending queue', async () => {
+  const storage = store();
+  const cloud = fakeCloud(fixture());
+  const db = fixture();
+  const engine = createEngine(storage, cloud.fetch);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads[0].name = 'Local conflict version';
+  engine.track(db);
+  cloud.rows.leads[0].name = 'Remote conflict version';
+  const conflict = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec', '');
+  assert.equal(conflict.status, 'conflict');
+
+  const restored = fixture('Restored backup');
+  engine.restoreLocalOnly(restored);
+  assert.deepEqual(engine.conflicts, []);
+  assert.equal(engine.countPending(), 0);
+  assert.equal(engine.verifiedAt, '');
+
+  const reopened = createEngine(storage, cloud.fetch);
+  reopened.init(restored);
+  assert.deepEqual(reopened.conflicts, []);
+  assert.equal(reopened.countPending(), 0);
+});
+
+test('manual cloud replacement clears stale conflict markers', async () => {
+  const storage = store();
+  const cloud = fakeCloud(fixture());
+  const db = fixture();
+  const engine = createEngine(storage, cloud.fetch);
+  engine.init(db);
+  engine.merge(clone(cloud.rows), db);
+  db.leads[0].name = 'Local conflict version';
+  engine.track(db);
+  cloud.rows.leads[0].name = 'Remote conflict version';
+  const conflict = await engine.flush('https://script.google.com/macros/s/TEST_DEPLOYMENT_ID/exec', '');
+  assert.equal(conflict.status, 'conflict');
+
+  engine.replaceFromCloud(clone(cloud.rows), db);
+  assert.deepEqual(engine.conflicts, []);
+  assert.equal(engine.countPending(), 0);
+  assert.equal(db.leads[0].name, 'Remote conflict version');
+});
 
 test('recovery restores local snapshot without queuing old records to cloud', () => {
   const storage = store();
