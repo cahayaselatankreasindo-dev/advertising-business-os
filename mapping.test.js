@@ -166,8 +166,8 @@ const FIELD_MAP = sandbox.FIELD_MAP;
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
-    ['Clients','Finance','Leads','Marketing_Spend','Memory','Projects'].sort(),
-    'FIELD_MAP mencakup 6 tab');
+    ['Clients','Costings','Finance','Leads','Marketing_Spend','Memory','Project_Costs','Projects'].sort(),
+    'FIELD_MAP mencakup 8 tab');
   eq(FIELD_MAP.Projects.headers,
     ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim'],
     'FIELD_MAP.Projects.headers = hasil Tahap 2 + PIC_Tim');
