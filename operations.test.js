@@ -127,9 +127,9 @@ test('backup import validates duplicate invoices, document numbers, orphan payme
  assert.throws(()=>ops.load({...base,invoices:[inv,{...inv,id:'INV-2'}]}),/nomor invoice duplikat/i);
  assert.throws(()=>ops.load({...base,payments:[{id:'PAY-ORPHAN',invoiceId:'missing',date:'2026-11-03',amount:1}]}),/pembayaran tanpa invoice/i);
  assert.throws(()=>ops.load({...base,payments:[{id:'PAY-1',invoiceId:inv.id,date:'2026-11-03',amount:inv.amount+1}]}),/melebihi nilai invoice/i);
- const other=quote(ops.empty());const q2=other.quotes[0];
- const second=ops.update(other,'quotes',q2.id,{status:'accepted'});
- const incoming=ops.newInvoice(second,q2.id,'INV-BASE','2026-11-02','2026-11-15');
+ let other=quote(ops.empty());const q2=other.quotes[0];
+ other=ops.update(other,'quotes',q2.id,{number:'CSK-Q-OTHER',status:'accepted'});
+ const incoming=ops.newInvoice(other,q2.id,'INV-BASE','2026-11-02','2026-11-15');
  assert.throws(()=>ops.mergeBackup(base,incoming),/nomor invoice duplikat/i);
 });
 
