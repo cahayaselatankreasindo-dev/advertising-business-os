@@ -21,6 +21,7 @@ PR #6 has been squash-merged into `integration/secure-safe-sync-20261103` (commi
 - Compare-and-set validation reads each affected sheet once per batch. Sheet merge reuses one data block for ID indexing and row comparison, and coalesces adjacent updates into a single `setValues` write.
 - Exact duplicate rows in one payload remain idempotent; conflicting payload duplicates are rejected before any write.
 - Existing duplicate IDs in a touched Google Sheets tab fail closed: `sync_all`, delete, and status updates refuse to guess which row is authoritative.
+- The manual read-only Apps Script helper `auditDuplicateRecordIds()` reports duplicate IDs by tab without changing data; cleanup remains an owner-reviewed manual operation.
 - Prototype-safe record indexes protect special IDs such as `__proto__` and `constructor`.
 - Owner-only project automation is payload-scoped and remains opt-in; Team writes cannot trigger it.
 - Legacy `insert` and `update_status` API actions also require explicit compare-and-set expectations; Team status updates cannot invoke Owner-only project automation.
