@@ -5,6 +5,8 @@ on:
       - 'index.html'
       - 'README.md'
       - 'ui-render-safety.test.cjs'
+      - 'legacy-backup-safety.test.cjs'
+      - 'backups'
       - 'hpp-calculator.js'
       - 'hpp-ui.js'
       - 'hpp-calculator.test.js'
@@ -63,6 +65,7 @@ jobs:
           node sync-safe.test.js
           node sync-backend-integration.test.js
           node ui-render-safety.test.cjs
+          node legacy-backup-safety.test.cjs
       - name: Verify standalone brand preview (no cloud access)
         run: node preview/brand-preview.test.js
       - name: Test HPP costing, quote policy, and local-only integration
