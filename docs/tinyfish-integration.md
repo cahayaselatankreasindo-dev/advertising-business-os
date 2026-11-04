@@ -21,7 +21,7 @@ Search and Fetch are the low-cost/free retrieval layer according to TinyFish doc
 - The Apps Script backend verifies the exact TEST ONLY spreadsheet before handling requests.
 - Only public HTTP(S) domain URLs are accepted. IP literals, localhost, private/internal hostnames and reserved test domains are rejected.
 - Agent goals are read-only. Login, credentials, form submission, messaging, purchases, account changes, deletion, upload, and download instructions are blocked. A read-only safety instruction is appended server-side.
-- Agent runs are asynchronous; the UI polls status only when the owner asks.
+- Agent runs are asynchronous; the UI polls status only when the owner asks. Agent usage is metered by run step; the LAB adapter limits starts to one per 30 seconds and 10 per Asia/Jakarta calendar day.
 - Results are displayed for review and are not automatically written into CRM, Finance, Projects, or other business records.
 - Search/Fetch/Agent calls are never made automatically during app startup or sync.
 
