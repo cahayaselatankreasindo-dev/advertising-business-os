@@ -372,6 +372,9 @@
       <button onclick="nav('email')" class="nav-btn pillar-marketing w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-envelope-o w-5 text-amber-500"></i> Email Marketing B2B
       </button>
+      <button onclick="nav('webresearch')" class="nav-btn pillar-riset w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
+        <i class="fa fa-search w-5 text-cyan-400"></i> TinyFish · Riset Web
+      </button>
       <button onclick="nav('analysis')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-bar-chart w-5 text-purple-400"></i> Analisis Bisnis
       </button>
@@ -800,6 +803,87 @@
           </span>
         </div>
         <div id="email-root"><p class="text-sm text-slate-500">Memuat kontak dari Leads CRM…</p></div>
+      </section>
+
+      <!-- 7. TINYFISH PUBLIC WEB RESEARCH — OWNER ONLY, SERVER-SIDE KEY -->
+      <section id="page-webresearch" class="page-content hidden space-y-6 pillar-riset">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div>
+            <span class="pillar-badge p5">Riset Publik · TinyFish</span>
+            <h1 class="text-2xl md:text-3xl font-bold font-heading text-slate-900 mt-2">Web Research & Prospecting</h1>
+            <p class="text-sm text-slate-500 mt-2">Cari informasi calon klien, baca sumber publik, dan jalankan riset web baca-saja. Hasil tidak otomatis masuk CRM.</p>
+          </div>
+          <span class="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-800">
+            <i class="fa fa-lock" aria-hidden="true"></i> API key server-side
+          </span>
+        </div>
+
+        <div id="tinyfish-status" role="status" aria-live="polite" class="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+          Memeriksa konfigurasi TinyFish…
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+          <div class="bg-white rounded-xl border border-slate-200 p-4 md:p-5 shadow-sm space-y-4">
+            <div>
+              <h2 class="font-heading font-bold text-slate-900">1. Pencarian web</h2>
+              <p class="text-xs text-slate-500 mt-1">Contoh: vendor signage Jakarta, percetakan kemasan Bekasi, event organizer Bandung.</p>
+            </div>
+            <form id="tinyfish-search-form" onsubmit="cskTinyFishSearch(event)" class="space-y-2">
+              <label for="tinyfish-query" class="block text-xs font-semibold text-slate-700">Kata kunci</label>
+              <input id="tinyfish-query" type="search" maxlength="300" required placeholder="Contoh: vendor signage Jakarta" class="w-full rounded-lg border border-slate-300 p-3 text-sm">
+              <div class="flex flex-wrap items-center gap-2">
+                <select id="tinyfish-domain-type" class="rounded-lg border border-slate-300 p-2 text-xs" aria-label="Jenis hasil">
+                  <option value="web">Web</option>
+                  <option value="news">Berita</option>
+                </select>
+                <button id="tinyfish-search-button" type="submit" class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
+                  <i class="fa fa-search mr-1"></i> Cari di web
+                </button>
+              </div>
+            </form>
+            <div id="tinyfish-search-results" class="space-y-3" aria-live="polite">
+              <p class="text-xs text-slate-400">Hasil pencarian akan muncul di sini.</p>
+            </div>
+            <div id="tinyfish-fetch-panel" class="hidden rounded-lg border border-cyan-200 bg-cyan-50 p-3 space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <h3 id="tinyfish-fetch-title" class="font-bold text-sm text-slate-900">Isi sumber</h3>
+                <button type="button" onclick="cskTinyFishCloseFetch()" class="text-xs text-slate-500 underline">Tutup</button>
+              </div>
+              <p id="tinyfish-fetch-description" class="text-xs text-slate-600"></p>
+              <pre id="tinyfish-fetch-text" class="max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs text-slate-700"></pre>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-slate-200 p-4 md:p-5 shadow-sm space-y-4">
+            <div>
+              <h2 class="font-heading font-bold text-slate-900">2. Agent riset baca-saja</h2>
+              <p class="text-xs text-slate-500 mt-1">Untuk situs publik yang memerlukan beberapa langkah navigasi. Pekerjaan berjalan di cloud, bukan di tablet.</p>
+            </div>
+            <form id="tinyfish-agent-form" onsubmit="cskTinyFishStartAgent(event)" class="space-y-3">
+              <div>
+                <label for="tinyfish-agent-url" class="block text-xs font-semibold text-slate-700 mb-1">URL situs publik</label>
+                <input id="tinyfish-agent-url" type="url" required placeholder="https://example.com" class="w-full rounded-lg border border-slate-300 p-3 text-sm">
+              </div>
+              <div>
+                <label for="tinyfish-agent-goal" class="block text-xs font-semibold text-slate-700 mb-1">Instruksi riset</label>
+                <textarea id="tinyfish-agent-goal" rows="4" maxlength="1500" required placeholder="Baca profil perusahaan, rangkum produk/jasa, lokasi layanan, dan URL sumber. Jangan login atau mengubah data apa pun." class="w-full rounded-lg border border-slate-300 p-3 text-sm"></textarea>
+              </div>
+              <button id="tinyfish-agent-button" type="submit" class="rounded-lg bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-800">
+                <i class="fa fa-play mr-1"></i> Mulai riset
+              </button>
+            </form>
+            <div id="tinyfish-agent-panel" class="hidden rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p id="tinyfish-agent-run" class="text-xs font-semibold text-slate-700 break-all"></p>
+                <button id="tinyfish-agent-poll" type="button" onclick="cskTinyFishCheckAgentRun()" class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white">Cek hasil</button>
+              </div>
+              <pre id="tinyfish-agent-output" class="max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs text-slate-700">Belum ada hasil.</pre>
+            </div>
+            <p class="rounded-lg bg-amber-50 border border-amber-200 p-3 text-[11px] leading-relaxed text-amber-900">
+              Batasan keamanan: riset publik baca-saja. Login, penggunaan kredensial, pengiriman pesan/email, pengisian formulir, pembelian, perubahan akun/data, upload, dan download diblokir. Hasil harus diperiksa sebelum dicatat sebagai prospek.
+            </p>
+          </div>
+        </div>
       </section>
 
       <!-- 7. BUSINESS MEMORY (hidden for non-owner) -->
@@ -1671,10 +1755,178 @@
       });
     }
 
+    // ============== TINYFISH WEB RESEARCH ==============
+    let cskTinyFishCurrentRunId = '';
+
+    function cskTinyFishSetStatus(message, state) {
+      const el = document.getElementById('tinyfish-status');
+      if (!el) return;
+      el.textContent = message;
+      el.className = 'rounded-xl border p-4 text-sm ' +
+        (state === 'ok' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' :
+         state === 'error' ? 'border-rose-200 bg-rose-50 text-rose-800' :
+         'border-amber-200 bg-amber-50 text-amber-900');
+    }
+
+    async function cskTinyFishCall(payload) {
+      if (!window.CSKAppsScriptTransport || !window.CSKAppsScriptTransport.callTinyFish) {
+        throw new Error('Bridge Apps Script belum tersedia. Muat ulang aplikasi privat.');
+      }
+      const result = await window.CSKAppsScriptTransport.callTinyFish(payload);
+      if (!result || result.status !== 'success') {
+        throw new Error(result && result.message ? result.message : 'Permintaan TinyFish gagal.');
+      }
+      return result;
+    }
+
+    async function cskTinyFishCheckStatus() {
+      try {
+        const result = await cskTinyFishCall({ action: 'status' });
+        if (result.configured) {
+          cskTinyFishSetStatus('TinyFish siap. API key tersimpan di Script Properties server dan tidak dikirim ke tablet.', 'ok');
+        } else {
+          cskTinyFishSetStatus('TinyFish belum aktif. Tambahkan TINYFISH_API_KEY pada Apps Script > Project Settings > Script Properties. Jangan tempel API key ke halaman ini atau chat.', 'warning');
+        }
+      } catch (error) {
+        cskTinyFishSetStatus(error.message || 'Status TinyFish tidak dapat diperiksa.', 'error');
+      }
+    }
+
+    function cskTinyFishRenderResults(results) {
+      const container = document.getElementById('tinyfish-search-results');
+      if (!container) return;
+      container.replaceChildren();
+      if (!results || !results.length) {
+        const empty = document.createElement('p');
+        empty.className = 'text-xs text-slate-500';
+        empty.textContent = 'Tidak ada hasil publik yang dapat ditampilkan.';
+        container.appendChild(empty);
+        return;
+      }
+      results.forEach(item => {
+        const card = document.createElement('article');
+        card.className = 'rounded-lg border border-slate-200 p-3 space-y-2';
+        const meta = document.createElement('p');
+        meta.className = 'text-[10px] uppercase tracking-wide text-slate-400';
+        meta.textContent = (item.siteName || 'Sumber web') + (item.position ? ' · #' + item.position : '');
+        const title = document.createElement('a');
+        title.className = 'block text-sm font-semibold text-blue-700 hover:underline break-words';
+        title.href = item.url;
+        title.target = '_blank';
+        title.rel = 'noopener noreferrer';
+        title.textContent = item.title || item.url;
+        const snippet = document.createElement('p');
+        snippet.className = 'text-xs leading-relaxed text-slate-600';
+        snippet.textContent = item.snippet || '';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800';
+        button.textContent = 'Ambil isi sumber';
+        button.addEventListener('click', () => cskTinyFishFetchSource(item.url));
+        card.append(meta, title, snippet, button);
+        container.appendChild(card);
+      });
+    }
+
+    async function cskTinyFishSearch(event) {
+      if (event) event.preventDefault();
+      const query = (document.getElementById('tinyfish-query')?.value || '').trim();
+      const domainType = document.getElementById('tinyfish-domain-type')?.value || 'web';
+      const button = document.getElementById('tinyfish-search-button');
+      if (!query) return;
+      if (button) button.disabled = true;
+      cskTinyFishSetStatus('Sedang mencari sumber publik…', 'warning');
+      try {
+        const result = await cskTinyFishCall({ action: 'search', query, domainType });
+        cskTinyFishRenderResults(result.results);
+        cskTinyFishSetStatus('Pencarian selesai. ' + result.results.length + ' sumber ditampilkan dari ' + result.totalResults + ' hasil.', 'ok');
+      } catch (error) {
+        cskTinyFishSetStatus(error.message || 'Pencarian gagal.', 'error');
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    async function cskTinyFishFetchSource(url) {
+      const panel = document.getElementById('tinyfish-fetch-panel');
+      const title = document.getElementById('tinyfish-fetch-title');
+      const description = document.getElementById('tinyfish-fetch-description');
+      const text = document.getElementById('tinyfish-fetch-text');
+      if (!panel || !title || !description || !text) return;
+      panel.classList.remove('hidden');
+      title.textContent = 'Mengambil isi sumber…';
+      description.textContent = url;
+      text.textContent = '';
+      try {
+        const result = await cskTinyFishCall({ action: 'fetch', url });
+        title.textContent = result.title || 'Isi sumber';
+        description.textContent = result.description || result.url;
+        text.textContent = result.text || 'Tidak ada teks yang dapat diekstrak.';
+        cskTinyFishSetStatus('Sumber berhasil diambil. Periksa informasi dan URL aslinya sebelum digunakan.', 'ok');
+      } catch (error) {
+        title.textContent = 'Gagal mengambil sumber';
+        text.textContent = error.message || 'Fetch gagal.';
+        cskTinyFishSetStatus(error.message || 'Fetch gagal.', 'error');
+      }
+    }
+
+    function cskTinyFishCloseFetch() {
+      document.getElementById('tinyfish-fetch-panel')?.classList.add('hidden');
+    }
+
+    async function cskTinyFishStartAgent(event) {
+      if (event) event.preventDefault();
+      const url = (document.getElementById('tinyfish-agent-url')?.value || '').trim();
+      const goal = (document.getElementById('tinyfish-agent-goal')?.value || '').trim();
+      const button = document.getElementById('tinyfish-agent-button');
+      const panel = document.getElementById('tinyfish-agent-panel');
+      const output = document.getElementById('tinyfish-agent-output');
+      if (!url || !goal) return;
+      if (button) button.disabled = true;
+      if (panel) panel.classList.remove('hidden');
+      if (output) output.textContent = 'Mengirim tugas riset baca-saja ke TinyFish…';
+      try {
+        const result = await cskTinyFishCall({ action: 'agent_start', url, goal });
+        cskTinyFishCurrentRunId = result.runId;
+        const runLabel = document.getElementById('tinyfish-agent-run');
+        if (runLabel) runLabel.textContent = 'Run ID: ' + result.runId;
+        if (output) output.textContent = result.message + '\nKlik “Cek hasil” untuk memeriksa status.';
+        cskTinyFishSetStatus('Agent berjalan di cloud. Tidak ada perubahan data CRM atau transaksi yang dilakukan.', 'ok');
+      } catch (error) {
+        if (output) output.textContent = error.message || 'Agent tidak dapat dimulai.';
+        cskTinyFishSetStatus(error.message || 'Agent gagal dimulai.', 'error');
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    async function cskTinyFishCheckAgentRun() {
+      if (!cskTinyFishCurrentRunId) return;
+      const output = document.getElementById('tinyfish-agent-output');
+      const button = document.getElementById('tinyfish-agent-poll');
+      if (button) button.disabled = true;
+      try {
+        const result = await cskTinyFishCall({ action: 'agent_status', runId: cskTinyFishCurrentRunId });
+        const display = {
+          status: result.runStatus,
+          result: result.result,
+          error: result.error,
+          recentSteps: result.steps
+        };
+        if (output) output.textContent = JSON.stringify(display, null, 2);
+        cskTinyFishSetStatus('Status agent: ' + result.runStatus + '. Hasil hanya ditampilkan untuk ditinjau, tidak otomatis disimpan ke CRM.', result.runStatus === 'COMPLETED' ? 'ok' : 'warning');
+      } catch (error) {
+        if (output) output.textContent = error.message || 'Tidak dapat mengambil status agent.';
+        cskTinyFishSetStatus(error.message || 'Pemeriksaan agent gagal.', 'error');
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
     // ============== NAVIGATION ==============
 
     function nav(page) {
-      if ((serverRole === 'team' || db.role === 'team') && ['finance','marketing','analysis','memory','hpp','costings','email','ops'].includes(page)) {
+      if ((serverRole === 'team' || db.role === 'team') && ['finance','marketing','analysis','memory','hpp','costings','email','ops','webresearch'].includes(page)) {
         // UI defense in depth; the Apps Script backend independently enforces the role.
         page = 'dashboard';
       }
@@ -3631,6 +3883,7 @@
     window.addEventListener('DOMContentLoaded', () => {
       loadDB();
       renderAll();
+      cskTinyFishCheckStatus();
       if (window.CSKHPP && window.CSKHPPUI) {
         window.CSKHPPUI.init(document.getElementById('hpp-root'), window.CSKHPP);
       } else {
