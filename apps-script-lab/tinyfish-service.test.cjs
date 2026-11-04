@@ -10,7 +10,8 @@ let mockResponse = {};
 let mockCode = 200;
 let now = 1700000000000;
 const context = {
-  Date: { now: () => now },
+  Date: class FakeDate extends Date { static now() { return now; } },
+  Utilities: { formatDate: () => '2026-11-04' },
   PropertiesService: {
     getScriptProperties: () => ({
       getProperty: key => props.get(key) || '',
@@ -105,6 +106,9 @@ assert.equal(result.runId, 'run_TEST_12345678');
 assert.equal(calls.at(-1).url, 'https://agent.tinyfish.ai/v1/automation/run-async');
 assert.equal(calls.at(-1).options.headers['X-API-Key'], 'TEST_ONLY_TINYFISH_KEY_0123456789abcdef');
 assert.doesNotMatch(calls.at(-1).options.payload, /TINYFISH_API_KEY|sk-tinyfish/);
+
+for (let i = 0; i < 9; i++) context.cskTinyFishAgentDailyLimit_();
+assert.throws(() => context.cskTinyFishAgentDailyLimit_(), /maksimal 10 pekerjaan per hari/);
 
 mockResponse = { run_id: 'run_TEST_12345678', status: 'COMPLETED', result: { summary: 'Public research' }, steps: [] };
 result = invoke('agent_status', { runId: 'run_TEST_12345678' });
