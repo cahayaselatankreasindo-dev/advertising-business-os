@@ -36,7 +36,7 @@ assert.match(index, /CSKAppsScriptTransport/);
 assert.match(index, /CSK_GAS_API_URL/);
 assert.match(index, /PRIVATE LAB — DATABASE DUMMY/);
 assert.doesNotMatch(index, /src="\.\//);
-assert.doesNotMatch(index, /navigator\.serviceWorker\.register\('\.\/sw\.js'\)/);
+assert.match(index, /if \(!window\.CSK_PRIVATE_APPS_SCRIPT && 'serviceWorker' in navigator\)/);
 assert.match(bridge, /google\.script\.run/);
 assert.match(bridge, /cskLabApiRequest\(payload\)/);
 assert.doesNotMatch(bridge, /fetch\s*\(/);
