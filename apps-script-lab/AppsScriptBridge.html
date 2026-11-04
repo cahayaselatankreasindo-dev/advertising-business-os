@@ -33,5 +33,23 @@
     };
   }
 
-  root.CSKAppsScriptTransport = { createTransport: createTransport };
+  function callTinyFish(payload) {
+    return new Promise(function (resolve, reject) {
+      if (!root.google || !root.google.script || !root.google.script.run) {
+        reject(new Error('Google Apps Script private bridge is unavailable.'));
+        return;
+      }
+      var runner = root.google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(function (error) {
+          reject(new Error(error && error.message ? error.message : String(error)));
+        });
+      runner.cskLabTinyFishRequest(payload);
+    });
+  }
+
+  root.CSKAppsScriptTransport = {
+    createTransport: createTransport,
+    callTinyFish: callTinyFish
+  };
 })(window);
