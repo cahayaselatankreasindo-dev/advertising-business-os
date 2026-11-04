@@ -88,7 +88,7 @@ function cskTinyFishConfigure_(request) {
 }
 
 function cskTinyFishTestConnection_() {
-  cskTinyFishRateLimit_("TINYFISH_LAST_TEST_MS", 1500);
+  cskTinyFishRateLimit_("TINYFISH_LAST_TEST_MS", 2200);
   var url = CSK_TINYFISH_ENDPOINTS_.search +
     "?query=" + encodeURIComponent("CSK TinyFish connection test") +
     "&location=ID&language=id";
@@ -193,7 +193,7 @@ function cskTinyFishSearch_(request) {
   if (["web", "news"].indexOf(domainType) === -1) {
     throw cskTinyFishError_("INVALID_DOMAIN_TYPE", "Jenis pencarian hanya web atau news.");
   }
-  cskTinyFishRateLimit_("TINYFISH_LAST_SEARCH_MS", 1500);
+  cskTinyFishRateLimit_("TINYFISH_LAST_SEARCH_MS", 2200);
   var url = CSK_TINYFISH_ENDPOINTS_.search +
     "?query=" + encodeURIComponent(query) +
     "&location=ID&language=id&domain_type=" + encodeURIComponent(domainType);
@@ -261,10 +261,38 @@ function cskTinyFishValidateReadOnlyGoal_(goal) {
   return value + "\n\nBATASAN WAJIB: lakukan riset baca-saja pada halaman publik. Jangan login, jangan meminta atau memasukkan kredensial, jangan mengirim atau mengisi formulir, jangan mengirim pesan/email, jangan membeli atau membayar, jangan membuat/mengubah/menghapus akun atau data, dan jangan mengunduh file. Jangan mengirimkan data pribadi. Berhenti jika situs meminta login atau tindakan yang mengubah data. Kembalikan ringkasan faktual, URL sumber, dan ketidakpastian.";
 }
 
+function cskTinyFishAgentDailyLimit_() {
+  var lock = LockService.getUserLock();
+  if (!lock.tryLock(5000)) {
+    throw cskTinyFishError_("TINYFISH_BUSY", "Permintaan TinyFish lain sedang diproses. Coba lagi sebentar.");
+  }
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var today = Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyy-MM-dd");
+    var usage = {};
+    try {
+      usage = JSON.parse(props.getProperty("TINYFISH_AGENT_DAILY_USAGE") || "{}");
+    } catch (_) {
+      usage = {};
+    }
+    var count = usage.date === today ? Number(usage.count || 0) : 0;
+    if (count >= 10) {
+      throw cskTinyFishError_("TINYFISH_DAILY_AGENT_LIMIT", "Batas awal Agent tercapai: maksimal 10 pekerjaan per hari. Search dan Fetch tetap dapat digunakan.");
+    }
+    props.setProperty("TINYFISH_AGENT_DAILY_USAGE", JSON.stringify({
+      date: today,
+      count: count + 1
+    }));
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function cskTinyFishAgentStart_(request) {
   var url = cskTinyFishSafePublicUrl_(request.url);
   var goal = cskTinyFishValidateReadOnlyGoal_(request.goal);
   cskTinyFishRateLimit_("TINYFISH_LAST_AGENT_MS", 30000);
+  cskTinyFishAgentDailyLimit_();
   var data = cskTinyFishHttp_(CSK_TINYFISH_ENDPOINTS_.agent + "/v1/automation/run-async", "post", {
     url: url,
     goal: goal,
