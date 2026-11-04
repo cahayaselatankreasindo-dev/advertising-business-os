@@ -39,3 +39,38 @@ Search and Fetch do not consume TinyFish credits per current documentation; acco
 ## Current deployment state
 
 This repository change implements the server-side adapter and UI, but does not deploy Apps Script. The owner creates the TinyFish key and enters it once through the private in-app password field after deployment. Production Apps Script and production spreadsheet are not modified.
+
+## Deploy from an Android tablet (Termux — no desktop required)
+
+The Business OS itself runs in Chrome and does not require Termux. Termux is only an optional one-time tool for uploading the prepared LAB source and creating its private deployment from an Android tablet.
+
+1. Install Termux from F-Droid.
+2. Open Termux and run:
+   ```sh
+   pkg update && pkg install nodejs git
+   npm install -g @google/clasp
+   clasp login --no-localhost
+   ```
+3. Complete Google sign-in in the browser using the owner account that owns the isolated LAB Apps Script project.
+4. Clone this public repository and select the feature branch:
+   ```sh
+   git clone https://github.com/cahayaselatankreasindo-dev/advertising-business-os.git
+   cd advertising-business-os
+   git checkout feature/private-lab-appshell-20261104
+   cd apps-script-lab
+   ```
+5. Run the safe preflight:
+   ```sh
+   bash deploy-lab.sh preflight
+   ```
+6. Upload and deploy only to the pinned LAB Script ID:
+   ```sh
+   bash deploy-lab.sh deploy
+   ```
+7. Copy the Web App `/exec` URL printed by Clasp and open it with `?view=app` appended. Keep the deployment access set to `Only myself`.
+
+The script verifies the exact LAB Script ID, dummy spreadsheet ID, and private manifest before any Clasp command. The default mode is preflight-only. Do not run Clasp from the legacy `apps-script/` folder because its target is production.
+
+After the app opens, create a TinyFish API key at https://agent.tinyfish.ai/api-keys and enter it in the TinyFish setup card inside the private app. The key is saved server-side; do not paste it into chat, GitHub, or Sheets.
+
+If Termux is not desired, the same source can be uploaded from the Apps Script editor in Chrome desktop mode, but the Termux route is the repeatable tablet workflow.
