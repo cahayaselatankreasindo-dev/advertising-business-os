@@ -49,26 +49,28 @@ The Business OS itself runs in Chrome and does not require Termux. Termux is onl
 3. Open Termux and run:
    ```sh
    pkg update && pkg install nodejs git
+   node -v
    npm install -g @google/clasp
    clasp login --no-localhost
    ```
-4. Complete Google sign-in in the browser using the owner account that owns the isolated LAB Apps Script project.
-5. Clone this public repository and select the feature branch:
+4. Pastikan `node -v` menunjukkan versi 22 atau lebih baru; script preflight akan menolak versi yang lebih lama.
+5. Complete Google sign-in in the browser using the owner account that owns the isolated LAB Apps Script project.
+6. Clone this public repository and select the feature branch:
    ```sh
    git clone https://github.com/cahayaselatankreasindo-dev/advertising-business-os.git
    cd advertising-business-os
    git checkout feature/private-lab-appshell-20261104
    cd apps-script-lab
    ```
-6. Run the safe preflight:
+7. Run the safe preflight:
    ```sh
    bash deploy-lab.sh preflight
    ```
-7. Upload and deploy only to the pinned LAB Script ID:
+8. Upload and deploy only to the pinned LAB Script ID:
    ```sh
    bash deploy-lab.sh deploy
    ```
-8. Copy the Web App `/exec` URL printed by Clasp and open it with `?view=app` appended. Keep the deployment access set to `Only myself`.
+9. Copy the Web App `/exec` URL printed by Clasp and open it with `?view=app` appended. Keep the deployment access set to `Only myself`.
 
 The script verifies the exact LAB Script ID, dummy spreadsheet ID, and private manifest before any Clasp command. The default mode is preflight-only. Do not run Clasp from the legacy `apps-script/` folder because its target is production.
 
