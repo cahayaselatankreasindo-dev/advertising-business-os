@@ -108,7 +108,7 @@ function cskTinyFishRequireKey_() {
   if (key.length < 20) {
     throw cskTinyFishError_(
       "TINYFISH_NOT_CONFIGURED",
-      "TinyFish belum dikonfigurasi. Tambahkan TINYFISH_API_KEY pada Apps Script > Project Settings > Script Properties."
+      "TinyFish belum dikonfigurasi. Simpan API key melalui kartu TinyFish pada aplikasi privat."
     );
   }
   return key;
