@@ -31,11 +31,13 @@ function cskLabTinyFishRequest(request) {
       throw cskTinyFishError_("INVALID_REQUEST", "Permintaan TinyFish tidak valid.");
     }
     var action = String(request.action || "").toLowerCase();
-    if (["status", "search", "fetch", "agent_start", "agent_status"].indexOf(action) === -1) {
+    if (["status", "configure", "test", "search", "fetch", "agent_start", "agent_status"].indexOf(action) === -1) {
       throw cskTinyFishError_("ACTION_NOT_ALLOWED", "Aksi TinyFish tidak diizinkan.");
     }
 
     if (action === "status") return cskTinyFishStatus_();
+    if (action === "configure") return cskTinyFishConfigure_(request);
+    if (action === "test") return cskTinyFishTestConnection_();
     if (action === "search") return cskTinyFishSearch_(request);
     if (action === "fetch") return cskTinyFishFetch_(request);
     if (action === "agent_start") return cskTinyFishAgentStart_(request);
@@ -65,6 +67,39 @@ function cskTinyFishStatus_() {
     capabilities: ["search", "fetch", "read_only_agent"],
     keyExposure: "server_only",
     dataBoundary: "public_web_research_only"
+  };
+}
+
+function cskTinyFishConfigure_(request) {
+  var key = String(request.apiKey || "").trim();
+  if (key.length < 20 || key.length > 512 || /[\\r\\n\\t ]/.test(key)) {
+    throw cskTinyFishError_("INVALID_API_KEY", "API key tidak valid. Periksa kembali key dari dashboard TinyFish.");
+  }
+  // The key arrives only over the owner-only google.script.run channel.
+  // Never log it, return it, or persist it in the browser or a Sheet.
+  PropertiesService.getScriptProperties().setProperty("TINYFISH_API_KEY", key);
+  return {
+    status: "success",
+    action: "configure",
+    configured: true,
+    keyStoredServerSide: true,
+    message: "API key tersimpan di Script Properties server. Nilai key tidak dikembalikan."
+  };
+}
+
+function cskTinyFishTestConnection_() {
+  cskTinyFishRateLimit_("TINYFISH_LAST_TEST_MS", 1500);
+  var url = CSK_TINYFISH_ENDPOINTS_.search +
+    "?query=" + encodeURIComponent("CSK TinyFish connection test") +
+    "&location=ID&language=id";
+  var data = cskTinyFishHttp_(url, "get");
+  return {
+    status: "success",
+    action: "test",
+    configured: true,
+    connectionOk: true,
+    resultCount: Array.isArray(data.results) ? data.results.length : 0,
+    message: "Koneksi TinyFish berhasil diverifikasi melalui Search API."
   };
 }
 
