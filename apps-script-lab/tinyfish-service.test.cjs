@@ -97,6 +97,9 @@ assert.equal(result.code, 'URL_NOT_PUBLIC');
 result = invoke('agent_start', { url: 'https://example.com', goal: 'Log in and submit the contact form' });
 assert.equal(result.status, 'error');
 assert.equal(result.code, 'READ_ONLY_GOAL_REQUIRED');
+result = invoke('agent_start', { url: 'https://example.com', goal: 'Mengirim email penawaran dan mengisi formulir kontak' });
+assert.equal(result.status, 'error');
+assert.equal(result.code, 'READ_ONLY_GOAL_REQUIRED');
 
 resetRate('TINYFISH_LAST_AGENT_MS');
 mockResponse = { run_id: 'run_TEST_12345678' };
