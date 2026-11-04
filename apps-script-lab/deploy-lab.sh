@@ -13,6 +13,13 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
+NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]")"
+if [ "$NODE_MAJOR" -lt 22 ]; then
+  echo "Clasp versi terbaru membutuhkan Node.js >= 22. Versi saat ini: $(node -v)"
+  echo "Perbarui Node.js melalui Termux sebelum melanjutkan."
+  exit 1
+fi
+
 node - <<'NODE'
 const fs = require('node:fs');
 const clasp = JSON.parse(fs.readFileSync('.clasp.json', 'utf8'));
