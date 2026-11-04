@@ -36,3 +36,7 @@ The script validates the exact LAB Script ID and private manifest before calling
 ## Access
 
 After deploying from the owner's Google account, open the deployment URL with `?view=app`. Access remains `Only myself`. Use the same owner Google account on each device. Team access is intentionally not exposed by this owner-only LAB shell.
+
+## Android tablet deployment
+
+For a repeatable tablet-only deployment, use Termux and `deploy-lab.sh`. See `docs/tinyfish-integration.md` for the exact Termux setup and commands. The app itself runs in Chrome after the one-time private LAB deployment.
