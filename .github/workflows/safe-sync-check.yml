@@ -135,6 +135,8 @@ jobs:
           node --check --input-type=commonjs < apps-script-lab/AppsScriptBridge.html
           node apps-script-lab/lab-deployment.test.cjs
           node apps-script-lab/tinyfish-service.test.cjs
+          bash -n apps-script-lab/deploy-lab.sh
+          bash apps-script-lab/deploy-lab.sh preflight
       - name: Install browser test runtime
         run: |
           npm install --no-save --no-package-lock playwright@1.55.0
