@@ -818,8 +818,17 @@
           </span>
         </div>
 
-        <div id="tinyfish-status" role="status" aria-live="polite" class="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-          Memeriksa konfigurasi TinyFish…
+        <div class="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+          <div id="tinyfish-status" role="status" aria-live="polite" class="text-sm text-slate-600">
+            Memeriksa konfigurasi TinyFish…
+          </div>
+          <div id="tinyfish-key-setup" class="hidden border-t border-slate-100 pt-3 space-y-2">
+            <p class="text-xs text-slate-600">Buat API key di <a href="https://agent.tinyfish.ai/api-keys" target="_blank" rel="noopener noreferrer" class="font-semibold text-blue-700 underline">dashboard TinyFish</a>, lalu masukkan di sini. Key dikirim melalui koneksi privat ke Apps Script, disimpan di Script Properties, dan tidak disimpan di tablet.</p>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input id="tinyfish-api-key" type="password" maxlength="512" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Tempel API key TinyFish" class="min-w-0 flex-1 rounded-lg border border-slate-300 p-3 text-sm font-mono">
+              <button id="tinyfish-configure-button" type="button" onclick="cskTinyFishConfigure()" class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">Simpan & uji koneksi</button>
+            </div>
+          </div>
         </div>
 
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
@@ -1782,13 +1791,40 @@
     async function cskTinyFishCheckStatus() {
       try {
         const result = await cskTinyFishCall({ action: 'status' });
+        const setup = document.getElementById('tinyfish-key-setup');
+        if (setup) setup.classList.toggle('hidden', !!result.configured);
         if (result.configured) {
-          cskTinyFishSetStatus('TinyFish siap. API key tersimpan di Script Properties server dan tidak dikirim ke tablet.', 'ok');
+          cskTinyFishSetStatus('TinyFish terkonfigurasi. API key berada di Script Properties server dan tidak disimpan di tablet.', 'ok');
         } else {
-          cskTinyFishSetStatus('TinyFish belum aktif. Tambahkan TINYFISH_API_KEY pada Apps Script > Project Settings > Script Properties. Jangan tempel API key ke halaman ini atau chat.', 'warning');
+          cskTinyFishSetStatus('TinyFish belum dihubungkan. Buat API key melalui dashboard TinyFish, lalu simpan secara privat di sini.', 'warning');
         }
       } catch (error) {
         cskTinyFishSetStatus(error.message || 'Status TinyFish tidak dapat diperiksa.', 'error');
+      }
+    }
+
+    async function cskTinyFishConfigure() {
+      const input = document.getElementById('tinyfish-api-key');
+      const button = document.getElementById('tinyfish-configure-button');
+      const apiKey = (input?.value || '').trim();
+      if (!apiKey) {
+        cskTinyFishSetStatus('Masukkan API key terlebih dahulu.', 'warning');
+        return;
+      }
+      if (button) button.disabled = true;
+      cskTinyFishSetStatus('Menyimpan key ke Script Properties privat…', 'warning');
+      try {
+        await cskTinyFishCall({ action: 'configure', apiKey });
+        if (input) input.value = '';
+        const test = await cskTinyFishCall({ action: 'test' });
+        const setup = document.getElementById('tinyfish-key-setup');
+        if (setup) setup.classList.add('hidden');
+        cskTinyFishSetStatus(test.message || 'TinyFish berhasil dihubungkan.', 'ok');
+      } catch (error) {
+        if (input) input.value = '';
+        cskTinyFishSetStatus(error.message || 'Konfigurasi TinyFish gagal. Periksa API key dan akses akun.', 'error');
+      } finally {
+        if (button) button.disabled = false;
       }
     }
 
