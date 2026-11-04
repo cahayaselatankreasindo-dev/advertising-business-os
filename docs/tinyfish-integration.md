@@ -45,29 +45,30 @@ This repository change implements the server-side adapter and UI, but does not d
 The Business OS itself runs in Chrome and does not require Termux. Termux is only an optional one-time tool for uploading the prepared LAB source and creating its private deployment from an Android tablet.
 
 1. Install Termux from F-Droid.
-2. Open Termux and run:
+2. Enable the Google Apps Script API for the owner account at https://script.google.com/home/usersettings.
+3. Open Termux and run:
    ```sh
    pkg update && pkg install nodejs git
    npm install -g @google/clasp
    clasp login --no-localhost
    ```
-3. Complete Google sign-in in the browser using the owner account that owns the isolated LAB Apps Script project.
-4. Clone this public repository and select the feature branch:
+4. Complete Google sign-in in the browser using the owner account that owns the isolated LAB Apps Script project.
+5. Clone this public repository and select the feature branch:
    ```sh
    git clone https://github.com/cahayaselatankreasindo-dev/advertising-business-os.git
    cd advertising-business-os
    git checkout feature/private-lab-appshell-20261104
    cd apps-script-lab
    ```
-5. Run the safe preflight:
+6. Run the safe preflight:
    ```sh
    bash deploy-lab.sh preflight
    ```
-6. Upload and deploy only to the pinned LAB Script ID:
+7. Upload and deploy only to the pinned LAB Script ID:
    ```sh
    bash deploy-lab.sh deploy
    ```
-7. Copy the Web App `/exec` URL printed by Clasp and open it with `?view=app` appended. Keep the deployment access set to `Only myself`.
+8. Copy the Web App `/exec` URL printed by Clasp and open it with `?view=app` appended. Keep the deployment access set to `Only myself`.
 
 The script verifies the exact LAB Script ID, dummy spreadsheet ID, and private manifest before any Clasp command. The default mode is preflight-only. Do not run Clasp from the legacy `apps-script/` folder because its target is production.
 
