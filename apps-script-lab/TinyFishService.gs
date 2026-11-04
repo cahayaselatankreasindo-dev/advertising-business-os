@@ -251,7 +251,7 @@ function cskTinyFishValidateReadOnlyGoal_(goal) {
   if (!value || value.length > 1500) {
     throw cskTinyFishError_("INVALID_GOAL", "Instruksi wajib diisi dan maksimal 1.500 karakter.");
   }
-  var forbidden = /\b(login|log\s*in|sign\s*in|password|credential|checkout|purchase|buy|pay|payment|submit|send|message|delete|remove|edit|update|book|reserve|booking|register|upload|download|transfer|place\s+order|beli|bayar|pembayaran|kirim|hapus|ubah|sunting|pesan|pemesanan|transaksi|transfer|masuk\s+akun|buat\s+akun|unggah|unduh)\b/i;
+  var forbidden = /\b(login|log\s*in|sign\s*in|password|credential|checkout|purchase|buy|pay|payment|submit|send|message|delete|remove|edit|update|book|reserve|booking|register|upload|download|transfer|place\s+order|beli|membeli|bayar|membayar|pembayaran|kirim|mengirim|hapus|menghapus|ubah|mengubah|sunting|mengedit|perbarui|memperbarui|pesan|memesan|pemesanan|transaksi|transfer|masuk\s+akun|buat\s+akun|membuat\s+akun|mendaftar|unggah|mengunggah|unduh|mengunduh|formulir|form)\b/i;
   if (forbidden.test(value)) {
     throw cskTinyFishError_(
       "READ_ONLY_GOAL_REQUIRED",
