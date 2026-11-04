@@ -78,20 +78,40 @@ function cskLabCheckReadiness() {
 /** Strong random LAB token, generated and stored ONLY in LAB Script Properties. */
 function cskLabEnsurePrivateToken_() {
   cskLabRequireDummySheet_();
-  var tokens = getApiTokens();
-  var ownerReady = !!tokens.owner && tokens.owner.length >= 20;
-  var teamReady = !!tokens.team && tokens.team.length >= 20;
-  if (ownerReady && teamReady) {
-    return { created: false, configured: true, rolesConfigured: 2 };
+  var props = PropertiesService.getScriptProperties();
+  var owner = String(props.getProperty("OWNER_API_TOKEN") || "").trim();
+  var legacyOwner = String(props.getProperty("API_TOKEN") || "").trim();
+  var team = String(props.getProperty("TEAM_API_TOKEN") || "").trim();
+  var createdOwner = false;
+  var createdTeam = false;
+
+  // Preserve a valid existing Owner secret during migration; never rotate it
+  // merely because the Team secret is absent.
+  if ((!owner || owner.length < 20) && legacyOwner.length >= 20) {
+    owner = legacyOwner;
+    props.setProperty("OWNER_API_TOKEN", owner);
+    props.deleteProperty("API_TOKEN");
   }
-  // Generate separate random Owner and Team credentials in LAB Script Properties.
-  // setupApiTokens() never logs either secret and removes the legacy shared token.
-  setupApiTokens();
-  tokens = getApiTokens();
-  if (!tokens.owner || tokens.owner.length < 20 || !tokens.team || tokens.team.length < 20) {
-    throw new Error("DIBATALKAN: token Owner/Tim LAB belum berhasil dibuat.");
+  if (!owner || owner.length < 20) {
+    owner = generateApiToken_();
+    props.setProperty("OWNER_API_TOKEN", owner);
+    createdOwner = true;
   }
-  return { created: true, configured: true, rolesConfigured: 2 };
+  if (!team || team.length < 20) {
+    team = generateApiToken_();
+    props.setProperty("TEAM_API_TOKEN", team);
+    createdTeam = true;
+  }
+  if (owner.length < 20 || team.length < 20 || owner === team) {
+    throw new Error("DIBATALKAN: token Owner/Tim LAB belum berhasil disiapkan.");
+  }
+  return {
+    created: createdOwner || createdTeam,
+    createdOwner: createdOwner,
+    createdTeam: createdTeam,
+    configured: true,
+    rolesConfigured: 2
+  };
 }
 
 function cskLabParseOutput_(output) {
