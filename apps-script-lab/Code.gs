@@ -569,6 +569,9 @@ function forbiddenResponse(message) {
 
 function doGet(e) {
   try {
+    // Bootstrap missing LAB-only Owner/Team tokens without rotating valid credentials.
+    cskLabRequireDummySheet_();
+    cskLabEnsurePrivateToken_();
     cskLabGuardRead_();
     if (e && e.parameter && e.parameter.view === "app") {
       var apiUrl = ScriptApp.getService().getUrl();
@@ -597,6 +600,9 @@ function cskPrivateInclude_(filename) {
  */
 function cskLabApiRequest(payload) {
   try {
+    // Ensure private LAB credentials exist before the read guard checks them.
+    cskLabRequireDummySheet_();
+    cskLabEnsurePrivateToken_();
     cskLabGuardRead_();
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
       throw new Error("Payload API privat tidak valid.");
