@@ -56,7 +56,19 @@ result = invoke('search', { query: 'percetakan signage Jakarta' });
 assert.equal(result.status, 'error');
 assert.equal(result.code, 'TINYFISH_NOT_CONFIGURED');
 
-props.set('TINYFISH_API_KEY', 'sk-tinyfish-TEST-ONLY-DO-NOT-USE');
+result = invoke('configure', { apiKey: 'TEST_ONLY_TINYFISH_KEY_0123456789abcdef' });
+assert.equal(result.status, 'success');
+assert.equal(result.keyStoredServerSide, true);
+assert.doesNotMatch(JSON.stringify(result), /TEST_ONLY_TINYFISH_KEY/);
+assert.equal(props.get('TINYFISH_API_KEY'), 'TEST_ONLY_TINYFISH_KEY_0123456789abcdef');
+
+resetRate('TINYFISH_LAST_TEST_MS');
+mockResponse = { query: 'CSK TinyFish connection test', results: [{ title: 'test', url: 'https://example.com' }] };
+result = invoke('test');
+assert.equal(result.status, 'success');
+assert.equal(result.connectionOk, true);
+assert.match(calls.at(-1).url, /CSK%20TinyFish%20connection%20test/);
+
 resetRate('TINYFISH_LAST_SEARCH_MS');
 mockResponse = {
   query: 'percetakan signage Jakarta',
@@ -67,7 +79,7 @@ result = invoke('search', { query: 'percetakan signage Jakarta' });
 assert.equal(result.status, 'success');
 assert.equal(result.results.length, 1);
 assert.equal(result.results[0].url, 'https://example.com/vendor');
-assert.equal(calls.at(-1).options.headers['X-API-Key'], 'sk-tinyfish-TEST-ONLY-DO-NOT-USE');
+assert.equal(calls.at(-1).options.headers['X-API-Key'], 'TEST_ONLY_TINYFISH_KEY_0123456789abcdef');
 assert.match(calls.at(-1).url, /location=ID&language=id/);
 assert.equal(JSON.stringify(result).includes('sk-tinyfish'), false);
 
@@ -91,7 +103,7 @@ result = invoke('agent_start', { url: 'https://example.com', goal: 'Read the pub
 assert.equal(result.status, 'success');
 assert.equal(result.runId, 'run_TEST_12345678');
 assert.equal(calls.at(-1).url, 'https://agent.tinyfish.ai/v1/automation/run-async');
-assert.equal(calls.at(-1).options.headers['X-API-Key'], 'sk-tinyfish-TEST-ONLY-DO-NOT-USE');
+assert.equal(calls.at(-1).options.headers['X-API-Key'], 'TEST_ONLY_TINYFISH_KEY_0123456789abcdef');
 assert.doesNotMatch(calls.at(-1).options.payload, /TINYFISH_API_KEY|sk-tinyfish/);
 
 mockResponse = { run_id: 'run_TEST_12345678', status: 'COMPLETED', result: { summary: 'Public research' }, steps: [] };
