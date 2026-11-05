@@ -105,4 +105,14 @@ assert.ok(html.includes('onchange="setHppLineField('), 'HPP line editor inputs i
 assert.ok(html.includes('id="hpp-labor" type="number"'), 'labor cost is editable');
 assert.ok(html.includes('id="hpp-other" type="number"'), 'other cost is editable');
 assert.ok(html.includes('id="hpp-margin" type="number"'), 'profit margin is editable');
-console.log('CSK invoice, fully editable HPP items, calculations, and backend sync contract checks passed.');
+
+assert.ok(html.includes('--csk-paper:#F8F7F4'), 'professional off-white design tokens exist');
+assert.ok(html.includes('--csk-orange:#FF8A3D'), 'CSK orange accent token exists');
+assert.ok(html.includes("family=Inter"), 'Inter typography is loaded');
+assert.ok(html.includes('id="csk-mobile-more"'), 'mobile More navigation panel exists');
+assert.ok(html.includes("function toggleMobileMore(open)"), 'mobile More navigation is functional');
+assert.ok(html.includes("function mobileGo(page)"), 'mobile module navigation handler exists');
+assert.ok(html.includes("onclick="+"\\"+"mobileGo('documents')"), 'quotation and invoice accessible from mobile More');
+assert.ok(html.includes("onclick="+"\\"+"mobileGo('purchasing')"), 'purchasing accessible from mobile More');
+console.log('CSK HPP, quotation integration, responsive design system, and mobile navigation checks passed.');
+
