@@ -2476,8 +2476,8 @@
       if (!currentActiveProject) return;
       const p = currentActiveProject;
       const quotationSnapshot=currentInvoiceType==='penawaran'?getActiveQuotationSnapshot():null;
-      const costSheet=currentInvoiceType==='penawaran'?getProjectCostSheet(p.id):null;
-      const totalVal = Number((currentInvoiceType === 'penawaran' && quotationSnapshot ? quotationSnapshot.total : (currentInvoiceType === 'penawaran' && costSheet ? costSheet.price : (p.value || 0))));
+      const costSheet=getProjectCostSheet(p.id);
+      const totalVal = Number(quotationSnapshot ? quotationSnapshot.total : (costSheet ? costSheet.price : (p.value || 0)));
       const amounts = calculateInvoiceAmounts(totalVal, currentInvoiceType, currentInvoiceDpPercent);
       const todayStr = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -2535,9 +2535,11 @@
       badgeEl.innerText = badgeText;
       badgeEl.className = 'inline-block px-3 py-1 rounded font-extrabold text-xs uppercase tracking-wider mb-2 ' + badgeClass;
 
-      const quotationLines=currentInvoiceType==='penawaran'
-        ? (quotationSnapshot ? quotationSnapshot.lines : (costSheet ? buildQuotationSnapshot(p).lines : [{name:itemTitle,qty:1,unit:'Lot',unitPrice:totalVal,lineTotal:totalVal}]))
-        : [{name:itemTitle,qty:1,unit:'Lot',unitPrice:billAmount,lineTotal:billAmount}];
+      let quotationLines=[{name:itemTitle,qty:1,unit:'Lot',unitPrice:billAmount,lineTotal:billAmount}];
+      if(currentInvoiceType==='penawaran') {
+        if(quotationSnapshot) quotationLines=quotationSnapshot.lines||quotationLines;
+        else if(costSheet) { try { quotationLines=buildQuotationSnapshot(p).lines; } catch(error) { showToast(error.message,true); } }
+      }
       tbody.innerHTML = quotationLines.map(function(line){
         return '<tr><td class="py-3 px-3 font-semibold text-slate-900"><div>'+escapeInvoiceHtml(line.name)+'</div></td><td class="py-3 px-3 text-center text-slate-600 font-semibold">'+escapeInvoiceHtml(line.qty)+' '+escapeInvoiceHtml(line.unit)+'</td><td class="py-3 px-3 text-right font-bold text-slate-900">'+formatRp(line.lineTotal)+'</td></tr>';
       }).join('') + (p.notes ? '<tr><td colspan="3" class="px-3 py-2 text-[11px] text-slate-500">'+escapeInvoiceHtml(p.notes)+'</td></tr>' : '');
