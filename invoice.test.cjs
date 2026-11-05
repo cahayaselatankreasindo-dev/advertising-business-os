@@ -26,8 +26,8 @@ assert.deepStrictEqual({ ...calculateInvoiceAmounts(1000001, 'pelunasan') }, {
 assert.equal(calculateInvoiceAmounts(-100, 'dp').amount, 0);
 assert.ok(html.includes('Sisa Pelunasan: '));
 assert.ok(html.includes('Invoice Pelunasan'), 'settlement invoice option exists');
-assert.ok(html.includes('escapeInvoiceHtml(itemTitle)'));
-assert.ok(html.includes('escapeInvoiceHtml(p.notes)'));
+assert.ok(html.includes('escapeInvoiceHtml(line.name)'), 'quotation rows render line descriptions safely');
+assert.ok(html.includes('escapeInvoiceHtml(p.notes)'), 'project notes remain escaped in quotation');
 
 assert.ok(html.includes("id=\"page-documents\""), 'dedicated documents page exists');
 assert.ok(html.includes("nav('documents')"), 'documents navigation exists');
