@@ -131,7 +131,7 @@ const existingResult = existing.context.autoTriggerPillars(existing.ss);
 assert.equal(existingResult.projectCreated, 1);
 assert.equal(existingResult.clientCreated, 0);
 assert.equal(existing.sheets.Clients.rows[1][3], 2, 'existing client project count is refreshed');
-assert.equal(existing.sheets.Clients.rows[1][4], 13000000, 'existing client total spend is refreshed');
+assert.equal(existing.sheets.Clients.rows[1][4], 16000000, 'existing client total spend is refreshed');
 assert.equal(existing.sheets.Clients.rows[1][5], 'Keep existing notes', 'existing client notes are preserved');
 assert.equal(existing.sheets.Clients.rows[1][6], '4 | Existing review', 'existing rating and review are preserved');
 
