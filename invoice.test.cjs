@@ -158,5 +158,14 @@ const waFunction = html.slice(waStart, waEnd);
 assert.ok(waFunction.includes("const quotationSnapshot = currentInvoiceType === 'penawaran' ? getActiveQuotationSnapshot() : null;"), 'WhatsApp quotation reads the saved quotation snapshot');
 assert.ok(waFunction.includes("const costSheet = getProjectCostSheet(p.id);"), 'WhatsApp invoice reads the project HPP sheet');
 assert.ok(waFunction.includes("const totalVal = Number(quotationSnapshot ? quotationSnapshot.total : (costSheet ? costSheet.price : (p.value || 0)));"), 'WhatsApp and printable document use the same project total source');
-console.log('CSK invoice/quotation parity, CRM, HPP, purchasing, finance, marketing, strategy notes, profit consistency and responsive design checks passed.');
+
+const navStart = html.indexOf('    function nav(page) {');
+const navEnd = html.indexOf('    // Explicit global binding keeps inline navigation working across browsers.', navStart);
+assert.ok(navStart >= 0 && navEnd > navStart, 'navigation controller exists');
+const navSource = html.slice(navStart, navEnd);
+assert.ok(navSource.includes("document.getElementById('page-' + page)"), 'navigation resolves target section by page id');
+assert.ok(navSource.includes("section.style.display = 'none'"), 'navigation explicitly hides inactive pages');
+assert.ok(navSource.includes("target.style.display = 'block'"), 'navigation explicitly shows selected page');
+assert.ok(html.includes('window.nav = nav;'), 'inline sidebar navigation has explicit global binding');
+console.log('CSK navigation, invoice/quotation parity, CRM, HPP, purchasing, finance, marketing, strategy notes, profit consistency and responsive design checks passed.');
 
