@@ -1619,11 +1619,64 @@
           '</div>' +
           '<div class="flex items-center gap-1.5 self-end sm:self-center shrink-0 flex-wrap">' +
             '<button onclick="openInvoiceModal(\'' + p.id + '\')" title="Buat Quotation, Invoice DP 50%, atau Invoice Pelunasan CSK" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm"><i class="fa fa-file-text-o"></i> Quotation / Invoice</button>' +
+            '<button onclick="openProjectPhotoReport(\'' + p.id + '\')" title="Dokumentasi foto proyek ke Google Drive privat" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-700 text-white font-semibold rounded-lg text-xs flex items-center gap-1.5 transition"><i class="fa fa-camera"></i> Foto Laporan</button>' +
             (p.status !== 'done' ? '<button onclick="markProjectDone(\'' + p.id + '\')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Selesai</button>' : '') +
             '<button onclick="deleteProject(\'' + p.id + '\')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
           '</div>' +
         '</div>';
       }).join('');
+    }
+
+    // ============== FOTO LAPORAN PROYEK (PRIVATE PHOTO LAB) ==============
+    // The uploader is a separate Apps Script Web App configured as "Only myself".
+    // Its URL is stored only in this browser, never in source code or Google Sheets.
+    const CSK_PHOTO_LAB_URL_KEY = 'csk_photo_lab_uploader_url_v1';
+    const CSK_PHOTO_STAGES = ['Brief', 'Persetujuan Desain', 'Pembelian Bahan', 'Fabrikasi', 'Finishing', 'Quality Control', 'Pengiriman', 'Instalasi'];
+
+    function isValidCskPhotoLabUrl(value) {
+      try {
+        const u = new URL(String(value || ''));
+        return u.origin === 'https://script.google.com' &&
+          !u.username && !u.password &&
+          /^\\/macros\\/s\\/[A-Za-z0-9_-]+\\/exec$/.test(u.pathname) &&
+          !u.search && !u.hash;
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function openProjectPhotoReport(projectId) {
+      const project = db.projects.find(item => String(item.id) === String(projectId));
+      if (!project) {
+        showToast('Proyek tidak ditemukan.', true);
+        return;
+      }
+
+      let uploaderUrl = localStorage.getItem(CSK_PHOTO_LAB_URL_KEY) || '';
+      if (!isValidCskPhotoLabUrl(uploaderUrl)) {
+        uploaderUrl = prompt('Masukkan URL Web App Photo LAB CSK yang berakhiran /exec. URL hanya disimpan di browser ini.');
+        if (!uploaderUrl) return;
+        uploaderUrl = uploaderUrl.trim();
+        if (!isValidCskPhotoLabUrl(uploaderUrl)) {
+          showToast('URL Photo LAB tidak valid. Gunakan URL Apps Script HTTPS /exec.', true);
+          return;
+        }
+        localStorage.setItem(CSK_PHOTO_LAB_URL_KEY, uploaderUrl);
+      }
+
+      const stageText = CSK_PHOTO_STAGES.join('\\n');
+      const stage = prompt('Pilih tahap pekerjaan dengan menyalin salah satu nama berikut:\\n' + stageText, 'Fabrikasi');
+      if (!stage) return;
+      if (!CSK_PHOTO_STAGES.includes(stage.trim())) {
+        showToast('Tahap tidak dikenal. Pilih salah satu tahap yang tercantum.', true);
+        return;
+      }
+
+      const target = new URL(uploaderUrl);
+      target.searchParams.set('projectId', String(project.id));
+      target.searchParams.set('stage', stage.trim());
+      window.open(target.toString(), '_blank', 'noopener,noreferrer');
+      showToast('Photo LAB dibuka. Masuk dengan akun Google Owner CSK untuk mengunggah foto.');
     }
 
     // ============== FINANCE ==============

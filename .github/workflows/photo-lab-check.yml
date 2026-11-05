@@ -1,0 +1,22 @@
+name: CSK Photo Reports source checks
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'sw.js'
+      - 'photo-lab/**'
+      - 'photo-lab.test.cjs'
+      - '.github/workflows/photo-lab-check.yml'
+  push:
+    branches:
+      - 'restore/photo-reports-owner-only-20261105'
+jobs:
+  photo-lab-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Photo LAB source and private access contract
+        run: node photo-lab.test.cjs

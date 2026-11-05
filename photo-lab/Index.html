@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CSK — Foto Laporan Proyek LAB</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#181818;background:#f8f7f4}
+    *{box-sizing:border-box}body{margin:0;padding:24px 14px}main{max-width:740px;margin:auto}
+    h1{margin:10px 0 8px;font-size:clamp(1.6rem,4vw,2.2rem)}p{line-height:1.55;color:#454545}
+    .tag{color:#8a3d08;background:#ffedd5;display:inline-block;border-radius:99px;padding:6px 12px;font-size:.8rem;font-weight:700}
+    section{background:white;border:1px solid #e6e2db;border-radius:16px;padding:20px;margin-top:18px}
+    label{display:block;font-weight:650;margin:16px 0 6px}input,select,textarea,button{font:inherit}
+    input,select,textarea{width:100%;padding:13px;border:1px solid #aaa;border-radius:10px;background:white}
+    textarea{min-height:80px}button{background:#171717;color:#fff;padding:13px 18px;border:0;border-radius:10px;cursor:pointer;font-weight:700}
+    button:disabled{opacity:.5;cursor:not-allowed}.muted{font-size:.9rem;color:#555}
+    #status{padding:13px;background:#fff7ed;border-radius:10px;white-space:pre-wrap}#reports{list-style:none;padding:0}
+    #reports li{padding:14px 0;border-bottom:1px solid #ddd;overflow-wrap:anywhere}
+    a{color:#a34806}a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #f97316;outline-offset:2px}
+  </style>
+</head>
+<body>
+<main>
+  <span class="tag">CSK · GOOGLE DRIVE PRIVAT · LAB / DRAFT</span>
+  <h1>Foto Laporan Proyek</h1>
+  <p>Hanya untuk akun owner CSK. Foto masuk ke folder Drive LAB privat; tidak pernah diunggah ke situs publik Business OS. Unggahan ini tidak mengubah status proyek atau QC otomatis.</p>
+  <section>
+    <form id="photo-form">
+      <label for="project">ID proyek dari Business OS</label>
+      <input id="project" name="project" required maxlength="80" pattern="[A-Za-z0-9][A-Za-z0-9._:-]{0,79}" value="<?= initialProjectId ?>" autocomplete="off">
+      <label for="stage">Tahap pekerjaan</label>
+      <select id="stage" name="stage" required>
+        <option>Brief</option><option>Persetujuan Desain</option><option>Pembelian Bahan</option><option>Fabrikasi</option><option>Finishing</option><option>Quality Control</option><option>Pengiriman</option><option>Instalasi</option>
+      </select>
+      <input id="initial-stage" type="hidden" value="<?= initialStage ?>">
+      <label for="caption">Catatan foto / bukti pekerjaan</label>
+      <textarea id="caption" name="caption" required maxlength="500" placeholder="Contoh: Pemasangan rangka selesai, menunggu pemeriksaan finishing."></textarea>
+      <label for="photos">Ambil / pilih foto (JPG, PNG, WebP; maksimal 6)</label>
+      <input id="photos" name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple required>
+      <p class="muted">Foto dikompresi maksimal 1.600 px dan ±1,8 MB per foto. Metadata GPS/EXIF dari foto asli tidak diteruskan. Periksa isi foto sebelum mengunggah dokumen pelanggan.</p>
+      <button id="upload" type="submit" disabled>Periksa akses LAB...</button>
+    </form>
+    <p id="status" role="status" aria-live="polite">Memeriksa izin owner dan konfigurasi...</p>
+  </section>
+  <section>
+    <h2>Riwayat foto proyek</h2>
+    <button type="button" id="refresh">Muat Foto Proyek</button>
+    <p class="muted">Tautan Drive di bawah tetap memerlukan akses akun owner. Maksimal 100 laporan terakhir pada proyek ini.</p>
+    <ul id="reports"></ul>
+  </section>
+</main>
+<script>
+(function(){
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const stage = $('initial-stage').value;
+  if([...$('stage').options].some(o=>o.value===stage))$('stage').value=stage;
+  let ready=false,busy=false;
+  const uploadIds=new WeakMap();
+  function uploadIdFor(file){
+    if(!uploadIds.has(file))uploadIds.set(file,crypto.randomUUID());
+    return uploadIds.get(file);
+  }
+  function status(s){$('status').textContent=s;}
+  function gas(name,arg){return new Promise((resolve,reject)=>{
+    let runner=google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+    if(arg===undefined)runner[name]();else runner[name](arg);
+  })}
+  async function check(){
+    try{const data=await gas('photoLabStatus');ready=Boolean(data&&data.ready);$('upload').disabled=!ready;
+      $('upload').textContent=ready?'Unggah Foto ke Drive Privat':'Unggah LAB belum diaktifkan';
+      status(ready?'Siap. Foto akan disimpan di folder privat LAB.':'Konfigurasi valid, tetapi penulisan LAB belum diaktifkan oleh owner.');
+    }catch(err){ready=false;$('upload').disabled=true;status('Akses atau konfigurasi LAB belum siap: '+(err.message||err));}
+  }
+  function loadImage(file){return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file),img=new Image();
+    img.onload=()=>{URL.revokeObjectURL(url);resolve(img)};
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(Error('Gambar tidak dapat dibuka.'))};
+    img.src=url;
+  })}
+  function toBlob(canvas,quality){return new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',quality))}
+  function toBase64(blob){return new Promise((resolve,reject)=>{
+    const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(Error('Gagal membaca foto.'));reader.readAsDataURL(blob);
+  })}
+  async function processPhoto(file){
+    if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw Error('Gunakan JPG, PNG, atau WebP.');
+    if(file.size>16*1024*1024)throw Error('Foto asal melebihi 16 MB. Perkecil lebih dahulu.');
+    const img=await loadImage(file);const ratio=Math.min(1,1600/Math.max(img.width,img.height));
+    const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.width*ratio));canvas.height=Math.max(1,Math.round(img.height*ratio));
+    const ctx=canvas.getContext('2d');if(!ctx)throw Error('Perangkat tidak mendukung pengolahan gambar.');
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    let blob;
+    for(const quality of [.84,.72,.6,.48]){blob=await toBlob(canvas,quality);if(blob&&blob.size<=1800000)break}
+    if(!blob||blob.size>1800000)throw Error('Foto masih melebihi 1,8 MB setelah kompresi. Perkecil resolusi.');
+    return {base64:await toBase64(blob),mime:'image/jpeg',originalName:file.name};
+  }
+  $('photo-form').addEventListener('submit',async e=>{
+    e.preventDefault();if(!ready||busy)return;
+    const files=Array.from($('photos').files||[]);
+    if(!files.length||files.length>6)return status('Pilih antara 1–6 foto.');
+    busy=true;$('upload').disabled=true;
+    let saved=0;
+    try{
+      for(let i=0;i<files.length;i++){
+        status('Menyiapkan dan mengunggah foto '+(i+1)+' dari '+files.length+'... ('+saved+' tersimpan)');
+        const payload=await processPhoto(files[i]);
+        payload.requestId=uploadIdFor(files[i]);
+        payload.projectId=$('project').value.trim();payload.stage=$('stage').value;payload.caption=$('caption').value.trim();
+        const result=await gas('uploadPhoto',payload);
+        if(!result||!result.ok){
+          status(saved+' dari '+files.length+' foto sudah tersimpan. Foto berikutnya perlu pemeriksaan: '+(result?.message||'Status tidak diketahui.')+' Periksa riwayat proyek sebelum mengulang.');
+          await refresh({preserveStatus:true});
+          return;
+        }
+        saved++;
+      }
+      $('photos').value='';
+      await refresh({preserveStatus:true});
+      status(saved+' dari '+files.length+' foto berhasil tersimpan dan tercatat di Drive privat.');
+    }catch(err){
+      status(saved+' dari '+files.length+' foto terkonfirmasi tersimpan. Unggah terhenti: '+(err.message||err)+' Periksa riwayat sebelum mengulang agar tidak duplikat.');
+      try{await refresh({preserveStatus:true})}catch(_){}
+    }finally{busy=false;$('upload').disabled=!ready}
+  });
+  async function refresh(options={}){
+    const projectId=$('project').value.trim();
+    if(!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/.test(projectId)){if(!options.preserveStatus)status('Isi ID proyek yang valid untuk melihat foto.');return;}
+    try{const rows=await gas('listProjectPhotos',projectId),list=$('reports');list.replaceChildren();
+      if(!rows.length){const li=document.createElement('li');li.textContent='Belum ada foto untuk proyek ini.';list.append(li);return}
+      rows.forEach(r=>{
+        const li=document.createElement('li'),link=document.createElement('a');
+        const url=new URL(r.fileUrl);if(url.origin!=='https://drive.google.com')return;
+        link.href=url.toString();link.target='_blank';link.rel='noopener noreferrer';link.textContent='Buka foto privat di Drive';
+        li.append(document.createTextNode([r.uploadedAt,r.stage,r.caption,r.originalName].join(' · ')+' — '));li.append(link);list.append(li);
+      });
+    }catch(err){if(!options.preserveStatus)status('Gagal memuat riwayat: '+(err.message||err))}
+  }
+  $('refresh').addEventListener('click',refresh);
+  check();
+})();
+</script>
+</body>
+</html>
