@@ -1,16 +1,15 @@
 {
   "name": "CSK Business OS — Cahaya Selatan Kreasindo",
-  "short_name": "CSK Business OS",
-  "description": "Sistem operasional Cahaya Selatan Kreasindo untuk CRM, proyek, keuangan, klien, dan pemasaran.",
+  "short_name": "CSK OS",
+  "description": "Operating System Manajemen Bisnis & Pencatatan Terpadu — Cahaya Selatan Kreasindo.",
   "start_url": "./index.html",
-  "scope": "./",
   "display": "standalone",
   "background_color": "#FFFFFF",
-  "theme_color": "#FFFFFF",
-  "version": "3.0.0",
+  "theme_color": "#1C2333",
+  "version": "2.0.2",
   "icons": [
     {
-      "src": "https://cahayaselatankreasindo.my.id/favicon.svg",
+      "src": "./app-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

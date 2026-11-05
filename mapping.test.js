@@ -94,14 +94,17 @@ const ContentServiceStub = {
   },
 };
 const ScriptAppStub = { getProjectTriggers() { return []; } };
+const LockServiceStub = { getScriptLock() { return { waitLock() {}, releaseLock() {} }; } };
 const LoggerStub = { log() {} };
 // Stub PropertiesService (in-memory) untuk fitur token API
-const _props = {};
+const TEST_API_TOKEN = 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET';
+const _props = { API_TOKEN: TEST_API_TOKEN };
 const PropertiesServiceStub = {
   getScriptProperties() {
     return {
       getProperty(k) { return (k in _props) ? _props[k] : null; },
       setProperty(k, v) { _props[k] = v; },
+      deleteProperty(k) { delete _props[k]; },
     };
   },
 };
@@ -114,6 +117,7 @@ const sandbox = {
   SpreadsheetApp: SpreadsheetAppStub,
   ContentService: ContentServiceStub,
   ScriptApp: ScriptAppStub,
+  LockService: LockServiceStub,
   Logger: LoggerStub,
   PropertiesService: PropertiesServiceStub,
   MailApp: MailAppStub,
@@ -162,8 +166,8 @@ const FIELD_MAP = sandbox.FIELD_MAP;
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
-    ['Clients','Finance','Leads','Marketing_Spend','Memory','Projects'].sort(),
-    'FIELD_MAP mencakup 6 tab');
+    ['Clients','Costings','Finance','Leads','Marketing_Spend','Memory','Project_Costs','Projects'].sort(),
+    'FIELD_MAP mencakup 8 tab');
   eq(FIELD_MAP.Projects.headers,
     ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim'],
     'FIELD_MAP.Projects.headers = hasil Tahap 2 + PIC_Tim');
@@ -175,27 +179,59 @@ if (FIELD_MAP) {
     'FIELD_MAP.Projects.fields memuat pic');
 }
 
-// ---------- 6. Tes BACA (doGet): Sheet -> field HTML ----------
-function callDoGet() {
-  const out = sandbox.doGet({});
+// ---------- 6. Tes BACA (POST action read): Sheet -> field HTML ----------
+function callRead(token = _props.API_TOKEN) {
+  const out = sandbox.doPost({ postData: { contents: JSON.stringify({
+    action: 'read', token, protocolVersion: 2
+  }) } });
   return JSON.parse(out._t);
 }
-const got = callDoGet();
-eq(got.status, 'success', 'doGet status success');
+const getDisabled = JSON.parse(sandbox.doGet()._t);
+eq(getDisabled.code, 'POST_REQUIRED', 'GET does not disclose spreadsheet data');
+const got = callRead();
+eq(got.status, 'success', 'authenticated POST read status success');
 if (got.status === 'success') {
-  eq(got.data.leads[0].name, 'Budi', 'doGet Leads Nama -> name');
-  eq(got.data.clients[0].rating, 5, 'doGet Clients "5 | Sangat puas" -> rating=5');
+  eq(got.data.leads[0].name, 'Budi', 'POST read Leads Nama -> name');
+  eq(got.data.clients[0].rating, 5, 'POST read Clients "5 | Sangat puas" -> rating=5');
   eq(got.data.clients[0].review, 'Sangat puas', 'doGet Clients "5 | Sangat puas" -> review');
-  eq(got.data.projects[0].pic, 'Andi', 'doGet Projects PIC_Tim -> pic');
-  eq(got.data.projects[0].sopChecklist, 'Brief:1;Produksi:0;Review:0;Revisi:0;Delivery:0', 'doGet SOP_Checklist lolos apa adanya');
-  eq(got.data.finance[0].amount, 4000000, 'doGet Finance Nominal -> amount');
-  eq(got.data.marketingSpend[0].spent, 500000, 'doGet Marketing Terpakai -> spent');
+  eq(got.data.projects[0].pic, 'Andi', 'POST read Projects PIC_Tim -> pic');
+  eq(got.data.projects[0].sopChecklist, 'Brief:1;Produksi:0;Review:0;Revisi:0;Delivery:0', 'POST read SOP_Checklist lolos apa adanya');
+  eq(got.data.finance[0].amount, 4000000, 'POST read Finance Nominal -> amount');
+  eq(got.data.marketingSpend[0].spent, 500000, 'POST read Marketing Terpakai -> spent');
   eq(got.data.marketingSpend[0].leadsGenerated, 8, 'doGet Marketing LeadsDihasilkan -> leadsGenerated');
 }
 
 // ---------- 7. Tes TULIS (sync_all): MERGE — tidak menghapus data lama ----------
-function callDoPost(payload) {
-  const out = sandbox.doPost({ postData: { contents: JSON.stringify(payload) } });
+function callDoPost(payload, rawUnauthenticated = false) {
+  const body = rawUnauthenticated
+    ? { protocolVersion: 2, ...payload }
+    : { protocolVersion: 2, token: _props.API_TOKEN, ...payload };
+  if (body.action === 'sync_all' && !body.expectedRecords) {
+    body.expectedRecords = {};
+    const areaSheets = {
+      leads: 'Leads', clients: 'Clients', projects: 'Projects',
+      finance: 'Finance', memory: 'Memory', marketingSpend: 'Marketing_Spend',
+      costings: 'Costings', projectCosts: 'Project_Costs'
+    };
+    Object.keys(areaSheets).forEach(area => {
+      if (!Array.isArray(body[area]) || !body[area].length) return;
+      const sheetName = areaSheets[area];
+      const current = sandbox.readSheetData(sandbox.SpreadsheetApp.getActiveSpreadsheet(), sheetName);
+      const versions = {};
+      body[area].forEach(record => {
+        const id = String(record.id);
+        const existing = current.find(row => String(row.id) === id);
+        versions[id] = existing ? sandbox.stableRecordFingerprint_(existing) : null;
+      });
+      body.expectedRecords[sheetName] = versions;
+    });
+  }
+  if (body.action === 'delete' && body.expectedFingerprint === undefined) {
+    const current = sandbox.readSheetData(sandbox.SpreadsheetApp.getActiveSpreadsheet(), body.sheet || 'Leads')
+      .find(row => String(row.id) === String(body.id));
+    body.expectedFingerprint = current ? sandbox.stableRecordFingerprint_(current) : 'NO_BASELINE';
+  }
+  const out = sandbox.doPost({ postData: { contents: JSON.stringify(body) } });
   return JSON.parse(out._t);
 }
 const leadsBefore = sheets['Leads'].rows.length;
@@ -217,6 +253,7 @@ eq(sheets['Leads'].rows[1][2], 'Budi', 'sync_all MERGE: lead lama (Budi) tidak t
 // (b) Baris BARU ditulis di kolom yang tepat (cari by ID — autoTrigger bisa menambah baris lain)
 const findRow = (sheetName, id) => sheets[sheetName].rows.find(r => String(r[0]) === id);
 const newLeadRow = findRow('Leads', 'L9');
+if (!newLeadRow) throw new Error('sync_all did not persist L9. Backend response: ' + JSON.stringify(postRes));
 eq(newLeadRow[0], 'L9', 'sync new Lead: ID di kolom A');
 eq(newLeadRow[2], 'Sari', 'sync new Lead: Nama di kolom C');
 eq(newLeadRow[6], 'new', 'sync new Lead: Status di kolom G');
@@ -249,13 +286,21 @@ callDoPost({ action: 'sync_all', leads: [
 eq(sheets['Leads'].rows.length, leadsBefore3 + 1, 'sync_all: ID duplikat dalam 1 payload hanya ditulis sekali');
 
 // ---------- 8. Tes update_status tetap jalan ----------
-const upd = callDoPost({ action: 'update_status', sheet: 'Leads', id: 'L9', status: 'nego' });
+const currentL9 = sandbox.readSheetData(sandbox.SpreadsheetApp.getActiveSpreadsheet(), 'Leads')
+  .find(row => String(row.id) === 'L9');
+const upd = callDoPost({
+  action: 'update_status', sheet: 'Leads', id: 'L9', status: 'nego',
+  expectedFingerprint: sandbox.stableRecordFingerprint_(currentL9)
+});
 eq(upd.status, 'success', 'update_status nego success');
 const l9Row = sheets['Leads'].rows.find(r => String(r[0]) === 'L9');
 eq(l9Row[6], 'nego', 'update_status menulis kolom Status yang benar');
 
 // ---------- 9. Tes insert memakai header Sheet ----------
-const ins = callDoPost({ action: 'insert', sheet: 'Memory', data: { id: 'M10', date: '2026-09-11', category: 'Ide', title: 'x', content: 'y' } });
+const ins = callDoPost({
+  action: 'insert', sheet: 'Memory', expectedAbsent: true,
+  data: { id: 'M10', date: '2026-09-11', category: 'Ide', title: 'x', content: 'y' }
+});
 eq(ins.status, 'success', 'insert Memory success');
 const lastMem = sheets['Memory'].rows[sheets['Memory'].rows.length - 1];
 eq(lastMem[3], 'x', 'insert Memory: Judul di kolom D (ikut header Sheet, bukan keyOrder lama)');
@@ -288,14 +333,14 @@ eq(b2bRow[colOf('JabatanPIC')], 'Procurement Manager', 'B2B: JabatanPIC masuk ko
 eq(b2bRow[colOf('LinkedIn')], 'https://linkedin.com/in/budi', 'B2B: LinkedIn masuk kolom LinkedIn');
 eq(b2bRow[colOf('SkorPrioritas')], 85, 'B2B: SkorPrioritas masuk kolom SkorPrioritas');
 
-// doGet harus mengembalikan field B2B sebagai camelCase
-const gotB2B = callDoGet().data.leads.find(l => String(l.id) === 'LB2B');
-eq(gotB2B.email, 'vendor@mayora.co.id', 'doGet: Email -> email');
-eq(gotB2B.website, 'https://www.mayoraindah.co.id', 'doGet: Website -> website');
-eq(gotB2B.industry, 'FMCG', 'doGet: Industri -> industry');
-eq(gotB2B.pic, 'Budi Santoso', 'doGet: PIC -> pic');
-eq(gotB2B.picTitle, 'Procurement Manager', 'doGet: JabatanPIC -> picTitle');
-eq(gotB2B.score, 85, 'doGet: SkorPrioritas -> score');
+// POST read harus mengembalikan field B2B sebagai camelCase
+const gotB2B = callRead().data.leads.find(l => String(l.id) === 'LB2B');
+eq(gotB2B.email, 'vendor@mayora.co.id', 'POST read: Email -> email');
+eq(gotB2B.website, 'https://www.mayoraindah.co.id', 'POST read: Website -> website');
+eq(gotB2B.industry, 'FMCG', 'POST read: Industri -> industry');
+eq(gotB2B.pic, 'Budi Santoso', 'POST read: PIC -> pic');
+eq(gotB2B.picTitle, 'Procurement Manager', 'POST read: JabatanPIC -> picTitle');
+eq(gotB2B.score, 85, 'POST read: SkorPrioritas -> score');
 
 // ---------- 9c. Kasus NYATA: header HURUF BESAR + kolom duplikat ----------
 // Ganti sheet "Leads" dengan versi header HURUF BESAR + kolom duplikat
@@ -336,9 +381,9 @@ eq(capsRow[idx('industri')], 'Retail', 'CAPS: Industri masuk kolom Industri');
 eq(capsRow[idx('pic')], 'Siti', 'CAPS: PIC masuk kolom PIC');
 eq(capsRow[idx('skorprioritas')], 90, 'CAPS: SkorPrioritas masuk kolom SkorPrioritas');
 
-// doGet harus baca benar meski header huruf besar
-const gotCaps = callDoGet().data.leads.find(l => String(l.id) === 'L-CAPS');
-eq(gotCaps.email, 'pic@testcaps.co.id', 'CAPS doGet: email terbaca benar');
+// POST read harus baca benar meski header huruf besar
+const gotCaps = callRead().data.leads.find(l => String(l.id) === 'L-CAPS');
+eq(gotCaps.email, 'pic@testcaps.co.id', 'CAPS POST read: email terbaca benar');
 eq(gotCaps.picTitle, 'Store Dev Manager', 'CAPS doGet: picTitle terbaca benar');
 
 // ---------- 9d. Tes action 'delete' (tombol hapus di app) ----------
@@ -352,31 +397,62 @@ const delRes2 = callDoPost({ action: 'delete', sheet: 'Leads', id: 'TIDAK-ADA-XY
 eq(delRes2.status, 'success', 'delete: ID tidak ada tetap success (idempoten)');
 
 // ---------- 9e. Tes KEAMANAN: token API ----------
-// Mode 1: token belum diset -> semua request diizinkan (kompatibel)
-eq(sandbox.isAuthorized({ action: 'sync_all' }), true, 'auth: token belum diset -> diizinkan (kompatibel)');
+// Mode 1: no token configured must always fail closed.
+delete _props['API_TOKEN'];
+eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: missing server token -> denied');
 
 // Mode 2: token diset -> request tanpa token DITOLAK
 sandbox.setupApiToken && null; // pastikan fungsi ada
-_props['API_TOKEN'] = 'RAHASIA123';
+_props['API_TOKEN'] = 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET';
 eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: token diset, request tanpa token -> DITOLAK');
 eq(sandbox.isAuthorized({ action: 'sync_all', token: 'SALAH' }), false, 'auth: token salah -> DITOLAK');
-eq(sandbox.isAuthorized({ action: 'sync_all', token: 'RAHASIA123' }), true, 'auth: token benar -> DIIZINKAN');
-eq(sandbox.isAuthorized(null, 'RAHASIA123'), true, 'auth: token via query string (GET) -> DIIZINKAN');
-eq(sandbox.isAuthorized(null, ''), false, 'auth: GET tanpa token -> DITOLAK');
+eq(sandbox.isAuthorized({ action: 'sync_all', token: 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET' }), true, 'auth: token benar -> DIIZINKAN');
+eq(sandbox.isAuthorized({action:'read',token:'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET'}), true, 'auth: token in POST body -> DIIZINKAN');
+eq(sandbox.isAuthorized(null, 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET'), false, 'auth: legacy query-string token -> DITOLAK');
+eq(sandbox.isAuthorized(null, ''), false, 'auth: request without POST body token -> DITOLAK');
 
 // Mode 3: doPost tanpa token -> balasan error, TIDAK mengubah data
 const beforeAuth = sheets['Leads'].rows.length;
-const authRes = callDoPost({ action: 'sync_all', leads: [{ id: 'HACK-1', name: 'Hacker' }] });
+const authRes = callDoPost({ action: 'sync_all', leads: [{ id: 'HACK-1', name: 'Hacker' }] }, true);
 eq(authRes.status, 'error', 'auth: doPost tanpa token -> status error');
 eq(sheets['Leads'].rows.length, beforeAuth, 'auth: doPost tanpa token TIDAK mengubah data');
 
 // doPost dengan token benar -> berhasil
-const okRes = callDoPost({ action: 'sync_all', token: 'RAHASIA123', leads: [{ id: 'OKAUTH-1', date: '2026-10-09', name: 'Authorized', phone: '', source: 'x', value: 0, status: 'new', notes: '' }] });
+const okRes = callDoPost({ action: 'sync_all', token: 'TEST_ONLY_MAPPING_TOKEN_2026_NOT_SECRET', leads: [{ id: 'OKAUTH-1', date: '2026-10-09', name: 'Authorized', phone: '', source: 'x', value: 0, status: 'new', notes: '' }] });
 eq(okRes.status, 'success', 'auth: doPost dengan token benar -> success');
 eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'OKAUTH-1'), true, 'auth: data dengan token benar tersimpan');
 
-// Kembalikan ke mode kompatibel untuk test berikutnya
-delete _props['API_TOKEN'];
+// Restore the fixture token for any subsequent test phases.
+_props['API_TOKEN'] = TEST_API_TOKEN;
+
+// ---------- 9f. Role server-side Owner / Team ----------
+_props['OWNER_API_TOKEN'] = 'OWNER_TEST_TOKEN_FOR_MAPPING_2026';
+_props['TEAM_API_TOKEN'] = 'TEAM_TEST_TOKEN_FOR_MAPPING_2026';
+eq(sandbox.getRequestRole({token:'OWNER_TEST_TOKEN_FOR_MAPPING_2026'}), 'owner', 'role: token Owner dikenali server');
+eq(sandbox.getRequestRole({token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026'}), 'team', 'role: token Tim dikenali server');
+eq(sandbox.getRequestRole({token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026'}), 'team', 'role: role tidak berasal dari payload browser');
+const teamRead = JSON.parse(sandbox.doPost({postData:{contents:JSON.stringify({
+  action:'read',token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026',protocolVersion:2
+})}})._t);
+eq(teamRead.data.role, 'team', 'role: authenticated POST read returns verified role');
+eq(teamRead.data.finance.length, 0, 'role: Team tidak menerima data Finance');
+eq(teamRead.data.costings.length, 0, 'role: Team tidak menerima data HPP');
+eq(teamRead.data.projectCosts.length, 0, 'role: Team tidak menerima data biaya proyek');
+const teamWrite = JSON.parse(sandbox.doPost({postData:{contents:JSON.stringify({
+  protocolVersion:2,token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026',action:'sync_all',
+  expectedRecords:{Leads:{'TEAM-ALLOWED':null}},
+  leads:[{id:'TEAM-ALLOWED',date:'2026-11-03',name:'Team Allowed',phone:'',source:'QA',value:0,status:'new',notes:''}]
+})}})._t);
+eq(teamWrite.status,'success','role: Team boleh menulis Leads');
+const teamFinanceWrite = JSON.parse(sandbox.doPost({postData:{contents:JSON.stringify({
+  protocolVersion:2,token:'TEAM_TEST_TOKEN_FOR_MAPPING_2026',action:'sync_all',
+  expectedRecords:{Finance:{'TEAM-FINANCE-BLOCKED':null}},
+  finance:[{id:'TEAM-FINANCE-BLOCKED',date:'2026-11-03',type:'income',category:'QA',amount:1,description:'blocked'}]
+})}})._t);
+eq(teamFinanceWrite.status,'error','role: Team tidak dapat menulis Finance');
+eq(!!sheets['Finance'].rows.find(r=>String(r[0])==='TEAM-FINANCE-BLOCKED'),false,'role: data Finance Team tidak tersimpan');
+delete _props['OWNER_API_TOKEN'];
+delete _props['TEAM_API_TOKEN'];
 
 // ---------- 10. Ringkasan ----------
 console.log(`\nmapping.test.js: ${pass} lolos, ${fail} gagal`);
