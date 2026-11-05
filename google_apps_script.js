@@ -336,9 +336,10 @@ function getApiToken() {
  * Ganti nilai di bawah dengan token rahasia Anda (minimal 20 karakter acak).
  */
 function setupApiToken() {
-  var token = "GANTI-DENGAN-TOKEN-RAHASIA-ANDA";
+  // Buat token acak baru setiap kali fungsi ini dijalankan.
+  var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
   PropertiesService.getScriptProperties().setProperty("API_TOKEN", token);
-  Logger.log("API_TOKEN diset. Simpan token ini di app (Pengaturan → Token Akses).");
+  Logger.log("API_TOKEN berhasil dibuat. Salin token dari log lalu simpan di Pengaturan → Token Akses pada setiap perangkat CSK.");
 }
 
 /**
