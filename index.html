@@ -2129,13 +2129,16 @@
     // ============== INVOICE & PENAWARAN (CSK BRANDING) ==============
 
     let currentActiveProject = null;
-    let currentInvoiceType = 'dp'; // 'dp' | 'pelunasan' | 'penawaran'\n    let currentInvoiceDpPercent = 50;
+    let currentInvoiceType = 'dp'; // 'dp' | 'pelunasan' | 'penawaran'
+    let currentInvoiceDpPercent = 50;
 
     function openInvoiceModal(projectId) {
       const p = db.projects.find(x => x.id === projectId);
       if (!p) return;
       currentActiveProject = p;
       currentInvoiceType = 'dp';
+      currentInvoiceDpPercent = Number.isFinite(Number(p.dpPercent)) && Number(p.dpPercent) >= 1 && Number(p.dpPercent) <= 99 ? Number(p.dpPercent) : 50;
+      document.getElementById('inv-dp-percent').value = currentInvoiceDpPercent;
       document.getElementById('inv-type-selector').value = 'dp';
       renderInvoiceDocument();
       openModal('modal-invoice');
@@ -2217,7 +2220,7 @@
         document.getElementById('inv-calc-label').innerText = 'Down Payment (DP ' + currentInvoiceDpPercent + '%):';
         document.getElementById('inv-calc-sub').innerText = formatRp(billAmount);
       } else if (currentInvoiceType === 'pelunasan') {
-        badgeText = 'INVOICE PELUNASAN (SISA 50%)';
+        badgeText = 'INVOICE PELUNASAN (SISA ' + (100 - currentInvoiceDpPercent) + '%)';
         badgeClass = 'bg-emerald-600 text-white';
         document.getElementById('inv-calc-label').innerText = 'DP ' + currentInvoiceDpPercent + '% yang telah ditagihkan:';
         document.getElementById('inv-calc-sub').innerText = formatRp(amounts.dpAmount);
