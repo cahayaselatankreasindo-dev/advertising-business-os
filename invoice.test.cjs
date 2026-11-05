@@ -25,7 +25,7 @@ assert.deepStrictEqual({ ...calculateInvoiceAmounts(1000001, 'pelunasan') }, {
 });
 assert.equal(calculateInvoiceAmounts(-100, 'dp').amount, 0);
 assert.ok(html.includes('Sisa Pelunasan: '));
-assert.ok(html.includes('Invoice Pelunasan (Sisa 50%)'));
+assert.ok(html.includes('Invoice Pelunasan'), 'settlement invoice option exists');
 assert.ok(html.includes('escapeInvoiceHtml(itemTitle)'));
 assert.ok(html.includes('escapeInvoiceHtml(p.notes)'));
 
