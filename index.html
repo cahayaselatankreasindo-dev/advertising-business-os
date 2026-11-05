@@ -2607,41 +2607,81 @@
       else showToast('Studio email belum tersedia. Periksa file JavaScript.', true);
     }
 
-    function convertLeadToWon(id) {
-      const lead = db.leads.find(l => l.id === id);
-      if (!lead) return;
-      if (lead.status === 'won') { showToast('Lead ini sudah Deal Menang; proyek tidak dibuat ulang.'); return; }
-      lead.status = 'won';
-      const projectRef = '[LEAD-' + lead.id + ']';
+    function stableLeadEntityId(prefix, leadId) {
+      const safeId = String(leadId == null ? '' : leadId).trim()
+        .replace(/[^A-Za-z0-9._:-]/g, '-')
+        .slice(0, Math.max(1, 80 - prefix.length));
+      return safeId ? prefix + safeId : '';
+    }
 
-      if (!db.clients.some(c => c.name.toLowerCase() === lead.name.toLowerCase())) {
-        db.clients.unshift({
-          id: Date.now().toString(),
-          name: lead.name,
-          phone: lead.phone,
-          projectsCount: 1,
-          totalSpend: lead.value,
-          notes: 'Dikonversi dari Lead (' + lead.source + ')',
-          rating: 0,
-          review: ''
-        });
+    function normalizedClientName(value) {
+      return String(value == null ? '' : value).trim().toLowerCase().replace(/\\s+/g, ' ');
+    }
+
+    function convertLeadToWon(id) {
+      const lead = db.leads.find(item => String(item.id) === String(id));
+      if (!lead) return;
+
+      const leadId = String(lead.id == null ? '' : lead.id).trim();
+      const clientName = String(lead.name || '').trim();
+      if (!leadId || !clientName) {
+        showToast('Lead harus memiliki ID dan nama klien sebelum dikonversi.', true);
+        return;
       }
 
-      if (!db.projects.some(p => String(p.notes || '').includes(projectRef))) {
-        db.projects.unshift({
-          id: 'PRJ-' + Date.now() + '-' + String(lead.id),
-          title: 'Proyek ' + lead.name,
-          client: lead.name,
-          value: lead.value,
+      const normalizedName = normalizedClientName(clientName);
+      const projectRef = '[LEAD-' + leadId + ']';
+      const projectId = stableLeadEntityId('AUTO-PRJ-LEAD-', leadId);
+      const clientId = stableLeadEntityId('AUTO-CLI-LEAD-', leadId);
+      lead.status = 'won';
+
+      // Reuse a project already linked by the Lead token or deterministic ID.
+      // This also repairs partially completed conversions instead of returning early.
+      let project = db.projects.find(item =>
+        String(item.id) === projectId || String(item.notes || '').includes(projectRef)
+      );
+      if (!project) {
+        project = {
+          id: projectId,
+          title: 'Proyek ' + clientName,
+          client: clientName,
+          value: Number(lead.value) || 0,
           status: 'plan',
           deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
-          notes: (lead.notes ? lead.notes + ' · ' : '') + 'Hasil konversi ' + projectRef,
+          notes: [String(lead.notes || '').trim(), 'Hasil konversi ' + projectRef].filter(Boolean).join(' · '),
           sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
-        });
+        };
+        db.projects.unshift(project);
+      } else if (!String(project.notes || '').includes(projectRef)) {
+        project.notes = [String(project.notes || '').trim(), 'Hasil konversi ' + projectRef].filter(Boolean).join(' · ');
+      }
+
+      const clientProjects = db.projects.filter(item =>
+        normalizedClientName(item.client) === normalizedName
+      );
+      const totalSpend = clientProjects.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+      let client = db.clients.find(item => normalizedClientName(item.name) === normalizedName);
+
+      if (!client) {
+        client = {
+          id: clientId,
+          name: clientName,
+          phone: lead.phone || '',
+          projectsCount: clientProjects.length,
+          totalSpend: totalSpend,
+          notes: 'Dikonversi dari Lead (' + (lead.source || 'CRM') + ')',
+          rating: 0,
+          review: ''
+        };
+        db.clients.unshift(client);
+      } else {
+        client.projectsCount = clientProjects.length;
+        client.totalSpend = totalSpend;
+        if (!client.phone && lead.phone) client.phone = lead.phone;
       }
 
       saveDB();
-      showToast('Deal Menang tercatat dan draft proyek disiapkan. DP belum dianggap diterima; catat pembayaran di Keuangan setelah uang masuk.');
+      showToast('Deal Menang tercatat. Klien dan proyek diperbarui. Catat DP hanya setelah pembayaran diterima.');
     }
 
     /**
