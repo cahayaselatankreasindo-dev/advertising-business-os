@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0B0B0B"><title>CSK Email Marketing — Offline Lab Preview</title>
+<style>*{box-sizing:border-box}html,body{margin:0;min-width:320px;background:#F8F7F4;font-family:Montserrat,Arial,sans-serif;color:#0B0B0B}button{cursor:pointer}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid #FF8A3D;outline-offset:2px}
+header{background:#0B0B0B;color:white;padding:20px 24px;display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:800;font-size:13px}header span{color:#FF8A3D;font-size:10px;letter-spacing:.08em}.main{max-width:1200px;margin:0 auto;padding:25px 15px 80px}.preview-notice{background:#fff0e6;color:#74451e;border:1px solid #efc0a0;border-radius:13px;padding:16px;font-size:12px;line-height:1.8;margin-bottom:20px}#page-email{font-family:Montserrat,Arial,sans-serif}/* CSK Email Marketing workspace: Obsidian / Warm White / Amber */
+    #page-email{font-family:Montserrat,system-ui,sans-serif;color:#0B0B0B}
+    #page-email h1,#page-email h2,#page-email h3{font-family:Montserrat,system-ui,sans-serif}
+    .em-hero{background:#0B0B0B;color:#fff;border-radius:19px;padding:26px 27px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+    .em-hero h2{font-size:clamp(21px,2.5vw,28px);font-weight:800;letter-spacing:-.04em;margin:8px 0}
+    .em-hero p{font-size:12px;color:#bbb;line-height:1.7;max-width:700px}
+    .em-eyebrow{font-size:10px;color:#FF8A3D;font-weight:800;letter-spacing:.14em}
+    .em-pill{flex:none;border:1px solid #9f6a43;border-radius:99px;color:#ffb987;padding:10px 12px;font-size:10px;font-weight:800}
+    .em-banner{background:#fff2e9;border:1px solid #f0c7a4;padding:15px 17px;border-radius:12px;color:#76502c;font-size:11px;line-height:1.8;margin:14px 0}
+    .em-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
+    .em-stats div{display:flex;flex-direction:column;gap:8px;background:#fff;border-radius:14px;border:1px solid #e9e5e0;padding:16px}
+    .em-stats small{color:#76716c;font-size:10px;line-height:1.5;font-weight:700}
+    .em-stats strong{font-size:26px;font-weight:800;color:#141414}
+    .em-layout{display:grid;grid-template-columns:1.14fr 1fr;gap:16px}
+    .em-card{background:#fff;border:1px solid #e9e5e0;padding:22px;border-radius:18px;min-width:0}
+    .em-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+    .em-heading h3{font-size:15px;font-weight:800}
+    .em-heading p{font-size:11px;color:#777;line-height:1.6;margin-top:5px}
+    .em-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    #page-email label{display:flex;flex-direction:column;gap:7px;margin-bottom:13px;font-weight:750;font-size:11px;color:#4c4c4c;min-width:0}
+    #page-email input,#page-email select,#page-email textarea{display:block;width:100%;min-width:0;border:1px solid #dcd6ce;border-radius:10px;background:#fff;padding:11px 12px;font-size:13px;color:#161616;font-weight:500}
+    #page-email textarea{font-family:Montserrat,system-ui,sans-serif;line-height:1.65;resize:vertical}
+    #page-email button{cursor:pointer;border-radius:10px;min-height:39px;padding:10px 12px;font-weight:800;font-size:11px;white-space:nowrap}
+    #page-email button:disabled{opacity:.4;cursor:not-allowed}
+    .em-primary{background:#FF8A3D;color:#0B0B0B;border:1px solid #FF8A3D}
+    .em-secondary{background:#fff;color:#0B0B0B;border:1px solid #cfc8bf}
+    .em-danger{background:#fff3f3!important;border:1px solid #e8c0c0!important;color:#b83b31!important}
+    .em-hint{font-size:10px;color:#777;line-height:1.7;margin:8px 0 14px}
+    .em-contact-list{max-height:550px;overflow:auto}
+    .em-contact{display:flex;gap:12px;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #eee}
+    .em-contact-main{min-width:0;display:flex;flex-direction:column;gap:5px;word-break:break-word}
+    .em-contact-main strong{font-size:12px;font-weight:800}
+    .em-contact-main span{font-size:11px;color:#505050}
+    .em-contact-main small{font-size:10px;color:#888}
+    .em-permission{display:inline-block!important;width:max-content;max-width:100%;border-radius:99px;background:#fff0e6;padding:5px 8px;font-size:9px!important;font-weight:800;color:#9f612d!important}
+    .em-permission[data-state="consented"]{background:#e8f8ee;color:#22774c!important}
+    .em-permission[data-state="unsubscribed"]{background:#faeaea;color:#a73535!important}
+    .em-contact-buttons{display:flex;flex-direction:column;gap:6px;flex:none}
+    .em-contact-buttons button{padding:7px 10px!important;min-height:33px!important;background:#f7f3ed;border:1px solid #ded4c9}
+    .em-preview{margin:15px 0;background:#faf8f4;border:1px solid #e5ded5;border-radius:13px;padding:17px}
+    .em-preview small{font-size:10px;color:#b46a2d;font-weight:800;letter-spacing:.1em}
+    .em-preview strong{display:block;margin:10px 0;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+    .em-preview pre{font-family:Montserrat,system-ui,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;color:#555;line-height:1.7;max-height:315px;overflow:auto}
+    .em-actions{display:flex;flex-wrap:wrap;gap:9px}
+    .em-message{font-size:12px;font-weight:750;min-height:20px;margin:12px 0}
+    .em-message[data-error="true"]{color:#a72d25}
+    .em-message[data-error="false"]{color:#19784d}
+    .em-empty{padding:20px;font-size:12px;color:#888;text-align:center}
+    @media(max-width:1050px){.em-layout{grid-template-columns:1fr}.em-contact-list{max-height:400px}}
+    @media(max-width:640px){.em-hero{padding:20px;flex-direction:column}.em-card{padding:17px}.em-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.em-stats div{padding:13px}.em-stats strong{font-size:23px}.em-filters{grid-template-columns:1fr 1fr}.em-contact{flex-direction:column;align-items:flex-start}.em-contact-buttons{flex-direction:row}.em-actions button{flex:1}.em-pill{font-size:9px}}
+
+</style></head><body>
+<header><div>CSK / BUSINESS OS</div><span>EMAIL MARKETING · OFFLINE LAB</span></header>
+<main class="main"><div class="preview-notice"><b>DEMO DATA FIKTIF.</b> Halaman tunggal ini memuat modul Email Marketing asli dan dummy Leads CRM. Tidak ada koneksi HTTP ke Apps Script, database, atau Gmail. Klik Catat izin hanya untuk simulasi; jangan masukkan data klien asli di halaman demo.</div>
+<section id="page-email"><div id="email-root"></div></section></main>
+<script>/* CSK Business OS — marketing audience, segmentation and personalisation.
+ * DRAFT ONLY: this module NEVER sends email, accesses API or CRM storage.
+ * Permission must be recorded by the owner for EACH email, never inferred.
+ */
+(function(root){
+'use strict';
+const STATUSES={new:'Lead Baru',contacted:'Dihubungi',nego:'Negosiasi',won:'Deal',lost:'Batal'};
+const TEMPLATES={
+ intro:{
+  label:'Perkenalan Production Partner',
+  subject:'Kolaborasi produksi kebutuhan branding {{brand}}',
+  body:'Halo {{pic}},\n\nPerkenalkan, kami dari Cahaya Selatan Kreasindo (CSK), production partner untuk brand dan bisnis.\n\nKami membantu kebutuhan rak display, booth pameran, POSM, signage, display akrilik, dan produksi branding custom untuk perusahaan seperti {{brand}}.\n\nApakah saat ini tim Anda memiliki kebutuhan produksi atau sedang mencari mitra vendor?\n\nJika berkenan, saya dapat mengirimkan portofolio dan berdiskusi mengenai kebutuhan tim Anda.\n\nSalam,\nTim Cahaya Selatan Kreasindo\n\nJika tidak ingin menerima email terkait layanan CSK lagi, silakan balas dengan \"Berhenti\".'
+ },
+ followup:{
+  label:'Follow-up Penawaran',
+  subject:'Tindak lanjut kebutuhan produksi {{brand}}',
+  body:'Halo {{pic}},\n\nSaya ingin menindaklanjuti diskusi seputar kebutuhan produksi {{brand}}.\n\nApakah ada spesifikasi, target jumlah, atau tenggat yang perlu kami bantu hitungkan?\n\nCSK siap membantu dari estimasi material, fabrikasi, sampai instalasi sesuai kebutuhan.\n\nSalam,\nTim Cahaya Selatan Kreasindo\n\nJika tidak ingin menerima email terkait layanan CSK lagi, silakan balas dengan \"Berhenti\".'
+ },
+ portfolio:{
+  label:'Portofolio B2B',
+  subject:'Referensi produksi display dan branding untuk {{brand}}',
+  body:'Halo {{pic}},\n\nKami ingin berbagi informasi mengenai kapabilitas produksi CSK untuk kebutuhan display retail, POSM, booth event, signage, dan custom fabrication.\n\nJika ada brief atau desain yang sedang dikembangkan tim {{brand}}, kami bisa membantu mengkaji kebutuhan produksi dan estimasi biayanya.\n\nTerima kasih,\nTim Cahaya Selatan Kreasindo\n\nJika tidak ingin menerima email terkait layanan CSK lagi, silakan balas dengan \"Berhenti\".'
+ }
+};
+const MAX=5000,MAX_BODY=7000;
+function clean(v,max=160){return String(v??'').trim().slice(0,max)}
+function normalEmail(v){return clean(v,254).toLowerCase()}
+function validEmail(v){
+ const s=clean(v,254);
+ return s.length>=5&&s.length<=254&&!/[\s<>"',;]/.test(s)&&/^[a-z0-9.!#$%&'*+/=?^_\x60{|}~-]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(s);
+}
+function safeRow(lead){
+ const l=lead&&typeof lead==='object'?lead:{};
+ return {
+  id:clean(l.id,120),
+  brand:clean(l.name??l.brand,160),
+  email:normalEmail(l.email),
+  pic:clean(l.pic,120),
+  picTitle:clean(l.picTitle,100),
+  industry:clean(l.industry,100),
+  status:clean(l.status,30).toLowerCase(),
+  source:clean(l.source,80)
+ };
+}
+function audience(leads,ledger={},filters={}){
+ const items=Array.isArray(leads)?leads.slice(0,MAX).map(safeRow):[];
+ const seen=new Set(),summary={total:items.length,invalid:0,duplicate:0,suppressed:0,unverified:0,eligible:0};
+ const all=[];
+ const needle=clean(filters.search,100).toLowerCase(),
+  status=clean(filters.status,30).toLowerCase(),industry=clean(filters.industry,80).toLowerCase();
+ for(const lead of items){
+  if(!validEmail(lead.email)){summary.invalid++;continue}
+  if(seen.has(lead.email)){summary.duplicate++;continue}
+  seen.add(lead.email);
+  const record=ledger[lead.email]||{};
+  const state=record.status==='consented'?'consented':record.status==='unsubscribed'?'unsubscribed':'unknown';
+  if(state==='unsubscribed')summary.suppressed++;
+  else if(state==='unknown')summary.unverified++;
+  else summary.eligible++;
+  if(status&&lead.status!==status)continue;
+  if(industry&&!lead.industry.toLowerCase().includes(industry))continue;
+  if(needle&&![lead.brand,lead.email,lead.pic,lead.industry,lead.source].some(x=>x.toLowerCase().includes(needle)))continue;
+  all.push({...lead,permission:state,proof:clean(record.proof,500)});
+ }
+ return {all,eligible:all.filter(x=>x.permission==='consented'),summary};
+}
+function permission(ledger,email,status,proof){
+ const key=normalEmail(email);
+ if(!validEmail(key))throw Error('Alamat email tidak valid.');
+ if(!['consented','unsubscribed','unknown'].includes(status))throw Error('Status izin tidak dikenal.');
+ const next={...(ledger||{})};
+ if(status==='unknown')delete next[key];
+ else{
+  const evidence=clean(proof,500);
+  if(status==='consented'&&evidence.length<8)throw Error('Tuliskan bukti/sumber persetujuan minimal 8 karakter.');
+  next[key]={status,proof:evidence,updatedAt:new Date().toISOString()};
+ }
+ return next;
+}
+function render(template,lead){
+ const t=clean(template,MAX_BODY);
+ const p=safeRow(lead);
+ // Use text placeholders, not HTML or template evaluation.
+ return t.replace(/\{\{\s*(pic|brand|industry|source|status|picTitle)\s*\}\}/g,(_,k)=>{
+  const values={pic:p.pic||'Bapak/Ibu',brand:p.brand||'perusahaan Anda',
+    industry:p.industry||'industri Anda',source:p.source||'perkenalan',
+    status:STATUSES[p.status]||p.status,picTitle:p.picTitle||'tim'};
+  return values[k]||'';
+ });
+}
+function compose(lead,ledger,subject,body){
+ const l=safeRow(lead);
+ if(!validEmail(l.email))throw Error('Email lead tidak valid.');
+ if((ledger?.[l.email]?.status)!=='consented')throw Error('Kontak belum memiliki bukti izin email marketing.');
+ const renderedSubject=render(clean(subject,220),l).replace(/[\r\n]/g,' ').trim();
+ const renderedBody=render(clean(body,MAX_BODY),l).trim();
+ if(!renderedSubject||!renderedBody)throw Error('Subjek dan isi email harus diisi.');
+ return {to:l.email,subject:renderedSubject,body:renderedBody};
+}
+function draftUrl(mail){
+ if(!mail||!validEmail(mail.to))throw Error('Draft tidak valid.');
+ return 'mailto:'+encodeURIComponent(mail.to).replace('%40','@')+'?subject='+encodeURIComponent(mail.subject)+'&body='+encodeURIComponent(mail.body);
+}
+function csvCell(v){
+ let s=String(v??'').replace(/\r\n?/g,'\n');
+ if(/^[\s]*[=+\-@]/.test(s))s="'"+s; // spreadsheet formula injection protection
+ return '"'+s.replace(/"/g,'""')+'"';
+}
+function csvExport(contacts,ledger,subject,body){
+ const lines=[['Email','Brand','PIC','Jabatan PIC','Industri','Status Lead','Sumber','Subject','Body'].map(csvCell).join(',')];
+ for(const l of contacts||[]){
+  const m=compose(l,ledger,subject,body);
+  lines.push([l.email,l.brand,l.pic,l.picTitle,l.industry,l.status,l.source,m.subject,m.body].map(csvCell).join(','));
+ }
+ return '\uFEFF'+lines.join('\r\n');
+}
+const API={STATUSES,TEMPLATES,validEmail,normalEmail,safeRow,audience,permission,render,compose,draftUrl,csvExport};
+root.CSKEmailMarketing=API;
+if(typeof module!=='undefined'&&module.exports)module.exports=API;
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<script>/* CSK Business OS — local email marketing campaign studio.
+ * Reads CRM Leads via callback. Drafts only: no API or automatic email send.
+ */
+(function(root){
+'use strict';
+var STORE='csk_email_marketing_local_v1';
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function mount(el,readLeads,engine){
+ if(!el||typeof readLeads!=='function'||!engine||el.dataset.emInit==='1')return;
+ el.dataset.emInit='1';
+ var ledger={},draft={template:'intro',subject:engine.TEMPLATES.intro.subject,body:engine.TEMPLATES.intro.body};
+ var filters={search:'',status:'',industry:'',permission:''},highlight='';
+ try{
+  var state=JSON.parse(localStorage.getItem(STORE)||'null');
+  if(state&&typeof state==='object'){
+   if(state.ledger&&typeof state.ledger==='object'&&!Array.isArray(state.ledger))ledger=state.ledger;
+   if(state.draft&&typeof state.draft==='object'){
+    draft.subject=String(state.draft.subject||draft.subject).slice(0,220);
+    draft.body=String(state.draft.body||draft.body).slice(0,7000);
+    draft.template=engine.TEMPLATES[state.draft.template]?state.draft.template:'custom';
+   }
+  }
+ }catch(e){}
+ var templates=Object.keys(engine.TEMPLATES).map(function(k){return '<option value="'+esc(k)+'">'+esc(engine.TEMPLATES[k].label)+'</option>'}).join('');
+ var statuses=Object.keys(engine.STATUSES).map(function(k){return '<option value="'+esc(k)+'">'+esc(engine.STATUSES[k])+'</option>'}).join('');
+ el.innerHTML=[
+ '<div class="em-hero"><div><span class="em-eyebrow">CSK · B2B OUTREACH STUDIO</span><h2>Email Marketing dari Leads CRM</h2>',
+ '<p>Gunakan nama perusahaan, PIC, alamat email, industri, sumber, dan status yang sudah ada di Leads.</p></div>',
+ '<span class="em-pill">DRAFT ONLY · NO AUTO SEND</span></div>',
+ '<div class="em-banner"><b>Mode aman.</b> Tidak ada email dikirim otomatis. Izin kontak harus diverifikasi satu per satu. ',
+ 'Permintaan berhenti menerima email wajib dicatat. Bukti izin, daftar blokir dan template pada tahap ini hanya tersimpan di browser, bukan di Google Sheets.</div>',
+ '<div class="em-stats"><div><small>Baris Leads</small><strong id="em-total">0</strong></div>',
+ '<div><small>Email valid & unik</small><strong id="em-valid">0</strong></div>',
+ '<div><small>Izin tercatat (lokal)</small><strong id="em-eligible">0</strong></div>',
+ '<div><small>Unsubscribe / blokir</small><strong id="em-blocked">0</strong></div></div>',
+ '<div class="em-layout"><div class="em-card">',
+ '<div class="em-heading"><div><h3>1. Segmentasi Penerima</h3><p>Diambil langsung dari kolom Leads CRM.</p></div><button type="button" class="em-secondary" id="em-refresh">Perbarui</button></div>',
+ '<div class="em-filters">',
+ '<label>Cari perusahaan, PIC, email<input type="search" id="em-search" placeholder="Cari kontak..."></label>',
+ '<label>Status Lead<select id="em-status-filter"><option value="">Semua</option>'+statuses+'</select></label>',
+ '<label>Industri<input type="search" id="em-industry" placeholder="Contoh: Retail"></label>',
+ '<label>Izin<select id="em-permission-filter"><option value="">Semua</option>',
+ '<option value="unknown">Belum diverifikasi</option><option value="consented">Izin tercatat</option><option value="unsubscribed">Diblokir</option></select></label>',
+ '</div><p class="em-hint">Email tidak valid dan alamat duplikat dikecualikan. Keberadaan email di CRM tidak berarti izin promosi.</p>',
+ '<div id="em-contact-list" class="em-contact-list"></div></div>',
+ '<div class="em-card"><div class="em-heading"><div><h3>2. Kampanye & Template</h3>',
+ '<p>Personalisasi: {{pic}}, {{brand}}, {{industry}}, {{source}}.</p></div></div>',
+ '<label>Jenis pesan<select id="em-template">'+templates+'<option value="custom">Kustom</option></select></label>',
+ '<label>Subjek<input id="em-subject" maxlength="220"></label>',
+ '<label>Isi email<textarea id="em-body" rows="13" maxlength="7000"></textarea></label>',
+ '<label>Pratinjau penerima<select id="em-recipient"><option value="">Pilih email berizin</option></select></label>',
+ '<div class="em-preview"><small>PREVIEW DRAFT</small><strong id="em-preview-title">Pilih penerima</strong>',
+ '<pre id="em-preview-body">Isi email akan muncul di sini.</pre></div>',
+ '<div class="em-actions"><button type="button" class="em-primary" id="em-mailto">Buka Draft Email Individu</button>',
+ '<button type="button" class="em-secondary" id="em-csv">Unduh CSV Segmen Berizin</button></div>',
+ '<p class="em-hint">Draft dibuka di aplikasi email dan tetap memerlukan pemeriksaan serta klik Kirim secara manual. CSV hanya memuat penerima berizin.',
+ 'Tidak ada status terkirim/terbaca yang diklaim dari tindakan ini.</p></div></div>',
+ '<p class="em-message" id="em-message" role="status" aria-live="polite"></p>'
+ ].join('');
+ function $(s){return el.querySelector(s)}
+ function message(text,error){var n=$('#em-message');n.textContent=text;n.dataset.error=error?'true':'false'}
+ function save(){
+  try{localStorage.setItem(STORE,JSON.stringify({ledger:ledger,draft:draft}))}
+  catch(e){message('Penyimpanan lokal diblokir. Bukti izin tidak akan bertahan setelah halaman ditutup.',true)}
+ }
+ function audience(){return engine.audience(readLeads(),ledger,filters)}
+ function visible(){var x=audience().all;return filters.permission?x.filter(function(c){return c.permission===filters.permission}):x}
+ function draw(){
+  var data=audience(),people=visible();
+  $('#em-total').textContent=data.summary.total;
+  $('#em-valid').textContent=data.summary.total-data.summary.invalid-data.summary.duplicate;
+  $('#em-eligible').textContent=data.summary.eligible;
+  $('#em-blocked').textContent=data.summary.suppressed;
+  $('#em-contact-list').innerHTML=people.length?people.map(function(c){
+   var status=c.permission==='consented'?'Izin tercatat':c.permission==='unsubscribed'?'Unsubscribe / diblokir':'Izin belum diverifikasi';
+   var action=c.permission==='consented'?'preview':'consent';
+   return '<div class="em-contact" data-email="'+esc(c.email)+'"><div class="em-contact-main">'+
+    '<strong>'+esc(c.brand||'(Brand belum diisi)')+'</strong><span>'+esc(c.email)+'</span>'+
+    '<small>'+esc(c.pic||'PIC belum diisi')+' · '+esc(c.industry||'Industri kosong')+
+    ' · '+esc(engine.STATUSES[c.status]||c.status||'Status kosong')+'</small>'+
+    '<span class="em-permission" data-state="'+esc(c.permission)+'">'+esc(status)+'</span></div>'+
+    '<div class="em-contact-buttons"><button type="button" data-action="'+action+'">'+(action==='preview'?'Pratinjau':'Catat izin')+'</button>'+
+    '<button type="button" class="em-danger" data-action="block">Blokir</button></div></div>'
+  }).join(''):'<p class="em-empty">Belum ada kontak dengan email valid sesuai filter.</p>';
+  var previous=$('#em-recipient').value;
+  var eligible=people.filter(function(c){return c.permission==='consented'});
+  $('#em-recipient').innerHTML='<option value="">Pilih penerima berizin</option>'+eligible.map(function(c){
+   return '<option value="'+esc(c.email)+'">'+esc(c.brand||c.email)+' · '+esc(c.email)+'</option>'
+  }).join('');
+  if(eligible.some(function(c){return c.email===previous}))$('#em-recipient').value=previous;
+  if(highlight&&eligible.some(function(c){return c.email===highlight})){$('#em-recipient').value=highlight;highlight=''}
+  preview();
+ }
+ function preview(){
+  var person=visible().find(function(c){return c.permission==='consented'&&c.email===$('#em-recipient').value});
+  $('#em-preview-title').textContent=person?engine.render($('#em-subject').value,person):'Pilih penerima berizin';
+  $('#em-preview-body').textContent=person?engine.render($('#em-body').value,person):'Pratinjau pesan untuk satu penerima muncul di sini.';
+  $('#em-mailto').disabled=!person;
+  $('#em-csv').disabled=!visible().some(function(c){return c.permission==='consented'});
+ }
+ function changeFilters(){
+  filters.search=$('#em-search').value;filters.status=$('#em-status-filter').value;
+  filters.industry=$('#em-industry').value;filters.permission=$('#em-permission-filter').value;
+  draw();
+ }
+ function changeDraft(){
+  draft.subject=$('#em-subject').value;draft.body=$('#em-body').value;draft.template=$('#em-template').value;
+  save();preview();
+ }
+ $('#em-template').value=draft.template;$('#em-subject').value=draft.subject;$('#em-body').value=draft.body;
+ ['em-search','em-status-filter','em-industry','em-permission-filter'].forEach(function(id){
+  $('#'+id).addEventListener('input',changeFilters);
+ });
+ $('#em-refresh').addEventListener('click',function(){draw();message('Daftar penerima diperbarui dari Leads CRM.')});
+ $('#em-template').addEventListener('change',function(){
+  var t=engine.TEMPLATES[$('#em-template').value];
+  if(t){$('#em-subject').value=t.subject;$('#em-body').value=t.body}
+  changeDraft();
+ });
+ $('#em-subject').addEventListener('input',function(){$('#em-template').value='custom';changeDraft()});
+ $('#em-body').addEventListener('input',function(){$('#em-template').value='custom';changeDraft()});
+ $('#em-recipient').addEventListener('change',preview);
+ $('#em-contact-list').addEventListener('click',function(e){
+  var btn=e.target.closest('button[data-action]');if(!btn)return;
+  var container=btn.closest('[data-email]'),email=container&&container.dataset.email;if(!email)return;
+  if(btn.dataset.action==='consent'){
+   if(ledger[email]?.status==='unsubscribed')return message('Email diblokir. Minta izin baru sebelum membuka blokir.',true);
+   var proof=prompt('Bukti persetujuan menerima email promosi untuk '+email+' (wajib benar-benar ada). Contoh: Form pameran 2026-11-01, checkbox marketing disetujui.');
+   if(proof===null)return;
+   try{ledger=engine.permission(ledger,email,'consented',proof);save();draw();message('Persetujuan dicatat lokal. Simpan bukti aslinya.') }
+   catch(err){message(err.message,true)}
+  }else if(btn.dataset.action==='block'){
+   if(!confirm('Blokir '+email+' dari semua ekspor dan draft email marketing?'))return;
+   ledger=engine.permission(ledger,email,'unsubscribed','Permintaan berhenti / blokir manual');
+   save();draw();message('Email masuk daftar blokir lokal. Belum disinkronkan ke perangkat lain.');
+  }else if(btn.dataset.action==='preview'){
+   filters={search:email,status:'',industry:'',permission:''};
+   $('#em-search').value=email;$('#em-status-filter').value='';
+   $('#em-industry').value='';$('#em-permission-filter').value='';
+   highlight=email;draw();
+   $('#em-recipient').value=email;preview();
+   $('#em-recipient').scrollIntoView({behavior:'smooth',block:'center'});
+  }
+ });
+ $('#em-mailto').addEventListener('click',function(){
+  var email=$('#em-recipient').value;
+  var person=visible().find(function(c){return c.email===email&&c.permission==='consented'});
+  if(!person)return message('Pilih email dengan bukti izin.',true);
+  try{
+   var mail=engine.compose(person,ledger,$('#em-subject').value,$('#em-body').value);
+   if(!confirm('Buka aplikasi email untuk MENINJAU DRAFT 1 penerima: '+mail.to+'? Email tidak terkirim otomatis.'))return;
+   root.location.href=engine.draftUrl(mail);
+   message('Draft dibuka; pengiriman hanya terjadi jika Anda mengirim dari aplikasi email.');
+  }catch(err){message(err.message,true)}
+ });
+ $('#em-csv').addEventListener('click',function(){
+  var list=visible().filter(function(c){return c.permission==='consented'});
+  if(!list.length)return message('Tidak ada kontak berizin pada segmen ini.',true);
+  if(!confirm('Unduh CSV yang memuat '+list.length+' email berizin? File berisi data pribadi dan harus disimpan dengan aman.'))return;
+  try{
+   var csv=engine.csvExport(list,ledger,$('#em-subject').value,$('#em-body').value);
+   var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+   var url=URL.createObjectURL(blob),a=document.createElement('a');
+   a.href=url;a.download='CSK_Email_Berizin_'+new Date().toISOString().slice(0,10)+'.csv';
+   document.body.appendChild(a);a.click();a.remove();
+   setTimeout(function(){URL.revokeObjectURL(url)},1000);
+   message('CSV berhasil dibuat. Tidak ada email terkirim.');
+  }catch(err){message(err.message,true)}
+ });
+ function focusLead(id){
+  var lead=readLeads().find(function(x){return String(x.id)===String(id)});
+  if(!lead||!engine.validEmail(lead.email))return message('Lead tersebut belum memiliki email valid.',true);
+  var email=engine.normalEmail(lead.email);
+  filters={search:email,status:'',industry:'',permission:''};
+  $('#em-search').value=email;$('#em-status-filter').value='';
+  $('#em-industry').value='';$('#em-permission-filter').value='';
+  highlight=email;draw();message('Lead dipilih. Verifikasi bukti izin sebelum membuat email.');
+ }
+ draw();
+ el._cskEmail={refresh:draw,focusLead:focusLead};
+ return el._cskEmail;
+}
+var API={mount:mount,STORE:STORE};
+root.CSKEmailUI=API;
+if(typeof module!=='undefined'&&module.exports)module.exports=API;
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<script>
+var fakeLeads=[
+{id:'DEMO-LEAD-01',name:'Retail Nusantara Fiktif',email:'marketing@retail-nusantara.example',pic:'PIC Demo',picTitle:'Brand Manager',industry:'Retail',source:'Referral',status:'new'},
+{id:'DEMO-LEAD-02',name:'Event Organizer Simulasi',email:'procurement@eo-simulasi.example',pic:'Kontak Demo',picTitle:'Procurement',industry:'Event Organizer',source:'Website',status:'contacted'},
+{id:'DEMO-LEAD-03',name:'Brand FMCG Contoh',email:'branding@fmcg-contoh.example',pic:'Tim Branding',industry:'FMCG',source:'Instagram',status:'nego'},
+{id:'DEMO-LEAD-04',name:'Brand tanpa alamat email',email:'',pic:'',industry:'Retail',source:'WhatsApp',status:'new'}
+];
+document.addEventListener('DOMContentLoaded',function(){
+ window.CSKEmailUI.mount(document.getElementById('email-root'),function(){return fakeLeads},window.CSKEmailMarketing);
+});
+</script></body></html>
