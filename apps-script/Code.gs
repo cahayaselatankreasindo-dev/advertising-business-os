@@ -568,7 +568,7 @@ function leadReferenceToken_(leadId) {
 }
 
 function normalizedClientName_(value) {
-  return String(value == null ? "" : value).trim().toLowerCase().replace(/\\s+/g, " ");
+  return String(value == null ? "" : value).trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 function ensureLeadClient_(ss, lead, refToken) {
