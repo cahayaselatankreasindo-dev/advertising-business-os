@@ -2159,8 +2159,8 @@
       const percent = Math.min(99, Math.max(1, Number(dpPercent) || 50));
       const dpAmount = Math.round(total * percent / 100);
       const balance = total - dpAmount;
-      if (invoiceType === 'dp') return { total, dpPercent: percent, dpAmount, amount: dpAmount, balance };
-      if (invoiceType === 'pelunasan') return { total, dpPercent: percent, dpAmount, amount: balance, balance: 0 };
+      if (invoiceType === 'dp') return { total, dpAmount, amount: dpAmount, balance };
+      if (invoiceType === 'pelunasan') return { total, dpAmount, amount: balance, balance: 0 };
       return { total, dpPercent: percent, dpAmount: 0, amount: total, balance: total };
     }
 
