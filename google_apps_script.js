@@ -82,6 +82,14 @@ var FIELD_MAP = {
   Cost_Sheets: {
     headers: ["ID", "ProjectID", "NamaProyek", "ItemsJSON", "MaterialTotal", "TenagaKerja", "BiayaLain", "Margin", "TotalHPP", "HargaPenawaran", "EstimasiLaba", "UpdatedAt"],
     fields: ["id", "projectId", "projectName", "itemsJson", "materialTotal", "labor", "other", "margin", "total", "price", "profit", "updatedAt"]
+  },
+  Services: {
+    headers: ["ID", "NamaLayanan", "Kategori", "Spesifikasi", "HargaDasar", "UpdatedAt"],
+    fields: ["id", "name", "category", "spec", "basePrice", "updatedAt"]
+  },
+  Purchase_Orders: {
+    headers: ["ID", "ProjectID", "NamaProyek", "Supplier", "Tanggal", "ItemsJSON", "Total", "Status", "CreatedAt", "UpdatedAt"],
+    fields: ["id", "projectId", "projectName", "supplier", "date", "itemsJson", "total", "status", "createdAt", "updatedAt"]
   }
 };
 var RATING_REVIEW_SEP = " | ";
@@ -191,6 +199,8 @@ function setupSheet() {
   ensureSheet(ss, "Marketing_Spend", marketingHeaders);
   ensureSheet(ss, "Materials", FIELD_MAP.Materials.headers);
   ensureSheet(ss, "Cost_Sheets", FIELD_MAP.Cost_Sheets.headers);
+  ensureSheet(ss, "Services", FIELD_MAP.Services.headers);
+  ensureSheet(ss, "Purchase_Orders", FIELD_MAP.Purchase_Orders.headers);
 
   // Migrasi skema: rapi-kan dulu kolom duplikat, lalu pastikan kolom kontrak ada.
   // Urutan penting: dedupe dulu (mis. "TANGGAL" & "Tanggal" dobel), baru tambah yang kurang.
@@ -400,6 +410,8 @@ function doGet(e) {
       marketingSpend: readSheetData(ss, "Marketing_Spend"),
       materials: readSheetData(ss, "Materials"),
       costSheets: readSheetData(ss, "Cost_Sheets").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
+      services: readSheetData(ss, "Services"),
+      purchaseOrders: readSheetData(ss, "Purchase_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
       lastSynced: new Date().toISOString()
     };
     return ContentService.createTextOutput(JSON.stringify({ status: "success", data: result }))
