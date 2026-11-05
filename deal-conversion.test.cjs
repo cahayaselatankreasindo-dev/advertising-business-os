@@ -4,8 +4,11 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 const backend = fs.readFileSync('apps-script/Code.gs', 'utf8');
+const rootBackend = fs.readFileSync('google_apps_script.js', 'utf8');
 const html = fs.readFileSync('index.html', 'utf8');
 new vm.Script(backend, { filename: 'apps-script/Code.gs' });
+new vm.Script(rootBackend, { filename: 'google_apps_script.js' });
+assert.equal(rootBackend, backend, 'canonical backend source must match the Apps Script deployment copy');
 
 class FakeRange {
   constructor(sheet, row, col, numRows, numCols) {
@@ -50,8 +53,22 @@ class FakeSpreadsheet {
   constructor(sheets) { this.sheets = sheets; }
   getSheetByName(name) { return this.sheets[name] || null; }
 }
-function fixture({ leadId = 'lead-1', leadStatus = 'won', projectRows = [], clientRows = [], financeRows = [] } = {}) {
-  const context = {};
+function fixture({ leadId = 'lead-1', leadStatus = 'won', projectRows = [], clientRows = [], financeRows = [], lockBusy = false } = {}) {
+  const lockStats = { waits: 0, releases: 0, busy: lockBusy };
+  const context = {
+    LockService: {
+      getScriptLock() {
+        return {
+          waitLock(timeoutMs) {
+            lockStats.waits++;
+            assert.equal(timeoutMs, 30000, 'trigger lock has a bounded wait');
+            if (lockStats.busy) throw new Error('Script lock is busy');
+          },
+          releaseLock() { lockStats.releases++; }
+        };
+      }
+    }
+  };
   vm.createContext(context);
   vm.runInContext(backend, context);
   const map = context.FIELD_MAP;
@@ -66,7 +83,7 @@ function fixture({ leadId = 'lead-1', leadStatus = 'won', projectRows = [], clie
     Clients: new FakeSheet([map.Clients.headers, ...clientRows]),
     Finance: new FakeSheet([map.Finance.headers, ...financeRows])
   };
-  return { context, ss: new FakeSpreadsheet(sheets), sheets };
+  return { context, ss: new FakeSpreadsheet(sheets), sheets, lockStats };
 }
 const dp = ['DP-1', '2026-11-01', 'income', 'DP Proyek', 4000000, 'DP 50% diterima'];
 const first = fixture({ financeRows: [dp] });
@@ -88,6 +105,8 @@ assert.equal(secondResult.clientCreated, 0, 'repeated trigger creates no second 
 assert.equal(first.sheets.Projects.rows.length, 2);
 assert.equal(first.sheets.Clients.rows.length, 2);
 assert.equal(first.sheets.Finance.rows.length, 2);
+assert.equal(first.lockStats.waits, 2, 'every trigger acquires the script lock');
+assert.equal(first.lockStats.releases, 2, 'every successful trigger releases the script lock');
 
 const linkedProject = [
   'PROJECT-EXISTING', 'Branding Identity', 'PT Contoh Klien', 8000000,
@@ -100,6 +119,28 @@ assert.equal(linkedResult.projectCreated, 0, 'existing linked project is reused'
 assert.equal(linkedResult.clientCreated, 1, 'missing client is repaired');
 assert.equal(linked.sheets.Projects.rows.length, 2);
 assert.equal(linked.sheets.Clients.rows.length, 2);
+
+// Existing clients must have their project count and contract total refreshed.
+const existingClient = ['CLIENT-OLD', 'PT Contoh Klien', '628123456789', 1, 8000000, 'Keep existing notes', '4 | Existing review'];
+const existing = fixture({
+  leadId: 'lead-4',
+  projectRows: [linkedProject],
+  clientRows: [existingClient]
+});
+const existingResult = existing.context.autoTriggerPillars(existing.ss);
+assert.equal(existingResult.projectCreated, 1);
+assert.equal(existingResult.clientCreated, 0);
+assert.equal(existing.sheets.Clients.rows[1][3], 2, 'existing client project count is refreshed');
+assert.equal(existing.sheets.Clients.rows[1][4], 13000000, 'existing client total spend is refreshed');
+assert.equal(existing.sheets.Clients.rows[1][5], 'Keep existing notes', 'existing client notes are preserved');
+assert.equal(existing.sheets.Clients.rows[1][6], '4 | Existing review', 'existing rating and review are preserved');
+
+// A lock timeout must abort before any linked row is written.
+const busy = fixture({ lockBusy: true });
+assert.throws(() => busy.context.autoTriggerPillars(busy.ss), /Script lock is busy/);
+assert.equal(busy.sheets.Projects.rows.length, 1, 'busy lock prevents project writes');
+assert.equal(busy.sheets.Clients.rows.length, 1, 'busy lock prevents client writes');
+assert.equal(busy.lockStats.releases, 0, 'a lock that was not acquired is not released');
 
 const frontendMatch = html.match(/function convertLeadToWon\(id\) \{[\s\S]*?\n    \}/);
 assert.ok(frontendMatch, 'frontend conversion function exists');
@@ -138,5 +179,18 @@ assert.equal(frontendDb.clients[0].projectsCount, 1, 'client totals are not doub
 assert.equal(frontendDb.clients[0].totalSpend, 8000000);
 assert.equal(saveCount, 2);
 assert.match(lastToast, /pembayaran diterima/i);
+
+// Frontend and backend must derive identical IDs even for long lead IDs.
+const longLeadId = 'L'.repeat(70);
+const longFrontendDb = {
+  leads: [{ id: longLeadId, name: 'PT Contoh Klien', phone: '628123456789', value: 8000000, source: 'Referensi', notes: 'Long ID', status: 'new' }],
+  clients: [], projects: [], finance: []
+};
+const longFrontendContext = { db: longFrontendDb, saveDB() {}, showToast() {} };
+vm.createContext(longFrontendContext);
+vm.runInContext(frontendMatch[0], longFrontendContext);
+longFrontendContext.convertLeadToWon(longLeadId);
+assert.equal(longFrontendDb.projects[0].id, first.context.stableLeadEntityId_('AUTO-PRJ-LEAD-', longLeadId));
+assert.equal(longFrontendDb.clients[0].id, first.context.stableLeadEntityId_('AUTO-CLI-LEAD-', longLeadId));
 
 console.log('CSK deal conversion regression checks passed.');
