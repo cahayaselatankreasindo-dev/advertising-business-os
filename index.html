@@ -189,6 +189,8 @@
       <button onclick="nav('projects')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-briefcase w-5 text-emerald-400"></i> Pilar 3 · Produksi
       </button>
+      <button onclick="nav('services')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition"><i class="fa fa-cubes w-5 text-violet-400"></i> Layanan CSK</button>
+      <button onclick="nav('purchasing')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition"><i class="fa fa-shopping-cart w-5 text-orange-400"></i> Purchasing & PO</button>
       <button onclick="nav('hpp')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-calculator w-5 text-cyan-400"></i> HPP & Material
       </button>
@@ -428,6 +430,31 @@
           </button>
         </div>
         <div id="projects-container" class="space-y-3"></div>
+      </section>
+
+      <!-- SERVICES CATALOG -->
+      <section id="page-services" class="page-content hidden space-y-6">
+        <div><span class="inline-flex px-2 py-1 rounded bg-violet-100 text-violet-800 text-[10px] font-bold uppercase">Master Data</span><h1 class="text-2xl font-bold text-slate-900 mt-2">Database Layanan CSK</h1><p class="text-sm text-slate-500">Kelola kategori, spesifikasi, dan harga dasar layanan untuk digunakan pada quotation.</p></div>
+        <div class="bg-white border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-4 gap-2">
+          <input id="svc-name" class="p-2 border rounded-lg text-sm" placeholder="Nama layanan">
+          <input id="svc-category" class="p-2 border rounded-lg text-sm" placeholder="Kategori">
+          <input id="svc-spec" class="p-2 border rounded-lg text-sm" placeholder="Spesifikasi / deskripsi">
+          <div class="flex gap-2"><input id="svc-price" type="number" min="0" class="w-full p-2 border rounded-lg text-sm" placeholder="Harga dasar"><button onclick="addService()" class="px-3 rounded-lg bg-violet-700 text-white text-sm">Tambah</button></div>
+        </div>
+        <div class="flex flex-wrap gap-2"><input id="svc-search" oninput="renderServices()" class="p-2 border rounded-lg text-sm flex-1 min-w-48" placeholder="Cari layanan atau kategori"><span id="svc-count" class="text-xs text-slate-500 self-center"></span></div>
+        <div id="services-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      </section>
+
+      <!-- PURCHASING & PURCHASE ORDERS -->
+      <section id="page-purchasing" class="page-content hidden space-y-6">
+        <div><span class="inline-flex px-2 py-1 rounded bg-orange-100 text-orange-800 text-[10px] font-bold uppercase">Pengadaan</span><h1 class="text-2xl font-bold text-slate-900 mt-2">Purchasing & Purchase Order</h1><p class="text-sm text-slate-500">Buat PO dari kebutuhan material proyek dan pantau status pengadaan.</p></div>
+        <div class="bg-white border rounded-xl p-4 space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2"><select id="po-project" class="p-2 border rounded-lg text-sm"><option value="">Pilih proyek</option></select><input id="po-supplier" class="p-2 border rounded-lg text-sm" placeholder="Nama supplier"><input id="po-date" type="date" class="p-2 border rounded-lg text-sm"></div>
+          <div class="flex flex-wrap gap-2"><select id="po-material" class="p-2 border rounded-lg text-sm flex-1 min-w-40"></select><input id="po-qty" type="number" min="0.01" step="0.01" value="1" class="p-2 border rounded-lg w-24 text-sm"><button onclick="addPoLine()" class="px-3 py-2 bg-slate-800 text-white rounded-lg text-sm">Tambah Material</button></div>
+          <div id="po-lines" class="space-y-2"></div>
+          <div class="flex flex-wrap items-center justify-between gap-3"><b id="po-total">Total: Rp 0</b><button onclick="createPurchaseOrder()" class="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-semibold">Buat Purchase Order</button></div>
+        </div>
+        <div id="po-list" class="space-y-3"></div>
       </section>
 
       <!-- HPP & MATERIAL CALCULATOR -->
@@ -690,6 +717,8 @@
       <button onclick="nav('projects')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
         <i class="fa fa-briefcase text-base mb-0.5"></i>Proyek
       </button>
+      <button onclick="nav('services')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400"><i class="fa fa-cubes text-base mb-0.5"></i>Layanan</button>
+      <button onclick="nav('purchasing')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400"><i class="fa fa-shopping-cart text-base mb-0.5"></i>PO</button>
       <button onclick="nav('hpp')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
         <i class="fa fa-calculator text-base mb-0.5"></i>HPP
       </button>
@@ -1200,6 +1229,8 @@
       marketingSpend: [],
       materials: [],
       costSheets: [],
+      services: [],
+      purchaseOrders: [],
       settings: {
         googleSheetUrl: '',
         apiToken: '',
@@ -1224,6 +1255,8 @@
           db.marketingSpend = parsed.marketingSpend || [];
           db.materials = parsed.materials || [];
           db.costSheets = parsed.costSheets || [];
+          db.services = parsed.services || [];
+          db.purchaseOrders = parsed.purchaseOrders || [];
           db.settings       = parsed.settings       || { googleSheetUrl: '', lastSync: '' };
           db.role           = parsed.role           || 'owner';
         } catch (e) {
@@ -1318,6 +1351,8 @@
       if (target) target.classList.remove('hidden');
       if (page === 'documents') renderDocuments();
       if (page === 'hpp') renderHpp();
+      if (page === 'services') renderServices();
+      if (page === 'purchasing') renderPurchasing();
 
       document.querySelectorAll('.nav-btn').forEach(btn => {
         const isCurrent = btn.getAttribute('onclick').includes(page);
@@ -1697,6 +1732,62 @@
           '</div>' +
         '</div>';
       }).join('');
+    }
+
+    // ============== SERVICES CATALOG ==============
+    function renderServices() {
+      db.services = db.services || [];
+      const q=(document.getElementById('svc-search')?.value || '').toLowerCase();
+      const rows=db.services.filter(x=>(x.name+' '+x.category+' '+(x.spec||'')).toLowerCase().includes(q));
+      const count=document.getElementById('svc-count'); if(count) count.innerText=rows.length+' layanan';
+      const el=document.getElementById('services-list'); if(!el)return;
+      el.innerHTML=rows.map(x=>'<article class="bg-white border rounded-xl p-4 space-y-2"><div class="flex justify-between gap-2"><div><div class="font-bold text-sm">'+escapeInvoiceHtml(x.name)+'</div><div class="text-xs text-violet-700">'+escapeInvoiceHtml(x.category)+'</div></div><b class="text-sm">'+formatRp(x.basePrice)+'</b></div><p class="text-xs text-slate-500">'+escapeInvoiceHtml(x.spec||'Belum ada spesifikasi')+'</p><button onclick="deleteService(\''+escapeInvoiceHtml(x.id)+'\')" class="text-xs text-red-600">Hapus layanan</button></article>').join('') || '<div class="bg-white border rounded-xl p-6 text-sm text-slate-500">Belum ada layanan. Tambahkan layanan CSK di atas. Data katalog lama tidak dibuat-buat.</div>';
+    }
+    function addService() {
+      const name=document.getElementById('svc-name').value.trim(), category=document.getElementById('svc-category').value.trim(), spec=document.getElementById('svc-spec').value.trim(), basePrice=Number(document.getElementById('svc-price').value);
+      if(!name||!category||!Number.isFinite(basePrice)||basePrice<0)return showToast('Lengkapi nama, kategori, dan harga dasar layanan.',true);
+      db.services.push({id:'SVC-'+Date.now(),name,category,spec,basePrice,updatedAt:new Date().toISOString()});
+      ['svc-name','svc-category','svc-spec','svc-price'].forEach(id=>document.getElementById(id).value=''); saveDB(); renderServices(); showToast('Layanan ditambahkan.');
+    }
+    function deleteService(id) {
+      if(!confirm('Hapus layanan ini dari katalog?'))return;
+      db.services=db.services.filter(x=>x.id!==id); saveDB(); renderServices(); showToast('Layanan dihapus.');
+    }
+
+    // ============== PURCHASING ==============
+    let poLines=[];
+    function renderPurchasing() {
+      db.purchaseOrders=db.purchaseOrders||[];
+      const p=document.getElementById('po-project'); if(p)p.innerHTML='<option value="">Pilih proyek</option>'+db.projects.map(x=>'<option value="'+escapeInvoiceHtml(x.id)+'">'+escapeInvoiceHtml(x.title||x.id)+'</option>').join('');
+      const m=document.getElementById('po-material'); if(m)m.innerHTML=(db.materials||[]).map(x=>'<option value="'+escapeInvoiceHtml(x.id)+'">'+escapeInvoiceHtml(x.name)+' · '+formatRp(x.unitPrice)+'/'+escapeInvoiceHtml(x.unit)+'</option>').join('');
+      const d=document.getElementById('po-date'); if(d&&!d.value)d.value=new Date().toISOString().slice(0,10);
+      renderPoLines(); renderPoList();
+    }
+    function addPoLine() {
+      const id=document.getElementById('po-material').value, qty=Number(document.getElementById('po-qty').value), m=(db.materials||[]).find(x=>x.id===id);
+      if(!m||!Number.isFinite(qty)||qty<=0)return showToast('Pilih material dan kuantitas yang valid.',true);
+      poLines.push({materialId:m.id,name:m.name,unit:m.unit,qty,unitPrice:Number(m.unitPrice),subtotal:qty*Number(m.unitPrice)}); renderPoLines();
+    }
+    function renderPoLines() {
+      const el=document.getElementById('po-lines'); if(!el)return;
+      el.innerHTML=poLines.map((x,i)=>'<div class="flex justify-between gap-2 border rounded-lg p-2 text-xs"><span>'+escapeInvoiceHtml(x.name)+' · '+x.qty+' '+escapeInvoiceHtml(x.unit)+'</span><b>'+formatRp(x.subtotal)+'</b><button onclick="poLines.splice('+i+',1);renderPoLines()" class="text-red-600">Hapus</button></div>').join('')||'<p class="text-xs text-slate-400">Belum ada material dalam PO.</p>';
+      document.getElementById('po-total').innerText='Total: '+formatRp(poLines.reduce((s,x)=>s+x.subtotal,0));
+    }
+    function createPurchaseOrder() {
+      const projectId=document.getElementById('po-project').value, project=db.projects.find(x=>x.id===projectId), supplier=document.getElementById('po-supplier').value.trim();
+      if(!project||!supplier||!poLines.length)return showToast('Pilih proyek, isi supplier, dan tambahkan material.',true);
+      const total=poLines.reduce((s,x)=>s+x.subtotal,0), now=new Date().toISOString();
+      const record={id:'PO-CSK-'+Date.now(),projectId,projectName:project.title||'',supplier,date:document.getElementById('po-date').value||now.slice(0,10),items:poLines.map(x=>({...x})),total,status:'draft',createdAt:now,updatedAt:now};
+      db.purchaseOrders.push(record); poLines=[]; document.getElementById('po-supplier').value=''; saveDB(); renderPurchasing(); showToast('Purchase Order tersimpan.');
+    }
+    function updatePoStatus(id,status) {
+      const x=db.purchaseOrders.find(p=>p.id===id); if(!x)return;
+      x.status=status; x.updatedAt=new Date().toISOString(); saveDB(); renderPurchasing(); showToast('Status PO diperbarui.');
+    }
+    function renderPoList() {
+      const el=document.getElementById('po-list'); if(!el)return;
+      const labels={draft:'Draft',ordered:'Dipesan',received:'Diterima',cancelled:'Dibatalkan'};
+      el.innerHTML=(db.purchaseOrders||[]).slice().reverse().map(x=>'<article class="bg-white border rounded-xl p-4"><div class="flex flex-wrap justify-between gap-2"><div><b class="text-sm">'+escapeInvoiceHtml(x.id)+'</b><div class="text-xs text-slate-500">'+escapeInvoiceHtml(x.projectName)+' · '+escapeInvoiceHtml(x.supplier)+' · '+escapeInvoiceHtml(x.date)+'</div></div><b>'+formatRp(x.total)+'</b></div><div class="flex flex-wrap gap-2 mt-3 text-xs"><span class="text-slate-600">Status: '+labels[x.status]+'</span><button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'ordered\')" class="text-blue-700">Tandai dipesan</button><button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'received\')" class="text-emerald-700">Tandai diterima</button><button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'cancelled\')" class="text-red-600">Batalkan</button></div></article>').join('')||'<div class="text-sm text-slate-500 bg-white border rounded-xl p-6">Belum ada Purchase Order.</div>';
     }
 
     // ============== HPP & MATERIAL CALCULATOR ==============
@@ -2513,7 +2604,9 @@
           memory: db.memory,
           marketingSpend: db.marketingSpend,
           materials: db.materials || [],
-          costSheets: db.costSheets || []
+          costSheets: db.costSheets || [],
+          services: db.services || [],
+          purchaseOrders: db.purchaseOrders || []
         };
 
         await fetch(url, {
@@ -2560,6 +2653,8 @@
         db.marketingSpend = d.marketingSpend || [];
         db.materials = d.materials || [];
         db.costSheets = d.costSheets || [];
+        db.services = d.services || [];
+        db.purchaseOrders = d.purchaseOrders || [];
         db.settings.lastSync = d.lastSynced || new Date().toISOString();
 
         localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -2601,6 +2696,8 @@
         db.marketingSpend = mergeById(d.marketingSpend, db.marketingSpend);
         db.materials = mergeById(d.materials, db.materials);
         db.costSheets = mergeById(d.costSheets, db.costSheets);
+        db.services = mergeById(d.services, db.services);
+        db.purchaseOrders = mergeById(d.purchaseOrders, db.purchaseOrders);
         db.settings.lastSync = d.lastSynced || new Date().toISOString();
 
         localStorage.setItem(DB_KEY, JSON.stringify(db));
