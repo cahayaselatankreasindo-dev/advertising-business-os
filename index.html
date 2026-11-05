@@ -2215,6 +2215,7 @@
       if (confirm('Hapus transaksi ini?')) {
         db.finance = db.finance.filter(f => f.id !== id);
         saveDB();
+        deleteOnCloud('Finance', id);
         showToast('Transaksi dihapus.');
       }
     }
@@ -2242,6 +2243,7 @@
       if (confirm('Hapus campaign ini?')) {
         db.marketingSpend = db.marketingSpend.filter(m => m.id !== id);
         saveDB();
+        deleteOnCloud('Marketing_Spend', id);
         showToast('Campaign dihapus.');
       }
     }
@@ -2266,6 +2268,7 @@
       if (confirm('Hapus catatan ini?')) {
         db.memory = db.memory.filter(m => m.id !== id);
         saveDB();
+        deleteOnCloud('Memory', id);
         showToast('Catatan dihapus.');
       }
     }
