@@ -12,6 +12,15 @@ $dst  = Join-Path $gas  "Code.gs"
 
 Write-Host "=== Deploy Backend CSK OS ===" -ForegroundColor Cyan
 
+# 0. Fail-closed preflight: cegah deploy source backend tanpa autentikasi wajib.
+if (-not (Test-Path $src)) { throw "Sumber backend tidak ditemukan: $src" }
+$source = Get-Content $src -Raw
+if ($source -notmatch 'function isAuthorized\([\s\S]*?if \(!/\^\[a-f0-9\]\{64\}\$\/i\.test\(expected\)\) return false;' -or
+    $source -match 'if \(expected === ""\) return true') {
+    throw "PRE-FLIGHT GAGAL: backend belum menerapkan fail-closed API token. Tidak ada file yang di-push."
+}
+Write-Host "[0/4] API token fail-closed terverifikasi" -ForegroundColor Green
+
 # 1. Sinkron file sumber -> Code.gs
 Copy-Item $src $dst -Force
 Write-Host "[1/4] google_apps_script.js -> apps-script/Code.gs" -ForegroundColor Green
