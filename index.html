@@ -1527,7 +1527,10 @@
 
       const totalIncome = db.finance.filter(f => f.type === 'income').reduce((a, b) => a + Number(b.amount || 0), 0);
       const totalExpense = db.finance.filter(f => f.type === 'expense').reduce((a, b) => a + Number(b.amount || 0), 0);
-      const netProfit = totalIncome - totalExpense;
+      // Biaya campaign dicatat terpisah dari transaksi Finance. Sertakan agar
+      // laba dan margin dashboard konsisten dengan halaman Analisis.
+      const totalMktSpend = db.marketingSpend.reduce((a, b) => a + Number(b.spent || 0), 0);
+      const netProfit = totalIncome - totalExpense - totalMktSpend;
       const marginPct = totalIncome ? Math.round((netProfit / totalIncome) * 100) : 0;
 
       document.getElementById('stat-total-leads').innerText = totalLeads;
