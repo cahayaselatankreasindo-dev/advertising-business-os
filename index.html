@@ -216,7 +216,7 @@
 
     <!-- Role Dropdown -->
     <div class="px-4 py-3 border-b border-slate-800">
-      <label class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block mb-1">Hak Akses</label>
+      <label class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block mb-1">Mode Tampilan</label>
       <select id="role-select" onchange="onRoleChange(this.value)" class="w-full text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-amber-500">
         <option value="owner">Owner</option>
         <option value="team">Tim Kreatif / Admin</option>
@@ -1349,7 +1349,7 @@
       db.role = role;
       localStorage.setItem(DB_KEY, JSON.stringify(db));
       applyRoleUI();
-      showToast(role === 'owner' ? 'Mode Owner aktif — akses penuh.' : 'Mode Tim/Admin — menu keuangan & riset disembunyikan.');
+      showToast(role === 'owner' ? 'Tampilan Owner aktif.' : 'Tampilan Tim aktif. Menu keuangan & riset disembunyikan.');
     }
 
     function applyRoleUI() {
@@ -2632,9 +2632,12 @@
     function updateCloudIndicator() {
       const dot = document.getElementById('cloud-indicator');
       const text = document.getElementById('cloud-status-text');
-      const isCloud = !!(db.settings && db.settings.googleSheetUrl);
-      if (dot) dot.className = isCloud ? 'w-2.5 h-2.5 rounded-full bg-emerald-500' : 'w-2.5 h-2.5 rounded-full bg-slate-500';
-      if (text) text.innerText = isCloud ? 'Tersambung Google' : 'Lokal Offline';
+      const settings = db.settings || {};
+      const configured = !!settings.googleSheetUrl;
+      const verified = !!settings.lastSync && !settings.lastSyncError;
+      const failed = !!settings.lastSyncError;
+      if (dot) dot.className = 'w-2.5 h-2.5 rounded-full ' + (!configured ? 'bg-slate-500' : failed ? 'bg-red-500' : verified ? 'bg-emerald-500' : 'bg-amber-400');
+      if (text) text.innerText = !configured ? 'Lokal Offline' : failed ? 'Sync bermasalah' : verified ? 'Cloud terverifikasi' : 'Cloud belum diuji';
     }
 
     async function verifyCloudSync(payload, url) {
