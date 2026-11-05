@@ -1579,8 +1579,8 @@
         dashLeadsEl.innerHTML = recentLeads.map(l =>
           '<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">' +
             '<div>' +
-              '<div class="text-xs font-bold text-slate-800">' + l.name + '</div>' +
-              '<div class="text-[11px] text-slate-500">' + l.source + ' &bull; ' + formatRp(l.value) + '</div>' +
+              '<div class="text-xs font-bold text-slate-800">' + escapeInvoiceHtml(l.name) + '</div>' +
+              '<div class="text-[11px] text-slate-500">' + escapeInvoiceHtml(l.source || 'Sumber tidak dicatat') + ' &bull; ' + formatRp(l.value) + '</div>' +
             '</div>' +
             '<div class="flex items-center gap-1.5">' +
               (l.phone ? '<a href="https://wa.me/' + cleanPhone(l.phone) + '" target="_blank" class="p-1.5 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200 text-xs"><i class="fa fa-whatsapp"></i> Chat</a>' : '') +
@@ -1605,60 +1605,49 @@
 
     function renderLeads() {
       const container = document.getElementById('leads-container');
+      if (!container) return;
       const filtered = currentLeadFilter === 'all' ? db.leads : db.leads.filter(l => l.status === currentLeadFilter);
-
-      if (filtered.length === 0) {
+      if (!filtered.length) {
         container.innerHTML = '<div class="bg-white p-8 rounded-xl border border-slate-200 text-center text-xs text-slate-400">Belum ada leads dalam kategori ini.</div>';
         return;
       }
-
+      const statusMap = {
+        new:{label:'Baru',color:'bg-blue-50 text-blue-700 border-blue-100'},
+        contacted:{label:'Dihubungi',color:'bg-violet-50 text-violet-700 border-violet-100'},
+        nego:{label:'Negosiasi',color:'bg-orange-50 text-orange-700 border-orange-100'},
+        won:{label:'Deal',color:'bg-emerald-50 text-emerald-700 border-emerald-100'},
+        lost:{label:'Batal',color:'bg-stone-100 text-stone-600 border-stone-200'}
+      };
       container.innerHTML = filtered.map(l => {
-        const badgeColor = {
-          'new': 'bg-blue-100 text-blue-800',
-          'contacted': 'bg-purple-100 text-purple-800',
-          'nego': 'bg-amber-100 text-amber-800',
-          'won': 'bg-emerald-100 text-emerald-800',
-          'lost': 'bg-red-100 text-red-800'
-        }[l.status] || 'bg-slate-100 text-slate-800';
-
-        const statusLabel = {
-          'new': 'Baru',
-          'contacted': 'Dihubungi',
-          'nego': 'Negosiasi',
-          'won': 'Deal (Won)',
-          'lost': 'Batal'
-        }[l.status] || l.status;
-
-        return '<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">' +
-          '<div class="space-y-1">' +
-            '<div class="flex items-center gap-2">' +
-              '<span class="font-heading font-bold text-sm text-slate-800">' + l.name + '</span>' +
-              '<span class="badge ' + badgeColor + '">' + statusLabel + '</span>' +
-            '</div>' +
-            '<div class="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">' +
-              '<span><i class="fa fa-tag text-slate-400"></i> ' + (l.source || 'Sumber tidak dicatat') + '</span>' +
-              '<span><i class="fa fa-money text-slate-400"></i> ' + formatRp(l.value) + '</span>' +
-              (l.date ? '<span><i class="fa fa-calendar text-slate-400"></i> ' + l.date + '</span>' : '') +
-            '</div>' +
-            (l.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + l.notes + '</div>' : '') +
-            (l.email ? '<div class="text-[11px] text-blue-600 font-mono mt-0.5"><i class="fa fa-envelope-o"></i> ' + l.email + '</div>' : '') +
-            // ===== Data B2B (tampil bila ada) =====
-            ((l.industry || l.pic || l.picTitle || l.website || l.score) ?
-              '<div class="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 pt-1 border-t border-slate-100">' +
-                (l.industry ? '<span><i class="fa fa-industry text-slate-400"></i> ' + l.industry + '</span>' : '') +
-                (l.website ? '<a href="' + l.website + '" target="_blank" class="text-blue-600 hover:underline"><i class="fa fa-globe text-slate-400"></i> ' + String(l.website).replace(/^https?:\/\//,'') + '</a>' : '') +
-                (l.pic ? '<span><i class="fa fa-user text-slate-400"></i> ' + l.pic + (l.picTitle ? ' (' + l.picTitle + ')' : '') + '</span>' : '') +
-                (l.linkedin ? '<a href="' + l.linkedin + '" target="_blank" class="text-blue-600 hover:underline"><i class="fa fa-linkedin-square text-slate-400"></i> LinkedIn</a>' : '') +
-                (l.score ? '<span class="badge bg-amber-100 text-amber-800"><i class="fa fa-star"></i> Skor ' + l.score + '</span>' : '') +
-              '</div>' : '') +
-          '</div>' +
-          '<div class="flex items-center gap-1.5 self-end sm:self-center flex-wrap">' +
-            (l.email ? '<button onclick="sendColdEmailLead(\'' + l.id + '\')" title="Kirim Cold Email Outreach via Gmail CSK" class="px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-paper-plane"></i> Email</button>' : '') +
-            (l.phone ? '<a href="https://wa.me/' + cleanPhone(l.phone) + '" target="_blank" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"><i class="fa fa-whatsapp"></i> WA</a>' : '') +
-            (l.status !== 'won' ? '<button onclick="convertLeadToWon(\'' + l.id + '\')" title="Tandai Deal" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Deal</button>' : '<span class="badge bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1">✓ Deal</span>') +
-            '<button onclick="deleteLead(\'' + l.id + '\')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
-          '</div>' +
-        '</div>';
+        const status = statusMap[l.status] || {label:escapeInvoiceHtml(l.status || 'Belum diatur'),color:'bg-stone-100 text-stone-600 border-stone-200'};
+        const id=escapeInvoiceHtml(l.id);
+        const website=String(l.website||'').trim();
+        const websiteUrl=/^https?:\/\//i.test(website) ? website : '';
+        const linkedin=String(l.linkedin||'').trim();
+        const linkedinUrl=/^https?:\/\//i.test(linkedin) ? linkedin : '';
+        return '<article class="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-sm flex flex-col gap-3 min-w-0">' +
+          '<div class="flex items-start justify-between gap-3 min-w-0"><div class="min-w-0 flex-1">' +
+            '<div class="flex flex-wrap items-center gap-2"><h3 class="font-semibold text-sm text-stone-900 break-words">'+escapeInvoiceHtml(l.name||'Tanpa nama')+'</h3>' +
+            '<span class="inline-flex items-center px-2 py-1 rounded-full border text-[10px] font-semibold '+status.color+'">'+status.label+'</span></div>' +
+            '<div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-stone-500">' +
+              '<span><i class="fa fa-tag mr-1"></i>'+escapeInvoiceHtml(l.source||'Sumber tidak dicatat')+'</span>' +
+              '<span><i class="fa fa-money mr-1"></i>'+formatRp(l.value)+'</span>' +
+              (l.date?'<span><i class="fa fa-calendar mr-1"></i>'+escapeInvoiceHtml(l.date)+'</span>':'') +
+            '</div></div><button onclick="deleteLead(\''+id+'\')" aria-label="Hapus lead" class="shrink-0 w-9 h-9 rounded-xl border border-stone-200 text-stone-400 hover:text-red-600 hover:bg-red-50"><i class="fa fa-trash"></i></button></div>' +
+          (l.notes?'<p class="text-xs leading-relaxed text-stone-600 bg-stone-50 border border-stone-100 rounded-xl p-3 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(l.notes)+'</p>':'') +
+          ((l.industry||l.pic||l.picTitle||websiteUrl||l.score||l.email)?'<div class="flex flex-wrap gap-2 text-[11px] text-stone-500 border-t border-stone-100 pt-3">'+
+            (l.industry?'<span><i class="fa fa-industry mr-1"></i>'+escapeInvoiceHtml(l.industry)+'</span>':'')+
+            (l.pic?'<span><i class="fa fa-user mr-1"></i>'+escapeInvoiceHtml(l.pic)+(l.picTitle?' · '+escapeInvoiceHtml(l.picTitle):'')+'</span>':'')+
+            (l.email?'<span><i class="fa fa-envelope mr-1"></i>'+escapeInvoiceHtml(l.email)+'</span>':'')+
+            (websiteUrl?'<a rel="noopener noreferrer" target="_blank" class="text-blue-700 underline" href="'+escapeInvoiceHtml(websiteUrl)+'">Website</a>':'')+
+            (linkedinUrl?'<a rel="noopener noreferrer" target="_blank" class="text-blue-700 underline" href="'+escapeInvoiceHtml(linkedinUrl)+'">LinkedIn</a>':'')+
+            (l.score?'<span class="px-2 py-1 rounded-full bg-orange-50 text-orange-700">Skor '+escapeInvoiceHtml(l.score)+'</span>':'')+
+          '</div>':'')+
+          '<div class="grid grid-cols-2 sm:flex sm:justify-end gap-2 pt-1">'+
+            (l.email?'<button onclick="sendColdEmailLead(\''+id+'\')" class="min-h-10 px-3 rounded-xl border border-blue-100 bg-blue-50 text-blue-700 text-xs font-semibold"><i class="fa fa-paper-plane mr-1"></i>Email</button>':'')+
+            (l.phone?'<a rel="noopener noreferrer" target="_blank" href="https://wa.me/'+cleanPhone(l.phone)+'" class="min-h-10 px-3 rounded-xl bg-emerald-600 text-white text-xs font-semibold flex items-center justify-center"><i class="fa fa-whatsapp mr-1"></i>WhatsApp</a>':'')+
+            (l.status!=='won'?'<button onclick="convertLeadToWon(\''+id+'\')" class="min-h-10 px-3 rounded-xl bg-stone-900 text-white text-xs font-semibold"><i class="fa fa-check mr-1"></i>Tandai Deal</button>':'<span class="col-span-2 sm:col-span-1 min-h-10 px-3 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-semibold flex items-center justify-center">✓ Deal</span>')+
+          '</div></article>';
       }).join('');
     }
 
@@ -1742,47 +1731,32 @@
 
     function renderProjects() {
       const container = document.getElementById('projects-container');
-      if (db.projects.length === 0) {
-        container.innerHTML = '<div class="bg-white p-8 rounded-xl border border-slate-200 text-center text-xs text-slate-400">Belum ada proyek berjalan.</div>';
+      if (!container) return;
+      if (!db.projects.length) {
+        container.innerHTML = '<div class="bg-white p-8 rounded-2xl border border-stone-200 text-center text-xs text-stone-400">Belum ada proyek berjalan.</div>';
         return;
       }
-      container.innerHTML = db.projects.map(p => {
-        const badgeColor = {
-          'plan': 'bg-blue-100 text-blue-800',
-          'ongoing': 'bg-amber-100 text-amber-800',
-          'review': 'bg-purple-100 text-purple-800',
-          'done': 'bg-emerald-100 text-emerald-800'
-        }[p.status] || 'bg-slate-100 text-slate-800';
-
-        const statusLabel = {
-          'plan': 'Perencanaan',
-          'ongoing': 'Pengerjaan',
-          'review': 'Review Klien',
-          'done': 'Selesai'
-        }[p.status] || p.status;
-
-        return '<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-start justify-between gap-3">' +
-          '<div class="space-y-1 flex-1">' +
-            '<div class="flex items-center gap-2">' +
-              '<span class="font-heading font-bold text-sm text-slate-800">' + p.title + '</span>' +
-              '<span class="badge ' + badgeColor + '">' + statusLabel + '</span>' +
-            '</div>' +
-            '<div class="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">' +
-              '<span><i class="fa fa-user text-slate-400"></i> Klien: ' + p.client + '</span>' +
-              '<span><i class="fa fa-money text-slate-400"></i> ' + formatRp(p.value) + '</span>' +
-              '<span><i class="fa fa-clock-o text-slate-400"></i> Deadline: ' + (p.deadline || '-') + '</span>' +
-            '</div>' +
-            (p.notes ? '<div class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1">' + p.notes + '</div>' : '') +
-            renderSOPChecklist(p) +
-            '<div class="text-[10px] text-slate-500 mt-1">Dokumen resmi CSK: Quotation, Invoice DP 50%, dan Invoice Pelunasan.</div>' +
-          '</div>' +
-          '<div class="flex items-center gap-1.5 self-end sm:self-center shrink-0 flex-wrap">' +
-            '<button onclick="openInvoiceModal(\'' + p.id + '\')" title="Buat Quotation, Invoice DP 50%, atau Invoice Pelunasan CSK" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 transition shadow-sm"><i class="fa fa-file-text-o"></i> Quotation / Invoice</button>' +
-            '<button onclick="openProjectPhotoReport(\'' + p.id + '\')" title="Dokumentasi foto proyek ke Google Drive privat" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-700 text-white font-semibold rounded-lg text-xs flex items-center gap-1.5 transition"><i class="fa fa-camera"></i> Foto Laporan</button>' +
-            (p.status !== 'done' ? '<button onclick="markProjectDone(\'' + p.id + '\')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"><i class="fa fa-check"></i> Selesai</button>' : '') +
-            '<button onclick="deleteProject(\'' + p.id + '\')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
-          '</div>' +
-        '</div>';
+      const statusMap={plan:{label:'Perencanaan',color:'bg-blue-50 text-blue-700'},ongoing:{label:'Pengerjaan',color:'bg-orange-50 text-orange-700'},review:{label:'Review Klien',color:'bg-violet-50 text-violet-700'},done:{label:'Selesai',color:'bg-emerald-50 text-emerald-700'}};
+      container.innerHTML=db.projects.map(p=>{
+        const status=statusMap[p.status]||{label:escapeInvoiceHtml(p.status||'Belum diatur'),color:'bg-stone-100 text-stone-600'};
+        const id=escapeInvoiceHtml(p.id);
+        return '<article class="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-sm flex flex-col gap-4 min-w-0">'+
+          '<div class="flex items-start justify-between gap-3"><div class="min-w-0 flex-1">'+
+            '<div class="flex flex-wrap items-center gap-2"><h3 class="font-semibold text-sm text-stone-900 break-words">'+escapeInvoiceHtml(p.title||'Tanpa nama proyek')+'</h3><span class="inline-flex px-2 py-1 rounded-full text-[10px] font-semibold '+status.color+'">'+status.label+'</span></div>'+
+            '<div class="mt-2 grid grid-cols-2 sm:flex sm:flex-wrap gap-x-4 gap-y-2 text-xs text-stone-500">'+
+              '<span class="truncate"><i class="fa fa-user mr-1"></i>'+escapeInvoiceHtml(p.client||'Klien belum diatur')+'</span>'+
+              '<span><i class="fa fa-money mr-1"></i>'+formatRp(p.value)+'</span>'+
+              '<span class="col-span-2 sm:col-span-1"><i class="fa fa-clock-o mr-1"></i>Deadline: '+escapeInvoiceHtml(p.deadline||'-')+'</span>'+
+            '</div></div></div>'+
+          (p.notes?'<p class="text-xs text-stone-600 bg-stone-50 border border-stone-100 rounded-xl p-3 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(p.notes)+'</p>':'')+
+          '<div class="min-w-0">'+renderSOPChecklist(p)+'</div>'+
+          '<div class="text-[10px] text-stone-400">Dokumen CSK: Quotation, Invoice DP, dan Invoice Pelunasan.</div>'+
+          '<div class="grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end gap-2 pt-1 border-t border-stone-100">'+
+            '<button onclick="openInvoiceModal(\''+id+'\')" class="min-h-10 px-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-stone-950 font-semibold text-xs"><i class="fa fa-file-text-o mr-1"></i>Quotation / Invoice</button>'+
+            '<button onclick="openProjectPhotoReport(\''+id+'\')" class="min-h-10 px-3 rounded-xl bg-stone-900 text-white font-semibold text-xs"><i class="fa fa-camera mr-1"></i>Foto Laporan</button>'+
+            (p.status!=='done'?'<button onclick="markProjectDone(\''+id+'\')" class="min-h-10 px-3 rounded-xl bg-emerald-600 text-white font-semibold text-xs"><i class="fa fa-check mr-1"></i>Selesai</button>':'')+
+            '<button onclick="deleteProject(\''+id+'\')" aria-label="Hapus proyek" class="min-h-10 px-3 rounded-xl border border-stone-200 text-stone-500 hover:text-red-600 text-xs"><i class="fa fa-trash mr-1"></i>Hapus</button>'+
+          '</div></article>';
       }).join('');
     }
 
