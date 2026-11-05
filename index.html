@@ -189,6 +189,9 @@
       <button onclick="nav('projects')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-briefcase w-5 text-emerald-400"></i> Pilar 3 · Produksi
       </button>
+      <button onclick="nav('hpp')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
+        <i class="fa fa-calculator w-5 text-cyan-400"></i> HPP & Material
+      </button>
       <button onclick="nav('documents')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-file-text-o w-5 text-amber-400"></i> Dokumen · Quotation & Invoice
       </button>
@@ -427,6 +430,32 @@
         <div id="projects-container" class="space-y-3"></div>
       </section>
 
+      <!-- HPP & MATERIAL CALCULATOR -->
+      <section id="page-hpp" class="page-content hidden space-y-6">
+        <div><span class="inline-flex px-2 py-1 rounded bg-cyan-100 text-cyan-800 text-[10px] font-bold uppercase">Kalkulasi Produksi</span>
+          <h1 class="text-2xl font-bold text-slate-900 mt-2">HPP & Material Calculator</h1>
+          <p class="text-sm text-slate-500">Kelola harga bahan, hitung kebutuhan material, biaya produksi, dan rekomendasi harga penawaran.</p></div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="lg:col-span-1 bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+            <h2 class="font-bold">Database Material</h2>
+            <input id="hpp-mat-name" class="w-full p-2 border rounded-lg text-sm" placeholder="Nama material">
+            <div class="grid grid-cols-2 gap-2"><input id="hpp-mat-unit" class="w-full p-2 border rounded-lg text-sm" placeholder="Satuan (m2, pcs)"><input id="hpp-mat-price" type="number" min="0" class="w-full p-2 border rounded-lg text-sm" placeholder="Harga satuan"></div>
+            <button onclick="addHppMaterial()" class="w-full bg-cyan-700 text-white rounded-lg py-2 text-sm font-semibold">Tambah Material</button>
+            <div id="hpp-material-list" class="space-y-2 max-h-72 overflow-auto"></div>
+          </div>
+          <div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+            <h2 class="font-bold">Kalkulasi HPP Proyek</h2>
+            <select id="hpp-project" class="w-full p-2 border rounded-lg text-sm" onchange="renderHppEstimate()"><option value="">Pilih proyek</option></select>
+            <div class="flex flex-wrap gap-2"><select id="hpp-material" class="flex-1 min-w-40 p-2 border rounded-lg text-sm"></select><input id="hpp-qty" type="number" min="0.01" step="0.01" value="1" class="w-24 p-2 border rounded-lg text-sm" aria-label="Kuantitas"><button onclick="addHppLine()" class="px-3 py-2 bg-slate-800 text-white rounded-lg text-sm">Tambah item</button></div>
+            <div id="hpp-lines" class="space-y-2"></div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2"><label class="text-xs text-slate-600">Tenaga kerja (Rp)<input id="hpp-labor" type="number" min="0" value="0" oninput="calculateHpp()" class="block w-full mt-1 p-2 border rounded-lg text-sm"></label><label class="text-xs text-slate-600">Biaya lain (Rp)<input id="hpp-other" type="number" min="0" value="0" oninput="calculateHpp()" class="block w-full mt-1 p-2 border rounded-lg text-sm"></label><label class="text-xs text-slate-600">Margin (%)<input id="hpp-margin" type="number" min="0" max="500" value="30" oninput="calculateHpp()" class="block w-full mt-1 p-2 border rounded-lg text-sm"></label></div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm"><div class="bg-slate-50 p-3 rounded-lg"><div class="text-xs text-slate-500">Material</div><b id="hpp-material-total">Rp 0</b></div><div class="bg-slate-50 p-3 rounded-lg"><div class="text-xs text-slate-500">Total HPP</div><b id="hpp-total">Rp 0</b></div><div class="bg-slate-50 p-3 rounded-lg"><div class="text-xs text-slate-500">Harga penawaran</div><b id="hpp-price">Rp 0</b></div><div class="bg-slate-50 p-3 rounded-lg"><div class="text-xs text-slate-500">Estimasi laba</div><b id="hpp-profit">Rp 0</b></div></div>
+            <button onclick="saveHppEstimate()" class="bg-emerald-700 text-white rounded-lg px-4 py-2 text-sm font-semibold">Simpan HPP Proyek</button>
+            <div id="hpp-saved-list" class="pt-3 border-t space-y-2"></div>
+          </div>
+        </div>
+      </section>
+
       <!-- DOCUMENT CENTER: QUOTATION & INVOICE -->
       <section id="page-documents" class="page-content hidden space-y-6">
         <div>
@@ -660,6 +689,9 @@
       </button>
       <button onclick="nav('projects')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
         <i class="fa fa-briefcase text-base mb-0.5"></i>Proyek
+      </button>
+      <button onclick="nav('hpp')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
+        <i class="fa fa-calculator text-base mb-0.5"></i>HPP
       </button>
       <button onclick="nav('documents')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
         <i class="fa fa-file-text-o text-base mb-0.5"></i>Dokumen
@@ -1166,6 +1198,8 @@
       finance: [],
       memory: [],
       marketingSpend: [],
+      materials: [],
+      costSheets: [],
       settings: {
         googleSheetUrl: '',
         apiToken: '',
@@ -1188,6 +1222,8 @@
           db.finance        = parsed.finance        || [];
           db.memory         = parsed.memory         || [];
           db.marketingSpend = parsed.marketingSpend || [];
+          db.materials = parsed.materials || [];
+          db.costSheets = parsed.costSheets || [];
           db.settings       = parsed.settings       || { googleSheetUrl: '', lastSync: '' };
           db.role           = parsed.role           || 'owner';
         } catch (e) {
@@ -1281,6 +1317,7 @@
       const target = document.getElementById('page-' + page);
       if (target) target.classList.remove('hidden');
       if (page === 'documents') renderDocuments();
+      if (page === 'hpp') renderHpp();
 
       document.querySelectorAll('.nav-btn').forEach(btn => {
         const isCurrent = btn.getAttribute('onclick').includes(page);
@@ -1660,6 +1697,57 @@
           '</div>' +
         '</div>';
       }).join('');
+    }
+
+    // ============== HPP & MATERIAL CALCULATOR ==============
+    let hppLines = [];
+    function renderHpp() {
+      db.materials = db.materials || []; db.costSheets = db.costSheets || [];
+      const project = document.getElementById('hpp-project');
+      if (project) project.innerHTML = '<option value="">Pilih proyek</option>' + db.projects.map(p => '<option value="' + escapeInvoiceHtml(p.id) + '">' + escapeInvoiceHtml(p.title || p.id) + '</option>').join('');
+      const mats = document.getElementById('hpp-material-list');
+      if (mats) mats.innerHTML = db.materials.length ? db.materials.map(m => '<div class="flex justify-between gap-2 text-xs border-b pb-2"><span>' + escapeInvoiceHtml(m.name) + ' · ' + escapeInvoiceHtml(m.unit) + '</span><b>' + formatRp(m.unitPrice) + '</b></div>').join('') : '<p class="text-xs text-slate-400">Belum ada material.</p>';
+      const select = document.getElementById('hpp-material');
+      if (select) select.innerHTML = db.materials.map(m => '<option value="' + escapeInvoiceHtml(m.id) + '">' + escapeInvoiceHtml(m.name) + ' (' + formatRp(m.unitPrice) + '/' + escapeInvoiceHtml(m.unit) + ')</option>').join('');
+      renderHppEstimate(); renderHppSaved();
+    }
+    function addHppMaterial() {
+      const name = document.getElementById('hpp-mat-name').value.trim(), unit = document.getElementById('hpp-mat-unit').value.trim(), unitPrice = Number(document.getElementById('hpp-mat-price').value);
+      if (!name || !unit || !Number.isFinite(unitPrice) || unitPrice < 0) return showToast('Isi nama, satuan, dan harga material dengan benar.', true);
+      db.materials.push({id:'MAT-'+Date.now(),name,unit,unitPrice,updatedAt:new Date().toISOString()});
+      document.getElementById('hpp-mat-name').value=''; document.getElementById('hpp-mat-unit').value=''; document.getElementById('hpp-mat-price').value='';
+      saveDB(); renderHpp(); showToast('Material ditambahkan.');
+    }
+    function addHppLine() {
+      const id=document.getElementById('hpp-material').value, qty=Number(document.getElementById('hpp-qty').value), m=db.materials.find(x=>x.id===id);
+      if(!m || !Number.isFinite(qty) || qty<=0) return showToast('Pilih material dan kuantitas lebih dari nol.',true);
+      hppLines.push({materialId:m.id,name:m.name,unit:m.unit,qty,unitPrice:Number(m.unitPrice),subtotal:qty*Number(m.unitPrice)});
+      renderHppEstimate();
+    }
+    function calculateHpp() {
+      const materialTotal=hppLines.reduce((s,x)=>s+x.subtotal,0), labor=Math.max(0,Number(document.getElementById('hpp-labor').value)||0), other=Math.max(0,Number(document.getElementById('hpp-other').value)||0), margin=Math.min(500,Math.max(0,Number(document.getElementById('hpp-margin').value)||0));
+      const total=materialTotal+labor+other, price=Math.ceil(total*(1+margin/100)), profit=price-total;
+      document.getElementById('hpp-material-total').innerText=formatRp(materialTotal); document.getElementById('hpp-total').innerText=formatRp(total); document.getElementById('hpp-price').innerText=formatRp(price); document.getElementById('hpp-profit').innerText=formatRp(profit);
+      return {materialTotal,labor,other,margin,total,price,profit};
+    }
+    function renderHppEstimate() {
+      const el=document.getElementById('hpp-lines'); if(!el)return;
+      el.innerHTML=hppLines.map((x,i)=>'<div class="flex justify-between items-center gap-2 text-xs border rounded-lg p-2"><span>'+escapeInvoiceHtml(x.name)+' · '+x.qty+' '+escapeInvoiceHtml(x.unit)+' × '+formatRp(x.unitPrice)+'</span><b>'+formatRp(x.subtotal)+'</b><button onclick="removeHppLine('+i+')" class="text-red-600">Hapus</button></div>').join('') || '<p class="text-xs text-slate-400">Belum ada item material.</p>';
+      calculateHpp();
+    }
+    function removeHppLine(i) { hppLines.splice(i,1); renderHppEstimate(); }
+    function saveHppEstimate() {
+      const projectId=document.getElementById('hpp-project').value, project=db.projects.find(p=>p.id===projectId);
+      if(!project) return showToast('Pilih proyek terlebih dahulu.',true);
+      if(!hppLines.length) return showToast('Tambahkan minimal satu material.',true);
+      const totals=calculateHpp(), record={id:'HPP-'+projectId,projectId,projectName:project.title||'',items:hppLines.map(x=>({...x})),...totals,updatedAt:new Date().toISOString()};
+      const idx=db.costSheets.findIndex(x=>x.id===record.id); if(idx>=0) db.costSheets[idx]=record; else db.costSheets.push(record);
+      project.hpp=totals.total; project.estimatedCost=totals.total; project.suggestedPrice=totals.price;
+      saveDB(); renderHppSaved(); showToast('HPP proyek tersimpan dan disinkronkan.');
+    }
+    function renderHppSaved() {
+      const el=document.getElementById('hpp-saved-list'); if(!el)return;
+      el.innerHTML='<h3 class="font-semibold text-sm">HPP tersimpan</h3>'+(db.costSheets||[]).map(x=>'<div class="text-xs flex flex-wrap justify-between gap-2 border-b py-2"><span>'+escapeInvoiceHtml(x.projectName)+' · HPP '+formatRp(x.total)+'</span><b>Penawaran '+formatRp(x.price)+'</b></div>').join('');
     }
 
     // ============== DOCUMENT CENTER ==============
@@ -2423,7 +2511,9 @@
           projects: db.projects,
           finance: db.finance,
           memory: db.memory,
-          marketingSpend: db.marketingSpend
+          marketingSpend: db.marketingSpend,
+          materials: db.materials || [],
+          costSheets: db.costSheets || []
         };
 
         await fetch(url, {
@@ -2468,6 +2558,8 @@
         db.finance        = d.finance        || [];
         db.memory         = d.memory         || [];
         db.marketingSpend = d.marketingSpend || [];
+        db.materials = d.materials || [];
+        db.costSheets = d.costSheets || [];
         db.settings.lastSync = d.lastSynced || new Date().toISOString();
 
         localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -2507,6 +2599,8 @@
         db.finance        = mergeById(d.finance, db.finance);
         db.memory         = mergeById(d.memory, db.memory);
         db.marketingSpend = mergeById(d.marketingSpend, db.marketingSpend);
+        db.materials = mergeById(d.materials, db.materials);
+        db.costSheets = mergeById(d.costSheets, db.costSheets);
         db.settings.lastSync = d.lastSynced || new Date().toISOString();
 
         localStorage.setItem(DB_KEY, JSON.stringify(db));
