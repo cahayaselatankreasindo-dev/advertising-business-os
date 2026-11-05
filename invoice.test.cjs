@@ -62,4 +62,12 @@ assert.ok(html.includes('db.materials = parsed.materials || []'), 'materials loc
 assert.ok(html.includes('db.costSheets = parsed.costSheets || []'), 'cost sheet local persistence migration exists');
 assert.ok(html.includes('materials: db.materials || []'), 'materials included in sync payload');
 assert.ok(html.includes('costSheets: db.costSheets || []'), 'cost sheets included in sync payload');
-console.log('CSK invoice, HPP calculator, material and project cost-sheet checks passed.');
+
+assert.ok(html.includes('id="page-services"'), 'services catalog page exists');
+assert.ok(html.includes('function addService()'), 'service create handler exists');
+assert.ok(html.includes('id="page-purchasing"'), 'purchasing page exists');
+assert.ok(html.includes('function createPurchaseOrder()'), 'purchase order create handler exists');
+assert.ok(html.includes('function updatePoStatus(id,status)'), 'purchase order status workflow exists');
+assert.ok(html.includes('services: db.services || []'), 'services included in sync payload');
+assert.ok(html.includes('purchaseOrders: db.purchaseOrders || []'), 'purchase orders included in sync payload');
+console.log('CSK invoice, HPP, services catalog, and purchasing workflow checks passed.');
