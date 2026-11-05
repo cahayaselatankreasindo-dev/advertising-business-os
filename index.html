@@ -153,6 +153,53 @@
       }
       .no-print { display: none !important; }
     }
+
+    /* CSK Professional Operations Dashboard: Linear x Stripe, light mode */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    :root { --csk-paper:#F8F7F4; --csk-ink:#0B0B0B; --csk-muted:#666666; --csk-line:#EAE8E3; --csk-orange:#FF8A3D; --csk-card:#FFFFFF; }
+    html, body { background:var(--csk-paper); color:var(--csk-ink); font-family:Inter,system-ui,-apple-system,sans-serif; }
+    body { letter-spacing:-.01em; }
+    h1,h2,h3,.font-heading,.font-csk { font-family:Inter,system-ui,sans-serif !important; letter-spacing:-.035em; }
+    aside.hidden.md\\:flex, body > div > aside { background:#FFFFFF !important; color:#4B4B4B !important; border-color:var(--csk-line) !important; }
+    aside nav .nav-btn { color:#525252 !important; border-radius:10px !important; padding:10px 12px !important; }
+    aside nav .nav-btn:hover { background:#F4F3F0 !important; color:#111111 !important; }
+    aside nav .nav-btn.bg-slate-800 { background:#F1F0ED !important; color:#0B0B0B !important; font-weight:700; }
+    aside nav .nav-btn i { color:#777777 !important; }
+    .csk-brand-header { background:rgba(255,255,255,.94) !important; border-color:var(--csk-line) !important; backdrop-filter:blur(14px); }
+    main { background:var(--csk-paper); }
+    main .bg-white { border-color:var(--csk-line) !important; box-shadow:0 1px 2px rgba(20,20,20,.035) !important; }
+    main .rounded-xl { border-radius:14px !important; }
+    main .rounded-2xl { border-radius:16px !important; }
+    main button, main input, main select, main textarea { font-family:Inter,system-ui,sans-serif; }
+    main input, main select, main textarea { border-color:#E4E2DD !important; border-radius:9px !important; min-height:40px; }
+    main input:focus, main select:focus, main textarea:focus { outline:2px solid rgba(255,138,61,.22) !important; border-color:var(--csk-orange) !important; }
+    main button[class*="bg-amber-600"], main button[class*="bg-amber-500"], main button[class*="bg-orange-600"] { background:#FF8A3D !important; color:#171717 !important; }
+    .csk-mobile-more { position:fixed; inset:0; z-index:60; background:rgba(10,10,10,.28); display:none; align-items:flex-end; }
+    .csk-mobile-more.open { display:flex; }
+    .csk-mobile-more-panel { width:100%; background:#FFFFFF; border-radius:22px 22px 0 0; padding:18px 18px calc(22px + env(safe-area-inset-bottom)); box-shadow:0 -12px 36px rgba(0,0,0,.12); }
+    .csk-mobile-more-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .csk-mobile-more-grid button { min-height:76px; border:1px solid var(--csk-line); border-radius:13px; background:#FAF9F7; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; color:#333; font-size:11px; font-weight:600; }
+    .csk-mobile-more-grid i { font-size:18px; color:#FF8A3D; }
+    .pillar-mobile-nav { background:rgba(255,255,255,.96) !important; border-color:var(--csk-line) !important; box-shadow:0 -4px 20px rgba(0,0,0,.045); padding:8px 5px calc(8px + env(safe-area-inset-bottom)) !important; backdrop-filter:blur(16px); }
+    .pillar-mobile-nav .mob-btn { min-width:56px; min-height:48px; justify-content:center; gap:3px; color:#777 !important; font-size:10px !important; font-weight:600; }
+    .pillar-mobile-nav .mob-btn i { font-size:17px !important; }
+    .pillar-mobile-nav .mob-btn.text-amber-500 { color:#0B0B0B !important; }
+    .pillar-mobile-nav .mob-btn.text-amber-500 i { color:var(--csk-orange) !important; }
+    @media(max-width:767px) {
+      body { background:var(--csk-paper) !important; }
+      .csk-brand-header { min-height:62px !important; padding:9px 14px !important; }
+      main { padding:16px 14px 112px !important; }
+      main .page-content { gap:18px !important; }
+      main h1 { font-size:24px !important; line-height:1.2 !important; }
+      main .grid.grid-cols-2 { gap:10px !important; }
+      main .grid.grid-cols-2 > div { padding:13px !important; }
+      main .grid.grid-cols-2 > div .text-2xl { font-size:23px !important; }
+      main button { min-height:40px; }
+      main table { min-width:0 !important; width:100% !important; }
+      main .overflow-x-auto { max-width:100%; }
+      main .overflow-x-auto table { min-width:620px !important; }
+      .csk-mobile-more-panel { max-height:82vh; overflow:auto; }
+    }
   </style>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden select-none">
@@ -707,34 +754,29 @@
     </main>
 
     <!-- BOTTOM NAVIGATION (MOBILE) -->
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 flex justify-around py-2 z-40 pillar-mobile-nav">
-      <button onclick="nav('dashboard')" class="mob-btn flex flex-col items-center text-[10px] text-amber-500 active">
-        <i class="fa fa-tachometer text-base mb-0.5"></i>Dasbor
-      </button>
-      <button onclick="nav('leads')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
-        <i class="fa fa-bullseye text-base mb-0.5"></i>Leads
-      </button>
-      <button onclick="nav('projects')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
-        <i class="fa fa-briefcase text-base mb-0.5"></i>Proyek
-      </button>
-      <button onclick="nav('services')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400"><i class="fa fa-cubes text-base mb-0.5"></i>Layanan</button>
-      <button onclick="nav('purchasing')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400"><i class="fa fa-shopping-cart text-base mb-0.5"></i>PO</button>
-      <button onclick="nav('hpp')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
-        <i class="fa fa-calculator text-base mb-0.5"></i>HPP
-      </button>
-      <button onclick="nav('documents')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
-        <i class="fa fa-file-text-o text-base mb-0.5"></i>Dokumen
-      </button>
-      <button onclick="nav('clients')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
-        <i class="fa fa-users text-base mb-0.5"></i>Klien
-      </button>
-      <button onclick="nav('marketing')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400 pillar-marketing-mob">
-        <i class="fa fa-ad text-base mb-0.5"></i>Iklan
-      </button>
-      <button onclick="nav('settings')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
-        <i class="fa fa-cog text-base mb-0.5"></i>Pengaturan
-      </button>
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 pillar-mobile-nav flex justify-around items-center">
+      <button onclick="nav('dashboard')" class="mob-btn flex flex-col items-center text-[10px] text-amber-500"><i class="fa fa-home"></i>Home</button>
+      <button onclick="nav('leads')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400"><i class="fa fa-bullseye"></i>Leads</button>
+      <button onclick="nav('projects')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400"><i class="fa fa-briefcase"></i>Proyek</button>
+      <button onclick="nav('hpp')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400"><i class="fa fa-calculator"></i>HPP</button>
+      <button onclick="toggleMobileMore(true)" class="mob-btn flex flex-col items-center text-[10px] text-slate-400"><i class="fa fa-th-large"></i>Lainnya</button>
     </nav>
+    <div id="csk-mobile-more" class="csk-mobile-more" onclick="if(event.target===this)toggleMobileMore(false)">
+      <div class="csk-mobile-more-panel">
+        <div class="flex items-center justify-between mb-4"><div><div class="font-bold text-base">Semua Modul</div><div class="text-xs text-slate-500 mt-1">Akses operasional CSK</div></div><button onclick="toggleMobileMore(false)" class="w-9 h-9 rounded-full bg-stone-100"><i class="fa fa-times"></i></button></div>
+        <div class="csk-mobile-more-grid">
+          <button onclick="mobileGo('documents')"><i class="fa fa-file-text-o"></i>Quotation & Invoice</button>
+          <button onclick="mobileGo('services')"><i class="fa fa-cubes"></i>Layanan CSK</button>
+          <button onclick="mobileGo('purchasing')"><i class="fa fa-shopping-cart"></i>Purchasing & PO</button>
+          <button onclick="mobileGo('clients')"><i class="fa fa-users"></i>Klien</button>
+          <button onclick="mobileGo('finance')" class="pillar-finance"><i class="fa fa-line-chart"></i>Keuangan</button>
+          <button onclick="mobileGo('marketing')" class="pillar-marketing-mob"><i class="fa fa-bullhorn"></i>Iklan</button>
+          <button onclick="mobileGo('analysis')"><i class="fa fa-bar-chart"></i>Analisis</button>
+          <button onclick="mobileGo('memory')"><i class="fa fa-sticky-note-o"></i>Catatan</button>
+          <button onclick="mobileGo('settings')"><i class="fa fa-cog"></i>Pengaturan</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- MODALS -->
@@ -1348,6 +1390,12 @@
 
     // ============== NAVIGATION ==============
 
+    function toggleMobileMore(open) {
+      const panel=document.getElementById('csk-mobile-more');
+      if(panel) panel.classList.toggle('open',!!open);
+    }
+    function mobileGo(page) { toggleMobileMore(false); nav(page); }
+
     function nav(page) {
       document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
       const target = document.getElementById('page-' + page);
@@ -1356,6 +1404,7 @@
       if (page === 'hpp') renderHpp();
       if (page === 'services') renderServices();
       if (page === 'purchasing') renderPurchasing();
+      toggleMobileMore(false);
 
       document.querySelectorAll('.nav-btn').forEach(btn => {
         const isCurrent = btn.getAttribute('onclick').includes(page);
