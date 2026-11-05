@@ -124,5 +124,14 @@ assert.ok(html.includes('function renderProjects()'), 'project renderer exists')
 assert.ok(html.includes('escapeInvoiceHtml(p.title||\'Tanpa nama proyek\')'), 'project titles are HTML-escaped');
 assert.ok(html.includes('escapeInvoiceHtml(p.notes)'), 'project notes are HTML-escaped');
 assert.ok(html.includes('grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end gap-2'), 'project actions use touch-friendly mobile grid');
-console.log('CSK CRM, project mobile cards, HPP, quotation, and design system regression checks passed.');
+
+assert.ok(html.includes('function editPoLine(index)'), 'purchase order line items can be edited');
+assert.ok(html.includes('onclick="editPoLine('), 'purchase order edit action is wired');
+assert.ok(html.includes('bg-stone-50/70 p-3 flex flex-col gap-2'), 'HPP material cards use mobile-first layout');
+assert.ok(html.includes('function renderPoList()'), 'purchase order renderer exists');
+assert.ok(html.includes('rounded-2xl p-4 sm:p-5 shadow-sm space-y-3'), 'purchase orders use responsive cards');
+assert.ok(html.includes('function renderFinance()'), 'finance renderer exists');
+assert.ok(html.includes('escapeInvoiceHtml(f.description||\'Transaksi\')'), 'finance descriptions are escaped');
+assert.ok(html.includes('sm:flex-row sm:items-center sm:justify-between gap-3'), 'finance transactions adapt to mobile cards');
+console.log('CSK CRM, projects, HPP, purchasing, finance, quotations, and responsive design checks passed.');
 
