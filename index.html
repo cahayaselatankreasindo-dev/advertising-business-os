@@ -1070,6 +1070,7 @@
             <option value="pelunasan">Invoice Pelunasan</option>
             <option value="penawaran">Surat Penawaran (Quotation)</option>
           </select>
+          <button id="inv-save-quotation" onclick="saveQuotationSnapshot()" class="hidden bg-violet-600 hover:bg-violet-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs"><i class="fa fa-save"></i> Simpan Quotation</button>
           <button onclick="window.print()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition">
             <i class="fa fa-print"></i> Cetak / PDF
           </button>
@@ -1231,6 +1232,7 @@
       costSheets: [],
       services: [],
       purchaseOrders: [],
+      quotationSnapshots: [],
       settings: {
         googleSheetUrl: '',
         apiToken: '',
@@ -1257,6 +1259,7 @@
           db.costSheets = parsed.costSheets || [];
           db.services = parsed.services || [];
           db.purchaseOrders = parsed.purchaseOrders || [];
+          db.quotationSnapshots = parsed.quotationSnapshots || [];
           db.settings       = parsed.settings       || { googleSheetUrl: '', lastSync: '' };
           db.role           = parsed.role           || 'owner';
         } catch (e) {
@@ -2371,6 +2374,53 @@
     // ============== INVOICE & PENAWARAN (CSK BRANDING) ==============
 
     let currentActiveProject = null;
+    // ============== QUOTATION <-> HPP INTEGRATION ==============
+    function getProjectCostSheet(projectId) {
+      return (db.costSheets || []).find(x => x.projectId === projectId) || null;
+    }
+    function buildQuotationSnapshot(project) {
+      const sheet=getProjectCostSheet(project.id);
+      if(!sheet) throw new Error('HPP proyek belum tersedia. Simpan HPP terlebih dahulu sebelum membuat quotation terperinci.');
+      const costItems=(sheet.items||[]).filter(x=>Number(x.qty)>0 && Number(x.unitPrice)>=0);
+      const costBase=Number(sheet.total)||0, sellingTotal=Number(sheet.price)||0;
+      if(!costItems.length || costBase<=0 || sellingTotal<=0) throw new Error('HPP belum memiliki item material dan nilai penawaran yang valid.');
+      const weighted=costItems.map(x=>({name:x.name,description:'',qty:Number(x.qty),unit:x.unit, cost:Number(x.qty)*Number(x.unitPrice)}));
+      const extras=[];
+      if(Number(sheet.labor)>0) extras.push({name:'Jasa tenaga kerja dan fabrikasi',qty:1,unit:'Lot',cost:Number(sheet.labor)});
+      if(Number(sheet.other)>0) extras.push({name:'Biaya operasional dan pendukung',qty:1,unit:'Lot',cost:Number(sheet.other)});
+      const baseLines=weighted.concat(extras);
+      let allocated=0;
+      const lines=baseLines.map((x,i)=>{
+        const lineTotal=i===baseLines.length-1 ? sellingTotal-allocated : Math.round(sellingTotal*x.cost/costBase);
+        allocated+=lineTotal;
+        return {id:'QL-'+(i+1),name:x.name,description:x.description||'',qty:x.qty,unit:x.unit,unitPrice:Math.round(lineTotal/x.qty),lineTotal};
+      });
+      if(lines.length) lines[lines.length-1].lineTotal += sellingTotal-lines.reduce((s,x)=>s+x.lineTotal,0);
+      const now=new Date().toISOString();
+      return {id:'QUO-'+project.id,projectId:project.id,projectName:project.title||'',client:project.client||'',deadline:project.deadline||'',notes:project.notes||'',lines,total:sellingTotal,sourceCostSheetId:sheet.id,sourceCostSheetUpdatedAt:sheet.updatedAt||'',dpPercent:Number(project.dpPercent)||50,status:'draft',createdAt:now,updatedAt:now};
+    }
+    function saveQuotationSnapshot() {
+      if(!currentActiveProject || currentInvoiceType!=='penawaran') return;
+      let snapshot;
+      try { snapshot=buildQuotationSnapshot(currentActiveProject); }
+      catch(err) { showToast(err.message,true); return; }
+      const existing=(db.quotationSnapshots||[]).find(x=>x.projectId===currentActiveProject.id);
+      if(existing) {
+        if(!confirm('Perbarui quotation tersimpan dengan data HPP terbaru? Snapshot sebelumnya akan diganti.'))return;
+        snapshot.id=existing.id; snapshot.createdAt=existing.createdAt;
+      }
+      db.quotationSnapshots=db.quotationSnapshots||[];
+      const i=db.quotationSnapshots.findIndex(x=>x.projectId===snapshot.projectId);
+      if(i>=0) db.quotationSnapshots[i]=snapshot; else db.quotationSnapshots.push(snapshot);
+      currentActiveProject.suggestedPrice=snapshot.total;
+      saveDB();
+      renderInvoiceDocument();
+      showToast('Quotation tersimpan. Nilai dan rincian sudah menjadi snapshot.');
+    }
+    function getActiveQuotationSnapshot() {
+      return currentActiveProject && (db.quotationSnapshots||[]).find(x=>x.projectId===currentActiveProject.id) || null;
+    }
+
     let currentInvoiceType = 'dp'; // 'dp' | 'pelunasan' | 'penawaran'
     let currentInvoiceDpPercent = 50;
 
@@ -2425,7 +2475,9 @@
     function renderInvoiceDocument() {
       if (!currentActiveProject) return;
       const p = currentActiveProject;
-      const totalVal = Number((currentInvoiceType === 'penawaran' && p.suggestedPrice) ? p.suggestedPrice : (p.value || 0));
+      const quotationSnapshot=currentInvoiceType==='penawaran'?getActiveQuotationSnapshot():null;
+      const costSheet=currentInvoiceType==='penawaran'?getProjectCostSheet(p.id):null;
+      const totalVal = Number((currentInvoiceType === 'penawaran' && quotationSnapshot ? quotationSnapshot.total : (currentInvoiceType === 'penawaran' && costSheet ? costSheet.price : (p.value || 0))));
       const amounts = calculateInvoiceAmounts(totalVal, currentInvoiceType, currentInvoiceDpPercent);
       const todayStr = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -2473,19 +2525,22 @@
         document.getElementById('inv-calc-sub').innerText = formatRp(billAmount);
       }
 
+      const saveQuoteBtn=document.getElementById('inv-save-quotation');
+      if(saveQuoteBtn) {
+        saveQuoteBtn.classList.toggle('hidden',currentInvoiceType!=='penawaran');
+        const savedQuote=currentInvoiceType==='penawaran' && quotationSnapshot;
+        saveQuoteBtn.innerHTML=savedQuote?'<i class="fa fa-refresh"></i> Perbarui Snapshot':'<i class="fa fa-save"></i> Simpan Quotation';
+      }
       const badgeEl = document.getElementById('inv-doc-badge');
       badgeEl.innerText = badgeText;
       badgeEl.className = 'inline-block px-3 py-1 rounded font-extrabold text-xs uppercase tracking-wider mb-2 ' + badgeClass;
 
-      tbody.innerHTML = '<tr>' +
-        '<td class="py-3 px-3 font-semibold text-slate-900">' +
-          '<div>' + escapeInvoiceHtml(itemTitle) + '</div>' +
-          (p.notes ? '<div class="text-[11px] font-normal text-slate-500 mt-0.5">' + escapeInvoiceHtml(p.notes) + '</div>' : '') +
-          '<div class="text-[10px] text-amber-700 mt-1">&bull; Termasuk fabrikasi, perakitan, dan quality-control standar workshop CSK Serpong</div>' +
-        '</td>' +
-        '<td class="py-3 px-3 text-center text-slate-600 font-semibold">1 Lot</td>' +
-        '<td class="py-3 px-3 text-right font-bold text-slate-900">' + formatRp(billAmount) + '</td>' +
-      '</tr>';
+      const quotationLines=currentInvoiceType==='penawaran'
+        ? (quotationSnapshot ? quotationSnapshot.lines : (costSheet ? buildQuotationSnapshot(p).lines : [{name:itemTitle,qty:1,unit:'Lot',unitPrice:totalVal,lineTotal:totalVal}]))
+        : [{name:itemTitle,qty:1,unit:'Lot',unitPrice:billAmount,lineTotal:billAmount}];
+      tbody.innerHTML = quotationLines.map(function(line){
+        return '<tr><td class="py-3 px-3 font-semibold text-slate-900"><div>'+escapeInvoiceHtml(line.name)+'</div></td><td class="py-3 px-3 text-center text-slate-600 font-semibold">'+escapeInvoiceHtml(line.qty)+' '+escapeInvoiceHtml(line.unit)+'</td><td class="py-3 px-3 text-right font-bold text-slate-900">'+formatRp(line.lineTotal)+'</td></tr>';
+      }).join('') + (p.notes ? '<tr><td colspan="3" class="px-3 py-2 text-[11px] text-slate-500">'+escapeInvoiceHtml(p.notes)+'</td></tr>' : '');
 
       document.getElementById('inv-calc-total').innerText = formatRp(totalVal);
       document.getElementById('inv-calc-grand').innerText = formatRp(billAmount);
@@ -2505,7 +2560,7 @@
         ? 'Estimasi Nilai Proyek: ' + formatRp(totalVal) + '\n' + '*Total Penawaran: ' + formatRp(billAmount) + '*\n'
         : 'Total Nilai Proyek: ' + formatRp(totalVal) + '\n' +
           (isDP
-            ? '*Tagihan DP 50%: ' + formatRp(billAmount) + '*\n'
+            ? '*Tagihan DP ' + currentInvoiceDpPercent + '%: ' + formatRp(billAmount) + '*\n'
             : 'DP ' + currentInvoiceDpPercent + '% yang telah ditagihkan: ' + formatRp(amounts.dpAmount) + '\n' +
               '*Sisa Pelunasan: ' + formatRp(billAmount) + '*\n');
 
@@ -2669,7 +2724,8 @@
           materials: db.materials || [],
           costSheets: db.costSheets || [],
           services: db.services || [],
-          purchaseOrders: db.purchaseOrders || []
+          purchaseOrders: db.purchaseOrders || [],
+          quotationSnapshots: db.quotationSnapshots || []
         };
 
         await fetch(url, {
@@ -2718,6 +2774,7 @@
         db.costSheets = d.costSheets || [];
         db.services = d.services || [];
         db.purchaseOrders = d.purchaseOrders || [];
+        db.quotationSnapshots = d.quotationSnapshots || [];
         db.settings.lastSync = d.lastSynced || new Date().toISOString();
 
         localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -2761,6 +2818,7 @@
         db.costSheets = mergeById(d.costSheets, db.costSheets);
         db.services = mergeById(d.services, db.services);
         db.purchaseOrders = mergeById(d.purchaseOrders, db.purchaseOrders);
+        db.quotationSnapshots = mergeById(d.quotationSnapshots, db.quotationSnapshots);
         db.settings.lastSync = d.lastSynced || new Date().toISOString();
 
         localStorage.setItem(DB_KEY, JSON.stringify(db));
