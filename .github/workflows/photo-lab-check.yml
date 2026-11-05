@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'index.html'
+      - 'README.md'
+      - 'google_apps_script.js'
       - 'sw.js'
       - 'apps-script/Code.gs'
       - 'photo-lab/**'
@@ -14,6 +16,7 @@ on:
   push:
     branches:
       - 'restore/photo-reports-owner-only-20261105'
+      - 'fix/deal-won-idempotency-20261105'
 jobs:
   source-checks:
     runs-on: ubuntu-latest
@@ -28,5 +31,7 @@ jobs:
         run: node invoice.test.cjs
       - name: Validate Apps Script POST transport
         run: node sync.test.cjs
-      - name: Validate idempotent deal conversion and cash accounting
-        run: node deal-conversion.test.cjs
+      - name: Validate canonical Apps Script source and idempotent deal conversion
+        run: |
+          node --check google_apps_script.js
+          node deal-conversion.test.cjs
