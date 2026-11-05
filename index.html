@@ -2016,32 +2016,25 @@
     // ============== FINANCE ==============
 
     function renderFinance() {
-      const income = db.finance.filter(f => f.type === 'income').reduce((a, b) => a + Number(b.amount || 0), 0);
-      const expense = db.finance.filter(f => f.type === 'expense').reduce((a, b) => a + Number(b.amount || 0), 0);
-      document.getElementById('fin-income').innerText = formatRp(income);
-      document.getElementById('fin-expense').innerText = formatRp(expense);
-      document.getElementById('fin-balance').innerText = formatRp(income - expense);
-
-      const tableEl = document.getElementById('finance-table');
-      if (db.finance.length === 0) {
-        tableEl.innerHTML = '<div class="p-6 text-center text-xs text-slate-400">Belum ada transaksi tercatat.</div>';
+      const income=db.finance.filter(f=>f.type==='income').reduce((a,b)=>a+Number(b.amount||0),0);
+      const expense=db.finance.filter(f=>f.type==='expense').reduce((a,b)=>a+Number(b.amount||0),0);
+      document.getElementById('fin-income').innerText=formatRp(income);
+      document.getElementById('fin-expense').innerText=formatRp(expense);
+      document.getElementById('fin-balance').innerText=formatRp(income-expense);
+      const tableEl=document.getElementById('finance-table');
+      if(!db.finance.length) {
+        tableEl.innerHTML='<div class="p-6 text-center text-xs text-stone-400">Belum ada transaksi tercatat.</div>';
         return;
       }
-      tableEl.innerHTML = db.finance.slice().reverse().map(f =>
-        '<div class="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition">' +
-          '<div class="space-y-0.5">' +
-            '<div class="font-bold text-slate-800">' + f.description + '</div>' +
-            '<div class="text-[11px] text-slate-400">' + f.date + ' &bull; ' + f.category + '</div>' +
-          '</div>' +
-          '<div class="flex items-center gap-3">' +
-            '<span class="font-heading font-bold ' + (f.type === 'income' ? 'text-teal-600' : 'text-red-600') + '">' +
-              (f.type === 'income' ? '+' : '-') + ' ' + formatRp(f.amount) +
-            '</span>' +
-            '<button onclick="deleteFinance(\'' + f.id + '\')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
-          '</div>' +
-        '</div>'
-      ).join('');
+      tableEl.innerHTML=db.finance.slice().reverse().map(f=>{
+        const isIncome=f.type==='income';
+        return '<article class="p-4 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-stone-50/70">'+
+          '<div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><span class="inline-flex px-2 py-1 rounded-full text-[10px] font-semibold '+(isIncome?'bg-emerald-50 text-emerald-700':'bg-red-50 text-red-700')+'">'+(isIncome?'Pemasukan':'Pengeluaran')+'</span><span class="text-[11px] text-stone-400">'+escapeInvoiceHtml(f.date||'-')+'</span></div>'+
+          '<div class="font-semibold text-sm text-stone-800 mt-1 break-words">'+escapeInvoiceHtml(f.description||'Transaksi')+'</div><div class="text-xs text-stone-500 mt-1">'+escapeInvoiceHtml(f.category||'Tanpa kategori')+'</div></div>'+
+          '<div class="flex items-center justify-between sm:justify-end gap-3"><span class="font-bold text-sm whitespace-nowrap '+(isIncome?'text-emerald-700':'text-red-600')+'">'+(isIncome?'+ ':'− ')+formatRp(f.amount)+'</span><button onclick="deleteFinance(\\''+escapeInvoiceHtml(f.id)+'\\')" aria-label="Hapus transaksi" class="w-9 h-9 rounded-lg border border-stone-200 text-stone-400 hover:text-red-600"><i class="fa fa-trash"></i></button></div></article>';
+      }).join('');
     }
+
 
     function updateFinanceCategories() {
       const type = document.getElementById('fin-type').value;
