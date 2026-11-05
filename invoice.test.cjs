@@ -150,5 +150,13 @@ assert.ok(html.includes('escapeInvoiceHtml(p.client || \'-\')'), 'dashboard clie
 
 assert.ok(html.includes('const netProfit = totalIncome - totalExpense - totalMktSpend;'), 'dashboard net profit includes separately tracked marketing spend');
 assert.ok(html.includes('const marginPct = totalIncome ? Math.round((netProfit / totalIncome) * 100) : 0;'), 'dashboard margin uses corrected net profit');
-console.log('CSK CRM, clients, services, projects, HPP, purchasing, finance, marketing, strategy notes, profit consistency and responsive design checks passed.');
+
+const waStart = html.indexOf('function copyInvoiceWA()');
+const waEnd = html.indexOf('function submitFinance(e)', waStart);
+assert.ok(waStart >= 0 && waEnd > waStart, 'WhatsApp invoice action exists');
+const waFunction = html.slice(waStart, waEnd);
+assert.ok(waFunction.includes("const quotationSnapshot = currentInvoiceType === 'penawaran' ? getActiveQuotationSnapshot() : null;"), 'WhatsApp quotation reads the saved quotation snapshot');
+assert.ok(waFunction.includes("const costSheet = getProjectCostSheet(p.id);"), 'WhatsApp invoice reads the project HPP sheet');
+assert.ok(waFunction.includes("const totalVal = Number(quotationSnapshot ? quotationSnapshot.total : (costSheet ? costSheet.price : (p.value || 0)));"), 'WhatsApp and printable document use the same project total source');
+console.log('CSK invoice/quotation parity, CRM, HPP, purchasing, finance, marketing, strategy notes, profit consistency and responsive design checks passed.');
 
