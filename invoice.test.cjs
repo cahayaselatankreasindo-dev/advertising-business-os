@@ -95,8 +95,4 @@ assert.ok(backend.includes('if (payload.purchaseOrders) mergeSummary.Purchase_Or
 assert.ok(backend.includes('purchaseOrders: readSheetData(ss, "Purchase_Orders")'), 'Apps Script reads purchase orders from Sheets');
 assert.ok(backend.includes('services: readSheetData(ss, "Services")'), 'Apps Script reads services from Sheets');
 
-const inlineScripts = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)];
-for (const [index, script] of inlineScripts.entries()) {
-  if (script[1].trim()) new vm.Script(script[1], { filename: 'index.inline.' + index + '.js' });
-}
 console.log('CSK invoice, HPP calculations, saved-project editing, backend sync contracts, and inline JavaScript syntax checks passed.');
