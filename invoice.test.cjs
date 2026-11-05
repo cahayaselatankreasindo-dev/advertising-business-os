@@ -141,5 +141,11 @@ assert.ok(html.includes('onclick="editService('), 'service edit action is wired'
 assert.ok(html.includes("rows.length+' dari '+db.services.length"), 'service catalog count is shown');
 assert.ok(html.includes("escapeInvoiceHtml(m.campaign||'Campaign')"), 'marketing campaign names are escaped');
 assert.ok(html.includes('Sisa <b'), 'marketing campaign cards show remaining budget');
-console.log('CSK CRM, clients, services, projects, HPP, purchasing, finance, marketing and responsive design checks passed.');
+
+assert.ok(html.includes('function renderMemory()'), 'strategy notes renderer exists');
+assert.ok(html.includes('escapeInvoiceHtml(m.category||\'Catatan\')'), 'strategy note categories are escaped');
+assert.ok(html.includes('escapeInvoiceHtml(m.content||m.note||\'\')'), 'strategy note content is escaped');
+assert.ok(html.includes('escapeInvoiceHtml(p.title || \'Tanpa nama proyek\')'), 'dashboard project titles are escaped');
+assert.ok(html.includes('escapeInvoiceHtml(p.client || \'-\')'), 'dashboard client names are escaped');
+console.log('CSK CRM, clients, services, projects, HPP, purchasing, finance, marketing, strategy notes and responsive design checks passed.');
 
