@@ -577,11 +577,28 @@ function ensureLeadClient_(ss, lead, refToken) {
   if (!normalizedName) return false;
 
   const clients = readSheetData(ss, "Clients");
-  if (clients.some(client => normalizedClientName_(client.name) === normalizedName)) return false;
-
+  const existingClient = clients.find(client =>
+    normalizedClientName_(client.name) === normalizedName
+  );
   const clientProjects = readSheetData(ss, "Projects")
     .filter(project => normalizedClientName_(project.client) === normalizedName);
   const totalSpend = clientProjects.reduce((sum, project) => sum + (Number(project.value) || 0), 0);
+
+  // Keep an existing client summary in sync when another lead becomes a project.
+  if (existingClient) {
+    const clientsSheet = ss.getSheetByName("Clients");
+    const rowNum = clientsSheet ? findRowById(clientsSheet, existingClient.id) : -1;
+    if (rowNum !== -1) {
+      const updatedClient = Object.assign({}, existingClient, {
+        phone: existingClient.phone || lead.phone || "",
+        projectsCount: clientProjects.length,
+        totalSpend: totalSpend
+      });
+      clientsSheet.getRange(rowNum, 1, 1, FIELD_MAP.Clients.headers.length)
+        .setValues([recordToRow("Clients", updatedClient)]);
+    }
+    return false;
+  }
 
   insertRecord(ss, "Clients", {
     id: stableLeadEntityId_("AUTO-CLI-LEAD-", lead.id),
@@ -602,6 +619,18 @@ function ensureLeadClient_(ss, lead, refToken) {
  * is not cash received. Record DP/settlement only after payment is received.
  */
 function autoTriggerPillars(ss, forceLeadId) {
+  // Serialize sync_all, status updates, onEdit and scheduled triggers so that
+  // the check-then-insert sequence cannot create duplicate linked records.
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    return autoTriggerPillarsUnlocked_(ss, forceLeadId);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function autoTriggerPillarsUnlocked_(ss, forceLeadId) {
   const leadsSheet = ss.getSheetByName("Leads");
   if (!leadsSheet || leadsSheet.getLastRow() <= 1) {
     return { financeCreated: 0, projectCreated: 0, clientCreated: 0 };
