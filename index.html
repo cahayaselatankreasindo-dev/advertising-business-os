@@ -432,11 +432,11 @@
         <div>
           <span class="inline-flex items-center px-2 py-1 rounded bg-amber-100 text-amber-800 text-[10px] font-bold uppercase tracking-wide">Administrasi Proyek</span>
           <h1 class="text-2xl font-bold font-heading text-slate-900 mt-2">Dokumen Penawaran & Penagihan</h1>
-          <p class="text-sm text-slate-500">Buat Surat Penawaran (Quotation), Invoice DP 50%, dan Invoice Pelunasan dari data proyek.</p>
+          <p class="text-sm text-slate-500">Buat Surat Penawaran (Quotation), Invoice DP dengan persentase fleksibel, dan Invoice Pelunasan dari data proyek.</p>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div class="bg-white p-4 rounded-xl border border-slate-200"><div class="text-xs text-slate-500">Jenis dokumen</div><div class="font-bold text-slate-900 mt-1">Quotation</div><div class="text-[11px] text-slate-500 mt-1">Surat penawaran harga proyek.</div></div>
-          <div class="bg-white p-4 rounded-xl border border-slate-200"><div class="text-xs text-slate-500">Jenis dokumen</div><div class="font-bold text-slate-900 mt-1">Invoice DP 50%</div><div class="text-[11px] text-slate-500 mt-1">Tagihan uang muka proyek.</div></div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200"><div class="text-xs text-slate-500">Jenis dokumen</div><div class="font-bold text-slate-900 mt-1">Invoice DP</div><div class="text-[11px] text-slate-500 mt-1">Tagihan uang muka proyek.</div></div>
           <div class="bg-white p-4 rounded-xl border border-slate-200"><div class="text-xs text-slate-500">Jenis dokumen</div><div class="font-bold text-slate-900 mt-1">Invoice Pelunasan</div><div class="text-[11px] text-slate-500 mt-1">Tagihan sisa pembayaran proyek.</div></div>
         </div>
         <div class="flex items-center justify-between gap-3">
@@ -1005,8 +1005,8 @@
         </div>
         <div class="flex items-center gap-2">
           <select id="inv-type-selector" onchange="switchInvoiceType(this.value)" class="bg-[#1C2333] text-white font-semibold text-xs px-2.5 py-1.5 rounded-lg border border-[#2E374D]">
-            <option value="dp">Invoice DP 50%</option>
-            <option value="pelunasan">Invoice Pelunasan (Sisa 50%)</option>
+            <option value="dp">Invoice DP</option>
+            <option value="pelunasan">Invoice Pelunasan</option>
             <option value="penawaran">Surat Penawaran (Quotation)</option>
           </select>
           <button onclick="window.print()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition">
@@ -1022,7 +1022,7 @@
       <div class="no-print px-4 py-3 bg-amber-50 border-b border-amber-200 flex flex-wrap items-center gap-3">
         <label for="inv-dp-percent" class="text-xs font-bold text-slate-700">Persentase DP:</label>
         <div class="flex items-center gap-1">
-          <input id="inv-dp-percent" type="number" min="1" max="99" step="1" value="50" oninput="onInvoiceDpPercentChange(this.value)" class="w-20 p-2 border border-amber-300 rounded-lg text-sm font-bold text-right">
+          <input id="inv-dp-percent" type="number" min="1" max="99" step="1" value="50" oninput="onInvoiceDpPercentChange(this.value)" onchange="saveInvoiceDpPercent()" class="w-20 p-2 border border-amber-300 rounded-lg text-sm font-bold text-right">
           <span class="text-sm font-semibold text-slate-600">%</span>
         </div>
         <span class="text-[11px] text-slate-500">Bisa diubah 1-99%. Nilai pelunasan otomatis mengikuti sisa pembayaran.</span>
@@ -2154,6 +2154,13 @@
       renderInvoiceDocument();
     }
 
+    function saveInvoiceDpPercent() {
+      if (!currentActiveProject) return;
+      currentActiveProject.dpPercent = currentInvoiceDpPercent;
+      saveDB();
+      showToast('Persentase DP proyek disimpan.');
+    }
+
     function calculateInvoiceAmounts(totalValue, invoiceType, dpPercent) {
       const total = Math.max(0, Number(totalValue) || 0);
       const percent = Math.min(99, Math.max(1, Number(dpPercent) || 50));
@@ -2205,7 +2212,7 @@
       let badgeClass = 'bg-amber-500 text-slate-950';
 
       if (currentInvoiceType === 'dp') {
-        badgeText = 'INVOICE DP 50%';
+        badgeText = 'INVOICE DP ' + currentInvoiceDpPercent + '%';
         badgeClass = 'bg-amber-500 text-slate-950';
         document.getElementById('inv-calc-label').innerText = 'Down Payment (DP ' + currentInvoiceDpPercent + '%):';
         document.getElementById('inv-calc-sub').innerText = formatRp(billAmount);
@@ -2247,14 +2254,14 @@
       const isQuo = currentInvoiceType === 'penawaran';
       const amounts = calculateInvoiceAmounts(totalVal, currentInvoiceType, currentInvoiceDpPercent);
       const billAmount = amounts.amount;
-      const docType = isQuo ? 'Penawaran Resmi' : (isDP ? 'Invoice DP 50%' : 'Invoice Pelunasan');
+      const docType = isQuo ? 'Penawaran Resmi' : (isDP ? 'Invoice DP ' + currentInvoiceDpPercent + '%' : 'Invoice Pelunasan');
       const docNo = document.getElementById('inv-doc-no').innerText;
       const paymentSummary = isQuo
         ? 'Estimasi Nilai Proyek: ' + formatRp(totalVal) + '\n' + '*Total Penawaran: ' + formatRp(billAmount) + '*\n'
         : 'Total Nilai Proyek: ' + formatRp(totalVal) + '\n' +
           (isDP
             ? '*Tagihan DP 50%: ' + formatRp(billAmount) + '*\n'
-            : 'DP 50% yang telah ditagihkan: ' + formatRp(amounts.dpAmount) + '\n' +
+            : 'DP ' + currentInvoiceDpPercent + '% yang telah ditagihkan: ' + formatRp(amounts.dpAmount) + '\n' +
               '*Sisa Pelunasan: ' + formatRp(billAmount) + '*\n');
 
       const waText = 
