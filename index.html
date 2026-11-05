@@ -16,15 +16,24 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --ink: #1C2333;
-      --ink-soft: #2E374D;
-      --amber: #F97316;
-      --amber-light: #FFEDD5;
-      --teal: #059669;
-      --teal-light: #D1FAE5;
-      --rust: #DC2626;
-      --rust-light: #FEE2E2;
-      --paper: #F8FAFC;
+      /* CSK brand foundation: monochrome official wordmark, clean production-led UI */
+      --ink: #171717;
+      --ink-soft: #333333;
+      --amber: #E56B18;
+      --amber-light: #FFF1E6;
+      --teal: #16856B;
+      --teal-light: #DDF4EC;
+      --rust: #C83D3D;
+      --rust-light: #FCE8E8;
+      --paper: #F7F7F5;
+    }
+    /* CSK brand alignment and compact mobile header */
+    .csk-brand-header { background: #FFFFFF !important; color: #171717 !important; border-color: #E5E5E5 !important; }
+    .csk-brand-header .csk-brand-subtitle { color: #555555 !important; }
+    .csk-brand-header .csk-brand-action { background: #F5F5F4 !important; color: #262626 !important; border-color: #E5E5E5 !important; }
+    @media (max-width: 767px) {
+      .csk-brand-header { min-height: 68px; padding: 10px 14px !important; }
+      .csk-brand-header .csk-brand-logo { height: 34px; max-width: 142px; object-fit: contain; }
     }
     body {
       font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
@@ -140,21 +149,24 @@
   <div class="flex-1 flex flex-col h-full overflow-hidden">
 
     <!-- Top Mobile Header -->
-    <header class="md:hidden bg-slate-900 text-white p-3 flex items-center justify-between border-b border-slate-800 flex-shrink-0">
-      <div>
-        <div class="font-heading font-bold text-sm text-white">CSK BUSINESS OS</div>
-        <div class="text-[10px] text-amber-400 font-semibold tracking-wider">CAHAYA SELATAN KREASINDO</div>
+    <header class="csk-brand-header md:hidden bg-white text-slate-900 p-3 flex items-center justify-between border-b border-slate-200 flex-shrink-0">
+      <div class="flex items-center min-w-0">
+        <img src="logo-horizontal.svg" alt="Cahaya Selatan Kreasindo" class="csk-brand-logo h-9 w-auto max-w-[150px] object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+        <div style="display:none" class="min-w-0">
+          <div class="font-heading font-bold text-sm text-slate-900">CSK BUSINESS OS</div>
+          <div class="csk-brand-subtitle text-[10px] text-slate-600 font-semibold tracking-wider">CAHAYA SELATAN KREASINDO</div>
+        </div>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 shrink-0">
         <!-- Role selector (mobile) -->
-        <select id="role-select-mob" onchange="onRoleChange(this.value)" class="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 rounded px-1.5 py-1">
+        <select id="role-select-mob" onchange="onRoleChange(this.value)" class="csk-brand-action text-[10px] bg-slate-100 border border-slate-200 text-slate-700 rounded px-1.5 py-1">
           <option value="owner">👤 Owner</option>
           <option value="team">👥 Tim</option>
         </select>
-        <button onclick="syncWithGoogle()" class="text-xs bg-slate-800 text-amber-400 px-2 py-1 rounded-md border border-slate-700 flex items-center gap-1.5">
+        <button onclick="syncWithGoogle()" class="csk-brand-action text-xs bg-slate-100 text-slate-800 px-2 py-1 rounded-md border border-slate-200 flex items-center gap-1.5">
           <i class="fa fa-refresh"></i> Sync
         </button>
-        <button onclick="nav('settings')" class="text-slate-400 hover:text-white p-1">
+        <button onclick="nav('settings')" class="text-slate-600 hover:text-black p-1">
           <i class="fa fa-cog fa-lg"></i>
         </button>
       </div>
