@@ -1859,9 +1859,23 @@
       document.getElementById('hpp-material-total').innerText=formatRp(totals.materialTotal); document.getElementById('hpp-total').innerText=formatRp(totals.total); document.getElementById('hpp-price').innerText=formatRp(totals.price); document.getElementById('hpp-profit').innerText=formatRp(totals.profit);
       return totals;
     }
+    function setHppLineField(index, field, value) {
+      const item=hppLines[index]; if(!item)return;
+      if(field==='name'||field==='unit') {
+        const clean=String(value||'').trim();
+        if(!clean)return showToast('Nama dan satuan material tidak boleh kosong.',true);
+        item[field]=clean;
+      } else if(field==='qty'||field==='unitPrice') {
+        const number=Number(value);
+        if(!Number.isFinite(number)||number<0||(field==='qty'&&number===0))return showToast('Kuantitas harus lebih dari nol dan harga tidak boleh negatif.',true);
+        item[field]=number;
+      } else return;
+      item.subtotal=Number(item.qty)*Number(item.unitPrice);
+      renderHppEstimate();
+    }
     function renderHppEstimate() {
       const el=document.getElementById('hpp-lines'); if(!el)return;
-      el.innerHTML=hppLines.map((x,i)=>'<div class="flex justify-between items-center gap-2 text-xs border rounded-lg p-2"><span>'+escapeInvoiceHtml(x.name)+' · '+x.qty+' '+escapeInvoiceHtml(x.unit)+' × '+formatRp(x.unitPrice)+'</span><b>'+formatRp(x.subtotal)+'</b><button onclick="removeHppLine('+i+')" class="text-red-600">Hapus</button></div>').join('') || '<p class="text-xs text-slate-400">Belum ada item material.</p>';
+      el.innerHTML=hppLines.map((x,i)=>'<div class="border rounded-lg p-3 space-y-2"><div class="grid grid-cols-2 sm:grid-cols-4 gap-2"><label class="text-[11px] text-slate-500">Nama material<input value="'+escapeInvoiceHtml(x.name)+'" onchange="setHppLineField('+i+',\\'name\\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Satuan<input value="'+escapeInvoiceHtml(x.unit)+'" onchange="setHppLineField('+i+',\\'unit\\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Kuantitas<input type="number" min="0.01" step="0.01" value="'+Number(x.qty)+'" onchange="setHppLineField('+i+',\\'qty\\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Harga satuan (Rp)<input type="number" min="0" step="1" value="'+Number(x.unitPrice)+'" onchange="setHppLineField('+i+',\\'unitPrice\\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label></div><div class="flex justify-between items-center text-xs"><span class="text-slate-500">Subtotal item</span><b>'+formatRp(Number(x.qty)*Number(x.unitPrice))+'</b><button onclick="removeHppLine('+i+')" class="text-red-600">Hapus item</button></div></div>').join('') || '<p class="text-xs text-slate-400">Belum ada item material.</p>';
       calculateHpp();
     }
     function removeHppLine(i) { hppLines.splice(i,1); renderHppEstimate(); }
@@ -1875,9 +1889,19 @@
       project.hpp=totals.total; project.estimatedCost=totals.total; project.suggestedPrice=totals.price;
       saveDB(); renderHppSaved(); showToast('HPP proyek tersimpan dan disinkronkan.');
     }
+    function deleteHppEstimate(projectId) {
+      const record=(db.costSheets||[]).find(x=>x.projectId===projectId); if(!record)return;
+      if(!confirm('Hapus perhitungan HPP tersimpan untuk '+(record.projectName||projectId)+'? Data quotation/invoice yang sudah diterbitkan tidak ikut diubah.'))return;
+      db.costSheets=db.costSheets.filter(x=>x.projectId!==projectId);
+      const project=db.projects.find(x=>x.id===projectId);
+      if(project){delete project.hpp;delete project.estimatedCost;delete project.suggestedPrice;}
+      if(document.getElementById('hpp-project').value===projectId){hppLines=[];document.getElementById('hpp-labor').value=0;document.getElementById('hpp-other').value=0;document.getElementById('hpp-margin').value=30;renderHppEstimate();}
+      saveDB();renderHppSaved();showToast('HPP tersimpan dihapus.');
+    }
+
     function renderHppSaved() {
       const el=document.getElementById('hpp-saved-list'); if(!el)return;
-      el.innerHTML='<h3 class="font-semibold text-sm">HPP tersimpan</h3>'+(db.costSheets||[]).map(x=>'<button onclick="document.getElementById(\\'hpp-project\\').value=\\''+escapeInvoiceHtml(x.projectId)+'\\';loadHppProject(\\''+escapeInvoiceHtml(x.projectId)+'\\')" class="w-full text-left text-xs flex flex-wrap justify-between gap-2 border-b py-2"><span>'+escapeInvoiceHtml(x.projectName)+' · HPP '+formatRp(x.total)+'</span><b>Penawaran '+formatRp(x.price)+'</b></button>').join('');
+      el.innerHTML='<h3 class="font-semibold text-sm">HPP tersimpan</h3>'+(db.costSheets||[]).map(x=>'<div class="flex items-center justify-between gap-2 border-b py-2"><button onclick="document.getElementById(\\'hpp-project\\').value=\\''+escapeInvoiceHtml(x.projectId)+'\\';loadHppProject(\\''+escapeInvoiceHtml(x.projectId)+'\\')" class="flex-1 text-left text-xs"><span class="font-semibold">'+escapeInvoiceHtml(x.projectName)+'</span><span class="block text-slate-500">HPP '+formatRp(x.total)+' · Penawaran '+formatRp(x.price)+'</span></button><button onclick="deleteHppEstimate(\\''+escapeInvoiceHtml(x.projectId)+'\\')" class="text-xs text-red-600">Hapus HPP</button></div>').join('');
     }
 
     // ============== DOCUMENT CENTER ==============
