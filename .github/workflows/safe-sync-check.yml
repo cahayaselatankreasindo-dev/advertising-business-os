@@ -52,6 +52,9 @@ on:
       - 'preview/brand-preview.test.js'
       - 'manifest.json'
       - '.github/workflows/safe-sync-check.yml'
+  push:
+    branches:
+      - 'integration/secure-safe-sync-20261103'
   workflow_dispatch:
 jobs:
   safe-sync:
