@@ -324,45 +324,55 @@ function readSheetData(ss, sheetName) {
 }
 
 // ============== KEAMANAN: TOKEN API ==============
-// Token disimpan di Script Properties (BUKAN di kode/repo).
-// Set sekali lewat menu editor: jalankan fungsi setupApiToken().
-// Selama token belum diset, sistem berjalan TANPA proteksi (mode kompatibel).
-function getApiToken() {
-  return PropertiesService.getScriptProperties().getProperty("API_TOKEN") || "";
-}
+ // Token disimpan hanya di Script Properties. Backend fail-closed.
+ function getApiToken() {
+   return PropertiesService.getScriptProperties().getProperty("API_TOKEN") || "";
+ }
 
-/**
- * Set/ubah token API. Jalankan sekali dari editor Apps Script.
- * Ganti nilai di bawah dengan token rahasia Anda (minimal 20 karakter acak).
- */
-function setupApiToken() {
-  // Buat token acak baru setiap kali fungsi ini dijalankan.
-  var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
-  PropertiesService.getScriptProperties().setProperty("API_TOKEN", token);
-  Logger.log("API_TOKEN berhasil dibuat. Salin token dari log lalu simpan di Pengaturan → Token Akses pada setiap perangkat CSK.");
-}
+ /**
+  * Jalankan sekali dari Apps Script editor. Mengembalikan token hanya saat
+  * pertama kali dibuat. Pemanggilan ulang tidak merotasi token diam-diam.
+  */
+ function setupApiToken() {
+   var props = PropertiesService.getScriptProperties();
+   if (props.getProperty("API_TOKEN")) {
+     throw new Error("API_TOKEN sudah ada. Gunakan rotateApiToken() hanya jika ingin mengganti token.");
+   }
+   var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
+   props.setProperty("API_TOKEN", token);
+   Logger.log("API_TOKEN dibuat. Salin nilai hasil eksekusi fungsi ini ke Pengaturan CSK. Jangan bagikan token.");
+   return token;
+ }
 
-/**
- * Cek token dari request. Return true jika valid ATAU token belum diset
- * (mode kompatibel agar tidak memutus app lama).
- */
-function isAuthorized(payloadOrEvent, tokenParam) {
-  var expected = getApiToken();
-  if (expected === "") return true; // belum diaktifkan -> izinkan (kompatibel)
+ /** Rotasi eksplisit. Token lama langsung tidak berlaku. */
+ function rotateApiToken() {
+   var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
+   PropertiesService.getScriptProperties().setProperty("API_TOKEN", token);
+   Logger.log("API_TOKEN dirotasi. Perbarui token di seluruh perangkat CSK.");
+   return token;
+ }
 
-  var provided = "";
-  if (payloadOrEvent && typeof payloadOrEvent === "object") {
-    provided = payloadOrEvent.token || "";
-  }
-  if (!provided && tokenParam) provided = tokenParam;
-  return String(provided) === String(expected);
-}
+ /**
+  * Valid hanya jika token server sudah dikonfigurasi dan token request cocok.
+  * Tidak ada mode kompatibilitas tanpa autentikasi.
+  */
+ function isAuthorized(payloadOrEvent, tokenParam) {
+   var expected = getApiToken();
+   if (!/^[a-f0-9]{64}$/i.test(expected)) return false;
 
-function unauthorizedResponse() {
-  return jsonResponse({ status: "error", message: "Tidak diizinkan: token akses salah atau kosong." });
-}
+   var provided = "";
+   if (payloadOrEvent && typeof payloadOrEvent === "object") {
+     provided = payloadOrEvent.token || "";
+   }
+   if (!provided && tokenParam) provided = tokenParam;
+   return String(provided) === String(expected);
+ }
 
-// ============== GET — TARIK DATA SEMUA TAB ==============
+ function unauthorizedResponse() {
+   return jsonResponse({ status: "error", code: "UNAUTHORIZED", message: "Tidak diizinkan: token akses salah, kosong, atau backend belum dikonfigurasi." });
+ }
+
+ // ============== GET — TARIK DATA SEMUA TAB ==============
 
 function doGet(e) {
   try {
