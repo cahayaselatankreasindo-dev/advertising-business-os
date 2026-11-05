@@ -1,5 +1,8 @@
 name: CSK business source regression checks
 on:
+  push:
+    branches:
+      - 'main'
   pull_request:
     paths:
       - 'index.html'
