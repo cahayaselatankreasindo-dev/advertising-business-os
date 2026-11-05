@@ -12,7 +12,7 @@ on:
       - '.github/workflows/photo-lab-check.yml'
   push:
     branches:
-      - 'restore/photo-reports-owner-only-20261105'
+      - 'main'\n      - 'restore/photo-reports-owner-only-20261105'
 jobs:
   source-checks:
     runs-on: ubuntu-latest
