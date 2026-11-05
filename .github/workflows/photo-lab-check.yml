@@ -12,10 +12,6 @@ on:
       - 'invoice.test.cjs'
       - 'sync.test.cjs'
       - '.github/workflows/photo-lab-check.yml'
-  push:
-    branches:
-      - 'main'
-      - 'restore/photo-reports-owner-only-20261105'
 jobs:
   source-checks:
     runs-on: ubuntu-latest
