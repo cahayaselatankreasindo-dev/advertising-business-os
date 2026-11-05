@@ -1019,6 +1019,15 @@
         </div>
       </div>
 
+      <div class="no-print px-4 py-3 bg-amber-50 border-b border-amber-200 flex flex-wrap items-center gap-3">
+        <label for="inv-dp-percent" class="text-xs font-bold text-slate-700">Persentase DP:</label>
+        <div class="flex items-center gap-1">
+          <input id="inv-dp-percent" type="number" min="1" max="99" step="1" value="50" oninput="onInvoiceDpPercentChange(this.value)" class="w-20 p-2 border border-amber-300 rounded-lg text-sm font-bold text-right">
+          <span class="text-sm font-semibold text-slate-600">%</span>
+        </div>
+        <span class="text-[11px] text-slate-500">Bisa diubah 1-99%. Nilai pelunasan otomatis mengikuti sisa pembayaran.</span>
+      </div>
+
       <!-- Printable Document Canvas -->
       <div class="overflow-y-auto p-4 sm:p-8 bg-slate-50 flex-1">
         <div id="invoice-printable" class="bg-white mx-auto p-6 sm:p-10 rounded-xl border border-slate-200 shadow-sm max-w-2xl font-csk text-slate-800 relative">
@@ -2120,7 +2129,7 @@
     // ============== INVOICE & PENAWARAN (CSK BRANDING) ==============
 
     let currentActiveProject = null;
-    let currentInvoiceType = 'dp'; // 'dp' | 'pelunasan' | 'penawaran'
+    let currentInvoiceType = 'dp'; // 'dp' | 'pelunasan' | 'penawaran'\n    let currentInvoiceDpPercent = 50;
 
     function openInvoiceModal(projectId) {
       const p = db.projects.find(x => x.id === projectId);
@@ -2137,13 +2146,22 @@
       renderInvoiceDocument();
     }
 
-    function calculateInvoiceAmounts(totalValue, invoiceType) {
+    function onInvoiceDpPercentChange(value) {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed) || parsed < 1 || parsed > 99) return;
+      currentInvoiceDpPercent = parsed;
+      if (currentActiveProject) currentActiveProject.dpPercent = parsed;
+      renderInvoiceDocument();
+    }
+
+    function calculateInvoiceAmounts(totalValue, invoiceType, dpPercent) {
       const total = Math.max(0, Number(totalValue) || 0);
-      const dpAmount = Math.round(total * 0.5);
+      const percent = Math.min(99, Math.max(1, Number(dpPercent) || 50));
+      const dpAmount = Math.round(total * percent / 100);
       const balance = total - dpAmount;
-      if (invoiceType === 'dp') return { total, dpAmount, amount: dpAmount, balance };
-      if (invoiceType === 'pelunasan') return { total, dpAmount, amount: balance, balance: 0 };
-      return { total, dpAmount: 0, amount: total, balance: total };
+      if (invoiceType === 'dp') return { total, dpPercent: percent, dpAmount, amount: dpAmount, balance };
+      if (invoiceType === 'pelunasan') return { total, dpPercent: percent, dpAmount, amount: balance, balance: 0 };
+      return { total, dpPercent: percent, dpAmount: 0, amount: total, balance: total };
     }
 
     function escapeInvoiceHtml(value) {
@@ -2156,7 +2174,7 @@
       if (!currentActiveProject) return;
       const p = currentActiveProject;
       const totalVal = Number(p.value || 0);
-      const amounts = calculateInvoiceAmounts(totalVal, currentInvoiceType);
+      const amounts = calculateInvoiceAmounts(totalVal, currentInvoiceType, currentInvoiceDpPercent);
       const todayStr = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
 
       // Hitung due date (7 hari ke depan untuk invoice, atau deadline proyek)
@@ -2183,18 +2201,18 @@
       const tbody = document.getElementById('inv-items-body');
       let itemTitle = p.title;
       const billAmount = amounts.amount;
-      let badgeText = 'INVOICE DP 50%';
+      let badgeText = 'INVOICE DP ' + currentInvoiceDpPercent + '%';
       let badgeClass = 'bg-amber-500 text-slate-950';
 
       if (currentInvoiceType === 'dp') {
         badgeText = 'INVOICE DP 50%';
         badgeClass = 'bg-amber-500 text-slate-950';
-        document.getElementById('inv-calc-label').innerText = 'Down Payment (DP 50%):';
+        document.getElementById('inv-calc-label').innerText = 'Down Payment (DP ' + currentInvoiceDpPercent + '%):';
         document.getElementById('inv-calc-sub').innerText = formatRp(billAmount);
       } else if (currentInvoiceType === 'pelunasan') {
         badgeText = 'INVOICE PELUNASAN (SISA 50%)';
         badgeClass = 'bg-emerald-600 text-white';
-        document.getElementById('inv-calc-label').innerText = 'DP 50% yang telah ditagihkan:';
+        document.getElementById('inv-calc-label').innerText = 'DP ' + currentInvoiceDpPercent + '% yang telah ditagihkan:';
         document.getElementById('inv-calc-sub').innerText = formatRp(amounts.dpAmount);
       } else {
         badgeText = 'SURAT PENAWARAN (QUO)';
@@ -2227,7 +2245,7 @@
       const totalVal = Number(p.value || 0);
       const isDP = currentInvoiceType === 'dp';
       const isQuo = currentInvoiceType === 'penawaran';
-      const amounts = calculateInvoiceAmounts(totalVal, currentInvoiceType);
+      const amounts = calculateInvoiceAmounts(totalVal, currentInvoiceType, currentInvoiceDpPercent);
       const billAmount = amounts.amount;
       const docType = isQuo ? 'Penawaran Resmi' : (isDP ? 'Invoice DP 50%' : 'Invoice Pelunasan');
       const docNo = document.getElementById('inv-doc-no').innerText;
