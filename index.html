@@ -2615,7 +2615,7 @@
     }
 
     function normalizedClientName(value) {
-      return String(value == null ? '' : value).trim().toLowerCase().replace(/\\s+/g, ' ');
+      return String(value == null ? '' : value).trim().toLowerCase().replace(/\s+/g, ' ');
     }
 
     function convertLeadToWon(id) {
