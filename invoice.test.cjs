@@ -133,5 +133,13 @@ assert.ok(html.includes('rounded-2xl p-4 sm:p-5 shadow-sm space-y-3'), 'purchase
 assert.ok(html.includes('function renderFinance()'), 'finance renderer exists');
 assert.ok(html.includes('escapeInvoiceHtml(f.description||\'Transaksi\')'), 'finance descriptions are escaped');
 assert.ok(html.includes('sm:flex-row sm:items-center sm:justify-between gap-3'), 'finance transactions adapt to mobile cards');
-console.log('CSK CRM, projects, HPP, purchasing, finance, quotations, and responsive design checks passed.');
+
+assert.ok(html.includes("escapeInvoiceHtml(c.name||'Tanpa nama')"), 'client names are escaped');
+assert.ok(html.includes('escapeInvoiceHtml(review)'), 'client reviews are escaped');
+assert.ok(html.includes('function editService(id)'), 'service catalog supports editing');
+assert.ok(html.includes('onclick="editService('), 'service edit action is wired');
+assert.ok(html.includes('dari '+db.services.length), 'service catalog count is shown');
+assert.ok(html.includes("escapeInvoiceHtml(m.campaign||'Campaign')"), 'marketing campaign names are escaped');
+assert.ok(html.includes('Sisa <b'), 'marketing campaign cards show remaining budget');
+console.log('CSK CRM, clients, services, projects, HPP, purchasing, finance, marketing and responsive design checks passed.');
 
