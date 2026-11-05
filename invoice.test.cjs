@@ -28,4 +28,10 @@ assert.ok(html.includes('Sisa Pelunasan: '));
 assert.ok(html.includes('Invoice Pelunasan (Sisa 50%)'));
 assert.ok(html.includes('escapeInvoiceHtml(itemTitle)'));
 assert.ok(html.includes('escapeInvoiceHtml(p.notes)'));
-console.log('CSK invoice calculation checks passed.');
+
+assert.ok(html.includes("id=\"page-documents\""), 'dedicated documents page exists');
+assert.ok(html.includes("nav('documents')"), 'documents navigation exists');
+assert.ok(html.includes("function renderDocuments()"), 'documents project list renderer exists');
+assert.ok(html.includes("switchInvoiceType('penawaran')"), 'quotation action exists in document center');
+assert.ok(html.includes("switchInvoiceType('pelunasan')"), 'settlement invoice action exists in document center');
+console.log('CSK invoice and document-center checks passed.');
