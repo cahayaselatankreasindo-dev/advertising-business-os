@@ -1940,36 +1940,67 @@
     }
 
     function convertLeadToWon(id) {
-      const lead = db.leads.find(l => l.id === id);
+      const lead = db.leads.find(l => String(l.id) === String(id));
       if (!lead) return;
+
+      const leadId = String(lead.id).trim();
+      const safeLeadId = leadId.replace(/[^A-Za-z0-9._:-]/g, '-').slice(0, 64);
+      const leadToken = '[LEAD-' + leadId + ']';
+      const projectId = 'AUTO-PRJ-LEAD-' + safeLeadId;
+      const clientId = 'AUTO-CLI-LEAD-' + safeLeadId;
+      const clientName = String(lead.name || '').trim();
+      const normalizedName = clientName.toLowerCase().replace(/\\s+/g, ' ');
       lead.status = 'won';
 
-      if (!db.clients.some(c => c.name.toLowerCase() === lead.name.toLowerCase())) {
-        db.clients.unshift({
-          id: Date.now().toString(),
-          name: lead.name,
-          phone: lead.phone,
-          projectsCount: 1,
-          totalSpend: lead.value,
-          notes: 'Dikonversi dari Lead (' + lead.source + ')',
-          rating: 0,
-          review: ''
-        });
+      // The same stable ID and lead token are used by Apps Script. This keeps
+      // browser conversion, sync_all, onEdit and hourly triggers idempotent.
+      let linkedProject = db.projects.find(project =>
+        String(project.id) === projectId || String(project.notes || '').includes(leadToken)
+      );
+      if (!linkedProject) {
+        linkedProject = {
+          id: projectId,
+          title: 'Proyek ' + clientName,
+          client: clientName,
+          value: Number(lead.value) || 0,
+          status: 'plan',
+          deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+          notes: [String(lead.notes || 'Hasil konversi Deal').trim(), 'Konversi dari Lead ' + leadToken].filter(Boolean).join(' '),
+          sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
+        };
+        db.projects.unshift(linkedProject);
+      } else if (!String(linkedProject.notes || '').includes(leadToken)) {
+        linkedProject.notes = [String(linkedProject.notes || '').trim(), 'Konversi dari Lead ' + leadToken].filter(Boolean).join(' ');
       }
 
-      db.projects.unshift({
-        id: Date.now().toString(),
-        title: 'Proyek ' + lead.name,
-        client: lead.name,
-        value: lead.value,
-        status: 'plan',
-        deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
-        notes: lead.notes || 'Hasil konversi Deal',
-        sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
-      });
+      const clientProjects = db.projects.filter(project =>
+        String(project.client || '').trim().toLowerCase().replace(/\\s+/g, ' ') === normalizedName
+      );
+      const totalSpend = clientProjects.reduce((sum, project) => sum + (Number(project.value) || 0), 0);
+      let client = db.clients.find(item =>
+        String(item.name || '').trim().toLowerCase().replace(/\\s+/g, ' ') === normalizedName
+      );
+
+      if (!client && clientName) {
+        client = {
+          id: clientId,
+          name: clientName,
+          phone: lead.phone || '',
+          projectsCount: clientProjects.length,
+          totalSpend: totalSpend,
+          notes: 'Dikonversi dari Lead (' + (lead.source || 'CRM') + ')',
+          rating: 0,
+          review: ''
+        };
+        db.clients.unshift(client);
+      } else if (client) {
+        client.projectsCount = clientProjects.length;
+        client.totalSpend = totalSpend;
+        if (!client.phone && lead.phone) client.phone = lead.phone;
+      }
 
       saveDB();
-      showToast('Lead ditandai DEAL & otomatis masuk ke Klien, Proyek, dan jurnal Keuangan!');
+      showToast('Deal tercatat. Klien dan proyek diperbarui. Catat DP di Keuangan setelah pembayaran diterima.');
     }
 
     /**
