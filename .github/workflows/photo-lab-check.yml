@@ -9,6 +9,7 @@ on:
       - 'photo-lab.test.cjs'
       - 'invoice.test.cjs'
       - 'sync.test.cjs'
+      - 'deal-conversion.test.cjs'
       - '.github/workflows/photo-lab-check.yml'
   push:
     branches:
@@ -27,3 +28,5 @@ jobs:
         run: node invoice.test.cjs
       - name: Validate Apps Script POST transport
         run: node sync.test.cjs
+      - name: Validate idempotent deal conversion and cash accounting
+        run: node deal-conversion.test.cjs
