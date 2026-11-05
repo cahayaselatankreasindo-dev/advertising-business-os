@@ -42,7 +42,16 @@ try {
     clasp push --force
     Write-Host "[3/4] Kode ter-upload (clasp push)" -ForegroundColor Green
 
-    # 4. Update deployment yang ada (URL tetap sama)
+    # 4. Pastikan token server tersedia SEBELUM deployment diperbarui.
+    Write-Host ""
+    Write-Host "PENTING: Buka Apps Script editor untuk project CSK." -ForegroundColor Yellow
+    Write-Host "Jika API_TOKEN belum ada, jalankan setupApiToken() SATU KALI." -ForegroundColor Yellow
+    Write-Host "Salin token dari Execution log ke Pengaturan CSK pada perangkat owner." -ForegroundColor Yellow
+    Write-Host "Jika API_TOKEN sudah ada, JANGAN jalankan setupApiToken() lagi." -ForegroundColor Yellow
+    Write-Host "Deployment belum diperbarui. Tekan Enter hanya setelah token siap." -ForegroundColor Yellow
+    Read-Host "Konfirmasi kesiapan token"
+
+    # 5. Update deployment yang ada (URL tetap sama)
     Write-Host "[4/4] Update deployment..." -ForegroundColor Green
     $deployments = clasp deployments 2>&1 | Out-String
     Write-Host $deployments
