@@ -985,21 +985,40 @@ function doPost(e) {
  * Script Properties: AUTO_PROJECT_FROM_WON=true. Never create Finance income.
  * A signed deal is not proof of payment (DP).
  */
+function stableLeadEntityId_(prefix, leadId) {
+  const safeId = String(leadId == null ? "" : leadId).trim()
+    .replace(/[^A-Za-z0-9._:-]/g, "-")
+    .slice(0, Math.max(1, 80 - prefix.length));
+  return safeId ? prefix + safeId : "";
+}
+
 function autoTriggerPillars(ss, forceLeadId) {
   if (PropertiesService.getScriptProperties().getProperty("AUTO_PROJECT_FROM_WON") !== "true") {
     return { financeCreated: 0, projectCreated: 0, disabled: true };
   }
   const leadsSheet = ss.getSheetByName("Leads");
-  if (!leadsSheet || leadsSheet.getLastRow() <= 1) return { financeCreated: 0, projectCreated: 0 };
+  if (!leadsSheet || leadsSheet.getLastRow() <= 1) {
+    return { financeCreated: 0, projectCreated: 0 };
+  }
+
   const leads = readSheetData(ss, "Leads");
+  const projectsSheet = ss.getSheetByName("Projects");
   let projectCreated = 0;
+
   leads.forEach(lead => {
     if (!isDealMenang(lead.status)) return;
     if (forceLeadId && String(lead.id).trim() !== String(forceLeadId).trim()) return;
-    const refToken = "[LEAD-" + lead.id + "]";
-    if (hasTokenInSheet(ss, "Projects", refToken)) return;
+
+    const leadId = String(lead.id == null ? "" : lead.id).trim();
+    if (!leadId) return;
+    const refToken = "[LEAD-" + leadId + "]";
+    const projectId = stableLeadEntityId_("AUTO-PRJ-LEAD-", leadId);
+    const idRow = projectsSheet ? findRowById(projectsSheet, projectId) : -1;
+    if (idRow === -2) throw new Error("ID proyek otomatis duplikat untuk Lead " + leadId + ".");
+    if (hasTokenInSheet(ss, "Projects", refToken) || idRow > 0) return;
+
     const projectRow = {
-      id: "AUTO-PRJ-" + Date.now() + "-" + String(lead.id),
+      id: projectId,
       title: "Proyek " + (lead.name || ""),
       client: lead.name || "",
       value: Number(lead.value) || 0,
@@ -1008,9 +1027,11 @@ function autoTriggerPillars(ss, forceLeadId) {
       notes: "Antrean otomatis dari Lead " + refToken,
       sopChecklist: "Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0"
     };
-    insertRecord(ss, "Projects", projectRow, ["id","title","client","value","status","deadline","notes","sopChecklist"]);
+    insertRecord(ss, "Projects", projectRow);
     projectCreated++;
   });
+
+  // Deal Won is not proof of payment. Never create Finance income here.
   return { financeCreated: 0, projectCreated: projectCreated };
 }
 
