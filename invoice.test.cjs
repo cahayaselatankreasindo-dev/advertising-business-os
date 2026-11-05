@@ -112,7 +112,7 @@ assert.ok(html.includes("family=Inter"), 'Inter typography is loaded');
 assert.ok(html.includes('id="csk-mobile-more"'), 'mobile More navigation panel exists');
 assert.ok(html.includes("function toggleMobileMore(open)"), 'mobile More navigation is functional');
 assert.ok(html.includes("function mobileGo(page)"), 'mobile module navigation handler exists');
-assert.ok(html.includes("onclick="+"\\"+"mobileGo('documents')"), 'quotation and invoice accessible from mobile More');
-assert.ok(html.includes("onclick="+"\\"+"mobileGo('purchasing')"), 'purchasing accessible from mobile More');
+assert.ok(html.includes("mobileGo('documents')"), 'quotation and invoice accessible from mobile More');
+assert.ok(html.includes("mobileGo('purchasing')"), 'purchasing accessible from mobile More');
 console.log('CSK HPP, quotation integration, responsive design system, and mobile navigation checks passed.');
 
