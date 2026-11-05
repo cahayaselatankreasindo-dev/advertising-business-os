@@ -1,4 +1,4 @@
-name: CSK Photo Reports source checks
+name: CSK business source regression checks
 on:
   pull_request:
     paths:
@@ -6,12 +6,13 @@ on:
       - 'sw.js'
       - 'photo-lab/**'
       - 'photo-lab.test.cjs'
+      - 'invoice.test.cjs'
       - '.github/workflows/photo-lab-check.yml'
   push:
     branches:
       - 'restore/photo-reports-owner-only-20261105'
 jobs:
-  photo-lab-check:
+  source-checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,3 +21,5 @@ jobs:
           node-version: '22'
       - name: Validate Photo LAB source and private access contract
         run: node photo-lab.test.cjs
+      - name: Validate quotation, DP and settlement calculations
+        run: node invoice.test.cjs

@@ -981,7 +981,7 @@
         <div class="flex items-center gap-2">
           <select id="inv-type-selector" onchange="switchInvoiceType(this.value)" class="bg-[#1C2333] text-white font-semibold text-xs px-2.5 py-1.5 rounded-lg border border-[#2E374D]">
             <option value="dp">Invoice DP 50%</option>
-            <option value="pelunasan">Invoice Pelunasan 100%</option>
+            <option value="pelunasan">Invoice Pelunasan (Sisa 50%)</option>
             <option value="penawaran">Surat Penawaran (Quotation)</option>
           </select>
           <button onclick="window.print()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition">
@@ -2089,19 +2089,38 @@
       renderInvoiceDocument();
     }
 
+    function calculateInvoiceAmounts(totalValue, invoiceType) {
+      const total = Math.max(0, Number(totalValue) || 0);
+      const dpAmount = Math.round(total * 0.5);
+      const balance = total - dpAmount;
+      if (invoiceType === 'dp') return { total, dpAmount, amount: dpAmount, balance };
+      if (invoiceType === 'pelunasan') return { total, dpAmount, amount: balance, balance: 0 };
+      return { total, dpAmount: 0, amount: total, balance: total };
+    }
+
+    function escapeInvoiceHtml(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, function (char) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char];
+      });
+    }
+
     function renderInvoiceDocument() {
       if (!currentActiveProject) return;
       const p = currentActiveProject;
       const totalVal = Number(p.value || 0);
+      const amounts = calculateInvoiceAmounts(totalVal, currentInvoiceType);
       const todayStr = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
 
       // Hitung due date (7 hari ke depan untuk invoice, atau deadline proyek)
       const dueDate = p.deadline ? new Date(p.deadline).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }) : '7 Hari dari tanggal invoice';
 
       // Identitas Dokumen
-      const prefix = currentInvoiceType === 'penawaran' ? 'QUO-CSK' : 'INV-CSK';
-      const cleanId = String(p.id).slice(-4);
-      document.getElementById('inv-doc-no').innerText = prefix + '-' + new Date().getFullYear() + '-' + cleanId;
+      const cleanId = String(p.id).replace(/[^a-zA-Z0-9]/g, '').slice(-10) || 'PROJECT';
+      const year = new Date().getFullYear();
+      const docNo = currentInvoiceType === 'penawaran'
+        ? 'QUO-CSK-' + year + '-' + cleanId
+        : 'INV-CSK-' + year + '-' + cleanId + '-' + (currentInvoiceType === 'dp' ? 'DP' : 'PEL');
+      document.getElementById('inv-doc-no').innerText = docNo;
       document.getElementById('inv-doc-date').innerText = todayStr;
       document.getElementById('inv-doc-due').innerText = dueDate;
 
@@ -2115,24 +2134,21 @@
       // Table Item & Kalkulasi
       const tbody = document.getElementById('inv-items-body');
       let itemTitle = p.title;
-      let billAmount = totalVal;
+      const billAmount = amounts.amount;
       let badgeText = 'INVOICE DP 50%';
       let badgeClass = 'bg-amber-500 text-slate-950';
 
       if (currentInvoiceType === 'dp') {
-        billAmount = Math.round(totalVal * 0.5);
         badgeText = 'INVOICE DP 50%';
         badgeClass = 'bg-amber-500 text-slate-950';
         document.getElementById('inv-calc-label').innerText = 'Down Payment (DP 50%):';
         document.getElementById('inv-calc-sub').innerText = formatRp(billAmount);
       } else if (currentInvoiceType === 'pelunasan') {
-        billAmount = totalVal; // Pelunasan total
-        badgeText = 'INVOICE PELUNASAN';
+        badgeText = 'INVOICE PELUNASAN (SISA 50%)';
         badgeClass = 'bg-emerald-600 text-white';
-        document.getElementById('inv-calc-label').innerText = 'Pelunasan Akhir (100%):';
-        document.getElementById('inv-calc-sub').innerText = formatRp(billAmount);
+        document.getElementById('inv-calc-label').innerText = 'DP 50% yang telah ditagihkan:';
+        document.getElementById('inv-calc-sub').innerText = formatRp(amounts.dpAmount);
       } else {
-        billAmount = totalVal;
         badgeText = 'SURAT PENAWARAN (QUO)';
         badgeClass = 'bg-[#1C2333] text-white';
         document.getElementById('inv-calc-label').innerText = 'Estimasi Investasi Proyek:';
@@ -2145,8 +2161,8 @@
 
       tbody.innerHTML = '<tr>' +
         '<td class="py-3 px-3 font-semibold text-slate-900">' +
-          '<div>' + itemTitle + '</div>' +
-          (p.notes ? '<div class="text-[11px] font-normal text-slate-500 mt-0.5">' + p.notes + '</div>' : '') +
+          '<div>' + escapeInvoiceHtml(itemTitle) + '</div>' +
+          (p.notes ? '<div class="text-[11px] font-normal text-slate-500 mt-0.5">' + escapeInvoiceHtml(p.notes) + '</div>' : '') +
           '<div class="text-[10px] text-amber-700 mt-1">&bull; Termasuk fabrikasi, perakitan, dan quality-control standar workshop CSK Serpong</div>' +
         '</td>' +
         '<td class="py-3 px-3 text-center text-slate-600 font-semibold">1 Lot</td>' +
@@ -2163,9 +2179,17 @@
       const totalVal = Number(p.value || 0);
       const isDP = currentInvoiceType === 'dp';
       const isQuo = currentInvoiceType === 'penawaran';
-      const billAmount = isDP ? Math.round(totalVal * 0.5) : totalVal;
+      const amounts = calculateInvoiceAmounts(totalVal, currentInvoiceType);
+      const billAmount = amounts.amount;
       const docType = isQuo ? 'Penawaran Resmi' : (isDP ? 'Invoice DP 50%' : 'Invoice Pelunasan');
       const docNo = document.getElementById('inv-doc-no').innerText;
+      const paymentSummary = isQuo
+        ? 'Estimasi Nilai Proyek: ' + formatRp(totalVal) + '\n' + '*Total Penawaran: ' + formatRp(billAmount) + '*\n'
+        : 'Total Nilai Proyek: ' + formatRp(totalVal) + '\n' +
+          (isDP
+            ? '*Tagihan DP 50%: ' + formatRp(billAmount) + '*\n'
+            : 'DP 50% yang telah ditagihkan: ' + formatRp(amounts.dpAmount) + '\n' +
+              '*Sisa Pelunasan: ' + formatRp(billAmount) + '*\n');
 
       const waText = 
         '*' + docType.toUpperCase() + ' — CAHAYA SELATAN KREASINDO*\n' +
@@ -2173,8 +2197,7 @@
         'Klien: ' + p.client + '\n' +
         'Pekerjaan: ' + p.title + '\n' +
         '------------------------------------\n' +
-        (isDP ? 'Total Nilai Proyek: ' + formatRp(totalVal) + '\n' : '') +
-        '*Jumlah Tagihan: ' + formatRp(billAmount) + '*\n' +
+        paymentSummary +
         '------------------------------------\n' +
         '*Pembayaran Transfer ke Rekening Resmi:*\n' +
         'Bank Jago Syariah\n' +
