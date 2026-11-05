@@ -114,5 +114,15 @@ assert.ok(html.includes("function toggleMobileMore(open)"), 'mobile More navigat
 assert.ok(html.includes("function mobileGo(page)"), 'mobile module navigation handler exists');
 assert.ok(html.includes("mobileGo('documents')"), 'quotation and invoice accessible from mobile More');
 assert.ok(html.includes("mobileGo('purchasing')"), 'purchasing accessible from mobile More');
-console.log('CSK HPP, quotation integration, responsive design system, and mobile navigation checks passed.');
+
+assert.ok(html.includes('function renderLeads()'), 'CRM renderer exists');
+assert.ok(html.includes('break-words'), 'CRM cards wrap long customer data on mobile');
+assert.ok(html.includes('escapeInvoiceHtml(l.name||\'Tanpa nama\')'), 'CRM customer names are HTML-escaped');
+assert.ok(html.includes('escapeInvoiceHtml(l.notes)'), 'CRM notes are HTML-escaped');
+assert.ok(html.includes('rel="noopener noreferrer"'), 'external CRM links use safe opener isolation');
+assert.ok(html.includes('function renderProjects()'), 'project renderer exists');
+assert.ok(html.includes('escapeInvoiceHtml(p.title||\'Tanpa nama proyek\')'), 'project titles are HTML-escaped');
+assert.ok(html.includes('escapeInvoiceHtml(p.notes)'), 'project notes are HTML-escaped');
+assert.ok(html.includes('grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end gap-2'), 'project actions use touch-friendly mobile grid');
+console.log('CSK CRM, project mobile cards, HPP, quotation, and design system regression checks passed.');
 
