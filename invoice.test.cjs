@@ -47,4 +47,10 @@ assert.deepStrictEqual({ ...calculateInvoiceAmounts(1000000, 'dp', 70) }, {
 assert.ok(html.includes('id="inv-dp-percent"'), 'editable DP percentage input exists');
 assert.ok(html.includes('onInvoiceDpPercentChange(this.value)'), 'percentage input recalculates invoice');
 assert.ok(html.includes('currentInvoiceDpPercent'), 'selected percentage is used in invoice rendering');
-console.log('CSK invoice, editable DP percentage, and document-center checks passed.');
+
+assert.ok(html.includes("let currentInvoiceDpPercent = 50;"), 'DP percentage state is declared as executable JavaScript');
+assert.ok(!html.includes("penawaran'\\\\n    let currentInvoiceDpPercent"), 'DP percentage declaration is not swallowed by a line comment');
+assert.ok(html.includes("currentInvoiceDpPercent = Number.isFinite(Number(p.dpPercent))"), 'saved project DP percentage is loaded when opening invoice');
+assert.ok(html.includes("inv-dp-percent').value = currentInvoiceDpPercent"), 'editable percentage input reflects the selected project value');
+assert.ok(html.includes("'INVOICE PELUNASAN (SISA ' + (100 - currentInvoiceDpPercent) + '%)'"), 'settlement label reflects remaining percentage');
+console.log('CSK invoice, editable DP percentage, persistence, and document-center checks passed.');
