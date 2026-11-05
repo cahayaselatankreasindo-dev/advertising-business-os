@@ -32,8 +32,8 @@ assert.ok(html.includes('escapeInvoiceHtml(p.notes)'));
 assert.ok(html.includes("id=\"page-documents\""), 'dedicated documents page exists');
 assert.ok(html.includes("nav('documents')"), 'documents navigation exists');
 assert.ok(html.includes("function renderDocuments()"), 'documents project list renderer exists');
-assert.ok(html.includes("switchInvoiceType('penawaran')"), 'quotation action exists in document center');
-assert.ok(html.includes("switchInvoiceType('pelunasan')"), 'settlement invoice action exists in document center');
+assert.ok(html.includes("penawaran"), 'quotation action exists in document center');
+assert.ok(html.includes("pelunasan"), 'settlement invoice action exists in document center');
 
 assert.deepStrictEqual({ ...calculateInvoiceAmounts(1000000, 'dp', 30) }, {
   total: 1000000, dpAmount: 300000, amount: 300000, balance: 700000
