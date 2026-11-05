@@ -1654,42 +1654,14 @@
     // ============== CLIENTS (with Rating & Review) ==============
 
     function renderClients() {
-      const container = document.getElementById('clients-container');
-      if (db.clients.length === 0) {
-        container.innerHTML = '<div class="col-span-full bg-white p-8 rounded-xl border border-slate-200 text-center text-xs text-slate-400">Belum ada klien tersimpan.</div>';
-        return;
-      }
-      container.innerHTML = db.clients.map(c => {
-        const avgRating = Math.round(Number(c.rating) || 0);
-        const reviewText = c.review || c.ratingReview || '';
-        return '<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">' +
-          '<div class="flex items-start justify-between">' +
-            '<div>' +
-              '<div class="font-heading font-bold text-sm text-slate-800">' + c.name + '</div>' +
-              '<div class="text-xs text-slate-500">' + (c.phone || '-') + '</div>' +
-            '</div>' +
-            '<button onclick="deleteClient(\'' + c.id + '\')" class="text-slate-400 hover:text-red-600 text-xs p-1"><i class="fa fa-trash"></i></button>' +
-          '</div>' +
-          '<div class="flex items-center gap-2">' +
-            renderStars(avgRating) +
-            '<span class="text-xs text-slate-500">' + avgRating + '/5</span>' +
-          '</div>' +
-          (reviewText ? '<p class="text-xs text-slate-600 italic bg-slate-50 p-2 rounded border border-slate-100">"' + reviewText + '"</p>' : '') +
-          '<div class="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg text-xs">' +
-            '<div>' +
-              '<div class="text-[10px] text-slate-400 font-semibold uppercase">Total Proyek</div>' +
-              '<div class="font-bold text-slate-800">' + (c.projectsCount || 0) + ' Proyek</div>' +
-            '</div>' +
-            '<div>' +
-              '<div class="text-[10px] text-slate-400 font-semibold uppercase">LTV Total</div>' +
-              '<div class="font-bold text-emerald-600">' + formatRp(c.totalSpend || 0) + '</div>' +
-            '</div>' +
-          '</div>' +
-          (c.notes ? '<p class="text-xs text-slate-600">' + c.notes + '</p>' : '') +
-          (c.phone ? '<a href="https://wa.me/' + cleanPhone(c.phone) + '" target="_blank" class="block w-full text-center py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded text-xs transition"><i class="fa fa-whatsapp text-emerald-600"></i> Hubungi Klien</a>' : '') +
-        '</div>';
+      const container=document.getElementById('clients-container'); if(!container)return;
+      if(!db.clients.length){container.innerHTML='<div class="col-span-full bg-white p-8 rounded-2xl border border-stone-200 text-center text-xs text-stone-400">Belum ada klien tersimpan.</div>';return;}
+      container.innerHTML=db.clients.map(c=>{
+        const rating=Math.max(0,Math.min(5,Math.round(Number(c.rating)||0))),review=c.review||c.ratingReview||'',id=escapeInvoiceHtml(c.id),phone=String(c.phone||'');
+        return '<article class="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-sm space-y-3 min-w-0"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold text-sm text-stone-900 break-words">'+escapeInvoiceHtml(c.name||'Tanpa nama')+'</h3><div class="text-xs text-stone-500 mt-1 break-all">'+escapeInvoiceHtml(phone||'-')+'</div></div><button onclick="deleteClient(\\''+id+'\\')" aria-label="Hapus klien" class="w-9 h-9 shrink-0 rounded-lg border border-stone-200 text-stone-400 hover:text-red-600"><i class="fa fa-trash"></i></button></div><div class="flex items-center gap-2">'+renderStars(rating)+'<span class="text-xs text-stone-500">'+rating+'/5</span></div>'+(review?'<p class="text-xs text-stone-600 bg-stone-50 border border-stone-100 p-3 rounded-xl whitespace-pre-wrap break-words">'+escapeInvoiceHtml(review)+'</p>':'')+'<div class="grid grid-cols-2 gap-2 bg-stone-50 p-3 rounded-xl text-xs"><div><div class="text-[10px] text-stone-400 font-semibold uppercase">Total Proyek</div><div class="font-bold text-stone-800 mt-1">'+Number(c.projectsCount||0)+' Proyek</div></div><div><div class="text-[10px] text-stone-400 font-semibold uppercase">LTV Total</div><div class="font-bold text-emerald-700 mt-1">'+formatRp(c.totalSpend||0)+'</div></div></div>'+(c.notes?'<p class="text-xs text-stone-600 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(c.notes)+'</p>':'')+(phone?'<a rel="noopener noreferrer" href="https://wa.me/'+cleanPhone(phone)+'" target="_blank" class="min-h-10 flex items-center justify-center w-full rounded-xl bg-emerald-50 text-emerald-700 font-semibold text-xs"><i class="fa fa-whatsapp mr-2"></i>Hubungi Klien</a>':'')+'</article>';
       }).join('');
     }
+
 
     // ============== PROJECTS (with SOP Checklist) ==============
 
@@ -1762,13 +1734,24 @@
 
     // ============== SERVICES CATALOG ==============
     function renderServices() {
-      db.services = db.services || [];
-      const q=(document.getElementById('svc-search')?.value || '').toLowerCase();
-      const rows=db.services.filter(x=>(x.name+' '+x.category+' '+(x.spec||'')).toLowerCase().includes(q));
-      const count=document.getElementById('svc-count'); if(count) count.innerText=rows.length+' layanan';
-      const el=document.getElementById('services-list'); if(!el)return;
-      el.innerHTML=rows.map(x=>'<article class="bg-white border rounded-xl p-4 space-y-2"><div class="flex justify-between gap-2"><div><div class="font-bold text-sm">'+escapeInvoiceHtml(x.name)+'</div><div class="text-xs text-violet-700">'+escapeInvoiceHtml(x.category)+'</div></div><b class="text-sm">'+formatRp(x.basePrice)+'</b></div><p class="text-xs text-slate-500">'+escapeInvoiceHtml(x.spec||'Belum ada spesifikasi')+'</p><button onclick="deleteService(\''+escapeInvoiceHtml(x.id)+'\')" class="text-xs text-red-600">Hapus layanan</button></article>').join('') || '<div class="bg-white border rounded-xl p-6 text-sm text-slate-500">Belum ada layanan. Tambahkan layanan CSK di atas. Data katalog lama tidak dibuat-buat.</div>';
+      db.services=db.services||[];
+      const q=(document.getElementById('svc-search')?.value||'').trim().toLowerCase();
+      const rows=db.services.filter(x=>[x.name,x.category,x.spec].some(v=>String(v||'').toLowerCase().includes(q)));
+      const count=document.getElementById('svc-count');if(count)count.innerText=rows.length+' dari '+db.services.length+' layanan';
+      const el=document.getElementById('services-list');if(!el)return;
+      el.innerHTML=rows.map(x=>{const id=escapeInvoiceHtml(x.id);return '<article class="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 min-w-0"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold text-sm text-stone-900 break-words">'+escapeInvoiceHtml(x.name)+'</h3><div class="inline-flex mt-2 px-2 py-1 rounded-full bg-violet-50 text-violet-700 text-[10px] font-semibold">'+escapeInvoiceHtml(x.category)+'</div></div><b class="text-sm whitespace-nowrap">'+formatRp(x.basePrice)+'</b></div><p class="text-xs text-stone-600 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(x.spec||'Belum ada spesifikasi')+'</p><div class="grid grid-cols-2 gap-2 pt-2 border-t border-stone-100"><button onclick="editService(\\''+id+'\\')" class="min-h-9 rounded-lg border border-stone-200 bg-white text-xs font-semibold">Edit layanan</button><button onclick="deleteService(\\''+id+'\\')" class="min-h-9 rounded-lg border border-red-100 bg-red-50 text-xs font-semibold text-red-600">Hapus</button></div></article>';}).join('')||'<div class="bg-white border border-stone-200 rounded-2xl p-6 text-sm text-stone-500 text-center">Tidak ada layanan yang cocok dengan pencarian.</div>';
     }
+    function editService(id) {
+      const item=(db.services||[]).find(x=>x.id===id);if(!item)return;
+      const name=prompt('Nama layanan:',item.name);if(name===null)return;
+      const category=prompt('Kategori:',item.category);if(category===null)return;
+      const spec=prompt('Spesifikasi:',item.spec||'');if(spec===null)return;
+      const raw=prompt('Harga dasar (Rp):',String(item.basePrice||0));if(raw===null)return;
+      const price=Number(raw);if(!name.trim()||!category.trim()||!Number.isFinite(price)||price<0)return showToast('Data layanan tidak valid.',true);
+      Object.assign(item,{name:name.trim(),category:category.trim(),spec:spec.trim(),basePrice:price,updatedAt:new Date().toISOString()});saveDB();renderServices();showToast('Layanan diperbarui.');
+    }
+
+    function addService()
     function addService() {
       const name=document.getElementById('svc-name').value.trim(), category=document.getElementById('svc-category').value.trim(), spec=document.getElementById('svc-spec').value.trim(), basePrice=Number(document.getElementById('svc-price').value);
       if(!name||!category||!Number.isFinite(basePrice)||basePrice<0)return showToast('Lengkapi nama, kategori, dan harga dasar layanan.',true);
@@ -2058,77 +2041,16 @@
     // ============== MARKETING SPEND (Pilar 5) ==============
 
     function renderMarketing() {
-      const totalBudget = db.marketingSpend.reduce((a, b) => a + Number(b.budget || 0), 0);
-      const totalSpent = db.marketingSpend.reduce((a, b) => a + Number(b.spent || 0), 0);
-      const totalLeads = db.marketingSpend.reduce((a, b) => a + Number(b.leadsGenerated || 0), 0);
-      const cpl = totalLeads > 0 ? Math.round(totalSpent / totalLeads) : 0;
-
-      document.getElementById('mk-total-budget').innerText = formatRp(totalBudget);
-      document.getElementById('mk-spent').innerText = formatRp(totalSpent);
-      document.getElementById('mk-leads').innerText = totalLeads;
-      document.getElementById('mk-cpl').innerText = 'Rp ' + cpl.toLocaleString('id-ID');
-
-      // ROAS per platform
-      const platforms = {};
-      db.marketingSpend.forEach(m => {
-        const plat = m.platform || 'Lainnya';
-        if (!platforms[plat]) platforms[plat] = { spent: 0, budget: 0, leads: 0 };
-        platforms[plat].spent += Number(m.spent) || 0;
-        platforms[plat].budget += Number(m.budget) || 0;
-        platforms[plat].leads += Number(m.leadsGenerated) || 0;
-      });
-
-      const roasEl = document.getElementById('mk-roas-table');
-      const entries = Object.entries(platforms);
-      if (entries.length === 0) {
-        roasEl.innerHTML = '<div class="text-xs text-slate-400 text-center py-3">Belum ada data campaign.</div>';
-      } else {
-        const totalIncome = db.finance.filter(f => f.type === 'income').reduce((a, b) => a + Number(b.amount || 0), 0);
-        const wonLeads = db.leads.filter(l => l.status === 'won');
-        const wonValue = wonLeads.reduce((a, b) => a + Number(b.value || 0), 0);
-        const overallRoas = totalSpent > 0 ? (wonValue / totalSpent).toFixed(2) : '—';
-
-        let roasHtml = '<div class="grid grid-cols-2 gap-2 mb-3">';
-        roasHtml += '<div class="bg-pink-50 p-2 rounded text-center"><div class="text-[10px] text-slate-500">Total RoAS</div><div class="font-bold text-pink-700 text-sm">' + overallRoas + 'x</div></div>';
-        roasHtml += '<div class="bg-pink-50 p-2 rounded text-center"><div class="text-[10px] text-slate-500">CPL Global</div><div class="font-bold text-pink-700 text-sm">' + formatRp(cpl) + '</div></div>';
-        roasHtml += '</div>';
-
-        roasHtml += '<div class="space-y-2">';
-        entries.forEach(([plat, data]) => {
-          const platRoas = data.spent > 0 ? (wonValue / data.spent).toFixed(1) : '—';
-          const platCpl = data.leads > 0 ? Math.round(data.spent / data.leads) : 0;
-          roasHtml += '<div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-xs">' +
-            '<div><span class="font-semibold text-slate-700">' + plat + '</span> <span class="text-slate-400">| Budget: ' + formatRp(data.budget) + '</span></div>' +
-            '<div class="flex gap-3">' +
-              '<span class="text-slate-500">CPL: <b class="text-slate-700">' + formatRp(platCpl) + '</b></span>' +
-              '<span class="text-slate-500">Leads: <b class="text-slate-700">' + data.leads + '</b></span>' +
-            '</div>' +
-          '</div>';
-        });
-        roasHtml += '</div>';
-        roasEl.innerHTML = roasHtml;
-      }
-
-      // Table
-      const tableEl = document.getElementById('marketing-table');
-      if (db.marketingSpend.length === 0) {
-        tableEl.innerHTML = '<div class="p-6 text-center text-xs text-slate-400">Belum ada campaign iklan tercatat.</div>';
-        return;
-      }
-      tableEl.innerHTML = db.marketingSpend.slice().reverse().map(m =>
-        '<div class="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition">' +
-          '<div class="space-y-0.5">' +
-            '<div class="font-bold text-slate-800">' + m.campaign + '</div>' +
-            '<div class="text-[11px] text-slate-400">' + m.date + ' &bull; ' + m.platform + ' &bull; Budget: ' + formatRp(m.budget) + '</div>' +
-          '</div>' +
-          '<div class="flex items-center gap-4">' +
-            '<span class="text-slate-500">Terpakai: <b class="text-slate-700">' + formatRp(m.spent) + '</b></span>' +
-            '<span class="text-slate-500">Leads: <b class="text-slate-700">' + (m.leadsGenerated || 0) + '</b></span>' +
-            '<button onclick="deleteMarketing(\'' + m.id + '\')" class="text-slate-300 hover:text-red-600 p-1"><i class="fa fa-trash"></i></button>' +
-          '</div>' +
-        '</div>'
-      ).join('');
+      const totalBudget=db.marketingSpend.reduce((a,b)=>a+Number(b.budget||0),0),totalSpent=db.marketingSpend.reduce((a,b)=>a+Number(b.spent||0),0),totalLeads=db.marketingSpend.reduce((a,b)=>a+Number(b.leadsGenerated||0),0),cpl=totalLeads?Math.round(totalSpent/totalLeads):0;
+      document.getElementById('mk-total-budget').innerText=formatRp(totalBudget);document.getElementById('mk-spent').innerText=formatRp(totalSpent);document.getElementById('mk-leads').innerText=totalLeads;document.getElementById('mk-cpl').innerText=formatRp(cpl);
+      const platforms={};db.marketingSpend.forEach(m=>{const p=m.platform||'Lainnya';if(!platforms[p])platforms[p]={spent:0,budget:0,leads:0};platforms[p].spent+=Number(m.spent)||0;platforms[p].budget+=Number(m.budget)||0;platforms[p].leads+=Number(m.leadsGenerated)||0;});
+      const roasEl=document.getElementById('mk-roas-table'),entries=Object.entries(platforms);
+      if(!entries.length)roasEl.innerHTML='<div class="text-xs text-stone-400 text-center py-4">Belum ada data campaign.</div>';
+      else {const wonValue=db.leads.filter(l=>l.status==='won').reduce((s,l)=>s+Number(l.value||0),0),overall=totalSpent?(wonValue/totalSpent).toFixed(2)+'x':'—';let html='<div class="grid grid-cols-2 gap-2 mb-3"><div class="bg-stone-50 border border-stone-100 p-3 rounded-xl text-center"><div class="text-[10px] text-stone-500">Total ROAS</div><div class="font-bold text-stone-900 text-sm mt-1">'+overall+'</div></div><div class="bg-stone-50 border border-stone-100 p-3 rounded-xl text-center"><div class="text-[10px] text-stone-500">CPL Global</div><div class="font-bold text-stone-900 text-sm mt-1">'+formatRp(cpl)+'</div></div></div><div class="space-y-2">';entries.forEach(([platform,d])=>{html+='<article class="rounded-xl bg-stone-50 border border-stone-100 p-3 flex flex-col gap-2"><div class="font-semibold text-xs text-stone-800">'+escapeInvoiceHtml(platform)+'</div><div class="grid grid-cols-3 gap-2 text-[11px]"><div><div class="text-stone-400">Budget</div><b>'+formatRp(d.budget)+'</b></div><div><div class="text-stone-400">CPL</div><b>'+formatRp(d.leads?Math.round(d.spent/d.leads):0)+'</b></div><div><div class="text-stone-400">Leads</div><b>'+d.leads+'</b></div></div></article>';});roasEl.innerHTML=html+'</div>';}
+      const tableEl=document.getElementById('marketing-table');if(!db.marketingSpend.length){tableEl.innerHTML='<div class="p-6 text-center text-xs text-stone-400">Belum ada campaign iklan tercatat.</div>';return;}
+      tableEl.innerHTML=db.marketingSpend.slice().reverse().map(m=>{const id=escapeInvoiceHtml(m.id),remaining=Number(m.budget||0)-Number(m.spent||0);return '<article class="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-stone-50/70"><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><b class="text-sm text-stone-800 break-words">'+escapeInvoiceHtml(m.campaign||'Campaign')+'</b><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600 text-[10px]">'+escapeInvoiceHtml(m.platform||'-')+'</span></div><div class="text-[11px] text-stone-400 mt-1">'+escapeInvoiceHtml(m.date||'-')+' · Budget '+formatRp(m.budget)+'</div></div><div class="grid grid-cols-2 sm:flex sm:items-center gap-3 text-xs"><span class="text-stone-500">Terpakai <b class="text-stone-800">'+formatRp(m.spent)+'</b></span><span class="text-stone-500">Sisa <b class="'+(remaining<0?'text-red-600':'text-emerald-700')+'">'+formatRp(remaining)+'</b></span><span class="text-stone-500">Leads <b class="text-stone-800">'+Number(m.leadsGenerated||0)+'</b></span><button onclick="deleteMarketing(\\''+id+'\\')" class="min-h-9 rounded-lg border border-red-100 bg-red-50 text-red-600 text-xs font-semibold">Hapus</button></div></article>';}).join('');
     }
+
 
     // ============== MEMORY ==============
 
