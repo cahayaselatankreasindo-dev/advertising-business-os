@@ -147,5 +147,8 @@ assert.ok(html.includes('escapeInvoiceHtml(m.category||\'Catatan\')'), 'strategy
 assert.ok(html.includes('escapeInvoiceHtml(m.content||m.note||\'\')'), 'strategy note content is escaped');
 assert.ok(html.includes('escapeInvoiceHtml(p.title || \'Tanpa nama proyek\')'), 'dashboard project titles are escaped');
 assert.ok(html.includes('escapeInvoiceHtml(p.client || \'-\')'), 'dashboard client names are escaped');
-console.log('CSK CRM, clients, services, projects, HPP, purchasing, finance, marketing, strategy notes and responsive design checks passed.');
+
+assert.ok(html.includes('const netProfit = totalIncome - totalExpense - totalMktSpend;'), 'dashboard net profit includes separately tracked marketing spend');
+assert.ok(html.includes('const marginPct = totalIncome ? Math.round((netProfit / totalIncome) * 100) : 0;'), 'dashboard margin uses corrected net profit');
+console.log('CSK CRM, clients, services, projects, HPP, purchasing, finance, marketing, strategy notes, profit consistency and responsive design checks passed.');
 
