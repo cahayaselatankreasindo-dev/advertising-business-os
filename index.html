@@ -2637,47 +2637,75 @@
       if (text) text.innerText = isCloud ? 'Tersambung Google' : 'Lokal Offline';
     }
 
+    async function verifyCloudSync(payload, url) {
+      const response = await fetch(url + '?token=' + encodeURIComponent(getApiToken()), { cache: 'no-store' });
+      if (!response.ok) throw new Error('Server Google Sheets tidak merespons (' + response.status + ').');
+      const json = await response.json();
+      if (json.status !== 'success' || !json.data) {
+        throw new Error(json.message || 'Server menolak sinkronisasi. Periksa URL dan API token.');
+      }
+      const collections = {
+        leads: 'leads', clients: 'clients', projects: 'projects', finance: 'finance',
+        memory: 'memory', marketingSpend: 'marketingSpend', materials: 'materials',
+        costSheets: 'costSheets', services: 'services', purchaseOrders: 'purchaseOrders',
+        quotationSnapshots: 'quotationSnapshots'
+      };
+      const verified = [];
+      Object.keys(collections).forEach(key => {
+        const localRows = Array.isArray(payload[key]) ? payload[key] : [];
+        const cloudRows = Array.isArray(json.data[collections[key]]) ? json.data[collections[key]] : [];
+        const cloudIds = new Set(cloudRows.map(row => String(row && row.id)));
+        const missing = localRows.filter(row => !row || row.id === undefined || !cloudIds.has(String(row.id)));
+        if (missing.length) {
+          throw new Error('Verifikasi ' + key + ' gagal. ' + missing.length + ' data belum ditemukan di Google Sheets.');
+        }
+        verified.push(key);
+      });
+      return { modules: verified.length, checkedAt: json.data.lastSynced || new Date().toISOString() };
+    }
+
     async function syncWithGoogle(isSilent = false) {
       const url = db.settings && db.settings.googleSheetUrl;
       if (!url) {
         if (!isSilent) {
-          alert('URL Google Sheets belum disetel!');
-          nav('settings');
+          alert('URL Google Sheets belum disetel!'); nav('settings');
         }
         return;
       }
-
-      if (!isSilent) showToast('Mengirim data ke Google Sheets...');
+      const token = getApiToken();
+      if (!/^[a-f0-9]{64}$/i.test(token)) {
+        if (!isSilent) showToast('API token belum valid. Periksa Pengaturan CSK.', true);
+        return;
+      }
+      if (!isSilent) showToast('Mengirim dan memverifikasi data ke Google Sheets...');
+      const payload = {
+        action: 'sync_all', token,
+        leads: db.leads, clients: db.clients, projects: db.projects, finance: db.finance,
+        memory: db.memory, marketingSpend: db.marketingSpend, materials: db.materials || [],
+        costSheets: db.costSheets || [], services: db.services || [],
+        purchaseOrders: db.purchaseOrders || [], quotationSnapshots: db.quotationSnapshots || []
+      };
       try {
-        const payload = {
-          action: 'sync_all',
-          token: getApiToken(),
-          leads: db.leads,
-          clients: db.clients,
-          projects: db.projects,
-          finance: db.finance,
-          memory: db.memory,
-          marketingSpend: db.marketingSpend,
-          materials: db.materials || [],
-          costSheets: db.costSheets || [],
-          services: db.services || [],
-          purchaseOrders: db.purchaseOrders || [],
-          quotationSnapshots: db.quotationSnapshots || []
-        };
-
+        // Apps Script POST uses no-cors because Google may redirect the response.
+        // A subsequent authenticated GET confirms that every submitted ID exists.
         await fetch(url, {
-          method: 'POST',
-          mode: 'no-cors',
+          method: 'POST', mode: 'no-cors',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
         });
-
-        db.settings.lastSync = new Date().toLocaleString('id-ID');
+        const verification = await verifyCloudSync(payload, url);
+        db.settings.lastSync = verification.checkedAt;
+        db.settings.lastSyncModules = verification.modules;
+        db.settings.lastSyncError = '';
         localStorage.setItem(DB_KEY, JSON.stringify(db));
         updateCloudIndicator();
-        if (!isSilent) showToast('Data berhasil dikirim ke Google Sheets!');
+        if (!isSilent) showToast('Sinkronisasi terverifikasi. ' + verification.modules + ' modul cocok dengan Google Sheets.');
       } catch (err) {
-        if (!isSilent) showToast('Gagal sinkron: ' + err.message, true);
+        db.settings.lastSyncError = String(err && err.message || err);
+        localStorage.setItem(DB_KEY, JSON.stringify(db));
+        updateCloudIndicator();
+        if (!isSilent) showToast('Sinkronisasi belum terverifikasi: ' + db.settings.lastSyncError, true);
+        else console.warn('CSK cloud sync verification failed:', db.settings.lastSyncError);
       }
     }
 
