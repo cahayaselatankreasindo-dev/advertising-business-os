@@ -11,4 +11,11 @@ for (const match of noCorsPosts) {
   assert.equal(match[1], 'text/plain;charset=utf-8', 'no-cors POST uses a CORS-safelisted content type');
 }
 assert.ok(backend.includes('JSON.parse(e.postData.contents)'), 'Apps Script parses the JSON request body independent of Content-Type');
-console.log('CSK Apps Script POST transport checks passed.');
+
+assert.ok(html.includes('async function verifyCloudSync(payload, url)'), 'cloud writes are followed by authenticated read-back verification');
+assert.ok(html.includes('const verification = await verifyCloudSync(payload, url);'), 'sync success waits for server verification');
+assert.ok(html.includes('Sinkronisasi terverifikasi.'), 'success message is shown only after verification');
+assert.ok(html.includes('Cloud terverifikasi'), 'cloud indicator distinguishes verified sync from configured URL');
+assert.ok(html.includes('Cloud belum diuji'), 'cloud indicator does not claim connection before verification');
+assert.ok(html.includes('Mode Tampilan'), 'owner/team selector is described as a display mode, not server authorization');
+console.log('CSK Apps Script transport, verified read-back sync, and honest access-mode UI checks passed.');
