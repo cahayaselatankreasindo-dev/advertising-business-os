@@ -340,7 +340,7 @@ function readSheetData(ss, sheetName) {
    }
    var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
    props.setProperty("API_TOKEN", token);
-   Logger.log("API_TOKEN dibuat. Salin nilai hasil eksekusi fungsi ini ke Pengaturan CSK. Jangan bagikan token.");
+   Logger.log("API_TOKEN: " + token + " (rahasia, simpan di Pengaturan CSK dan jangan bagikan).");
    return token;
  }
 
@@ -348,7 +348,7 @@ function readSheetData(ss, sheetName) {
  function rotateApiToken() {
    var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
    PropertiesService.getScriptProperties().setProperty("API_TOKEN", token);
-   Logger.log("API_TOKEN dirotasi. Perbarui token di seluruh perangkat CSK.");
+   Logger.log("API_TOKEN BARU: " + token + " (rahasia, perbarui di seluruh perangkat CSK).");
    return token;
  }
 
