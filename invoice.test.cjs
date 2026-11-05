@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 const html = fs.readFileSync('index.html', 'utf8');
-const match = html.match(/function calculateInvoiceAmounts\(totalValue, invoiceType\) \{[\s\S]*?\n    \}/);
+const match = html.match(/function calculateInvoiceAmounts\(totalValue, invoiceType, dpPercent\) \{[\s\S]*?\n    \}/);
 assert.ok(match, 'invoice amount calculator exists');
 const calculateInvoiceAmounts = vm.runInNewContext('(' + match[0] + ')');
 
