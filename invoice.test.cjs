@@ -53,4 +53,13 @@ assert.ok(!html.includes("penawaran'\\\\n    let currentInvoiceDpPercent"), 'DP 
 assert.ok(html.includes("currentInvoiceDpPercent = Number.isFinite(Number(p.dpPercent))"), 'saved project DP percentage is loaded when opening invoice');
 assert.ok(html.includes("inv-dp-percent').value = currentInvoiceDpPercent"), 'editable percentage input reflects the selected project value');
 assert.ok(html.includes("'INVOICE PELUNASAN (SISA ' + (100 - currentInvoiceDpPercent) + '%)'"), 'settlement label reflects remaining percentage');
-console.log('CSK invoice, editable DP percentage, persistence, and document-center checks passed.');
+
+assert.ok(html.includes('id="page-hpp"'), 'HPP calculator page exists');
+assert.ok(html.includes('function addHppMaterial()'), 'material master create handler exists');
+assert.ok(html.includes('function calculateHpp()'), 'HPP calculation handler exists');
+assert.ok(html.includes('function saveHppEstimate()'), 'project HPP save handler exists');
+assert.ok(html.includes('db.materials = parsed.materials || []'), 'materials local persistence migration exists');
+assert.ok(html.includes('db.costSheets = parsed.costSheets || []'), 'cost sheet local persistence migration exists');
+assert.ok(html.includes('materials: db.materials || []'), 'materials included in sync payload');
+assert.ok(html.includes('costSheets: db.costSheets || []'), 'cost sheets included in sync payload');
+console.log('CSK invoice, HPP calculator, material and project cost-sheet checks passed.');
