@@ -189,6 +189,9 @@
       <button onclick="nav('projects')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-briefcase w-5 text-emerald-400"></i> Pilar 3 · Produksi
       </button>
+      <button onclick="nav('documents')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
+        <i class="fa fa-file-text-o w-5 text-amber-400"></i> Dokumen · Quotation & Invoice
+      </button>
       <button onclick="nav('clients')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-users w-5 text-indigo-400"></i> Pilar 4 · Klien (PMF)
       </button>
@@ -424,6 +427,25 @@
         <div id="projects-container" class="space-y-3"></div>
       </section>
 
+      <!-- DOCUMENT CENTER: QUOTATION & INVOICE -->
+      <section id="page-documents" class="page-content hidden space-y-6">
+        <div>
+          <span class="inline-flex items-center px-2 py-1 rounded bg-amber-100 text-amber-800 text-[10px] font-bold uppercase tracking-wide">Administrasi Proyek</span>
+          <h1 class="text-2xl font-bold font-heading text-slate-900 mt-2">Dokumen Penawaran & Penagihan</h1>
+          <p class="text-sm text-slate-500">Buat Surat Penawaran (Quotation), Invoice DP 50%, dan Invoice Pelunasan dari data proyek.</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="bg-white p-4 rounded-xl border border-slate-200"><div class="text-xs text-slate-500">Jenis dokumen</div><div class="font-bold text-slate-900 mt-1">Quotation</div><div class="text-[11px] text-slate-500 mt-1">Surat penawaran harga proyek.</div></div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200"><div class="text-xs text-slate-500">Jenis dokumen</div><div class="font-bold text-slate-900 mt-1">Invoice DP 50%</div><div class="text-[11px] text-slate-500 mt-1">Tagihan uang muka proyek.</div></div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200"><div class="text-xs text-slate-500">Jenis dokumen</div><div class="font-bold text-slate-900 mt-1">Invoice Pelunasan</div><div class="text-[11px] text-slate-500 mt-1">Tagihan sisa pembayaran proyek.</div></div>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="font-bold text-slate-800">Pilih proyek</h2>
+          <button onclick="nav('projects')" class="text-xs text-amber-700 font-semibold hover:underline">Kelola proyek</button>
+        </div>
+        <div id="documents-projects-container" class="space-y-3"></div>
+      </section>
+
       <!-- 5. FINANCE (Pilar 2 — Jurnal Keuangan) -->
       <section id="page-finance" class="page-content hidden space-y-6 pillar-finance">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -638,6 +660,9 @@
       </button>
       <button onclick="nav('projects')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
         <i class="fa fa-briefcase text-base mb-0.5"></i>Proyek
+      </button>
+      <button onclick="nav('documents')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
+        <i class="fa fa-file-text-o text-base mb-0.5"></i>Dokumen
       </button>
       <button onclick="nav('clients')" class="mob-btn flex flex-col items-center text-[10px] text-slate-400">
         <i class="fa fa-users text-base mb-0.5"></i>Klien
@@ -1246,6 +1271,7 @@
       document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
       const target = document.getElementById('page-' + page);
       if (target) target.classList.remove('hidden');
+      if (page === 'documents') renderDocuments();
 
       document.querySelectorAll('.nav-btn').forEach(btn => {
         const isCurrent = btn.getAttribute('onclick').includes(page);
@@ -1624,6 +1650,28 @@
             '<button onclick="deleteProject(\'' + p.id + '\')" class="p-1.5 text-slate-400 hover:text-red-600 rounded"><i class="fa fa-trash"></i></button>' +
           '</div>' +
         '</div>';
+      }).join('');
+    }
+
+    // ============== DOCUMENT CENTER ==============
+    function renderDocuments() {
+      const container = document.getElementById('documents-projects-container');
+      if (!container) return;
+      if (!db.projects || db.projects.length === 0) {
+        container.innerHTML = '<div class="bg-white p-8 rounded-xl border border-slate-200 text-center"><div class="font-semibold text-slate-700">Belum ada proyek.</div><p class="text-xs text-slate-500 mt-1">Buat proyek terlebih dahulu agar dokumen dapat dibuat dari data yang benar.</p><button onclick="nav(\'projects\')" class="mt-3 text-xs font-semibold text-amber-700">Buka Produksi</button></div>';
+        return;
+      }
+      container.innerHTML = db.projects.map(function (p) {
+        const safeId = String(p.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        return '<article class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">' +
+          '<div class="min-w-0"><div class="font-bold text-sm text-slate-900">' + escapeInvoiceHtml(p.title || 'Proyek tanpa nama') + '</div>' +
+          '<div class="text-xs text-slate-500 mt-1">' + escapeInvoiceHtml(p.client || '-') + ' · ' + formatRp(p.value || 0) + '</div>' +
+          '<div class="text-[11px] text-slate-400 mt-1">ID: ' + escapeInvoiceHtml(p.id) + ' · Status: ' + escapeInvoiceHtml(p.status || '-') + '</div></div>' +
+          '<div class="flex flex-wrap gap-2 shrink-0">' +
+          '<button onclick="openInvoiceModal(\'' + safeId + '\');switchInvoiceType(\'penawaran\')" class="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold"><i class="fa fa-file-text-o mr-1"></i>Quotation</button>' +
+          '<button onclick="openInvoiceModal(\'' + safeId + '\')" class="px-3 py-2 rounded-lg bg-amber-500 text-slate-950 text-xs font-semibold"><i class="fa fa-file-text-o mr-1"></i>Invoice DP</button>' +
+          '<button onclick="openInvoiceModal(\'' + safeId + '\');switchInvoiceType(\'pelunasan\')" class="px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold"><i class="fa fa-check-circle mr-1"></i>Pelunasan</button>' +
+          '</div></article>';
       }).join('');
     }
 
