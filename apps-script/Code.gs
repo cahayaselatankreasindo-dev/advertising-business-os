@@ -90,6 +90,10 @@ var FIELD_MAP = {
   Purchase_Orders: {
     headers: ["ID", "ProjectID", "NamaProyek", "Supplier", "Tanggal", "ItemsJSON", "Total", "Status", "CreatedAt", "UpdatedAt"],
     fields: ["id", "projectId", "projectName", "supplier", "date", "itemsJson", "total", "status", "createdAt", "updatedAt"]
+  },
+  Quotations: {
+    headers: ["ID", "ProjectID", "NamaProyek", "Klien", "Deadline", "Catatan", "LinesJSON", "Total", "SourceCostSheetID", "SourceCostSheetUpdatedAt", "DPPersen", "Status", "CreatedAt", "UpdatedAt"],
+    fields: ["id", "projectId", "projectName", "client", "deadline", "notes", "linesJson", "total", "sourceCostSheetId", "sourceCostSheetUpdatedAt", "dpPercent", "status", "createdAt", "updatedAt"]
   }
 };
 var RATING_REVIEW_SEP = " | ";
@@ -201,6 +205,7 @@ function setupSheet() {
   ensureSheet(ss, "Cost_Sheets", FIELD_MAP.Cost_Sheets.headers);
   ensureSheet(ss, "Services", FIELD_MAP.Services.headers);
   ensureSheet(ss, "Purchase_Orders", FIELD_MAP.Purchase_Orders.headers);
+  ensureSheet(ss, "Quotations", FIELD_MAP.Quotations.headers);
 
   // Migrasi skema: rapi-kan dulu kolom duplikat, lalu pastikan kolom kontrak ada.
   // Urutan penting: dedupe dulu (mis. "TANGGAL" & "Tanggal" dobel), baru tambah yang kurang.
@@ -412,6 +417,7 @@ function doGet(e) {
       costSheets: readSheetData(ss, "Cost_Sheets").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
       services: readSheetData(ss, "Services"),
       purchaseOrders: readSheetData(ss, "Purchase_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
+      quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
       lastSynced: new Date().toISOString()
     };
     return ContentService.createTextOutput(JSON.stringify({ status: "success", data: result }))
@@ -450,6 +456,7 @@ function doPost(e) {
         if (payload.costSheets) mergeSummary.Cost_Sheets = mergeSheet(ss, "Cost_Sheets", payload.costSheets.map(function(x){ var y=Object.assign({},x); y.itemsJson=JSON.stringify(x.items || []); return y; }));
         if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
         if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y=Object.assign({},x); y.itemsJson=JSON.stringify(x.items || []); return y; }));
+        if (payload.quotationSnapshots) mergeSummary.Quotations = mergeSheet(ss, "Quotations", payload.quotationSnapshots.map(function(x){ var y=Object.assign({},x); y.linesJson=JSON.stringify(x.lines || []); return y; }));
         // Setelah sinkronisasi, cek apakah ada lead baru yang won
         autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge (tidak ada yang dihapus)", summary: mergeSummary });
