@@ -14,6 +14,7 @@ on:
       - 'hpp-calculator.test.js'
       - 'commercial-costing.test.js'
       - 'commercial-invoice.test.js'
+      - 'deal-conversion.test.cjs'
       - 'email-marketing.js'
       - 'email-marketing-ui.js'
       - 'email-marketing.test.js'
@@ -82,6 +83,7 @@ jobs:
         run: |
           node commercial-costing.test.js
           node commercial-invoice.test.js
+          node deal-conversion.test.cjs
       - name: Test Email Marketing safety and segmentation
         run: |
           node --check email-marketing.js
