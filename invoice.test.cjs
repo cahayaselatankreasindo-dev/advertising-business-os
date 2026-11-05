@@ -95,4 +95,14 @@ assert.ok(backend.includes('if (payload.purchaseOrders) mergeSummary.Purchase_Or
 assert.ok(backend.includes('purchaseOrders: readSheetData(ss, "Purchase_Orders")'), 'Apps Script reads purchase orders from Sheets');
 assert.ok(backend.includes('services: readSheetData(ss, "Services")'), 'Apps Script reads services from Sheets');
 
-console.log('CSK invoice, HPP calculations, saved-project editing, backend sync contracts, and inline JavaScript syntax checks passed.');
+
+assert.ok(html.includes('function setHppLineField(index, field, value)'), 'HPP line fields have edit handler');
+for (const field of ['name','unit','qty','unitPrice']) {
+  assert.ok(html.includes("'"+field+"'"), 'HPP supports editing '+field);
+}
+assert.ok(html.includes('function deleteHppEstimate(projectId)'), 'saved HPP can be deleted with confirmation');
+assert.ok(html.includes('onchange="setHppLineField('), 'HPP line editor inputs invoke update handler');
+assert.ok(html.includes('id="hpp-labor" type="number"'), 'labor cost is editable');
+assert.ok(html.includes('id="hpp-other" type="number"'), 'other cost is editable');
+assert.ok(html.includes('id="hpp-margin" type="number"'), 'profit margin is editable');
+console.log('CSK invoice, fully editable HPP items, calculations, and backend sync contract checks passed.');
