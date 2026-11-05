@@ -4,7 +4,9 @@ on:
     paths:
       - 'index.html'
       - 'sw.js'
-      - 'apps-script/Code.gs'\n      - 'google_apps_script.js'\n      - 'backend-auth.test.cjs'
+      - 'apps-script/Code.gs'
+      - 'google_apps_script.js'
+      - 'backend-auth.test.cjs'
       - 'photo-lab/**'
       - 'photo-lab.test.cjs'
       - 'invoice.test.cjs'
@@ -12,7 +14,8 @@ on:
       - '.github/workflows/photo-lab-check.yml'
   push:
     branches:
-      - 'main'\n      - 'restore/photo-reports-owner-only-20261105'
+      - 'main'
+      - 'restore/photo-reports-owner-only-20261105'
 jobs:
   source-checks:
     runs-on: ubuntu-latest
@@ -21,7 +24,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Validate backend API authentication contract\n        run: node backend-auth.test.cjs\n      - name: Validate Photo LAB source and private access contract
+      - name: Validate backend API authentication contract
+        run: node backend-auth.test.cjs
+      - name: Validate Photo LAB source and private access contract
         run: node photo-lab.test.cjs
       - name: Validate quotation, DP and settlement calculations
         run: node invoice.test.cjs
