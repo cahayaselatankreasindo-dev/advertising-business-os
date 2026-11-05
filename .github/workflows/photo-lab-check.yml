@@ -4,9 +4,11 @@ on:
     paths:
       - 'index.html'
       - 'sw.js'
+      - 'apps-script/Code.gs'
       - 'photo-lab/**'
       - 'photo-lab.test.cjs'
       - 'invoice.test.cjs'
+      - 'sync.test.cjs'
       - '.github/workflows/photo-lab-check.yml'
   push:
     branches:
@@ -23,3 +25,5 @@ jobs:
         run: node photo-lab.test.cjs
       - name: Validate quotation, DP and settlement calculations
         run: node invoice.test.cjs
+      - name: Validate Apps Script POST transport
+        run: node sync.test.cjs
