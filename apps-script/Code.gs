@@ -448,6 +448,8 @@ function doPost(e) {
         if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
         if (payload.materials) mergeSummary.Materials = mergeSheet(ss, "Materials", payload.materials);
         if (payload.costSheets) mergeSummary.Cost_Sheets = mergeSheet(ss, "Cost_Sheets", payload.costSheets.map(function(x){ var y=Object.assign({},x); y.itemsJson=JSON.stringify(x.items || []); return y; }));
+        if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
+        if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y=Object.assign({},x); y.itemsJson=JSON.stringify(x.items || []); return y; }));
         // Setelah sinkronisasi, cek apakah ada lead baru yang won
         autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge (tidak ada yang dihapus)", summary: mergeSummary });
