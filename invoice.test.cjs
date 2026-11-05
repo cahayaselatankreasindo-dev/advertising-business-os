@@ -39,7 +39,7 @@ assert.deepStrictEqual({ ...calculateInvoiceAmounts(1000000, 'dp', 30) }, {
   total: 1000000, dpAmount: 300000, amount: 300000, balance: 700000
 });
 assert.deepStrictEqual({ ...calculateInvoiceAmounts(1000000, 'pelunasan', 30) }, {
-  total: 1000000, dpPercent: 30, dpAmount: 300000, amount: 700000, balance: 0
+  total: 1000000, dpAmount: 300000, amount: 700000, balance: 0
 });
 assert.deepStrictEqual({ ...calculateInvoiceAmounts(1000000, 'dp', 70) }, {
   total: 1000000, dpAmount: 700000, amount: 700000, balance: 300000
