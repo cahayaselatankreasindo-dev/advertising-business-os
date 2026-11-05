@@ -2486,7 +2486,10 @@
     function copyInvoiceWA() {
       if (!currentActiveProject) return;
       const p = currentActiveProject;
-      const totalVal = Number((currentInvoiceType === 'penawaran' && p.suggestedPrice) ? p.suggestedPrice : (p.value || 0));
+      const quotationSnapshot = currentInvoiceType === 'penawaran' ? getActiveQuotationSnapshot() : null;
+      const costSheet = getProjectCostSheet(p.id);
+      // WhatsApp summary must use the exact same project total as the printable document.
+      const totalVal = Number(quotationSnapshot ? quotationSnapshot.total : (costSheet ? costSheet.price : (p.value || 0)));
       const isDP = currentInvoiceType === 'dp';
       const isQuo = currentInvoiceType === 'penawaran';
       const amounts = calculateInvoiceAmounts(totalVal, currentInvoiceType, currentInvoiceDpPercent);
