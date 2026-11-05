@@ -26,4 +26,7 @@ assert.ok(html.includes('multiple required'));
 assert.ok(app.includes('csk_photo_lab_uploader_url_v1'));
 assert.ok(app.includes('function openProjectPhotoReport('));
 assert.ok(app.includes('Foto Laporan</button>'));
+assert.ok(app.includes("deleteOnCloud('Finance', id);"));
+assert.ok(app.includes("deleteOnCloud('Marketing_Spend', id);"));
+assert.ok(app.includes("deleteOnCloud('Memory', id);"));
 console.log('CSK private Photo Reports source checks passed.');
