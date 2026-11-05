@@ -1949,7 +1949,7 @@
       const projectId = 'AUTO-PRJ-LEAD-' + safeLeadId;
       const clientId = 'AUTO-CLI-LEAD-' + safeLeadId;
       const clientName = String(lead.name || '').trim();
-      const normalizedName = clientName.toLowerCase().replace(/\\s+/g, ' ');
+      const normalizedName = clientName.toLowerCase().replace(/\s+/g, ' ');
       lead.status = 'won';
 
       // The same stable ID and lead token are used by Apps Script. This keeps
@@ -1974,11 +1974,11 @@
       }
 
       const clientProjects = db.projects.filter(project =>
-        String(project.client || '').trim().toLowerCase().replace(/\\s+/g, ' ') === normalizedName
+        String(project.client || '').trim().toLowerCase().replace(/\s+/g, ' ') === normalizedName
       );
       const totalSpend = clientProjects.reduce((sum, project) => sum + (Number(project.value) || 0), 0);
       let client = db.clients.find(item =>
-        String(item.name || '').trim().toLowerCase().replace(/\\s+/g, ' ') === normalizedName
+        String(item.name || '').trim().toLowerCase().replace(/\s+/g, ' ') === normalizedName
       );
 
       if (!client && clientName) {
