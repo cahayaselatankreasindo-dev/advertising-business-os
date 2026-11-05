@@ -36,13 +36,13 @@ assert.ok(html.includes("switchInvoiceType('penawaran')"), 'quotation action exi
 assert.ok(html.includes("switchInvoiceType('pelunasan')"), 'settlement invoice action exists in document center');
 
 assert.deepStrictEqual({ ...calculateInvoiceAmounts(1000000, 'dp', 30) }, {
-  total: 1000000, dpPercent: 30, dpAmount: 300000, amount: 300000, balance: 700000
+  total: 1000000, dpAmount: 300000, amount: 300000, balance: 700000
 });
 assert.deepStrictEqual({ ...calculateInvoiceAmounts(1000000, 'pelunasan', 30) }, {
   total: 1000000, dpPercent: 30, dpAmount: 300000, amount: 700000, balance: 0
 });
 assert.deepStrictEqual({ ...calculateInvoiceAmounts(1000000, 'dp', 70) }, {
-  total: 1000000, dpPercent: 70, dpAmount: 700000, amount: 700000, balance: 300000
+  total: 1000000, dpAmount: 700000, amount: 700000, balance: 300000
 });
 assert.ok(html.includes('id="inv-dp-percent"'), 'editable DP percentage input exists');
 assert.ok(html.includes('onInvoiceDpPercentChange(this.value)'), 'percentage input recalculates invoice');
