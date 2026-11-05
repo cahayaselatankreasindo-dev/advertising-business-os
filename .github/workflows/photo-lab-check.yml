@@ -4,7 +4,7 @@ on:
     paths:
       - 'index.html'
       - 'sw.js'
-      - 'apps-script/Code.gs'
+      - 'apps-script/Code.gs'\n      - 'google_apps_script.js'\n      - 'backend-auth.test.cjs'
       - 'photo-lab/**'
       - 'photo-lab.test.cjs'
       - 'invoice.test.cjs'
@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Validate Photo LAB source and private access contract
+      - name: Validate backend API authentication contract\n        run: node backend-auth.test.cjs\n      - name: Validate Photo LAB source and private access contract
         run: node photo-lab.test.cjs
       - name: Validate quotation, DP and settlement calculations
         run: node invoice.test.cjs
