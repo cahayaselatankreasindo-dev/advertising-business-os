@@ -2271,7 +2271,7 @@
     function renderInvoiceDocument() {
       if (!currentActiveProject) return;
       const p = currentActiveProject;
-      const totalVal = Number(p.value || 0);
+      const totalVal = Number((currentInvoiceType === 'penawaran' && p.suggestedPrice) ? p.suggestedPrice : (p.value || 0));
       const amounts = calculateInvoiceAmounts(totalVal, currentInvoiceType, currentInvoiceDpPercent);
       const todayStr = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -2340,7 +2340,7 @@
     function copyInvoiceWA() {
       if (!currentActiveProject) return;
       const p = currentActiveProject;
-      const totalVal = Number(p.value || 0);
+      const totalVal = Number((currentInvoiceType === 'penawaran' && p.suggestedPrice) ? p.suggestedPrice : (p.value || 0));
       const isDP = currentInvoiceType === 'dp';
       const isQuo = currentInvoiceType === 'penawaran';
       const amounts = calculateInvoiceAmounts(totalVal, currentInvoiceType, currentInvoiceDpPercent);
