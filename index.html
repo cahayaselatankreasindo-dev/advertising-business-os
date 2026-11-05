@@ -70,6 +70,75 @@
     .p4 { background: #FEF3C7; color: #92400E; }
     .p5 { background: #FCE7F3; color: #9D174D; }
 
+
+    /* CSK Business OS mobile redesign v3.1 */
+    @media (max-width: 767px) {
+      body { background: #F3F4F4 !important; color: #171717; }
+      .csk-brand-header {
+        min-height: 64px !important;
+        padding: 9px 16px !important;
+        gap: 10px;
+        box-shadow: 0 1px 0 rgba(0,0,0,.06);
+      }
+      .csk-brand-header .csk-brand-logo { height: 38px !important; max-width: 132px !important; }
+      .csk-brand-header select { max-width: 88px; font-size: 11px !important; padding: 7px 5px !important; }
+      .csk-brand-header button { min-height: 36px; padding: 7px 10px !important; font-size: 11px !important; }
+      .csk-brand-header button:last-child { padding: 6px !important; }
+      main.flex-1.overflow-y-auto { padding: 20px 16px 104px !important; background: #F3F4F4; }
+      #page-dashboard { gap: 20px !important; }
+      #page-dashboard h1 { font-size: 25px !important; line-height: 1.15 !important; letter-spacing: -.7px; color: #171717 !important; }
+      #page-dashboard > div:first-child p { font-size: 12px !important; line-height: 1.5 !important; color: #777 !important; margin-top: 6px; }
+      #page-dashboard > div:first-child { gap: 14px !important; }
+      #page-dashboard > div:first-child > div:last-child { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; }
+      #page-dashboard > div:first-child button { width: 100%; justify-content: center; min-height: 42px; border-radius: 12px !important; font-size: 12px !important; padding: 9px 8px !important; box-shadow: 0 2px 6px rgba(0,0,0,.06) !important; }
+      #page-dashboard > div:first-child button:last-child { grid-column: 1 / -1; }
+      #page-dashboard > .grid.grid-cols-2 { gap: 10px !important; }
+      #page-dashboard > .grid.grid-cols-2 > div {
+        border: 1px solid #E5E7E6 !important;
+        border-radius: 16px !important;
+        padding: 16px !important;
+        min-height: 126px;
+        box-shadow: 0 3px 12px rgba(20,25,20,.045) !important;
+      }
+      #page-dashboard > .grid.grid-cols-2 > div > div:first-child {
+        font-size: 10px !important;
+        letter-spacing: .08em;
+        color: #777 !important;
+      }
+      #page-dashboard > .grid.grid-cols-2 > div > div:nth-child(2) {
+        font-size: 27px !important;
+        line-height: 1.2;
+        margin-top: 9px !important;
+        letter-spacing: -.8px;
+      }
+      #page-dashboard > .grid.grid-cols-2 > div > div:last-child {
+        font-size: 10px !important;
+        line-height: 1.45;
+        margin-top: 6px !important;
+        color: #858585 !important;
+      }
+      #page-dashboard .bg-white.rounded-xl,
+      #page-dashboard .bg-white.p-4 {
+        border: 1px solid #E7E8E6 !important;
+        border-radius: 16px !important;
+        box-shadow: 0 3px 12px rgba(20,25,20,.04) !important;
+      }
+      #page-dashboard h2 { font-size: 14px !important; }
+      #page-dashboard h3 { font-size: 12px !important; }
+      #page-dashboard .text-xs { font-size: 10px !important; }
+      #page-dashboard .p-5 { padding: 16px !important; }
+      #page-dashboard .p-4 { padding: 14px !important; }
+      #page-dashboard .grid.grid-cols-3 { gap: 7px !important; }
+      #page-dashboard .grid.grid-cols-3 > div { padding: 9px 6px !important; border-radius: 10px !important; }
+      #page-dashboard .grid.grid-cols-3 .text-lg { font-size: 13px !important; }
+      nav.fixed, nav.md\:hidden {
+        background: rgba(255,255,255,.97) !important;
+        border-top: 1px solid #E6E7E5 !important;
+        box-shadow: 0 -5px 20px rgba(0,0,0,.045) !important;
+        backdrop-filter: blur(12px);
+      }
+      .nav-btn.active { background: #F1F1EF !important; color: #171717 !important; }
+    }
     @media print {
       body * { visibility: hidden !important; }
       #invoice-printable, #invoice-printable * { visibility: visible !important; }
