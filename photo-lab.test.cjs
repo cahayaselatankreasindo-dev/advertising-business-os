@@ -9,20 +9,21 @@ const manifest = JSON.parse(fs.readFileSync('photo-lab/appsscript.json', 'utf8')
 const app = fs.readFileSync('index.html', 'utf8');
 
 new vm.Script(code, { filename: 'photo-lab/Code.gs' });
-const inline = html.match(/<script>([\\s\\S]*?)<\\/script>/);
-assert.ok(inline, 'Photo LAB browser script exists');
-new vm.Script(inline[1], { filename: 'photo-lab/Index.html inline script' });
+const scriptStart = html.indexOf('<script>');
+const scriptEnd = html.indexOf('</script>', scriptStart);
+assert.ok(scriptStart >= 0 && scriptEnd > scriptStart, 'Photo LAB browser script exists');
+new vm.Script(html.slice(scriptStart + 8, scriptEnd), { filename: 'photo-lab/Index.html inline script' });
 
 assert.equal(manifest.webapp.access, 'MYSELF');
 assert.equal(manifest.webapp.executeAs, 'USER_DEPLOYING');
-assert.match(code, /Session\\.getActiveUser\\(\\)\\.getEmail\\(\\)/);
-assert.match(code, /DriveApp\\.Access\\.PRIVATE/);
-assert.match(code, /function uploadPhoto\\(/);
-assert.match(code, /function listProjectPhotos\\(/);
-assert.doesNotMatch(code, /AnyoneWithLink|ANYONE_WITH_LINK|setSharing\\s*\\(/);
-assert.match(html, /type="file"/);
-assert.match(html, /multiple required/);
-assert.match(app, /csk_photo_lab_uploader_url_v1/);
-assert.match(app, /function openProjectPhotoReport\\(/);
-assert.match(app, /Foto Laporan<\\/button>/);
+assert.ok(code.includes('Session.getActiveUser().getEmail()'));
+assert.ok(code.includes('DriveApp.Access.PRIVATE'));
+assert.ok(code.includes('function uploadPhoto('));
+assert.ok(code.includes('function listProjectPhotos('));
+assert.ok(!code.includes('AnyoneWithLink') && !code.includes('ANYONE_WITH_LINK') && !code.includes('setSharing('));
+assert.ok(html.includes('type="file"'));
+assert.ok(html.includes('multiple required'));
+assert.ok(app.includes('csk_photo_lab_uploader_url_v1'));
+assert.ok(app.includes('function openProjectPhotoReport('));
+assert.ok(app.includes('Foto Laporan</button>'));
 console.log('CSK private Photo Reports source checks passed.');
