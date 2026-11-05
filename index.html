@@ -1173,11 +1173,11 @@
       applyRoleUI();
     }
 
-    function saveDB() {
+    function saveDB(skipCloudSync = false) {
       localStorage.setItem(DB_KEY, JSON.stringify(db));
       renderAll();
-      // Auto-sync in background if cloud URL is active
-      if (db.settings && db.settings.googleSheetUrl) {
+      // Auto-sync in background if cloud URL is active, except during cloud deletes.
+      if (!skipCloudSync && db.settings && db.settings.googleSheetUrl) {
         syncWithGoogle(true);
       }
     }
@@ -1995,7 +1995,7 @@
     function deleteLead(id) {
       if (confirm('Yakin ingin menghapus lead ini?')) {
         db.leads = db.leads.filter(l => l.id !== id);
-        saveDB();
+        saveDB(true);
         deleteOnCloud('Leads', id);
         showToast('Lead dihapus.');
       }
@@ -2024,7 +2024,7 @@
     function deleteClient(id) {
       if (confirm('Hapus klien ini?')) {
         db.clients = db.clients.filter(c => c.id !== id);
-        saveDB();
+        saveDB(true);
         deleteOnCloud('Clients', id);
         showToast('Klien dihapus.');
       }
@@ -2063,7 +2063,7 @@
     function deleteProject(id) {
       if (confirm('Hapus proyek ini?')) {
         db.projects = db.projects.filter(p => p.id !== id);
-        saveDB();
+        saveDB(true);
         deleteOnCloud('Projects', id);
         showToast('Proyek dihapus.');
       }
@@ -2214,7 +2214,7 @@
     function deleteFinance(id) {
       if (confirm('Hapus transaksi ini?')) {
         db.finance = db.finance.filter(f => f.id !== id);
-        saveDB();
+        saveDB(true);
         deleteOnCloud('Finance', id);
         showToast('Transaksi dihapus.');
       }
@@ -2242,7 +2242,7 @@
     function deleteMarketing(id) {
       if (confirm('Hapus campaign ini?')) {
         db.marketingSpend = db.marketingSpend.filter(m => m.id !== id);
-        saveDB();
+        saveDB(true);
         deleteOnCloud('Marketing_Spend', id);
         showToast('Campaign dihapus.');
       }
@@ -2267,7 +2267,7 @@
     function deleteMemory(id) {
       if (confirm('Hapus catatan ini?')) {
         db.memory = db.memory.filter(m => m.id !== id);
-        saveDB();
+        saveDB(true);
         deleteOnCloud('Memory', id);
         showToast('Catatan dihapus.');
       }
