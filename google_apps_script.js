@@ -74,6 +74,14 @@ var FIELD_MAP = {
   Marketing_Spend: {
     headers: ["ID", "Tanggal", "Platform", "Kampanye", "Budget", "Terpakai", "LeadsDihasilkan", "Catatan"],
     fields:  ["id", "date", "platform", "campaign", "budget", "spent", "leadsGenerated", "notes"]
+  },
+  Materials: {
+    headers: ["ID", "Nama", "Satuan", "HargaSatuan", "UpdatedAt"],
+    fields: ["id", "name", "unit", "unitPrice", "updatedAt"]
+  },
+  Cost_Sheets: {
+    headers: ["ID", "ProjectID", "NamaProyek", "ItemsJSON", "MaterialTotal", "TenagaKerja", "BiayaLain", "Margin", "TotalHPP", "HargaPenawaran", "EstimasiLaba", "UpdatedAt"],
+    fields: ["id", "projectId", "projectName", "itemsJson", "materialTotal", "labor", "other", "margin", "total", "price", "profit", "updatedAt"]
   }
 };
 var RATING_REVIEW_SEP = " | ";
@@ -181,6 +189,8 @@ function setupSheet() {
   // Tab baru: Marketing_Spend (Pilar Pemasaran)
   const marketingHeaders = ["ID", "Tanggal", "Platform", "Kampanye", "Budget", "Terpakai", "LeadsDihasilkan", "Catatan"];
   ensureSheet(ss, "Marketing_Spend", marketingHeaders);
+  ensureSheet(ss, "Materials", FIELD_MAP.Materials.headers);
+  ensureSheet(ss, "Cost_Sheets", FIELD_MAP.Cost_Sheets.headers);
 
   // Migrasi skema: rapi-kan dulu kolom duplikat, lalu pastikan kolom kontrak ada.
   // Urutan penting: dedupe dulu (mis. "TANGGAL" & "Tanggal" dobel), baru tambah yang kurang.
@@ -388,6 +398,8 @@ function doGet(e) {
       finance: readSheetData(ss, "Finance"),
       memory: readSheetData(ss, "Memory"),
       marketingSpend: readSheetData(ss, "Marketing_Spend"),
+      materials: readSheetData(ss, "Materials"),
+      costSheets: readSheetData(ss, "Cost_Sheets").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
       lastSynced: new Date().toISOString()
     };
     return ContentService.createTextOutput(JSON.stringify({ status: "success", data: result }))
@@ -422,6 +434,8 @@ function doPost(e) {
         if (payload.finance)        mergeSummary.Finance         = mergeSheet(ss, "Finance",         payload.finance);
         if (payload.memory)         mergeSummary.Memory          = mergeSheet(ss, "Memory",          payload.memory);
         if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
+        if (payload.materials) mergeSummary.Materials = mergeSheet(ss, "Materials", payload.materials);
+        if (payload.costSheets) mergeSummary.Cost_Sheets = mergeSheet(ss, "Cost_Sheets", payload.costSheets.map(function(x){ var y=Object.assign({},x); y.itemsJson=JSON.stringify(x.items || []); return y; }));
         // Setelah sinkronisasi, cek apakah ada lead baru yang won
         autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge (tidak ada yang dihapus)", summary: mergeSummary });
