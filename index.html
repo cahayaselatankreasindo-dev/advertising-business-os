@@ -1397,29 +1397,53 @@
     function mobileGo(page) { toggleMobileMore(false); nav(page); }
 
     function nav(page) {
-      document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
       const target = document.getElementById('page-' + page);
-      if (target) target.classList.remove('hidden');
-      if (page === 'documents') renderDocuments();
-      if (page === 'hpp') renderHpp();
-      if (page === 'services') renderServices();
-      if (page === 'purchasing') renderPurchasing();
+      if (!target) {
+        console.error('CSK navigation target not found:', page);
+        if (typeof showToast === 'function') showToast('Halaman tidak ditemukan: ' + page, true);
+        return false;
+      }
+
+      // Set inline display as a reliable fallback if utility CSS is delayed or cached.
+      document.querySelectorAll('.page-content').forEach(section => {
+        section.classList.add('hidden');
+        section.style.display = 'none';
+        section.setAttribute('aria-hidden', 'true');
+      });
+      target.classList.remove('hidden');
+      target.style.display = 'block';
+      target.setAttribute('aria-hidden', 'false');
+
+      try {
+        if (page === 'documents') renderDocuments();
+        if (page === 'hpp') renderHpp();
+        if (page === 'services') renderServices();
+        if (page === 'purchasing') renderPurchasing();
+      } catch (error) {
+        console.error('CSK page render failed:', page, error);
+        if (typeof showToast === 'function') showToast('Halaman terbuka, tetapi data gagal dimuat. Muat ulang halaman.', true);
+      }
+
       toggleMobileMore(false);
-
       document.querySelectorAll('.nav-btn').forEach(btn => {
-        const isCurrent = btn.getAttribute('onclick').includes(page);
-        btn.classList.toggle('bg-slate-800', isCurrent);
-        btn.classList.toggle('text-white', isCurrent);
+        const action = btn.getAttribute('onclick') || '';
+        const current = action.includes("nav('" + page + "')");
+        btn.classList.toggle('bg-slate-800', current);
+        btn.classList.toggle('text-white', current);
+        btn.setAttribute('aria-current', current ? 'page' : 'false');
       });
-
       document.querySelectorAll('.mob-btn').forEach(btn => {
-        const isCurrent = btn.getAttribute('onclick').includes(page);
-        btn.classList.toggle('text-amber-500', isCurrent);
-        btn.classList.toggle('text-slate-400', !isCurrent);
+        const action = btn.getAttribute('onclick') || '';
+        const current = action.includes("nav('" + page + "')");
+        btn.classList.toggle('text-amber-500', current);
+        btn.classList.toggle('text-slate-400', !current);
+        btn.setAttribute('aria-current', current ? 'page' : 'false');
       });
-
       window.scrollTo(0, 0);
+      return true;
     }
+    // Explicit global binding keeps inline navigation working across browsers.
+    window.nav = nav;
 
     // ============== MODAL HELPERS ==============
 
