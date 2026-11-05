@@ -1638,7 +1638,7 @@
         const u = new URL(String(value || ''));
         return u.origin === 'https://script.google.com' &&
           !u.username && !u.password &&
-          /^\\/macros\\/s\\/[A-Za-z0-9_-]+\\/exec$/.test(u.pathname) &&
+          /^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(u.pathname) &&
           !u.search && !u.hash;
       } catch (error) {
         return false;
