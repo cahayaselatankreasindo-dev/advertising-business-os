@@ -82,8 +82,8 @@ const frontendContext = {
   },
   saveCount: 0,
   toast: '',
-  saveDB() { this.saveCount++; },
-  showToast(message) { this.toast = message; }
+  saveDB: () => { frontendContext.saveCount++; },
+  showToast: message => { frontendContext.toast = message; }
 };
 vm.createContext(frontendContext);
 const frontendFunctions = [
