@@ -1944,7 +1944,7 @@
       if (!lead) return;
 
       const leadId = String(lead.id).trim();
-      const safeLeadId = leadId.replace(/[^A-Za-z0-9._:-]/g, '-').slice(0, 64);
+      const safeLeadId = leadId.replace(/[^A-Za-z0-9._:-]/g, '-').slice(0, 66);
       const leadToken = '[LEAD-' + leadId + ']';
       const projectId = 'AUTO-PRJ-LEAD-' + safeLeadId;
       const clientId = 'AUTO-CLI-LEAD-' + safeLeadId;
