@@ -29,4 +29,6 @@ assert.ok(app.includes('Foto Laporan</button>'));
 assert.ok(app.includes("deleteOnCloud('Finance', id);"));
 assert.ok(app.includes("deleteOnCloud('Marketing_Spend', id);"));
 assert.ok(app.includes("deleteOnCloud('Memory', id);"));
+assert.ok(app.includes('function saveDB(skipCloudSync = false)'));
+assert.ok(app.includes('saveDB(true);'));
 console.log('CSK private Photo Reports source checks passed.');
