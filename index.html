@@ -228,6 +228,8 @@
       body > aside { display:flex !important; }
       header.csk-brand-header, nav.pillar-mobile-nav { display:none !important; }
     }
+  
+    .chart-empty-state { display:none; align-items:center; justify-content:center; width:100%; min-height:150px; padding:18px; box-sizing:border-box; color:#858585; text-align:center; font-size:12px; line-height:1.6; background:#FAFAF8; border:1px dashed #E7E5E0; border-radius:12px; }
   </style>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden select-none">
@@ -429,6 +431,7 @@
             </h3>
             <div style="height: 220px; position: relative;">
               <canvas id="chartRoas"></canvas>
+              <div id="chartRoasEmpty" class="chart-empty-state">Belum ada data kampanye untuk menampilkan ROAS.</div>
             </div>
           </div>
           <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -437,6 +440,7 @@
             </h3>
             <div style="height: 220px; position: relative;">
               <canvas id="chartCpl"></canvas>
+              <div id="chartCplEmpty" class="chart-empty-state">Belum ada data kampanye untuk menampilkan CPL.</div>
             </div>
           </div>
         </div>
@@ -446,8 +450,9 @@
           <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
             <i class="fa fa-tasks text-red-500"></i> Beban Kerja Tim (Jumlah Proyek Aktif per PIC)
           </h3>
-          <div class="relative w-full" style="max-height: 300px;">
+          <div class="relative w-full" style="min-height: 150px; max-height: 300px;">
             <canvas id="chartWorkload"></canvas>
+            <div id="chartWorkloadEmpty" class="chart-empty-state">Belum ada proyek aktif untuk ditampilkan.</div>
           </div>
         </div>
       </section>
@@ -2900,13 +2905,30 @@
      * Memakai Chart.js v4 dengan pola destroy-before-render agar tidak tumpang tindih.
      */
     function renderMarketingCharts(marketingData, financeData) {
-      if (!marketingData || marketingData.length === 0) {
-        // Kosongkan grafik jika tidak ada data
-        ['chartRoas', 'chartCpl'].forEach(id => {
-          const canvas = document.getElementById(id);
-          if (!canvas) return;
+      const chartIds = ['chartRoas', 'chartCpl'];
+      chartIds.forEach(id => {
+        const canvas = document.getElementById(id);
+        const empty = document.getElementById(id + 'Empty');
+        if (canvas) canvas.style.display = 'block';
+        if (empty) empty.style.display = 'none';
+        if (canvas && typeof Chart !== 'undefined') {
           const existing = Chart.getChart(canvas);
           if (existing) existing.destroy();
+        }
+      });
+      if (!marketingData || marketingData.length === 0 || typeof Chart === 'undefined') {
+        chartIds.forEach(id => {
+          const canvas = document.getElementById(id);
+          const empty = document.getElementById(id + 'Empty');
+          if (canvas) canvas.style.display = 'none';
+          if (empty) {
+            empty.textContent = typeof Chart === 'undefined'
+              ? 'Grafik belum dapat dimuat. Periksa koneksi internet lalu muat ulang.'
+              : (id === 'chartRoas'
+                ? 'Belum ada data kampanye untuk menampilkan ROAS.'
+                : 'Belum ada data kampanye untuk menampilkan CPL.');
+            empty.style.display = 'flex';
+          }
         });
         return;
       }
@@ -3039,13 +3061,17 @@
 
       // Destroy instance lama sebelum render baru
       if (chartWorkloadInstance) { chartWorkloadInstance.destroy(); chartWorkloadInstance = null; }
-
+      const empty = document.getElementById('chartWorkloadEmpty');
+      canvas.style.display = 'block';
+      if (empty) empty.style.display = 'none';
+      if (typeof Chart === 'undefined') {
+        canvas.style.display = 'none';
+        if (empty) { empty.textContent = 'Grafik belum dapat dimuat. Periksa koneksi internet lalu muat ulang.'; empty.style.display = 'flex'; }
+        return;
+      }
       if (!projectsData || projectsData.length === 0) {
-        chartWorkloadInstance = new Chart(canvas.getContext('2d'), {
-          type: 'bar',
-          data: { labels: ['—'], datasets: [{ data: [0], backgroundColor: '#E2E8F0' }] },
-          options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { ticks: { color: '#94A3B8' } } } }
-        });
+        canvas.style.display = 'none';
+        if (empty) { empty.textContent = 'Belum ada data proyek untuk ditampilkan.'; empty.style.display = 'flex'; }
         return;
       }
 
@@ -3060,6 +3086,12 @@
         const label = pic === '' ? 'Belum Ditugaskan' : pic;
         countMap[label] = (countMap[label] || 0) + 1;
       });
+
+      if (activeProjects.length === 0) {
+        canvas.style.display = 'none';
+        if (empty) { empty.textContent = 'Belum ada proyek aktif. Proyek selesai tidak dihitung dalam beban kerja.'; empty.style.display = 'flex'; }
+        return;
+      }
 
       // Sort descending
       const sorted = Object.entries(countMap).sort((a, b) => b[1] - a[1]);
