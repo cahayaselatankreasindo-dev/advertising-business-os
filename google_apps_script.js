@@ -349,7 +349,7 @@ function readSheetData(ss, sheetName) {
 }
 
 // ============== KEAMANAN: GOOGLE IDENTITY + SESSION RBAC ==============
-// OAuth ID token is exchanged server-side for a short-lived opaque session.
+// Email + PIN is exchanged server-side for a short-lived opaque session.
 
 // ============== GET — TARIK DATA SEMUA TAB ==============
 
@@ -855,13 +855,6 @@ function cskSessionKey_(sessionId) {
   if (!sessionId || !/^[A-Za-z0-9_-]{40,100}$/.test(String(sessionId))) throw new Error("AUTH_REQUIRED");
   var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(sessionId), Utilities.Charset.UTF_8);
   return "CSK_SESSION_" + bytes.map(function(b){var v=(b+256)%256;return ("0"+v.toString(16)).slice(-2);}).join("");
-}
-function cskCreateSession_(idToken, sessionId) {
-  var identity = cskVerifyGoogleIdToken_(idToken);
-  var ttl = Math.min(3300, identity.expiresAt - Math.floor(Date.now()/1000) - 60);
-  if (ttl < 60) throw new Error("AUTH_EXPIRED");
-  CacheService.getScriptCache().put(cskSessionKey_(sessionId), JSON.stringify({email:identity.email,role:identity.role}), ttl);
-  return {status:"success",identity:{email:identity.email,role:identity.role},expiresIn:ttl};
 }
 function cskRequireSession_(sessionId) {
   var key = cskSessionKey_(sessionId);
