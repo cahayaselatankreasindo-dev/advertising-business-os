@@ -293,6 +293,36 @@
       .csk-mobile-more-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       main .page-content .grid.grid-cols-2 { grid-template-columns:1fr !important; }
     }
+  
+    /* Touch reliability: keep mobile navigation inside the app flex layout. */
+    @media screen and (max-width: 1023px) {
+      nav.pillar-mobile-nav {
+        position:relative !important;
+        inset:auto !important;
+        left:auto !important;
+        right:auto !important;
+        bottom:auto !important;
+        z-index:1000 !important;
+        flex:0 0 auto !important;
+        width:100% !important;
+        min-height:68px !important;
+        display:flex !important;
+        pointer-events:auto !important;
+        isolation:isolate;
+      }
+      nav.pillar-mobile-nav button,
+      nav.pillar-mobile-nav button i {
+        pointer-events:auto !important;
+        cursor:pointer !important;
+        position:relative;
+        z-index:1;
+      }
+      #csk-mobile-more { z-index:1100 !important; pointer-events:none; }
+      #csk-mobile-more.open { pointer-events:auto; }
+      #csk-mobile-more .csk-mobile-more-panel,
+      #csk-mobile-more button { pointer-events:auto !important; }
+      main.flex-1.overflow-y-auto { position:relative; z-index:1; }
+    }
   </style>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden select-none">
@@ -1540,6 +1570,8 @@
     }
     // Explicit global binding keeps inline navigation working across browsers.
     window.nav = nav;
+    window.toggleMobileMore = toggleMobileMore;
+    window.mobileGo = mobileGo;
 
     // ============== MODAL HELPERS ==============
 
