@@ -1,0 +1,55 @@
+(function (root) {
+  'use strict';
+
+  function callPrivateApi(payload) {
+    return new Promise(function (resolve, reject) {
+      if (!root.google || !root.google.script || !root.google.script.run) {
+        reject(new Error('Google Apps Script private bridge is unavailable.'));
+        return;
+      }
+      var runner = root.google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(function (error) {
+          reject(new Error(error && error.message ? error.message : String(error)));
+        });
+      runner.cskLabApiRequest(payload);
+    });
+  }
+
+  function createTransport() {
+    return async function (_url, init) {
+      var payload;
+      try {
+        payload = JSON.parse(init && init.body ? init.body : '{}');
+      } catch (_) {
+        throw new Error('Payload sinkronisasi privat tidak valid.');
+      }
+      var result = await callPrivateApi(payload);
+      return {
+        ok: true,
+        type: 'basic',
+        json: function () { return Promise.resolve(result); }
+      };
+    };
+  }
+
+  function callTinyFish(payload) {
+    return new Promise(function (resolve, reject) {
+      if (!root.google || !root.google.script || !root.google.script.run) {
+        reject(new Error('Google Apps Script private bridge is unavailable.'));
+        return;
+      }
+      var runner = root.google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(function (error) {
+          reject(new Error(error && error.message ? error.message : String(error)));
+        });
+      runner.cskLabTinyFishRequest(payload);
+    });
+  }
+
+  root.CSKAppsScriptTransport = {
+    createTransport: createTransport,
+    callTinyFish: callTinyFish
+  };
+})(window);

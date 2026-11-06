@@ -45,6 +45,9 @@ on:
       - 'apps-script/lab-contract.test.cjs'
       - 'apps-script/LabSelfTest.gs'
       - 'apps-script/LabRequestGuard.gs'
+      - 'apps-script-lab/**'
+      - 'docs/private-app-shell.md'
+      - 'docs/tinyfish-integration.md'
       - 'sw.js'
       - 'service-worker.test.js'
       - 'mapping.test.js'
@@ -127,6 +130,18 @@ jobs:
           node --check --input-type=commonjs < apps-script/CSK-LAB-BUNDLE.gs
           node apps-script/build-lab-bundle.cjs --check
           node apps-script/lab-bundle.test.cjs
+      - name: Validate private owner-only Apps Script LAB and TinyFish adapter
+        run: |
+          node --check --input-type=commonjs < apps-script-lab/Code.gs
+          node --check --input-type=commonjs < apps-script-lab/LabRequestGuard.gs
+          node --check --input-type=commonjs < apps-script-lab/LabSelfTest.gs
+          node --check --input-type=commonjs < apps-script-lab/LabHandlerVerification.gs
+          node --check --input-type=commonjs < apps-script-lab/TinyFishService.gs
+          node --check --input-type=commonjs < apps-script-lab/AppsScriptBridge.html
+          node apps-script-lab/lab-deployment.test.cjs
+          node apps-script-lab/tinyfish-service.test.cjs
+          bash -n apps-script-lab/deploy-lab.sh
+          bash apps-script-lab/deploy-lab.sh preflight
       - name: Install browser test runtime
         run: |
           npm install --no-save --no-package-lock playwright@1.55.0
