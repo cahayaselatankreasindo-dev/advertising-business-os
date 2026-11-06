@@ -16,6 +16,7 @@ async function get(action){const u=apiUrl();if(!u||!sessionId)throw Error('URL b
 function merge(a,b){const m=new Map();(a||[]).forEach(x=>{if(x&&x.id!==undefined)m.set(String(x.id),x)});(b||[]).forEach(x=>{if(x&&x.id!==undefined)m.set(String(x.id),x)});return [...m.values()];}
 function saveScoped(){const d=identity&&identity.role==='team'?{leads:db.leads,clients:db.clients,projects:db.projects}:db;localStorage.setItem(identity&&identity.role==='team'?teamKey:ownerKey,JSON.stringify(d));}
 function applyRole(){
+ document.querySelectorAll('#role-select,#role-select-mob').forEach(e=>e.style.display='none');
  const team=!identity||identity.role!=='owner';
  document.querySelectorAll('.pillar-finance,.pillar-marketing,.pillar-riset,.pillar-marketing-mob').forEach(e=>e.style.display=team?'none':'');
  const ownerOnly=['finance','marketing','analysis','memory','settings','services','purchasing','hpp','documents'];
@@ -59,6 +60,10 @@ function loadApprovals(){if(!identity||identity.role!=='owner')return;get('list_
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 window.cskSecurityAction=async function(id,action){if(!identity||identity.role!=='owner')return alert('Owner only');if(!confirm('Lanjutkan tindakan '+action+'?'))return;try{await post({action,approvalId:id});if(typeof showToast==='function')showToast('Status permintaan diperbarui.');loadApprovals();}catch(e){alert(e.message)}};
 window.cskSecurityLogout=async function(){try{if(sessionId)await post({action:'logout'});}catch(e){}sessionId='';identity=null;ready=false;location.reload();};
+originalNav=window.nav;
+window.nav=function(page){if(!ready||!identity){status('Login diperlukan.');return false;}if(identity.role==='team'&&!['dashboard','leads','clients','projects'].includes(page)){if(typeof showToast==='function')showToast('Modul hanya tersedia untuk Owner.',true);return false;}return originalNav?originalNav(page):false;};
+window.pullData=async function(){if(!identity||identity.role!=='owner')return alert('Owner only');if(!confirm('Tarik data cloud dan timpa data lokal?'))return;try{const j=await get('get_data'),d=j.data;Object.keys(d).forEach(k=>{if(Array.isArray(db[k]))db[k]=d[k]});saveScoped();renderAll();}catch(e){alert(e.message);}};
+window.saveGoogleUrl=function(){if(!identity||identity.role!=='owner')return alert('Owner only');const u=document.getElementById('setting-google-url').value.trim();if(!/^https:\/\/script\.google\.com\/macros\/s\//.test(u))return alert('URL Apps Script tidak valid.');db.settings.googleSheetUrl=u;localStorage.setItem('csk_gas_url',u);saveScoped();if(typeof showToast==='function')showToast('URL backend tersimpan.');};
 window.loadDB=function(){db.settings=db.settings||{};const u=localStorage.getItem('csk_gas_url');if(u)db.settings.googleSheetUrl=u;};
 window.saveDB=function(){if(!ready)return;saveScoped();if(db.settings.googleSheetUrl)window.syncWithGoogle(true);if(typeof renderAll==='function')renderAll();};
 window.pullAndMerge=async function(){if(!ready)return;try{const j=await get('get_data'),d=j.data||{};db.leads=merge(d.leads,db.leads);db.clients=merge(d.clients,db.clients);db.projects=merge(d.projects,db.projects);if(identity.role==='owner')['finance','memory','marketingSpend','materials','costSheets','services','purchaseOrders','quotationSnapshots'].forEach(k=>db[k]=merge(d[k],db[k]));saveScoped();renderAll();}catch(e){console.warn(e);}};
