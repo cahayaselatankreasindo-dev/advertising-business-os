@@ -348,65 +348,25 @@ function readSheetData(ss, sheetName) {
   });
 }
 
-// ============== KEAMANAN: TOKEN API ==============
- // Token disimpan hanya di Script Properties. Backend fail-closed.
- function getApiToken() {
-   return PropertiesService.getScriptProperties().getProperty("API_TOKEN") || "";
- }
+// ============== KEAMANAN: GOOGLE IDENTITY + SESSION RBAC ==============
+// OAuth ID token is exchanged server-side for a short-lived opaque session.
 
- /**
-  * Jalankan sekali dari Apps Script editor. Mengembalikan token hanya saat
-  * pertama kali dibuat. Pemanggilan ulang tidak merotasi token diam-diam.
-  */
- function setupApiToken() {
-   var props = PropertiesService.getScriptProperties();
-   if (props.getProperty("API_TOKEN")) {
-     throw new Error("API_TOKEN sudah ada. Gunakan rotateApiToken() hanya jika ingin mengganti token.");
-   }
-   var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
-   props.setProperty("API_TOKEN", token);
-   Logger.log("API_TOKEN: " + token + " (rahasia, simpan di Pengaturan CSK dan jangan bagikan).");
-   return token;
- }
-
- /** Rotasi eksplisit. Token lama langsung tidak berlaku. */
- function rotateApiToken() {
-   var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
-   PropertiesService.getScriptProperties().setProperty("API_TOKEN", token);
-   Logger.log("API_TOKEN BARU: " + token + " (rahasia, perbarui di seluruh perangkat CSK).");
-   return token;
- }
-
- /**
-  * Valid hanya jika token server sudah dikonfigurasi dan token request cocok.
-  * Tidak ada mode kompatibilitas tanpa autentikasi.
-  */
- function isAuthorized(payloadOrEvent, tokenParam) {
-   var expected = getApiToken();
-   if (!/^[a-f0-9]{64}$/i.test(expected)) return false;
-
-   var provided = "";
-   if (payloadOrEvent && typeof payloadOrEvent === "object") {
-     provided = payloadOrEvent.token || "";
-   }
-   if (!provided && tokenParam) provided = tokenParam;
-   return String(provided) === String(expected);
- }
-
- function unauthorizedResponse() {
-   return jsonResponse({ status: "error", code: "UNAUTHORIZED", message: "Tidak diizinkan: token akses salah, kosong, atau backend belum dikonfigurasi." });
- }
-
- // ============== GET — TARIK DATA SEMUA TAB ==============
+// ============== GET — TARIK DATA SEMUA TAB ==============
 
 function doGet(e) {
   try {
-    // Proteksi token (via query string ?token=...)
-    var tokenParam = (e && e.parameter) ? e.parameter.token : "";
-    if (!isAuthorized(null, tokenParam)) return unauthorizedResponse();
-
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const result = {
+    var params = (e && e.parameter) ? e.parameter : {};
+    var identity = cskRequireSession_(params.sessionId);
+    var action = String(params.action || "get_data").toLowerCase();
+    if (action === "list_pending_approvals") {
+      return jsonResponse({status:"success", identity:identity, approvals:cskListPendingApprovals_(identity)});
+    }
+    if (action === "list_my_approvals") {
+      return jsonResponse({status:"success", identity:identity, approvals:cskListMyApprovals_(identity)});
+    }
+    if (action !== "get_data") throw new Error("ACTION_NOT_ALLOWED");
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var result = {
       leads: readSheetData(ss, "Leads"),
       clients: readSheetData(ss, "Clients"),
       projects: readSheetData(ss, "Projects"),
@@ -414,17 +374,15 @@ function doGet(e) {
       memory: readSheetData(ss, "Memory"),
       marketingSpend: readSheetData(ss, "Marketing_Spend"),
       materials: readSheetData(ss, "Materials"),
-      costSheets: readSheetData(ss, "Cost_Sheets").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
+      costSheets: readSheetData(ss, "Cost_Sheets").map(function(x){try{x.items=JSON.parse(x.itemsJson||"[]");}catch(e){x.items=[];}return x;}),
       services: readSheetData(ss, "Services"),
-      purchaseOrders: readSheetData(ss, "Purchase_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
-      quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
+      purchaseOrders: readSheetData(ss, "Purchase_Orders").map(function(x){try{x.items=JSON.parse(x.itemsJson||"[]");}catch(e){x.items=[];}return x;}),
+      quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){try{x.lines=JSON.parse(x.linesJson||"[]");}catch(e){x.lines=[];}return x;}),
       lastSynced: new Date().toISOString()
     };
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", data: result }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonResponse({status:"success",identity:identity,data:cskFilterDataForRole_(result,identity.role)});
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonResponse({status:"error",code:String(err && err.message || err),message:"Akses ditolak atau sesi berakhir."});
   }
 }
 
@@ -432,13 +390,18 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    const payload = JSON.parse(e.postData.contents);
-
-    // Proteksi token (via field payload.token)
-    if (!isAuthorized(payload)) return unauthorizedResponse();
-
+    const payload = JSON.parse((e && e.postData && e.postData.contents) || "{}");
+    const action = String(payload.action || "").toLowerCase();
+    if (action === "auth_session") {
+      return jsonResponse(cskCreateSession_(payload.idToken, payload.sessionId));
+    }
+    const identity = cskRequireSession_(payload.sessionId);
+    if (action === "logout") {
+      cskRevokeSession_(payload.sessionId);
+      return jsonResponse({status:"success",message:"Session revoked."});
+    }
+    cskAssertPayloadAllowed_(identity, payload);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const action = (payload.action || "").toLowerCase();
 
     switch (action) {
 
@@ -458,7 +421,7 @@ function doPost(e) {
         if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y=Object.assign({},x); y.itemsJson=JSON.stringify(x.items || []); return y; }));
         if (payload.quotationSnapshots) mergeSummary.Quotations = mergeSheet(ss, "Quotations", payload.quotationSnapshots.map(function(x){ var y=Object.assign({},x); y.linesJson=JSON.stringify(x.lines || []); return y; }));
         // Setelah sinkronisasi, cek apakah ada lead baru yang won
-        autoTriggerPillars(ss);
+        if (identity.role === "owner") autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge (tidak ada yang dihapus)", summary: mergeSummary });
       }
 
@@ -514,72 +477,27 @@ function doPost(e) {
         if (statusCol === -1) statusCol = 6; // fallback kolom G (index 7)
         sheet.getRange(rowNum, statusCol + 1).setValue(status);
         // Jika status berubah jadi deal menang → jalankan otomasi
-        if ((sheetName === "Leads" || sheetName === "Leads_CRM") && isDealMenang(status)) {
+        if (identity.role === "owner" && (sheetName === "Leads" || sheetName === "Leads_CRM") && isDealMenang(status)) {
           autoTriggerPillars(ss, id);
         }
         return jsonResponse({ status: "success", message: "Status diperbarui di " + sheetName, row: rowNum });
       }
 
-      // --- send_cold_email: kirim outreach resmi via Gmail dengan batas kuota 50 & opt-out ---
-      case "send_cold_email": {
-        const toEmail = (payload.toEmail || "").trim();
-        const name = (payload.name || "Kak").trim();
-        const brand = (payload.brand || "Brand").trim();
+      // --- Legacy direct-send is deliberately disabled. ---
+      case "send_cold_email":
+        throw new Error("COLD_EMAIL_APPROVAL_REQUIRED");
 
-        if (!toEmail) throw new Error("Email tujuan tidak boleh kosong");
+      case "request_cold_email":
+        return jsonResponse(cskRequestColdEmail_(identity, payload));
 
-        // 1. Cek sisa kuota Gmail Google
-        const remainingGmailQuota = MailApp.getRemainingDailyQuota();
-        if (remainingGmailQuota < 5) {
-          throw new Error("Sisa kuota harian Gmail akun ini hampir habis. Pengiriman ditunda demi keamanan.");
-        }
+      case "approve_cold_email":
+        return jsonResponse(cskApproveColdEmail_(identity, payload.approvalId));
 
-        // 2. Proteksi batas harian internal CSK (Max 50 email/hari)
-        const props = PropertiesService.getScriptProperties();
-        const todayStr = Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyy-MM-dd");
-        const lastDate = props.getProperty("COLD_EMAIL_DATE") || "";
-        let countToday = parseInt(props.getProperty("COLD_EMAIL_COUNT") || "0", 10);
+      case "reject_cold_email":
+        return jsonResponse(cskRejectColdEmail_(identity, payload.approvalId));
 
-        if (lastDate !== todayStr) {
-          countToday = 0;
-          props.setProperty("COLD_EMAIL_DATE", todayStr);
-        }
-
-        if (countToday >= 50) {
-          throw new Error("Batas aman harian tercapai (50/hari) untuk menjaga reputasi email. Coba lagi besok.");
-        }
-
-        // 3. Draft email dengan kalimat opt-out
-        const subject = "Vendor Produksi Booth & Display POSM — Cahaya Selatan Kreasindo";
-        const body = "Halo Kak " + name + " / Tim " + brand + ",\n\n" +
-          "Salam kenal, saya Zefry dari Cahaya Selatan Kreasindo (CSK).\n\n" +
-          "Kebetulan workshop fabrikasi kami di Serpong spesialis handle:\n" +
-          "- Booth pameran, backdrop event, & sewa equipment\n" +
-          "- POSM, rak display, & akrilik custom\n\n" +
-          "Beberapa project sebelumnya kami support untuk brand seperti J&T Cargo, Hanasui, Line Friends, sampai Teh Pucuk.\n\n" +
-          "Kalau di " + brand + " lagi ada agenda event, pameran, atau kebutuhan display toko yang butuh vendor produksi langsung tangan pertama, boleh saya kirimkan PDF portfolio ringkas kami?\n\n" +
-          "Terima kasih, Kak.\n\n" +
-          "Zefry Dany\n" +
-          "Cahaya Selatan Kreasindo\n" +
-          "WhatsApp: 0888-8533-488\n" +
-          "Portofolio: cahayaselatankreasindo.my.id\n\n" +
-          "---\n" +
-          "Jika Kakak/tim tidak berkenan menerima info ini, cukup balas email ini dengan 'Stop' ya Kak. Terima kasih banyak.";
-
-        GmailApp.sendEmail(toEmail, subject, body, {
-          name: "Zefry Dany (Cahaya Selatan Kreasindo)"
-        });
-
-        // 4. Update counter terkirim
-        countToday++;
-        props.setProperty("COLD_EMAIL_COUNT", String(countToday));
-
-        return jsonResponse({
-          status: "success",
-          message: "Cold email terkirim (" + countToday + "/50 hari ini) ke " + toEmail,
-          countToday: countToday
-        });
-      }
+      case "send_approved_cold_email":
+        return jsonResponse(cskSendApprovedColdEmail_(identity, payload.approvalId));
 
       default:
         throw new Error("Aksi tidak dikenal: " + action + ". Gunakan: sync_all, insert, update_status, send_cold_email.");
@@ -759,100 +677,22 @@ function handleAutoTrigger(e) {
  * lalu mengirim cold email resmi (maks 15 per hari agar bertahap dan aman).
  */
 function cronDailyOutreach() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName("Leads");
-  if (!sheet || sheet.getLastRow() <= 1) return;
-
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0].map(h => String(h).toLowerCase().trim());
-  
-  const statusIdx = headers.indexOf("status");
-  const nameIdx = headers.indexOf("nama");
-  const notesIdx = headers.indexOf("catatan");
-  
-  if (statusIdx === -1 || nameIdx === -1) return;
-
-  // Cek kuota sisa Gmail
-  if (MailApp.getRemainingDailyQuota() < 5) {
-    Logger.log("Kuota Gmail menipis, cron dibatalkan.");
-    return;
-  }
-
-  let sentToday = 0;
-  const maxPerBatch = 15; // Kirim santai 15 lead per pagi
-
-  for (let i = 1; i < data.length; i++) {
-    if (sentToday >= maxPerBatch) break;
-
-    const row = data[i];
-    const status = String(row[statusIdx] || "").toLowerCase().trim();
-    const name = String(row[nameIdx] || "").trim();
-    const notes = String(row[notesIdx] || "").trim();
-
-    // Cari pola email dari kolom catatan atau teks
-    const emailMatch = notes.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-    
-    if (status === "new" && emailMatch) {
-      const toEmail = emailMatch[0];
-      
-      try {
-        const subject = "Vendor Produksi Booth & Display POSM — Cahaya Selatan Kreasindo";
-        const body = "Halo Kak " + name + ",\n\n" +
-          "Salam kenal, saya Zefry dari Cahaya Selatan Kreasindo (CSK).\n\n" +
-          "Kebetulan workshop fabrikasi kami di Serpong spesialis handle:\n" +
-          "- Booth pameran, backdrop event, & sewa equipment\n" +
-          "- POSM, rak display, & akrilik custom\n\n" +
-          "Beberapa project sebelumnya kami support untuk brand seperti J&T Cargo, Hanasui, Line Friends, sampai Teh Pucuk.\n\n" +
-          "Kalau di tim Kakak lagi ada agenda event, pameran, atau kebutuhan display toko yang butuh vendor produksi langsung tangan pertama, boleh saya kirimkan PDF portfolio ringkas kami?\n\n" +
-          "Terima kasih, Kak.\n\n" +
-          "Zefry Dany\n" +
-          "Cahaya Selatan Kreasindo\n" +
-          "WhatsApp: 0888-8533-488\n" +
-          "Portofolio: cahayaselatankreasindo.my.id\n\n" +
-          "---\n" +
-          "Jika tidak berkenan menerima info ini, cukup balas email ini dengan 'Stop' ya Kak. Terima kasih banyak.";
-
-        GmailApp.sendEmail(toEmail, subject, body, {
-          name: "Zefry Dany (Cahaya Selatan Kreasindo)"
-        });
-
-        // Update status di sheet jadi 'contacted'
-        sheet.getRange(i + 1, statusIdx + 1).setValue("contacted");
-        
-        // Tambahkan stempel tanggal di catatan
-        const todayStr = Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyy-MM-dd");
-        sheet.getRange(i + 1, notesIdx + 1).setValue(notes + " | Auto-email 9am " + todayStr);
-
-        sentToday++;
-        Utilities.sleep(1500); // Jeda aman 1.5 detik antar email
-      } catch (err) {
-        Logger.log("Gagal kirim ke " + toEmail + ": " + err.toString());
-      }
-    }
-  }
-
-  Logger.log("Selesai cron jam 9 pagi. Total terkirim: " + sentToday);
+  // Disabled by security policy. Cold email requires an explicit Owner approval
+  // and a separate Owner send action. Existing triggers are harmless no-ops.
+  Logger.log("CSK security: automatic cold outreach is disabled.");
+  return;
 }
 
 /**
- * Jalankan fungsi ini sekali dari Apps Script untuk memasang otomatis trigger jam 9 pagi.
+ * Remove any legacy daily outreach trigger. Do not install a replacement.
+ * Run manually only after reviewing the security migration.
  */
 function installDailyOutreachTrigger() {
-  const triggers = ScriptApp.getProjectTriggers();
-  triggers.forEach(t => {
-    if (t.getHandlerFunction() === "cronDailyOutreach") {
-      ScriptApp.deleteTrigger(t);
-    }
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === "cronDailyOutreach") ScriptApp.deleteTrigger(t);
   });
-
-  ScriptApp.newTrigger("cronDailyOutreach")
-    .timeBased()
-    .atHour(9)
-    .everyDays(1)
-    .inTimezone("Asia/Jakarta")
-    .create();
-
-  Logger.log("Pemicu jam 9 pagi berhasil dipasang.");
+  Logger.log("Legacy cold outreach triggers removed; no automatic sender installed.");
+  return "Automatic cold outreach disabled.";
 }
 
 // ============== UTILITAS RESPONS ==============
@@ -973,3 +813,187 @@ function jsonResponse(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
+
+
+// ============== CSK SECURITY HELPERS (kept inline for one-file Apps Script import) ==============
+/**
+ * CSK Business OS security layer — draft integration helper.
+ * Configure Script Properties:
+ * CSK_GOOGLE_OAUTH_CLIENT_ID, CSK_OWNER_EMAIL, CSK_TEAM_EMAILS
+ * No API token or OAuth client secret belongs in the browser.
+ */
+function cskVerifyGoogleIdToken_(idToken) {
+  if (!idToken || typeof idToken !== "string" || idToken.length > 10000) throw new Error("AUTH_REQUIRED");
+  var props = PropertiesService.getScriptProperties();
+  var clientId = props.getProperty("CSK_GOOGLE_OAUTH_CLIENT_ID") || "";
+  if (!clientId) throw new Error("AUTH_NOT_CONFIGURED");
+  var response = UrlFetchApp.fetch("https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(idToken), {muteHttpExceptions:true});
+  if (response.getResponseCode() !== 200) throw new Error("AUTH_INVALID_TOKEN");
+  var c;
+  try { c = JSON.parse(response.getContentText()); } catch (e) { throw new Error("AUTH_INVALID_TOKEN"); }
+  var now = Math.floor(Date.now()/1000);
+  var email = String(c.email || "").trim().toLowerCase();
+  if (String(c.aud || "") !== clientId) throw new Error("AUTH_WRONG_AUDIENCE");
+  if (!["accounts.google.com","https://accounts.google.com"].includes(String(c.iss || ""))) throw new Error("AUTH_WRONG_ISSUER");
+  if (Number(c.exp || 0) <= now + 60) throw new Error("AUTH_EXPIRED");
+  if (String(c.email_verified).toLowerCase() !== "true" || !email) throw new Error("AUTH_EMAIL_UNVERIFIED");
+  var owner = String(props.getProperty("CSK_OWNER_EMAIL") || "").trim().toLowerCase();
+  var team = String(props.getProperty("CSK_TEAM_EMAILS") || "").split(/[;,\n]/).map(function(x){return x.trim().toLowerCase();}).filter(Boolean);
+  if (email === owner && owner) return {email:email, role:"owner", expiresAt:Number(c.exp)};
+  if (team.indexOf(email) >= 0) return {email:email, role:"team", expiresAt:Number(c.exp)};
+  throw new Error("AUTH_EMAIL_NOT_ALLOWED");
+}
+function cskSessionKey_(sessionId) {
+  if (!sessionId || !/^[A-Za-z0-9_-]{40,100}$/.test(String(sessionId))) throw new Error("AUTH_REQUIRED");
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(sessionId), Utilities.Charset.UTF_8);
+  return "CSK_SESSION_" + bytes.map(function(b){var v=(b+256)%256;return ("0"+v.toString(16)).slice(-2);}).join("");
+}
+function cskCreateSession_(idToken, sessionId) {
+  var identity = cskVerifyGoogleIdToken_(idToken);
+  var ttl = Math.min(3300, identity.expiresAt - Math.floor(Date.now()/1000) - 60);
+  if (ttl < 60) throw new Error("AUTH_EXPIRED");
+  CacheService.getScriptCache().put(cskSessionKey_(sessionId), JSON.stringify({email:identity.email,role:identity.role}), ttl);
+  return {status:"success",identity:{email:identity.email,role:identity.role},expiresIn:ttl};
+}
+function cskRequireSession_(sessionId) {
+  var key = cskSessionKey_(sessionId);
+  var raw = CacheService.getScriptCache().get(key);
+  if (!raw) throw new Error("SESSION_EXPIRED");
+  var session = JSON.parse(raw);
+  var props = PropertiesService.getScriptProperties();
+  var owner = String(props.getProperty("CSK_OWNER_EMAIL") || "").trim().toLowerCase();
+  var team = String(props.getProperty("CSK_TEAM_EMAILS") || "").split(/[;,\n]/).map(function(x){return x.trim().toLowerCase();}).filter(Boolean);
+  if (session.email === owner && owner) return {email:session.email,role:"owner"};
+  if (team.indexOf(session.email) >= 0) return {email:session.email,role:"team"};
+  CacheService.getScriptCache().remove(key);
+  throw new Error("AUTH_EMAIL_NOT_ALLOWED");
+}
+function cskRevokeSession_(sessionId) {
+  CacheService.getScriptCache().remove(cskSessionKey_(sessionId));
+}
+function cskFilterDataForRole_(data, role) {
+  if (role === "owner") return data;
+  if (role !== "team") throw new Error("FORBIDDEN");
+  return {leads:data.leads||[],clients:data.clients||[],projects:data.projects||[],lastSynced:data.lastSynced||new Date().toISOString()};
+}
+function cskAssertPayloadAllowed_(identity, payload) {
+  var role=identity.role, action=String(payload.action||"").toLowerCase();
+  if (action==="send_cold_email") throw new Error("COLD_EMAIL_APPROVAL_REQUIRED");
+  if (action==="request_cold_email") return true;
+  if (["approve_cold_email","reject_cold_email","send_approved_cold_email"].includes(action)) {
+    if(role!=="owner") throw new Error("OWNER_ONLY"); return true;
+  }
+  if(action==="sync_all") {
+    var teamKeys=["leads","clients","projects"];
+    var ownerKeys=["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots"];
+    var allowed=role==="owner"?ownerKeys:teamKeys;
+    ownerKeys.forEach(function(k){if(Object.prototype.hasOwnProperty.call(payload,k)&&allowed.indexOf(k)<0)throw new Error("FORBIDDEN_COLLECTION:"+k);});
+    return true;
+  }
+  if(["insert","delete","update_status"].includes(action)) {
+    var teamSheets=["Leads","Clients","Projects"];
+    var ownerSheets=Object.keys(FIELD_MAP||{});
+    var sheet=String(payload.sheet||(action==="insert"?"":"Leads"));
+    if((role==="owner"?ownerSheets:teamSheets).indexOf(sheet)<0) throw new Error("FORBIDDEN_SHEET");
+    return true;
+  }
+  throw new Error("ACTION_NOT_ALLOWED");
+}
+function cskSecuritySheet_(name, headers) {
+  var ss=SpreadsheetApp.getActiveSpreadsheet(), sh=ss.getSheetByName(name);
+  if(!sh){sh=ss.insertSheet(name);sh.appendRow(headers);sh.setFrozenRows(1);}
+  return sh;
+}
+function cskApprovalRow_(sh,id) {
+  if(!id||sh.getLastRow()<2)return -1;
+  var ids=sh.getRange(2,1,sh.getLastRow()-1,1).getValues();
+  for(var i=0;i<ids.length;i++)if(String(ids[i][0])===String(id))return i+2;
+  return -1;
+}
+function cskIsSuppressed_(email) {
+  var sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Cold_Email_Suppression");
+  if(!sh||sh.getLastRow()<2)return false;
+  var target=String(email||"").trim().toLowerCase();
+  return sh.getRange(2,1,sh.getLastRow()-1,1).getValues().some(function(r){return String(r[0]||"").trim().toLowerCase()===target;});
+}
+function cskRequestColdEmail_(identity,payload) {
+  var email=String(payload.toEmail||"").trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw new Error("INVALID_RECIPIENT");
+  if(cskIsSuppressed_(email))throw new Error("RECIPIENT_SUPPRESSED");
+  var sh=cskSecuritySheet_("Cold_Email_Approvals",["ApprovalID","ToEmail","Name","Brand","RequestedBy","RequestedAt","Status","ApprovedBy","ApprovedAt","SentAt","Result"]);
+  var id=Utilities.getUuid();
+  sh.appendRow([id,email,String(payload.name||"Kak").slice(0,120),String(payload.brand||"Brand").slice(0,160),identity.email,new Date(),"PENDING","","","",""]);
+  return {status:"PENDING",approvalId:id};
+}
+function cskApproveColdEmail_(identity,id) {
+  if(identity.role!=="owner")throw new Error("OWNER_ONLY");
+  var lock=LockService.getScriptLock();lock.waitLock(20000);
+  try {var sh=cskSecuritySheet_("Cold_Email_Approvals",["ApprovalID","ToEmail","Name","Brand","RequestedBy","RequestedAt","Status","ApprovedBy","ApprovedAt","SentAt","Result"]);
+    var row=cskApprovalRow_(sh,id);if(row<0)throw new Error("APPROVAL_NOT_FOUND");
+    if(String(sh.getRange(row,7).getValue())!=="PENDING")throw new Error("INVALID_APPROVAL_STATE");
+    sh.getRange(row,7,1,3).setValues([["APPROVED",identity.email,new Date()]]);
+    return {status:"APPROVED",approvalId:id};
+  } finally {lock.releaseLock();}
+}
+function cskRejectColdEmail_(identity,id) {
+  if(identity.role!=="owner")throw new Error("OWNER_ONLY");
+  var lock=LockService.getScriptLock();lock.waitLock(20000);
+  try {
+    var sh=cskSecuritySheet_("Cold_Email_Approvals",["ApprovalID","ToEmail","Name","Brand","RequestedBy","RequestedAt","Status","ApprovedBy","ApprovedAt","SentAt","Result"]);
+    var row=cskApprovalRow_(sh,id);if(row<0)throw new Error("APPROVAL_NOT_FOUND");
+    if(String(sh.getRange(row,7).getValue())!=="PENDING")throw new Error("INVALID_APPROVAL_STATE");
+    sh.getRange(row,7).setValue("REJECTED");
+    sh.getRange(row,11).setValue("Rejected by "+identity.email);
+    return {status:"REJECTED",approvalId:id};
+  } finally {lock.releaseLock();}
+}
+
+function cskSendApprovedColdEmail_(identity,id) {
+  if(identity.role!=="owner")throw new Error("OWNER_ONLY");
+  var lock=LockService.getScriptLock();lock.waitLock(30000);
+  var sh,row;
+  try {
+    sh=cskSecuritySheet_("Cold_Email_Approvals",["ApprovalID","ToEmail","Name","Brand","RequestedBy","RequestedAt","Status","ApprovedBy","ApprovedAt","SentAt","Result"]);
+    row=cskApprovalRow_(sh,id);if(row<0)throw new Error("APPROVAL_NOT_FOUND");
+    var r=sh.getRange(row,1,1,11).getValues()[0];
+    if(String(r[6])!=="APPROVED")throw new Error("EMAIL_NOT_APPROVED");
+    var email=String(r[1]||"").trim().toLowerCase();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw new Error("INVALID_RECIPIENT");
+    if(cskIsSuppressed_(email))throw new Error("RECIPIENT_SUPPRESSED");
+    var props=PropertiesService.getScriptProperties(),today=Utilities.formatDate(new Date(),"Asia/Jakarta","yyyy-MM-dd");
+    var count=props.getProperty("COLD_EMAIL_DATE")===today?Number(props.getProperty("COLD_EMAIL_COUNT")||0):0;
+    if(count>=50)throw new Error("DAILY_LIMIT_REACHED");
+    if(MailApp.getRemainingDailyQuota()<1)throw new Error("GMAIL_QUOTA_EXHAUSTED");
+    sh.getRange(row,7).setValue("SENDING");
+    var body="Halo Kak "+String(r[2]||"Kak")+" / Tim "+String(r[3]||"Brand")+",\n\n"+
+      "Salam kenal, saya Zefry dari Cahaya Selatan Kreasindo (CSK).\n\n"+
+      "Jika ada kebutuhan booth pameran, backdrop event, POSM, rak display, atau akrilik custom, kami siap membantu.\n\n"+
+      "Terima kasih,\nZefry Dany\nCahaya Selatan Kreasindo\n\n"+
+      "Jika tidak berkenan menerima informasi berikutnya, balas email ini dengan 'Stop'.";
+    GmailApp.sendEmail(email,"Vendor Produksi Booth & Display POSM — Cahaya Selatan Kreasindo",body,{name:"Zefry Dany (Cahaya Selatan Kreasindo)"});
+    count++;props.setProperty("COLD_EMAIL_DATE",today);props.setProperty("COLD_EMAIL_COUNT",String(count));
+    sh.getRange(row,7).setValue("SENT");sh.getRange(row,10).setValue(new Date());sh.getRange(row,11).setValue("Sent by "+identity.email);
+    return {status:"SENT",approvalId:id,countToday:count};
+  } finally {lock.releaseLock();}
+}
+function cskListPendingApprovals_(identity) {
+  if(identity.role!=="owner")throw new Error("OWNER_ONLY");
+  var sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Cold_Email_Approvals");
+  if(!sh||sh.getLastRow()<2)return [];
+  return sh.getRange(2,1,sh.getLastRow()-1,11).getValues().slice(-100).reverse()
+    .map(function(r){return {approvalId:String(r[0]),toEmail:String(r[1]),name:String(r[2]),brand:String(r[3]),requestedBy:String(r[4]),requestedAt:r[5],status:String(r[6]),approvedBy:String(r[7]||""),approvedAt:r[8]||"",sentAt:r[9]||"",result:String(r[10]||"")};});
+}
+function cskListMyApprovals_(identity) {
+  var sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Cold_Email_Approvals");
+  if(!sh||sh.getLastRow()<2)return [];
+  return sh.getRange(2,1,sh.getLastRow()-1,11).getValues()
+    .filter(function(r){return String(r[4]||"").trim().toLowerCase()===identity.email.toLowerCase();})
+    .slice(-50).reverse()
+    .map(function(r){return {approvalId:String(r[0]),toEmail:String(r[1]),name:String(r[2]),brand:String(r[3]),requestedAt:r[5],status:String(r[6])};});
+}
+function cskSetupSecuritySheets() {
+  cskSecuritySheet_("Cold_Email_Approvals",["ApprovalID","ToEmail","Name","Brand","RequestedBy","RequestedAt","Status","ApprovedBy","ApprovedAt","SentAt","Result"]);
+  cskSecuritySheet_("Cold_Email_Suppression",["Email","AddedAt","Source","Notes"]);
+  return "Security sheets ready.";
+}
+
