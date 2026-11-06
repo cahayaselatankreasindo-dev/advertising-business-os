@@ -346,15 +346,6 @@
       <div id="cloud-indicator" class="w-2.5 h-2.5 rounded-full bg-slate-500" title="Status Cloud"></div>
     </div>
 
-    <!-- Role Dropdown -->
-    <div class="px-4 py-3 border-b border-slate-800">
-      <label class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block mb-1">Mode Tampilan</label>
-      <select id="role-select" disabled hidden>
-        <option value="owner">Owner</option>
-        <option value="team">Tim Kreatif / Admin</option>
-      </select>
-    </div>
-
     <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
       <button onclick="nav('dashboard')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition active">
         <i class="fa fa-tachometer w-5 text-amber-500"></i> Dasbor
@@ -1436,20 +1427,12 @@
           db.purchaseOrders = parsed.purchaseOrders || [];
           db.quotationSnapshots = parsed.quotationSnapshots || [];
           db.settings       = parsed.settings       || { googleSheetUrl: '', lastSync: '' };
-          db.role           = parsed.role           || 'owner';
         } catch (e) {
           console.error("Gagal membaca database lokal.");
         }
       }
       if (!db.settings) db.settings = { googleSheetUrl: '', apiToken: '', lastSync: '' };
-      if (!db.settings.apiToken) db.settings.apiToken = '';
       document.getElementById('setting-google-url').value = db.settings.googleSheetUrl || '';
-      const tokenEl = document.getElementById('setting-api-token');
-      if (tokenEl) tokenEl.value = db.settings.apiToken || '';
-      // Set role selector
-      document.getElementById('role-select').value = db.role || 'owner';
-      const mobSel = document.getElementById('role-select-mob');
-      if (mobSel) mobSel.value = db.role || 'owner';
       updateCloudIndicator();
       applyRoleUI();
     }
