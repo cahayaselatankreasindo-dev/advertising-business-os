@@ -1,29 +1,37 @@
 /**
- * CSK Business OS security layer — draft integration helper.
- * Configure Script Properties:
- * CSK_GOOGLE_OAUTH_CLIENT_ID, CSK_OWNER_EMAIL, CSK_TEAM_EMAILS
- * No API token or OAuth client secret belongs in the browser.
+ * CSK email + PIN authentication. Run setupCSKPinCredentials(ownerPin, teamPin)
+ * once in the Apps Script editor. PINs are stored only as salted SHA-256 hashes.
  */
-function cskVerifyGoogleIdToken_(idToken) {
-  if (!idToken || typeof idToken !== "string" || idToken.length > 10000) throw new Error("AUTH_REQUIRED");
-  var props = PropertiesService.getScriptProperties();
-  var clientId = props.getProperty("CSK_GOOGLE_OAUTH_CLIENT_ID") || "";
-  if (!clientId) throw new Error("AUTH_NOT_CONFIGURED");
-  var response = UrlFetchApp.fetch("https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(idToken), {muteHttpExceptions:true});
-  if (response.getResponseCode() !== 200) throw new Error("AUTH_INVALID_TOKEN");
-  var c;
-  try { c = JSON.parse(response.getContentText()); } catch (e) { throw new Error("AUTH_INVALID_TOKEN"); }
-  var now = Math.floor(Date.now()/1000);
-  var email = String(c.email || "").trim().toLowerCase();
-  if (String(c.aud || "") !== clientId) throw new Error("AUTH_WRONG_AUDIENCE");
-  if (!["accounts.google.com","https://accounts.google.com"].includes(String(c.iss || ""))) throw new Error("AUTH_WRONG_ISSUER");
-  if (Number(c.exp || 0) <= now + 60) throw new Error("AUTH_EXPIRED");
-  if (String(c.email_verified).toLowerCase() !== "true" || !email) throw new Error("AUTH_EMAIL_UNVERIFIED");
-  var owner = String(props.getProperty("CSK_OWNER_EMAIL") || "").trim().toLowerCase();
-  var team = String(props.getProperty("CSK_TEAM_EMAILS") || "").split(/[;,\n]/).map(function(x){return x.trim().toLowerCase();}).filter(Boolean);
-  if (email === owner && owner) return {email:email, role:"owner", expiresAt:Number(c.exp)};
-  if (team.indexOf(email) >= 0) return {email:email, role:"team", expiresAt:Number(c.exp)};
-  throw new Error("AUTH_EMAIL_NOT_ALLOWED");
+function cskHashPin_(pin,salt) {
+  var bytes=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,String(salt)+"|"+String(pin),Utilities.Charset.UTF_8);
+  return bytes.map(function(b){var v=(b+256)%256;return ("0"+v.toString(16)).slice(-2);}).join("");
+}
+function setupCSKPinCredentials(ownerPin,teamPin) {
+  if(!/^\d{8,12}$/.test(String(ownerPin||""))||!/^\d{8,12}$/.test(String(teamPin||"")))throw new Error("PIN harus 8-12 digit.");
+  if(String(ownerPin)===String(teamPin))throw new Error("PIN Owner dan Team harus berbeda.");
+  var p=PropertiesService.getScriptProperties(),ownerSalt=Utilities.getUuid()+Utilities.getUuid(),teamSalt=Utilities.getUuid()+Utilities.getUuid();
+  p.setProperties({
+    CSK_OWNER_EMAIL:"cahayaselatankreasindo@gmail.com",
+    CSK_TEAM_EMAILS:"zefdas@gmail.com",
+    CSK_OWNER_PIN_SALT:ownerSalt,CSK_OWNER_PIN_HASH:cskHashPin_(ownerPin,ownerSalt),
+    CSK_TEAM_PIN_SALT:teamSalt,CSK_TEAM_PIN_HASH:cskHashPin_(teamPin,teamSalt)
+  },true);
+  return "PIN Owner dan Team tersimpan sebagai hash.";
+}
+function cskLoginWithPin_(email,pin,sessionId) {
+  email=String(email||"").trim().toLowerCase();pin=String(pin||"");
+  if(!/^\d{8,12}$/.test(pin))throw new Error("LOGIN_INVALID");
+  var p=PropertiesService.getScriptProperties(),owner=String(p.getProperty("CSK_OWNER_EMAIL")||"").toLowerCase();
+  var team=String(p.getProperty("CSK_TEAM_EMAILS")||"").split(/[;,\n]/).map(function(x){return x.trim().toLowerCase();});
+  var role=email===owner?"owner":team.indexOf(email)>=0?"team":null;
+  var cache=CacheService.getScriptCache(),key="CSK_LOGIN_FAIL_"+email.replace(/[^a-z0-9]/g,"_"),fails=Number(cache.get(key)||0);
+  if(fails>=5)throw new Error("LOGIN_LOCKED_15_MIN");
+  var prefix=role==="owner"?"CSK_OWNER":"CSK_TEAM",salt=role?p.getProperty(prefix+"_PIN_SALT"):"",expected=role?p.getProperty(prefix+"_PIN_HASH"):"";
+  var actual=(salt&&expected)?cskHashPin_(pin,salt):cskHashPin_(pin,"dummy-salt-for-unknown-account");
+  if(!role||!salt||!expected||actual!==expected){cache.put(key,String(fails+1),900);throw new Error("LOGIN_INVALID");}
+  cache.remove(key);
+  var ttl=1800;cache.put(cskSessionKey_(sessionId),JSON.stringify({email:email,role:role}),ttl);
+  return {status:"success",identity:{email:email,role:role},expiresIn:ttl};
 }
 function cskSessionKey_(sessionId) {
   if (!sessionId || !/^[A-Za-z0-9_-]{40,100}$/.test(String(sessionId))) throw new Error("AUTH_REQUIRED");
