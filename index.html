@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="CSK Business OS">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
@@ -326,6 +327,14 @@
   </style>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden select-none">
+  <div id="csk-auth-gate" class="fixed inset-0 z-[2000] bg-slate-950 flex items-center justify-center p-5">
+    <div class="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl text-center space-y-4">
+      <div class="text-xl font-bold text-slate-900">CSK BUSINESS OS</div>
+      <p class="text-sm text-slate-600">Masuk menggunakan akun Google yang diizinkan.</p>
+      <div id="csk-google-signin" class="flex justify-center min-h-10"></div>
+      <p id="csk-auth-status" class="text-xs text-slate-500" role="status">Menyiapkan autentikasi...</p>
+    </div>
+  </div>
 
   <!-- SIDEBAR (DESKTOP) -->
   <aside class="hidden md:flex flex-col w-64 bg-slate-900 text-slate-300 border-r border-slate-800 flex-shrink-0">
@@ -405,11 +414,7 @@
         </div>
       </div>
       <div class="flex items-center gap-2 shrink-0">
-        <!-- Role selector (mobile) -->
-        <select id="role-select-mob" onchange="onRoleChange(this.value)" class="csk-brand-action text-[10px] bg-slate-100 border border-slate-200 text-slate-700 rounded px-1.5 py-1">
-          <option value="owner">👤 Owner</option>
-          <option value="team">👥 Tim</option>
-        </select>
+        <span id="csk-auth-identity" class="text-[10px] text-slate-600"></span>
         <button onclick="syncWithGoogle()" class="csk-brand-action text-xs bg-slate-100 text-slate-800 px-2 py-1 rounded-md border border-slate-200 flex items-center gap-1.5">
           <i class="fa fa-refresh"></i> Sync
         </button>
@@ -836,9 +841,7 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Token Akses (opsional, untuk keamanan):</label>
-            <input type="password" id="setting-api-token" placeholder="Token rahasia dari setupApiToken()" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-amber-500 font-mono">
-            <p class="text-[11px] text-slate-500 mt-1">Isi ini agar URL yang bocor tidak bisa dipakai orang lain. Jalankan <code>setupApiToken()</code> sekali di Apps Script, lalu paste token-nya di sini.</p>
+            <p class="text-[11px] text-slate-500">Akses menggunakan Google Sign-In. Hak akses ditentukan server berdasarkan email yang terdaftar.</p>
           </div>
 
           <div class="flex flex-wrap gap-2 pt-1">
@@ -3251,5 +3254,6 @@
       pullAndMerge();
     });
   </script>
+  <script src="./security/guard.js" defer></script>
 </body>
 </html>
