@@ -58,6 +58,7 @@ function start(){
 }
 function loadApprovals(){if(!identity||identity.role!=='owner')return;get('list_pending_approvals').then(j=>{let box=document.getElementById('csk-approval-list');if(!box)return;box.innerHTML=(j.approvals||[]).map(x=>'<div class="border rounded p-3 text-xs flex justify-between gap-2"><span>'+esc(x.toEmail)+' · '+esc(x.status)+'</span><span>'+(x.status==='PENDING'?'<button onclick="cskSecurityAction(\''+x.approvalId+'\',\'approve_cold_email\')">Approve</button> <button onclick="cskSecurityAction(\''+x.approvalId+'\',\'reject_cold_email\')">Reject</button>':'')+(x.status==='APPROVED'?'<button onclick="cskSecurityAction(\''+x.approvalId+'\',\'send_approved_cold_email\')">Send</button>':'')+'</span></div>').join('')||'Belum ada permintaan.';}).catch(e=>console.warn(e));}
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+window.cskSecurityRefresh=loadApprovals;
 window.cskSecurityAction=async function(id,action){if(!identity||identity.role!=='owner')return alert('Owner only');if(!confirm('Lanjutkan tindakan '+action+'?'))return;try{await post({action,approvalId:id});if(typeof showToast==='function')showToast('Status permintaan diperbarui.');loadApprovals();}catch(e){alert(e.message)}};
 window.cskSecurityLogout=async function(){try{if(sessionId)await post({action:'logout'});}catch(e){}sessionId='';identity=null;ready=false;location.reload();};
 originalNav=window.nav;
