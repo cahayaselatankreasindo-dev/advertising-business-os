@@ -349,7 +349,7 @@
     <!-- Role Dropdown -->
     <div class="px-4 py-3 border-b border-slate-800">
       <label class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block mb-1">Mode Tampilan</label>
-      <select id="role-select" onchange="onRoleChange(this.value)" class="w-full text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-amber-500">
+      <select id="role-select" disabled hidden>
         <option value="owner">Owner</option>
         <option value="team">Tim Kreatif / Admin</option>
       </select>
@@ -826,6 +826,10 @@
           <p class="text-sm text-slate-500">Hubungkan aplikasi ke Google Sheets agar bisa dibuka dari HP mana saja secara real-time.</p>
         </div>
 
+        <div id="csk-approval-panel" class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3">
+          <div class="flex justify-between items-center"><h2 class="font-bold text-sm">Persetujuan Cold Email</h2><button onclick="cskSecurityRefresh()" class="text-xs text-blue-600">Refresh</button></div>
+          <p class="text-xs text-slate-500">Permintaan dari tim harus disetujui Owner. Pengiriman membutuhkan tindakan Owner terpisah.</p><div id="csk-approval-list" class="space-y-2 text-xs">Memuat permintaan...</div>
+        </div>
         <div class="bg-white rounded-xl border border-amber-200 p-5 shadow-sm space-y-4 pillar-finance">
           <div class="flex items-center gap-2 text-amber-600 font-bold font-heading">
             <i class="fa fa-google fa-lg"></i> Koneksi Database Google Sheets (Gratis)
