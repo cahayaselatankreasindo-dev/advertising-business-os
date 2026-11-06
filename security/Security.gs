@@ -6,6 +6,16 @@ function cskHashPin_(pin,salt) {
   var bytes=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,String(salt)+"|"+String(pin),Utilities.Charset.UTF_8);
   return bytes.map(function(b){var v=(b+256)%256;return ("0"+v.toString(16)).slice(-2);}).join("");
 }
+function setupCSKPinCredentialsFromPrompt() {
+  var ui=SpreadsheetApp.getUi();
+  var owner=ui.prompt("CSK Security Setup","Masukkan PIN Owner (8-12 digit):",ui.ButtonSet.OK_CANCEL);
+  if(owner.getSelectedButton()!==ui.Button.OK)return "Setup dibatalkan.";
+  var team=ui.prompt("CSK Security Setup","Masukkan PIN Team (8-12 digit), harus berbeda:",ui.ButtonSet.OK_CANCEL);
+  if(team.getSelectedButton()!==ui.Button.OK)return "Setup dibatalkan.";
+  var result=setupCSKPinCredentials(owner.getResponseText(),team.getResponseText());
+  ui.alert("Setup login selesai",result,ui.ButtonSet.OK);
+  return result;
+}
 function setupCSKPinCredentials(ownerPin,teamPin) {
   if(!/^\d{8,12}$/.test(String(ownerPin||""))||!/^\d{8,12}$/.test(String(teamPin||"")))throw new Error("PIN harus 8-12 digit.");
   if(String(ownerPin)===String(teamPin))throw new Error("PIN Owner dan Team harus berbeda.");
