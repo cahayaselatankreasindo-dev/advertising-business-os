@@ -1,12 +1,12 @@
 /* CSK authenticated frontend guard. Loaded deferred before DOMContentLoaded. */
 (function(){
 'use strict';
-const OAUTH_CLIENT_ID='SET_GOOGLE_OAUTH_WEB_CLIENT_ID.apps.googleusercontent.com';
+const AUTH_EMAILS=['cahayaselatankreasindo@gmail.com','zefdas@gmail.com'];
 let sessionId='',identity=null,ready=false,originalNav=null;
 const ownerKey='csk_business_os_db_owner',teamKey='csk_business_os_db_team';
 function status(s){const el=document.getElementById('csk-auth-status');if(el)el.textContent=s;}
 function gate(){
- let g=document.getElementById('csk-auth-gate');if(!g){g=document.createElement('div');g.id='csk-auth-gate';g.className='fixed inset-0 z-[2000] bg-slate-950 flex items-center justify-center p-5';g.innerHTML='<div class="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl text-center space-y-4"><div class="text-xl font-bold">CSK BUSINESS OS</div><p class="text-sm text-slate-600">Masuk dengan akun Google yang diizinkan.</p><input id="csk-backend-url" type="url" placeholder="Apps Script Web App URL" class="w-full border rounded-lg p-2 text-xs"><button id="csk-save-backend" class="w-full bg-slate-900 text-white rounded-lg p-2 text-xs" type="button">Simpan URL Backend</button><div id="csk-google-signin" class="flex justify-center"></div><p id="csk-auth-status" class="text-xs text-slate-500">Menyiapkan login...</p></div>';document.body.appendChild(g);}
+ let g=document.getElementById('csk-auth-gate');if(!g){g=document.createElement('div');g.id='csk-auth-gate';g.className='fixed inset-0 z-[2000] bg-slate-950 flex items-center justify-center p-5';g.innerHTML='<div class="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl text-center space-y-4"><div class="text-xl font-bold">CSK BUSINESS OS</div><p class="text-sm text-slate-600">Masuk menggunakan email dan PIN individual.</p><input id="csk-login-email" type="email" placeholder="Email terdaftar" class="w-full border rounded-lg p-2 text-sm"><input id="csk-login-pin" type="password" inputmode="numeric" maxlength="12" placeholder="PIN 8–12 digit" class="w-full border rounded-lg p-2 text-sm"><input id="csk-backend-url" type="url" placeholder="Apps Script Web App URL" class="w-full border rounded-lg p-2 text-xs"><button id="csk-save-backend" class="w-full bg-slate-100 text-slate-700 rounded-lg p-2 text-xs" type="button">Simpan URL Spreadsheet Backend</button><button id="csk-login-button" class="w-full bg-slate-900 text-white rounded-lg p-3 text-sm font-semibold" type="button">Masuk</button><p id="csk-auth-status" class="text-xs text-slate-500">Menyiapkan login...</p></div>';document.body.appendChild(g);}
  return g;
 }
 function randomSession(){const b=new Uint8Array(32);crypto.getRandomValues(b);return btoa(String.fromCharCode(...b)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
@@ -24,14 +24,13 @@ function applyRole(){
  const work=document.getElementById('owner-workload-card');if(work)work.style.display=team?'none':'';
  const who=document.getElementById('csk-auth-identity');if(who)who.textContent=identity?((team?'Tim · ':'Owner · ')+identity.email):'';
 }
-async function credential(response){
+async function credential(){
  try{
-  status('Memverifikasi akun Google...');
+  status('Memverifikasi email dan PIN...');
   const url=apiUrl();if(!url)throw Error('URL Apps Script belum diatur. Konfigurasikan URL pada penyimpanan lokal terlebih dahulu.');
   sessionId=randomSession();
-  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'auth_session',idToken:response.credential,sessionId})});
-  const j=await r.json();if(j.status!=='success')throw Error(j.code||j.message||'Login ditolak.');
-  identity=j.identity;
+  await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'login',email:document.getElementById('csk-login-email').value.trim(),pin:document.getElementById('csk-login-pin').value,sessionId})});
+  const j=await get('get_data');identity=j.identity;
   const key=identity.role==='team'?teamKey:ownerKey;
   let local={};try{local=JSON.parse(localStorage.getItem(key)||'{}')}catch(e){}
   if(identity.role==='owner'&&local&&Object.keys(local).length)Object.assign(db,local);
@@ -51,13 +50,12 @@ async function credential(response){
 function start(){
  gate();
  const input=document.getElementById('csk-backend-url');if(input)input.value=apiUrl();
- const save=document.getElementById('csk-save-backend');if(save)save.onclick=()=>{const u=input.value.trim();if(!/^https:\/\/script\.google\.com\/macros\/s\//.test(u)){status('URL Apps Script tidak valid.');return;}localStorage.setItem('csk_gas_url',u);if(typeof db!=='undefined'){db.settings=db.settings||{};db.settings.googleSheetUrl=u;}status('URL tersimpan. Silakan masuk dengan Google.');};
- if(OAUTH_CLIENT_ID.startsWith('SET_')){status('Konfigurasi Google OAuth Client ID belum diisi.');return;}
- if(!window.google||!google.accounts||!google.accounts.id){status('Google Sign-In belum termuat. Muat ulang halaman.');return;}
- google.accounts.id.initialize({client_id:OAUTH_CLIENT_ID,callback:credential,auto_select:false});
- google.accounts.id.renderButton(document.getElementById('csk-google-signin'),{theme:'outline',size:'large',shape:'rectangular',text:'signin_with',width:280});
- status('Pilih akun Google untuk masuk.');
+ const save=document.getElementById('csk-save-backend');if(save)save.onclick=()=>{const u=input.value.trim();if(!/^https:\/\/script\.google\.com\/macros\/s\//.test(u)){status('URL Apps Script tidak valid.');return;}localStorage.setItem('csk_gas_url',u);if(typeof db!=='undefined'){db.settings=db.settings||{};db.settings.googleSheetUrl=u;}status('URL backend tersimpan.');};
+ const email=document.getElementById('csk-login-email');if(email&&!email.value)email.value=AUTH_EMAILS[0];
+ const btn=document.getElementById('csk-login-button');if(btn)btn.onclick=credential;
+ status('Masukkan email terdaftar dan PIN.');
 }
+
 function loadApprovals(){if(!identity||identity.role!=='owner')return;get('list_pending_approvals').then(j=>{let box=document.getElementById('csk-approval-list');if(!box)return;box.innerHTML=(j.approvals||[]).map(x=>'<div class="border rounded p-3 text-xs flex justify-between gap-2"><span>'+esc(x.toEmail)+' · '+esc(x.status)+'</span><span>'+(x.status==='PENDING'?'<button onclick="cskSecurityAction(\''+x.approvalId+'\',\'approve_cold_email\')">Approve</button> <button onclick="cskSecurityAction(\''+x.approvalId+'\',\'reject_cold_email\')">Reject</button>':'')+(x.status==='APPROVED'?'<button onclick="cskSecurityAction(\''+x.approvalId+'\',\'send_approved_cold_email\')">Send</button>':'')+'</span></div>').join('')||'Belum ada permintaan.';}).catch(e=>console.warn(e));}
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 window.cskSecurityRefresh=loadApprovals;
