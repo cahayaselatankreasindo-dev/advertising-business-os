@@ -1,10 +1,10 @@
 # Integration checklist — security/google-apps-script-rbac
 
-This branch contains helper code only. The production handlers and frontend are intentionally not rewritten automatically because those edits need full end-to-end regression tests against the app's existing CRM, quotation, purchasing, finance, and sync flows.
+This branch now includes a first integration pass in `google_apps_script.js`, `index.html`, and `security/guard.js`. It is not yet a production cutover. Finish configuration and stage verification before deploying.
 
 ## Backend integration (Apps Script)
 
-1. Add `security/Security.gs` to the Apps Script project.
+1. The helpers from `security/Security.gs` have been appended to `google_apps_script.js` for the single-file Apps Script import workflow. Keep the helper file as the reviewable source reference.
 2. Set Script Properties:
    - `CSK_GOOGLE_OAUTH_CLIENT_ID`: OAuth Web Client ID.
    - `CSK_OWNER_EMAIL`: `cahayaselatankreasindo@gmail.com`.
@@ -28,7 +28,7 @@ This branch contains helper code only. The production handlers and frontend are 
 
 ## Frontend integration (index.html)
 
-1. Add Google Identity Services script and a blocking sign-in overlay.
+1. Google Identity Services and a blocking sign-in overlay are wired through `index.html` and `security/guard.js`.
 2. Authenticate using Google ID token in a POST body. Exchange it for a random server-side session held in Apps Script Cache. Never put the ID token in a URL or localStorage.
 3. Keep the random session ID in JavaScript memory only. Page reload requires sign-in again.
 4. Remove the desktop/mobile role selectors and `onRoleChange()`. Set role only from the authenticated server response.
