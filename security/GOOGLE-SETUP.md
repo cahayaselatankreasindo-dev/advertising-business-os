@@ -1,17 +1,12 @@
-# Google Apps Script + Sheets free setup
+# Setup gratis — Google Sheets + Apps Script + login PIN
 
-1. Use the Google Cloud project linked to the existing Apps Script project.
-2. Configure OAuth consent screen as External if the two Gmail accounts are not in one Workspace organization. Add both supplied accounts as Test Users while the app is in Testing.
-3. Create an OAuth Client ID of type Web application.
-4. Add the exact GitHub Pages origin as an Authorized JavaScript origin (origin only; no path).
-5. In Apps Script → Project Settings → Script Properties, set:
-   - `CSK_GOOGLE_OAUTH_CLIENT_ID`: OAuth Web Client ID.
-   - `CSK_OWNER_EMAIL`: `cahayaselatankreasindo@gmail.com`.
-   - `CSK_TEAM_EMAILS`: `zefdas@gmail.com`.
-6. Keep the Google Sheet private. Apps Script Web App runs as Owner. Do not share the Sheet with Team.
-7. Add `security/Security.gs` to the existing Apps Script project only after review.
-8. Run `cskSetupSecuritySheets()` once after integration review.
+Tidak perlu Google Cloud OAuth, domain, Client ID, Client Secret, atau hosting berbayar.
 
-The Web App endpoint can be publicly reachable at HTTP level only if every data route requires a valid short-lived session. Public endpoint reachability is not the access-control mechanism. Do not deploy the current helper alone; both `doGet/doPost` and all frontend request paths must be migrated first.
+1. Buka project Apps Script yang terhubung ke spreadsheet.
+2. Salin versi terbaru `google_apps_script.js` dari branch keamanan ini ke project Apps Script setelah review.
+3. Pastikan Script Properties berisi Owner `cahayaselatankreasindo@gmail.com` dan Team `zefdas@gmail.com`.
+4. Jalankan `setupCSKPinCredentials(ownerPin, teamPin)` satu kali dari editor Apps Script. Gunakan dua PIN berbeda, masing-masing 8–12 digit. Jangan masukkan PIN ke source code, GitHub, atau chat.
+5. Gunakan URL Web App Apps Script `/exec` yang sudah ada. Jangan deploy produksi sebelum persetujuan.
+6. Masukkan URL tersebut di layar login OS, lalu login dengan email dan PIN individual.
 
-Apps Script Cache is ephemeral, so users may need to sign in again if a session expires or cache entries are evicted. The browser holds the random session ID only in memory. Page reload requires sign-in again.
+PIN disimpan sebagai hash dengan salt acak di Script Properties. Lima kegagalan login mengunci percobaan untuk email tersebut selama 15 menit. Sesi berlaku 30 menit. Spreadsheet tetap privat dan tidak perlu dibagikan kepada akun Team.
