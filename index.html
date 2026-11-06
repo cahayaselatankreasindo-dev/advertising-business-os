@@ -329,9 +329,13 @@
   <div id="csk-auth-gate" class="fixed inset-0 z-[2000] bg-slate-950 flex items-center justify-center p-5">
     <div class="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl text-center space-y-4">
       <div class="text-xl font-bold text-slate-900">CSK BUSINESS OS</div>
-      <p class="text-sm text-slate-600">Masuk menggunakan akun Google yang diizinkan.</p>
-      <div id="csk-google-signin" class="flex justify-center min-h-10"></div>
-      <p id="csk-auth-status" class="text-xs text-slate-500" role="status">Menyiapkan autentikasi...</p>
+      <p class="text-sm text-slate-600">Masuk menggunakan email dan PIN individual.</p>
+      <input id="csk-login-email" type="email" placeholder="Email terdaftar" class="w-full border rounded-lg p-2 text-sm">
+      <input id="csk-login-pin" type="password" inputmode="numeric" maxlength="12" placeholder="PIN 8–12 digit" class="w-full border rounded-lg p-2 text-sm">
+      <input id="csk-backend-url" type="url" placeholder="Apps Script Web App URL" class="w-full border rounded-lg p-2 text-xs">
+      <button id="csk-save-backend" class="w-full bg-slate-100 text-slate-700 rounded-lg p-2 text-xs" type="button">Simpan URL Backend</button>
+      <button id="csk-login-button" class="w-full bg-slate-900 text-white rounded-lg p-3 text-sm font-semibold" type="button">Masuk</button>
+      <p id="csk-auth-status" class="text-xs text-slate-500" role="status">Menyiapkan login...</p>
     </div>
   </div>
 
