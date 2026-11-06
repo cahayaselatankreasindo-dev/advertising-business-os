@@ -17,13 +17,19 @@ Branch: `security/google-apps-script-rbac`
 - `security/tests/security-policy.test.mjs`: policy test suite (Node.js built-in test runner).
 
 ## Current status
-Helper and documentation are on this feature branch. Existing `google_apps_script.js` and `index.html` are not yet changed. This is deliberate: the current frontend has several independent API call paths and localStorage role assumptions; an incomplete rewrite would create a false sense of security.
+Backend handlers and frontend guard are now integrated on this feature branch. `google_apps_script.js` requires session authentication for GET/POST, filters Team data, restricts Team sync to Leads/Clients/Projects, disables legacy direct cold email and makes the scheduled outreach handler a no-op. `index.html` loads the Google login gate and `security/guard.js`, removes the manual role selector and API-token field, and includes an Owner approval inbox. This is still a staging candidate, not production-ready: configure OAuth and Apps Script Script Properties, test both accounts against a staging spreadsheet, and complete browser regression tests before deployment.
 
 ## Run policy tests
 Requires Node.js 20+:
 ```bash
 node --test security/tests/security-policy.test.mjs
 ```
+
+## Required before staging sign-in
+- Replace the placeholder OAuth Client ID in `security/guard.js` with the actual Google OAuth Web Client ID.
+- Set Apps Script Script Properties exactly as described in `GOOGLE-SETUP.md`.
+- Supply the existing Apps Script Web App URL on the login gate.
+- Deploy a staging Apps Script version only after the code review and run the two-account tests.
 
 ## Not authorized / not done
 No main branch change, merge, production deployment, live Sheet mutation, OAuth client setup, or email send has been performed. The branch is a reviewable preparation for the actual handler/frontend migration and staging verification.
