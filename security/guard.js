@@ -30,7 +30,7 @@ async function credential(){
   const url=apiUrl();if(!url)throw Error('URL Apps Script belum diatur. Konfigurasikan URL pada penyimpanan lokal terlebih dahulu.');
   sessionId=randomSession();
   await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'login',email:document.getElementById('csk-login-email').value.trim(),pin:document.getElementById('csk-login-pin').value,sessionId})});
-  const j=await get('get_data');identity=j.identity;
+  const j=await get('get_data');identity=j.identity;document.getElementById('csk-login-pin').value='';
   const key=identity.role==='team'?teamKey:ownerKey;
   let local={};try{local=JSON.parse(localStorage.getItem(key)||'{}')}catch(e){}
   if(identity.role==='owner'&&local&&Object.keys(local).length)Object.assign(db,local);
@@ -74,5 +74,5 @@ window.deleteOnCloud=async function(sheet,id){if(!ready)return;try{await post({a
 window.sendColdEmailLead=async function(id){const l=db.leads.find(x=>String(x.id)===String(id));if(!l||!l.email)return alert('Email lead tidak tersedia.');if(!confirm('Ajukan cold email kepada Owner untuk '+l.email+'?'))return;try{await post({action:'request_cold_email',toEmail:l.email,name:l.name,brand:l.name});alert('Permintaan dikirim ke server. Periksa status persetujuan.');if(identity.role==='owner')setTimeout(loadApprovals,1200);}catch(e){alert(e.message);}};
 window.onRoleChange=function(){alert('Role berasal dari akun Google dan tidak dapat diganti melalui dropdown.');};
 document.addEventListener('click',e=>{const b=e.target.closest('[onclick*="openModal(\'modal-marketing\')"]');if(b&&(!ready||identity.role!=='owner')){e.preventDefault();e.stopImmediatePropagation();alert('Hanya Owner yang dapat mengakses Marketing.');}},true);
-document.addEventListener('DOMContentLoaded',()=>{if(typeof db!=='undefined'){db.settings=db.settings||{};const old=localStorage.getItem('csk_business_os_db');try{const x=JSON.parse(old||'{}');if(x.settings&&x.settings.googleSheetUrl){db.settings.googleSheetUrl=x.settings.googleSheetUrl;localStorage.setItem('csk_gas_url',x.settings.googleSheetUrl);}}catch(e){}}const run=()=>start();if(window.google&&google.accounts)run();else{let n=0;const t=setInterval(()=>{if(window.google&&google.accounts){clearInterval(t);run();}else if(++n>40){clearInterval(t);status('Google Sign-In tidak tersedia.');}},250);}});
+document.addEventListener('DOMContentLoaded',()=>{if(typeof db!=='undefined'){db.settings=db.settings||{};const old=localStorage.getItem('csk_business_os_db');try{const x=JSON.parse(old||'{}');if(x.settings&&x.settings.googleSheetUrl){db.settings.googleSheetUrl=x.settings.googleSheetUrl;localStorage.setItem('csk_gas_url',x.settings.googleSheetUrl);}}catch(e){}}start();});
 })();
