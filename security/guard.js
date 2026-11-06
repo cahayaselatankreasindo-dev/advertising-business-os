@@ -6,7 +6,7 @@ let sessionId='',identity=null,ready=false,originalNav=null;
 const ownerKey='csk_business_os_db_owner',teamKey='csk_business_os_db_team';
 function status(s){const el=document.getElementById('csk-auth-status');if(el)el.textContent=s;}
 function gate(){
- let g=document.getElementById('csk-auth-gate');if(!g){g=document.createElement('div');g.id='csk-auth-gate';g.className='fixed inset-0 z-[2000] bg-slate-950 flex items-center justify-center p-5';g.innerHTML='<div class="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl text-center space-y-4"><div class="text-xl font-bold">CSK BUSINESS OS</div><p class="text-sm text-slate-600">Masuk dengan akun Google yang diizinkan.</p><div id="csk-google-signin" class="flex justify-center"></div><p id="csk-auth-status" class="text-xs text-slate-500">Menyiapkan login...</p></div>';document.body.appendChild(g);}
+ let g=document.getElementById('csk-auth-gate');if(!g){g=document.createElement('div');g.id='csk-auth-gate';g.className='fixed inset-0 z-[2000] bg-slate-950 flex items-center justify-center p-5';g.innerHTML='<div class="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl text-center space-y-4"><div class="text-xl font-bold">CSK BUSINESS OS</div><p class="text-sm text-slate-600">Masuk dengan akun Google yang diizinkan.</p><input id="csk-backend-url" type="url" placeholder="Apps Script Web App URL" class="w-full border rounded-lg p-2 text-xs"><button id="csk-save-backend" class="w-full bg-slate-900 text-white rounded-lg p-2 text-xs" type="button">Simpan URL Backend</button><div id="csk-google-signin" class="flex justify-center"></div><p id="csk-auth-status" class="text-xs text-slate-500">Menyiapkan login...</p></div>';document.body.appendChild(g);}
  return g;
 }
 function randomSession(){const b=new Uint8Array(32);crypto.getRandomValues(b);return btoa(String.fromCharCode(...b)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
@@ -50,6 +50,8 @@ async function credential(response){
 }
 function start(){
  gate();
+ const input=document.getElementById('csk-backend-url');if(input)input.value=apiUrl();
+ const save=document.getElementById('csk-save-backend');if(save)save.onclick=()=>{const u=input.value.trim();if(!/^https:\/\/script\.google\.com\/macros\/s\//.test(u)){status('URL Apps Script tidak valid.');return;}localStorage.setItem('csk_gas_url',u);if(typeof db!=='undefined'){db.settings=db.settings||{};db.settings.googleSheetUrl=u;}status('URL tersimpan. Silakan masuk dengan Google.');};
  if(OAUTH_CLIENT_ID.startsWith('SET_')){status('Konfigurasi Google OAuth Client ID belum diisi.');return;}
  if(!window.google||!google.accounts||!google.accounts.id){status('Google Sign-In belum termuat. Muat ulang halaman.');return;}
  google.accounts.id.initialize({client_id:OAUTH_CLIENT_ID,callback:credential,auto_select:false});
@@ -59,6 +61,7 @@ function start(){
 function loadApprovals(){if(!identity||identity.role!=='owner')return;get('list_pending_approvals').then(j=>{let box=document.getElementById('csk-approval-list');if(!box)return;box.innerHTML=(j.approvals||[]).map(x=>'<div class="border rounded p-3 text-xs flex justify-between gap-2"><span>'+esc(x.toEmail)+' · '+esc(x.status)+'</span><span>'+(x.status==='PENDING'?'<button onclick="cskSecurityAction(\''+x.approvalId+'\',\'approve_cold_email\')">Approve</button> <button onclick="cskSecurityAction(\''+x.approvalId+'\',\'reject_cold_email\')">Reject</button>':'')+(x.status==='APPROVED'?'<button onclick="cskSecurityAction(\''+x.approvalId+'\',\'send_approved_cold_email\')">Send</button>':'')+'</span></div>').join('')||'Belum ada permintaan.';}).catch(e=>console.warn(e));}
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 window.cskSecurityRefresh=loadApprovals;
+window.cskSetBackendUrl=function(u){localStorage.setItem('csk_gas_url',u);};
 window.cskSecurityAction=async function(id,action){if(!identity||identity.role!=='owner')return alert('Owner only');if(!confirm('Lanjutkan tindakan '+action+'?'))return;try{await post({action,approvalId:id});if(typeof showToast==='function')showToast('Status permintaan diperbarui.');loadApprovals();}catch(e){alert(e.message)}};
 window.cskSecurityLogout=async function(){try{if(sessionId)await post({action:'logout'});}catch(e){}sessionId='';identity=null;ready=false;location.reload();};
 originalNav=window.nav;
