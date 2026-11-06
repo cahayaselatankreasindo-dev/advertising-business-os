@@ -20,7 +20,7 @@ function cskVerifyGoogleIdToken_(idToken) {
   if (Number(c.exp || 0) <= now + 60) throw new Error("AUTH_EXPIRED");
   if (String(c.email_verified).toLowerCase() !== "true" || !email) throw new Error("AUTH_EMAIL_UNVERIFIED");
   var owner = String(props.getProperty("CSK_OWNER_EMAIL") || "").trim().toLowerCase();
-  var team = String(props.getProperty("CSK_TEAM_EMAILS") || "").split(/[;,\\n]/).map(function(x){return x.trim().toLowerCase();}).filter(Boolean);
+  var team = String(props.getProperty("CSK_TEAM_EMAILS") || "").split(/[;,\n]/).map(function(x){return x.trim().toLowerCase();}).filter(Boolean);
   if (email === owner && owner) return {email:email, role:"owner", expiresAt:Number(c.exp)};
   if (team.indexOf(email) >= 0) return {email:email, role:"team", expiresAt:Number(c.exp)};
   throw new Error("AUTH_EMAIL_NOT_ALLOWED");
@@ -44,7 +44,7 @@ function cskRequireSession_(sessionId) {
   var session = JSON.parse(raw);
   var props = PropertiesService.getScriptProperties();
   var owner = String(props.getProperty("CSK_OWNER_EMAIL") || "").trim().toLowerCase();
-  var team = String(props.getProperty("CSK_TEAM_EMAILS") || "").split(/[;,\\n]/).map(function(x){return x.trim().toLowerCase();}).filter(Boolean);
+  var team = String(props.getProperty("CSK_TEAM_EMAILS") || "").split(/[;,\n]/).map(function(x){return x.trim().toLowerCase();}).filter(Boolean);
   if (session.email === owner && owner) return {email:session.email,role:"owner"};
   if (team.indexOf(session.email) >= 0) return {email:session.email,role:"team"};
   CacheService.getScriptCache().remove(key);
@@ -100,7 +100,7 @@ function cskIsSuppressed_(email) {
 }
 function cskRequestColdEmail_(identity,payload) {
   var email=String(payload.toEmail||"").trim().toLowerCase();
-  if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))throw new Error("INVALID_RECIPIENT");
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw new Error("INVALID_RECIPIENT");
   if(cskIsSuppressed_(email))throw new Error("RECIPIENT_SUPPRESSED");
   var sh=cskSecuritySheet_("Cold_Email_Approvals",["ApprovalID","ToEmail","Name","Brand","RequestedBy","RequestedAt","Status","ApprovedBy","ApprovedAt","SentAt","Result"]);
   var id=Utilities.getUuid();
@@ -134,17 +134,17 @@ function cskSendApprovedColdEmail_(identity,id) {
     var r=sh.getRange(row,1,1,11).getValues()[0];
     if(String(r[6])!=="APPROVED")throw new Error("EMAIL_NOT_APPROVED");
     var email=String(r[1]||"").trim().toLowerCase();
-    if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))throw new Error("INVALID_RECIPIENT");
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw new Error("INVALID_RECIPIENT");
     if(cskIsSuppressed_(email))throw new Error("RECIPIENT_SUPPRESSED");
     var props=PropertiesService.getScriptProperties(),today=Utilities.formatDate(new Date(),"Asia/Jakarta","yyyy-MM-dd");
     var count=props.getProperty("COLD_EMAIL_DATE")===today?Number(props.getProperty("COLD_EMAIL_COUNT")||0):0;
     if(count>=50)throw new Error("DAILY_LIMIT_REACHED");
     if(MailApp.getRemainingDailyQuota()<1)throw new Error("GMAIL_QUOTA_EXHAUSTED");
     sh.getRange(row,7).setValue("SENDING");
-    var body="Halo Kak "+String(r[2]||"Kak")+" / Tim "+String(r[3]||"Brand")+",\\n\\n"+
-      "Salam kenal, saya Zefry dari Cahaya Selatan Kreasindo (CSK).\\n\\n"+
-      "Jika ada kebutuhan booth pameran, backdrop event, POSM, rak display, atau akrilik custom, kami siap membantu.\\n\\n"+
-      "Terima kasih,\\nZefry Dany\\nCahaya Selatan Kreasindo\\n\\n"+
+    var body="Halo Kak "+String(r[2]||"Kak")+" / Tim "+String(r[3]||"Brand")+",\n\n"+
+      "Salam kenal, saya Zefry dari Cahaya Selatan Kreasindo (CSK).\n\n"+
+      "Jika ada kebutuhan booth pameran, backdrop event, POSM, rak display, atau akrilik custom, kami siap membantu.\n\n"+
+      "Terima kasih,\nZefry Dany\nCahaya Selatan Kreasindo\n\n"+
       "Jika tidak berkenan menerima informasi berikutnya, balas email ini dengan 'Stop'.";
     GmailApp.sendEmail(email,"Vendor Produksi Booth & Display POSM — Cahaya Selatan Kreasindo",body,{name:"Zefry Dany (Cahaya Selatan Kreasindo)"});
     count++;props.setProperty("COLD_EMAIL_DATE",today);props.setProperty("COLD_EMAIL_COUNT",String(count));
