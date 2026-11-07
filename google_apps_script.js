@@ -982,6 +982,27 @@ function cskSendApprovedColdEmail_(identity,id) {
     return {status:"SENT",approvalId:id,countToday:count};
   } finally {lock.releaseLock();}
 }
+function cskListMyApprovals_(identity) {
+  if (!identity || !identity.email) throw new Error("AUTH_REQUIRED");
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Cold_Email_Approvals");
+  if (!sh || sh.getLastRow() < 2) return [];
+  var rows = sh.getRange(2, 1, sh.getLastRow() - 1, 11).getValues();
+  var email = String(identity.email).trim().toLowerCase();
+  return rows.filter(function (r) {
+    return String(r[4] || "").trim().toLowerCase() === email;
+  }).map(function (r) {
+    return {
+      approvalId: String(r[0]),
+      toEmail: String(r[1]),
+      name: String(r[2]),
+      brand: String(r[3]),
+      requestedBy: String(r[4]),
+      requestedAt: r[5],
+      status: String(r[6])
+    };
+  });
+}
+
 function cskListPendingApprovals_(identity) {
   if(identity.role!=="owner")throw new Error("OWNER_ONLY");
   var sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Cold_Email_Approvals");
