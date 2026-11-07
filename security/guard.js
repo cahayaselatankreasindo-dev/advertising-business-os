@@ -2,6 +2,7 @@
 (function(){
 'use strict';
 const AUTH_EMAILS=['cahayaselatankreasindo@gmail.com','zefdas@gmail.com'];
+const DEFAULT_BACKEND_URL='https://script.google.com/macros/s/AKfycbxDW7mfI4QjTXLtaYBFycTZD8dtKmjC0ML831hngmz1y2idtC_uab7BcguifJhK2AMzvA/exec';
 let sessionId='',identity=null,ready=false,originalNav=null;
 const ownerKey='csk_business_os_db_owner',teamKey='csk_business_os_db_team';
 function status(s){const el=document.getElementById('csk-auth-status');if(el)el.textContent=s;}
@@ -10,7 +11,7 @@ function gate(){
  return g;
 }
 function randomSession(){const b=new Uint8Array(32);crypto.getRandomValues(b);return btoa(String.fromCharCode(...b)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
-function apiUrl(){return (typeof db!=='undefined'&&db.settings&&db.settings.googleSheetUrl)||localStorage.getItem('csk_gas_url')||'';}
+function apiUrl(){return (typeof db!=='undefined'&&db.settings&&db.settings.googleSheetUrl)||localStorage.getItem('csk_gas_url')||DEFAULT_BACKEND_URL;}
 async function post(payload){const u=apiUrl();if(!u||!sessionId)throw Error('URL backend atau sesi belum tersedia.');await fetch(u,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...payload,sessionId})});return {status:'submitted'};}
 async function get(action){const u=apiUrl();if(!u||!sessionId)throw Error('URL backend atau sesi belum tersedia.');const x=new URL(u);x.searchParams.set('sessionId',sessionId);if(action)x.searchParams.set('action',action);const r=await fetch(x,{cache:'no-store'});const j=await r.json();if(j.status!=='success')throw Error(j.code||j.message||'Permintaan ditolak');return j;}
 function merge(a,b){const m=new Map();(a||[]).forEach(x=>{if(x&&x.id!==undefined)m.set(String(x.id),x)});(b||[]).forEach(x=>{if(x&&x.id!==undefined)m.set(String(x.id),x)});return [...m.values()];}
@@ -49,7 +50,7 @@ async function credential(){
 }
 function start(){
  gate();
- const input=document.getElementById('csk-backend-url');if(input)input.value=apiUrl();
+ const input=document.getElementById('csk-backend-url');if(input)input.value=apiUrl();localStorage.setItem('csk_gas_url',apiUrl());
  const save=document.getElementById('csk-save-backend');if(save)save.onclick=()=>{const u=input.value.trim();if(!/^https:\/\/script\.google\.com\/macros\/s\//.test(u)){status('URL Apps Script tidak valid.');return;}localStorage.setItem('csk_gas_url',u);if(typeof db!=='undefined'){db.settings=db.settings||{};db.settings.googleSheetUrl=u;}status('URL backend tersimpan.');};
  const email=document.getElementById('csk-login-email');if(email&&!email.value)email.value=AUTH_EMAILS[0];
  const btn=document.getElementById('csk-login-button');if(btn)btn.onclick=credential;
