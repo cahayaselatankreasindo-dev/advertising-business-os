@@ -37,6 +37,11 @@ for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
   assert.match(sendCase[0], /COLD_EMAIL_DISABLED/, path + ': manual cold email is disabled');
 }
 
+const canonicalBackend = fs.readFileSync('google_apps_script.js', 'utf8').trimEnd();
+const claspBackend = fs.readFileSync('apps-script/Code.gs', 'utf8').trimEnd();
+assert.equal(canonicalBackend, claspBackend, 'backend: canonical source and Apps Script upload copy stay identical');
+assert.match(canonicalBackend, /function onOpen\(e\)[\s\S]*?createMenu\("CSK Security"\)[\s\S]*?addToUi\(\)/, 'backend: spreadsheet menu exposes PIN setup and rotation');
+
 const guard = fs.readFileSync('security/guard.js', 'utf8');
 const html = fs.readFileSync('index.html', 'utf8');
 const appScript = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)]
@@ -46,9 +51,18 @@ assert.ok(appScript, 'frontend: main application script exists');
 assert.doesNotThrow(() => new Function(appScript), 'frontend: main application JavaScript parses without syntax errors');
 assert.doesNotMatch(appScript, /function\s+addService\(\)\s+function\s+addService\(/, 'frontend: no duplicate addService declaration');
 
-assert.match(guard, /legacyOwnerCache/, 'frontend: legacy Owner migration is memory-only');
-assert.doesNotMatch(guard, /safeLocalSet\(OWNER_KEY/, 'frontend: Owner database is not persisted in localStorage');
-assert.match(guard, /localStorage\.removeItem\(OWNER_KEY\)/, 'frontend: old persistent Owner cache is cleared');
+assert.match(guard, /legacyOwnerCache/, 'frontend: legacy Owner migration uses a temporary recovery cache');
+assert.doesNotMatch(guard, /safeLocalSet\(OWNER_KEY/, 'frontend: Owner database is not written to a persistent Owner cache');
+const ownerSave = guard.match(/function saveScoped\(\)[\s\S]*?\n  }/);
+assert.ok(ownerSave, 'frontend: scoped save handler exists');
+assert.doesNotMatch(ownerSave[0], /removeItem\(DB_KEY|removeItem\(OWNER_KEY/, 'frontend: legacy data is not deleted during local save');
+const migration = guard.match(/function migrateLegacyStorage\(\)[\s\S]*?\n  }/);
+assert.ok(migration, 'frontend: legacy migration handler exists');
+assert.doesNotMatch(migration[0], /removeItem\(DB_KEY|removeItem\(OWNER_KEY/, 'frontend: migration preserves the original copy until cloud verification');
+const sync = guard.match(/async function syncNow\(silent\)[\s\S]*?\n  }/);
+assert.ok(sync, 'frontend: cloud sync handler exists');
+assert.match(sync[0], /legacyOwnerCache = null;[\s\S]*?localStorage\.removeItem\(DB_KEY\)/, 'frontend: legacy data is removed only after verified cloud sync');
+assert.match(guard, /beforeunload/, 'frontend: pending Owner changes warn before leaving');
 assert.match(guard, /safeLocalSet\(TEAM_KEY/, 'frontend: Team operational cache remains separately scoped');
 assert.match(guard, /normalizeSyncValue/, 'frontend: cloud sync verification compares field values');
 assert.match(guard, /mismatches\.join/, 'frontend: sync reports field-level mismatches');
