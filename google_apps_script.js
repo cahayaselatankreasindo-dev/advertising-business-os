@@ -1007,6 +1007,14 @@ function mergeSheet(ss, sheetName, items) {
       // Baris sudah ada di sheet -> update HANYA kolom yang berubah
       var rowIdx = idToRow[id] - 2; // index di dataRange
       var oldRow = dataRange[rowIdx] || [];
+      // Kolom tambahan di luar kontrak FIELD_MAP adalah milik pengguna.
+      // Pertahankan nilainya saat upsert; jangan kosongkan kolom custom.
+      for (var c = 0; c < newRow.length; c++) {
+        var headerKey = String(headerRow[c] || "").trim().toLowerCase();
+        if (!Object.prototype.hasOwnProperty.call(contractPos, headerKey)) {
+          newRow[c] = oldRow[c];
+        }
+      }
       var changed = false;
       for (var c = 0; c < newRow.length; c++) {
         // Normalisasi angka vs string agar tidak update palsu
