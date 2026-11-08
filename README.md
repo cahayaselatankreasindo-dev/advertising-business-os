@@ -34,13 +34,18 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 
 ---
 
-## 🔐 Mode Tampilan dan Batas Keamanan
+## 🔐 Autentikasi dan Hak Akses
 
-Dropdown Owner/Tim saat ini hanya mengatur tampilan menu di frontend. Dropdown tersebut **belum menjadi autentikasi atau pembatas hak akses di server**.
+Aplikasi menggunakan login email + PIN. Peran ditentukan dan diverifikasi oleh backend Apps Script; pilihan role pada antarmuka bukan mekanisme keamanan.
 
-Backend mewajibkan satu API token global yang disimpan di Script Properties. Simpan token tersebut hanya pada perangkat Owner dan jangan membagikannya kepada Tim. Pemisahan token Owner/Tim dan verifikasi identitas email harus diselesaikan sebelum akses Tim dianggap aman.
+- **Owner** dapat mengakses seluruh modul dan data.
+- **Tim** hanya dapat mengakses Leads, Clients, dan Projects.
+- Finance, Memory, Marketing, HPP, Purchase Orders, Quotations, dan pengaturan backend hanya tersedia untuk Owner.
+- PIN disimpan sebagai hash bersalt di Script Properties. Lima kegagalan login memicu pembatasan sementara selama 15 menit.
+- Sesi berlaku maksimal 30 menit sejak aktivitas terakhir. PIN dan session ID tidak disimpan di localStorage.
+- Cold email otomatis maupun manual dinonaktifkan. Tidak ada email yang dikirim oleh fitur tersebut.
 
-Pengiriman cold email otomatis maupun manual dinonaktifkan sementara sampai kontrol akses Owner/Tim dan persetujuan server-side tersedia. Trigger cold outreach lama yang masih terpasang menjadi no-op setelah backend diperbarui.
+Google Apps Script Web App harus dapat menerima request publik agar halaman login dapat menghubungi backend. Data tetap dilindungi oleh verifikasi email, PIN, sesi, dan RBAC di server. Jangan membagikan PIN Owner atau URL pengelolaan Apps Script.
 
 ---
 
@@ -91,14 +96,17 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 2. Buka **Extensions → Apps Script**.
 3. Ganti kode editor dengan seluruh isi file [`apps-script/Code.gs`](apps-script/Code.gs) atau [`google_apps_script.js`](google_apps_script.js).
 4. Simpan kode.
-5. Jalankan fungsi **`setupSheet`** sekali dan berikan izin yang diminta.
-6. Jalankan fungsi **`setupCSKPinCredentialsFromPrompt`** sekali. Buat PIN Owner dan PIN Tim yang berbeda (masing-masing 8–12 digit). PIN disimpan sebagai hash di Script Properties, bukan di Spreadsheet.
-7. Klik **Deploy → New deployment → Web app**:
+5. Jalankan fungsi **`setupSheet`** sekali dan berikan izin yang diminta. Fungsi ini memvalidasi header dan menambahkan tab/kolom yang belum ada tanpa menghapus data lama. Cadangkan Spreadsheet sebelum perubahan skema.
+6. Kembali ke Google Spreadsheet dan muat ulang halaman agar menu **CSK Security** muncul.
+7. Pilih **CSK Security → Setup PIN Owner & Tim**. Masukkan dua PIN berbeda (masing-masing 8–12 digit). **Jangan jalankan fungsi dialog ini melalui tombol Run di Apps Script Editor** karena dialog Spreadsheet memerlukan konteks UI.
+8. Klik **Deploy → New deployment → Web app**:
    - Execute as: **Me**
-   - Who has access: **Anyone** (akses data tetap membutuhkan sesi email + PIN yang diverifikasi server).
-8. Deploy dan salin URL Web App yang berakhiran `/exec`.
-9. Buka aplikasi. Masukkan URL Web App, email terdaftar, dan PIN pada layar login.
-10. Opsional: jalankan **`installAutoTrigger`** sekali untuk otomasi Deal Menang.
+   - Who has access: **Anyone** (data tetap memerlukan email + PIN dan sesi yang diverifikasi backend).
+9. Deploy dan salin URL Web App yang berakhiran `/exec`.
+10. Buka aplikasi. Masukkan URL Web App, email terdaftar, dan PIN pada layar login.
+11. Opsional: jalankan **`installAutoTrigger`** sekali untuk otomasi Deal Menang.
+
+**Pemisahan deployment:** GitHub Pages menerbitkan frontend dari branch `main`. Perubahan file Apps Script di GitHub tidak otomatis memperbarui deployment Web App. Setelah backend diperbarui di Apps Script Editor, buka **Deploy → Manage deployments → Edit → New version → Deploy**. URL `/exec` yang sudah digunakan aplikasi biasanya tetap sama saat deployment yang sama diperbarui.
 
 **Tidak memerlukan Google Cloud OAuth, domain, hosting berbayar, atau API token bersama.** Jangan bagikan PIN Owner. Untuk mengganti PIN yang sudah terpasang, gunakan `rotateCSKPinCredentialsFromPrompt`. Data Owner tidak disimpan permanen di browser; Google Sheets menjadi sumber data utama. Pastikan sinkronisasi berhasil sebelum keluar dari aplikasi.
 
