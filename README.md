@@ -100,7 +100,7 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 9. Buka aplikasi. Masukkan URL Web App, email terdaftar, dan PIN pada layar login.
 10. Opsional: jalankan **`installAutoTrigger`** sekali untuk otomasi Deal Menang.
 
-**Tidak memerlukan Google Cloud OAuth, domain, hosting berbayar, atau API token bersama.** Jangan bagikan PIN Owner. Untuk mengganti PIN yang sudah terpasang, gunakan `rotateCSKPinCredentialsFromPrompt`.
+**Tidak memerlukan Google Cloud OAuth, domain, hosting berbayar, atau API token bersama.** Jangan bagikan PIN Owner. Untuk mengganti PIN yang sudah terpasang, gunakan `rotateCSKPinCredentialsFromPrompt`. Data Owner tidak disimpan permanen di browser; Google Sheets menjadi sumber data utama. Pastikan sinkronisasi berhasil sebelum keluar dari aplikasi.
 
 ---
 
