@@ -11,7 +11,7 @@ assert.equal(noCorsPosts.length, 2, 'delete and sync POST calls remain; cold ema
 for (const match of noCorsPosts) {
   assert.equal(match[1], 'text/plain;charset=utf-8', 'no-cors POST uses a CORS-safelisted content type');
 }
-assert.match(backend, /JSON.parse\\(\\(e && e\\.postData && e\\.postData\\.contents\\) \\|\\| "\\{\\}"\\)/, 'Apps Script parses the JSON request body independent of Content-Type');
+assert.match(backend, /JSON.parse\(\(e && e\.postData && e\.postData\.contents\) \|\| "\{\}"\)/, 'Apps Script parses the JSON request body independent of Content-Type');
 
 assert.ok(guard.includes('async function verifySync(payload)'), 'cloud writes are followed by authenticated read-back verification');
 assert.ok(guard.includes('var verified = await verifySync(payload);'), 'sync success waits for server verification');
