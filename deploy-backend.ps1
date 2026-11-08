@@ -15,12 +15,14 @@ Write-Host "=== Deploy Backend CSK OS ===" -ForegroundColor Cyan
 # 0. Fail-closed preflight: cegah deploy source backend tanpa autentikasi wajib.
 if (-not (Test-Path $src)) { throw "Sumber backend tidak ditemukan: $src" }
 $source = Get-Content $src -Raw
-if ($source -notmatch 'function isAuthorized' -or
-    $source -notmatch 'if (!/^[a-f0-9]{64}$/i.test(expected)) return false;' -or
-    $source -match 'if (expected === "") return true') {
-    throw "PRE-FLIGHT GAGAL: backend belum menerapkan fail-closed API token. Tidak ada file yang di-push."
+if ($source -notmatch 'function cskLoginWithPin_' -or
+    $source -notmatch 'function cskRequireSession_' -or
+    $source -notmatch 'function cskAssertPayloadAllowed_' -or
+    $source -notmatch 'function setupCSKPinCredentialsFromPrompt' -or
+    $source -match 'function getApiToken') {
+    throw "PRE-FLIGHT GAGAL: backend belum menerapkan login PIN dan RBAC server-side. Tidak ada file yang di-push."
 }
-Write-Host "[0/4] API token fail-closed terverifikasi" -ForegroundColor Green
+Write-Host "[0/4] Login PIN dan RBAC server-side terverifikasi" -ForegroundColor Green
 
 # 1. Sinkron file sumber -> Code.gs
 Copy-Item $src $dst -Force
@@ -45,11 +47,11 @@ try {
     # 4. Pastikan token server tersedia SEBELUM deployment diperbarui.
     Write-Host ""
     Write-Host "PENTING: Buka Apps Script editor untuk project CSK." -ForegroundColor Yellow
-    Write-Host "Jika API_TOKEN belum ada, jalankan setupApiToken() SATU KALI." -ForegroundColor Yellow
-    Write-Host "Salin token dari Execution log ke Pengaturan CSK pada perangkat owner." -ForegroundColor Yellow
-    Write-Host "Jika API_TOKEN sudah ada, JANGAN jalankan setupApiToken() lagi." -ForegroundColor Yellow
-    Write-Host "Deployment belum diperbarui. Tekan Enter hanya setelah token siap." -ForegroundColor Yellow
-    Read-Host "Konfirmasi kesiapan token"
+    Write-Host "Jika PIN belum disetel, jalankan setupCSKPinCredentialsFromPrompt() SATU KALI." -ForegroundColor Yellow
+    Write-Host "Masukkan PIN Owner dan PIN Tim melalui prompt Apps Script. PIN disimpan sebagai hash." -ForegroundColor Yellow
+    Write-Host "Jika PIN sudah disetel, jangan jalankan setup ulang. Gunakan rotateCSKPinCredentialsFromPrompt() hanya untuk rotasi." -ForegroundColor Yellow
+    Write-Host "Deployment belum diperbarui. Tekan Enter hanya setelah PIN siap." -ForegroundColor Yellow
+    Read-Host "Konfirmasi kesiapan PIN"
 
     # 5. Update deployment yang ada (URL tetap sama)
     Write-Host "[4/4] Update deployment..." -ForegroundColor Green
