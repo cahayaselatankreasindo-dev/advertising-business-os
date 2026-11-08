@@ -6,6 +6,10 @@ on:
   pull_request:
     paths:
       - 'index.html'
+      - 'README.md'
+      - 'crm-upgrade.js'
+      - 'crm-upgrade.test.cjs'
+      - 'deal-conversion.test.cjs'
       - 'sw.js'
       - 'apps-script/Code.gs'
       - 'google_apps_script.js'
@@ -34,3 +38,11 @@ jobs:
         run: node invoice.test.cjs
       - name: Validate Apps Script POST transport
         run: node sync.test.cjs
+      - name: Validate Deal Won conversion idempotency and cash accounting
+        run: |
+          node --check google_apps_script.js
+          node deal-conversion.test.cjs
+      - name: Validate CRM follow-up and project monitoring
+        run: |
+          node --check crm-upgrade.js
+          node crm-upgrade.test.cjs
