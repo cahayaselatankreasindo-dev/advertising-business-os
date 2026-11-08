@@ -39,12 +39,12 @@ for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
 
 const guard = fs.readFileSync('security/guard.js', 'utf8');
 const html = fs.readFileSync('index.html', 'utf8');
-const appScript = [...html.matchAll(/<script([^>]*)>([\\s\\S]*?)<\\/script>/gi)]
+const appScript = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)]
   .map(match => match[2])
   .find(source => source.includes("const DB_KEY"));
 assert.ok(appScript, 'frontend: main application script exists');
 assert.doesNotThrow(() => new Function(appScript), 'frontend: main application JavaScript parses without syntax errors');
-assert.doesNotMatch(appScript, /function\\s+addService\\(\\)\\s+function\\s+addService\\(/, 'frontend: no duplicate addService declaration');
+assert.doesNotMatch(appScript, /function\s+addService\(\)\s+function\s+addService\(/, 'frontend: no duplicate addService declaration');
 
 assert.match(guard, /legacyOwnerCache/, 'frontend: legacy Owner migration is memory-only');
 assert.doesNotMatch(guard, /safeLocalSet\(OWNER_KEY/, 'frontend: Owner database is not persisted in localStorage');
