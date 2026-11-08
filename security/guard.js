@@ -144,6 +144,22 @@
     collectionsForRole().forEach(function (key) { payload[key] = Array.isArray(db[key]) ? db[key] : []; });
     return payload;
   }
+  function canonicalize(value) {
+    if (Array.isArray(value)) return value.map(canonicalize);
+    if (value && typeof value === 'object') {
+      return Object.keys(value).sort().reduce(function (out, key) {
+        out[key] = canonicalize(value[key]);
+        return out;
+      }, {});
+    }
+    return value;
+  }
+  function normalizeSyncValue(value, field) {
+    if (value === undefined || value === null) return '';
+    if (field === 'date' || field === 'deadline') return String(value).slice(0, 10);
+    if (typeof value === 'object') return JSON.stringify(canonicalize(value));
+    return String(value).trim();
+  }
   async function verifySync(payload) {
     var result = await get('get_data');
     var data = result.data || {};
@@ -151,9 +167,20 @@
     collectionsForRole().forEach(function (key) {
       var expected = Array.isArray(payload[key]) ? payload[key] : [];
       var rows = Array.isArray(data[key]) ? data[key] : [];
-      var ids = new Set(rows.map(function (row) { return String(row && row.id); }));
-      var missing = expected.filter(function (row) { return !row || row.id === undefined || !ids.has(String(row.id)); });
-      if (missing.length) throw new Error('Verifikasi ' + key + ' gagal: ' + missing.length + ' data belum ditemukan di Sheets.');
+      var cloudById = new Map(rows.filter(function (row) { return row && row.id !== undefined; }).map(function (row) { return [String(row.id), row]; }));
+      expected.forEach(function (localRow) {
+        if (!localRow || localRow.id === undefined || localRow.id === null) throw new Error('Verifikasi ' + key + ' gagal: ada data lokal tanpa ID.');
+        var cloudRow = cloudById.get(String(localRow.id));
+        if (!cloudRow) throw new Error('Verifikasi ' + key + ' gagal: ID ' + localRow.id + ' belum ditemukan di Google Sheets.');
+        var ignoredFields = ['updatedAt','itemsJson','linesJson'];
+        var fields = Object.keys(localRow).filter(function (field) {
+          return localRow[field] !== undefined && ignoredFields.indexOf(field) === -1;
+        });
+        var mismatches = fields.filter(function (field) {
+          return normalizeSyncValue(localRow[field], field) !== normalizeSyncValue(cloudRow[field], field);
+        });
+        if (mismatches.length) throw new Error('Verifikasi ' + key + ' gagal untuk ID ' + localRow.id + '. Nilai berbeda pada: ' + mismatches.join(', ') + '.');
+      });
       checked.push(key);
     });
     return { modules: checked.length, checkedAt: data.lastSynced || new Date().toISOString() };
