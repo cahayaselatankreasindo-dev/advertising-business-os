@@ -970,3 +970,13 @@ function jsonResponse(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
+
+
+/** Menu untuk menjalankan dialog PIN dari konteks Google Sheets. */
+function onOpen(e) {
+  SpreadsheetApp.getUi()
+    .createMenu("CSK Security")
+    .addItem("Setup PIN Owner & Tim", "setupCSKPinCredentialsFromPrompt")
+    .addItem("Rotasi PIN Owner & Tim", "rotateCSKPinCredentialsFromPrompt")
+    .addToUi();
+}
