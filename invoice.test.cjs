@@ -88,7 +88,7 @@ assert.ok(html.includes('function loadHppProject(projectId)'), 'saved HPP editor
 assert.ok(html.includes('function editHppMaterial(id)'), 'material edit workflow exists');
 assert.ok(html.includes('function deleteHppMaterial(id)'), 'material delete workflow exists');
 assert.ok(html.includes('price=total===0?0:Math.ceil(total/(1-margin/100))'), 'margin is calculated as a percentage of selling price');
-assert.ok(html.includes('purchaseOrders: db.purchaseOrders || []'), 'purchase orders included in sync payload');
+assert.match(guard, /'purchaseOrders'/, 'Owner sync scope includes purchase orders');
 
 const backend = fs.readFileSync('google_apps_script.js', 'utf8');
 assert.ok(backend.includes('if (payload.services) mergeSummary.Services'), 'Apps Script sync_all upserts services');
