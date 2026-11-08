@@ -13,6 +13,7 @@
   var sessionId = '';
   var identity = null;
   var ready = false;
+  var legacyOwnerCache = null;
   var originalLoadDB = window.loadDB;
   var originalNav = window.nav;
   var originalImportData = window.importData;
@@ -103,7 +104,10 @@
     db.settings = db.settings || {};
     db.role = identity.role;
     if (identity.role === 'owner') {
-      safeLocalSet(OWNER_KEY, JSON.stringify(db));
+      // Owner collections are not persisted in browser storage. Google Sheets is the source of truth.
+      // Keep only an in-memory recovery copy until the server confirms synchronization.
+      try { legacyOwnerCache = JSON.parse(JSON.stringify(db)); } catch (e) { legacyOwnerCache = null; }
+      try { localStorage.removeItem(OWNER_KEY); localStorage.removeItem(DB_KEY); } catch (e) {}
     } else {
       safeLocalSet(TEAM_KEY, JSON.stringify({ leads: db.leads || [], clients: db.clients || [], projects: db.projects || [] }));
     }
@@ -166,6 +170,7 @@
       db.settings.lastSyncModules = verified.modules;
       db.settings.lastSyncError = '';
       saveScoped();
+      if (identity && identity.role === 'owner') legacyOwnerCache = null;
       if (typeof updateCloudIndicator === 'function') updateCloudIndicator();
       if (!silent && typeof showToast === 'function') showToast('Sinkronisasi terverifikasi: ' + verified.modules + ' modul.');
     } catch (e) {
@@ -261,8 +266,7 @@
       identity = response.identity;
       if (!identity || !['owner','team'].includes(identity.role) || identity.email !== email) throw new Error('LOGIN_INVALID');
 
-      var key = identity.role === 'owner' ? OWNER_KEY : TEAM_KEY;
-      var local = readSaved(key);
+      var local = identity.role === 'owner' ? (legacyOwnerCache || {}) : readSaved(TEAM_KEY);
       var cloud = response.data || {};
       collectionsForRole().forEach(function (collection) {
         db[collection] = mergeById(cloud[collection], local[collection]);
@@ -300,17 +304,27 @@
     }
   }
   async function logout() {
+    if (ready) {
+      if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+      await syncNow(true);
+      if (identity && identity.role === 'owner' && db.settings && db.settings.lastSyncError) {
+        var proceed = confirm('Ada data Owner yang belum berhasil diverifikasi tersimpan di Google Sheets. Jika keluar sekarang, perubahan lokal yang belum tersinkron akan hilang. Tetap keluar?');
+        if (!proceed) return;
+      }
+    }
     try { if (sessionId) await post({ action: 'logout' }); } catch (e) { /* sesi lokal tetap ditutup */ }
+    legacyOwnerCache = null;
     lockScreen('Anda sudah keluar. Masukkan email dan PIN untuk melanjutkan.');
   }
   function migrateLegacyStorage() {
     if (typeof db === 'undefined') return;
     var legacy = readSaved(DB_KEY);
+    var owner = readSaved(OWNER_KEY);
     var hasLegacy = !!safeLocalGet(DB_KEY);
-    var url = (legacy.settings && legacy.settings.googleSheetUrl) || (db.settings && db.settings.googleSheetUrl) || safeLocalGet(URL_KEY);
+    var hasOwner = !!safeLocalGet(OWNER_KEY);
+    var url = (legacy.settings && legacy.settings.googleSheetUrl) || (owner.settings && owner.settings.googleSheetUrl) || (db.settings && db.settings.googleSheetUrl) || safeLocalGet(URL_KEY);
     if (url) safeLocalSet(URL_KEY, url);
-    if (hasLegacy) {
-      var owner = readSaved(OWNER_KEY);
+    if (hasLegacy || hasOwner) {
       var merged = Object.assign({}, legacy, owner);
       ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','services','purchaseOrders','quotationSnapshots'].forEach(function (key) {
         merged[key] = mergeById(legacy[key], owner[key]);
@@ -319,8 +333,9 @@
       merged.settings = merged.settings || {};
       merged.settings.googleSheetUrl = url || merged.settings.googleSheetUrl || '';
       delete merged.settings.apiToken;
-      safeLocalSet(OWNER_KEY, JSON.stringify(merged));
-      try { localStorage.removeItem(DB_KEY); } catch (e) {}
+      // This cache is memory-only and is cleared after a verified Owner sync.
+      legacyOwnerCache = merged;
+      try { localStorage.removeItem(DB_KEY); localStorage.removeItem(OWNER_KEY); } catch (e) {}
     }
     resetDb();
     var input = document.getElementById('csk-backend-url');
