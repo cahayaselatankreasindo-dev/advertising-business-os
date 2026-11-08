@@ -48,6 +48,7 @@ function makeSheet(headers) {
           }
           return out;
         },
+        getValue() { return (self.rows[r - 1] || [])[c - 1]; },
         setValues(vals) {
           // Tiru Google Sheets asli: range di luar data otomatis memperluas sheet.
           for (let i = 0; i < vals.length; i++) {
