@@ -3,6 +3,7 @@ name: CSK Security Tests
 on:
   push:
     branches:
+      - main
       - security/csk-pin-rbac-hardening
   pull_request:
     branches:
