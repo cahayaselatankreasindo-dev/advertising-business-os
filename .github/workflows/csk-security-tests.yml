@@ -21,7 +21,7 @@ jobs:
       - name: Syntax checks
         run: |
           node --check google_apps_script.js
-          node --check apps-script/Code.gs
+          node -e "new Function(require('fs').readFileSync('apps-script/Code.gs','utf8'))"
           node --check security/guard.js
           node --check mapping.test.js
           node --check backend-auth.test.cjs
