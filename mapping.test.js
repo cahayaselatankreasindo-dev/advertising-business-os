@@ -313,10 +313,14 @@ const duplicateLeads = makeSheet([
 duplicateLeads.appendRow(['L-OLD','2026-09-01','Budi','081','IG',8000000,'won','ok','','','','','','','','','','','','','']);
 sheets['Leads'] = duplicateLeads;
 const duplicateBefore = JSON.stringify(duplicateLeads.rows);
+const beforeSetupNames = Object.keys(sheets).sort();
+const beforeSetupState = JSON.stringify(beforeSetupNames.map(name => [name, sheets[name].rows]));
 let duplicateError = '';
 try { sandbox.setupSheet(); } catch (err) { duplicateError = String(err.message || err); }
 eq(!!duplicateError, true, 'migrasi aman: header duplikat menghentikan setup');
-eq(JSON.stringify(duplicateLeads.rows), duplicateBefore, 'migrasi aman: semua data dipertahankan saat header duplikat');
+eq(JSON.stringify(duplicateLeads.rows), duplicateBefore, 'migrasi aman: semua data Leads dipertahankan saat header duplikat');
+eq(JSON.stringify(Object.keys(sheets).sort()), JSON.stringify(beforeSetupNames), 'migrasi aman: setup tidak membuat tab sebelum preflight selesai');
+eq(JSON.stringify(Object.keys(sheets).sort().map(name => [name, sheets[name].rows])), beforeSetupState, 'migrasi aman: setup tidak mengubah tab/data apa pun saat preflight gagal');
 eq(duplicateError.indexOf('tidak ada data yang diubah') !== -1, true, 'migrasi aman: error menegaskan tidak ada perubahan');
 
 sheets['Leads'] = makeSheet([

@@ -181,6 +181,13 @@ function recordToRow(sheetName, obj) {
 function setupSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
+  // Preflight seluruh tab yang sudah ada. Header ambigu menghentikan setup
+  // sebelum tab atau kolom baru dibuat maupun struktur lama diubah.
+  Object.keys(FIELD_MAP).forEach(function (name) {
+    const existingSheet = ss.getSheetByName(name);
+    if (existingSheet && existingSheet.getLastRow() > 0) dedupeHeaders(ss, name);
+  });
+
   // 5 Tab lama — tidak diubah strukturnya
   const legacySheets = [
     { name: "Leads",          headers: ["ID", "Tanggal", "Nama", "WhatsApp", "Sumber", "EstimasiNilai", "Status", "Catatan"] },
@@ -207,8 +214,7 @@ function setupSheet() {
   ensureSheet(ss, "Purchase_Orders", FIELD_MAP.Purchase_Orders.headers);
   ensureSheet(ss, "Quotations", FIELD_MAP.Quotations.headers);
 
-  // Migrasi skema: rapi-kan dulu kolom duplikat, lalu pastikan kolom kontrak ada.
-  // Urutan penting: dedupe dulu (mis. "TANGGAL" & "Tanggal" dobel), baru tambah yang kurang.
+  // Validasi header tanpa menghapus kolom; kolom kontrak yang belum ada ditambahkan di kanan.
   Object.keys(FIELD_MAP).forEach(function (name) {
     dedupeHeaders(ss, name);
   });
@@ -279,10 +285,8 @@ function ensureAllHeaders(ss, sheetName) {
   });
 }
 
-// Bersihkan kolom HEADER DUPLIKAT (mis. "Tanggal" & "TANGGAL" muncul 2x).
-// Menyimpan kemunculan PERTAMA saja; kolom duplikat dihapus.
-// Sekaligus merapikan urutan jadi persis FIELD_MAP.headers (jika tab kontrak).
-// Aman: data kolom yang dipertahankan ikut dipindah, isi tidak hilang.
+// Validasi keunikan header tanpa perubahan destruktif.
+// Header duplikat/ambigu dihentikan agar pemilik data dapat menggabungkan kolom secara manual.
 function dedupeHeaders(ss, sheetName) {
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() === 0) return 0;
@@ -733,8 +737,8 @@ function mergeSheet(ss, sheetName, items) {
     }
   }
 
-  // Rapikan kolom duplikat dulu (mis. "TANGGAL" & "Tanggal"), lalu pastikan
-  // semua kolom kontrak ada (kolom baru ditambah di kanan).
+  // Validasi header terlebih dahulu; header ambigu menghentikan proses tanpa menghapus data.
+  // Kolom kontrak yang belum ada ditambahkan di kanan.
   if (map) {
     dedupeHeaders(ss, sheetName);
     ensureAllHeaders(ss, sheetName);
