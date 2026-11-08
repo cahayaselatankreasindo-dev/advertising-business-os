@@ -15,15 +15,15 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 
 ### Pilar 2 — Financial Journal
 - Pencatatan DP Proyek, Pelunasan, Retainer Iklan, Expense, dll
-- **Auto-trigger**: saat lead berubah jadi Deal Menang, skrip otomatis membuat baris pendapatan di tab Finance (kategori *DP Proyek*)
+- Deal Won tidak otomatis menambah pendapatan. Catat DP dan pelunasan di Finance hanya setelah pembayaran benar-benar diterima.
 
 ### Pilar 3 — Production Projects
 - Pelacakan deadline, status Brief/Pengerjaan/Review/Selesai
 - **SOP Checklist interaktif** per proyek: Brief → Produksi → Review → Revisi → Delivery
-- **Auto-trigger**: saat lead Deal Menang, baris antrean kerja baru dibuat otomatis di tab Projects (status *plan*, deadline +14 hari)
+- **Auto-trigger**: saat lead Deal Menang, sistem memastikan satu proyek antrean kerja (status *plan*, deadline +14 hari) dan satu data klien. Trigger serial memakai LockService agar konversi paralel tidak membuat duplikat.
 
 ### Pilar 4 — Product-Market Fit (Clients)
-- Database klien tetap dengan riwayat kerja sama & LTV
+- Database klien tetap dengan riwayat kerja sama, jumlah proyek, dan total nilai proyek. Nilai proyek tidak dianggap sebagai kas diterima.
 - **Rating bintang (1–5)** dan **review teks** per klien
 - Indikator PMF melalui repeat order dan kepuasan
 
