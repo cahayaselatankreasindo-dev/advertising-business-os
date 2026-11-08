@@ -43,6 +43,8 @@ assert.match(guard, /legacyOwnerCache/, 'frontend: legacy Owner migration is mem
 assert.doesNotMatch(guard, /safeLocalSet\(OWNER_KEY/, 'frontend: Owner database is not persisted in localStorage');
 assert.match(guard, /localStorage\.removeItem\(OWNER_KEY\)/, 'frontend: old persistent Owner cache is cleared');
 assert.match(guard, /safeLocalSet\(TEAM_KEY/, 'frontend: Team operational cache remains separately scoped');
+assert.match(guard, /normalizeSyncValue/, 'frontend: cloud sync verification compares field values');
+assert.match(guard, /mismatches\.join/, 'frontend: sync reports field-level mismatches');
 assert.match(html, /security\/guard\.js/, 'frontend: authentication guard is loaded');
 assert.doesNotMatch(html, /getApiToken|setting-api-token|API token|\?token=/i, 'frontend: no shared API token flow remains');
 
