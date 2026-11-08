@@ -286,39 +286,35 @@ function ensureAllHeaders(ss, sheetName) {
 function dedupeHeaders(ss, sheetName) {
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() === 0) return 0;
-
   var lastCol = sheet.getLastColumn();
   if (lastCol <= 1) return 0;
 
   var headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var data = sheet.getDataRange().getValues();
   var seen = {};
-  var keepCols = []; // index kolom (0-based) yang dipertahankan
+  var issues = [];
 
   headerRow.forEach(function (h, i) {
-    var key = String(h).trim().toLowerCase();
-    if (key === "") return;                 // kolom tanpa judul -> buang
-    if (seen[key]) return;                  // duplikat -> buang
-    seen[key] = true;
-    keepCols.push(i);
+    var key = String(h == null ? "" : h).trim().toLowerCase();
+    var hasData = data.slice(1).some(function (row) {
+      return row[i] !== "" && row[i] !== null && row[i] !== undefined;
+    });
+    if (!key) {
+      if (hasData) issues.push("kolom " + (i + 1) + " memiliki data tetapi header kosong");
+      return;
+    }
+    if (Object.prototype.hasOwnProperty.call(seen, key)) {
+      issues.push("header duplikat '" + h + "' pada kolom " + (seen[key] + 1) + " dan " + (i + 1));
+    } else {
+      seen[key] = i;
+    }
   });
 
-  if (keepCols.length === lastCol) return 0; // tidak ada duplikat
-
-  // Ambil seluruh data, lalu tulis ulang hanya kolom yang dipertahankan.
-  var data = sheet.getDataRange().getValues();
-  var newRows = data.map(function (r) {
-    return keepCols.map(function (i) { return r[i]; });
-  });
-
-  sheet.clear();
-  sheet.getRange(1, 1, newRows.length, newRows[0].length).setValues(newRows);
-  sheet.getRange(1, 1, 1, newRows[0].length)
-    .setFontWeight("bold").setBackground("#1C2333").setFontColor("#FFFFFF");
-  sheet.setFrozenRows(1);
-
-  var removed = lastCol - keepCols.length;
-  Logger.log("dedupeHeaders[" + sheetName + "]: hapus " + removed + " kolom duplikat.");
-  return removed;
+  if (issues.length) {
+    throw new Error("Validasi header " + sheetName + " gagal; tidak ada data yang diubah. " + issues.join("; "));
+  }
+  Logger.log("dedupeHeaders[" + sheetName + "]: valid; tidak ada kolom yang dihapus.");
+  return 0;
 }
 
 function findRowById(sheet, id) {
@@ -522,63 +518,7 @@ function doPost(e) {
 
       // --- send_cold_email: kirim outreach resmi via Gmail dengan batas kuota 50 & opt-out ---
       case "send_cold_email": {
-        const toEmail = (payload.toEmail || "").trim();
-        const name = (payload.name || "Kak").trim();
-        const brand = (payload.brand || "Brand").trim();
-
-        if (!toEmail) throw new Error("Email tujuan tidak boleh kosong");
-
-        // 1. Cek sisa kuota Gmail Google
-        const remainingGmailQuota = MailApp.getRemainingDailyQuota();
-        if (remainingGmailQuota < 5) {
-          throw new Error("Sisa kuota harian Gmail akun ini hampir habis. Pengiriman ditunda demi keamanan.");
-        }
-
-        // 2. Proteksi batas harian internal CSK (Max 50 email/hari)
-        const props = PropertiesService.getScriptProperties();
-        const todayStr = Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyy-MM-dd");
-        const lastDate = props.getProperty("COLD_EMAIL_DATE") || "";
-        let countToday = parseInt(props.getProperty("COLD_EMAIL_COUNT") || "0", 10);
-
-        if (lastDate !== todayStr) {
-          countToday = 0;
-          props.setProperty("COLD_EMAIL_DATE", todayStr);
-        }
-
-        if (countToday >= 50) {
-          throw new Error("Batas aman harian tercapai (50/hari) untuk menjaga reputasi email. Coba lagi besok.");
-        }
-
-        // 3. Draft email dengan kalimat opt-out
-        const subject = "Vendor Produksi Booth & Display POSM — Cahaya Selatan Kreasindo";
-        const body = "Halo Kak " + name + " / Tim " + brand + ",\n\n" +
-          "Salam kenal, saya Zefry dari Cahaya Selatan Kreasindo (CSK).\n\n" +
-          "Kebetulan workshop fabrikasi kami di Serpong spesialis handle:\n" +
-          "- Booth pameran, backdrop event, & sewa equipment\n" +
-          "- POSM, rak display, & akrilik custom\n\n" +
-          "Beberapa project sebelumnya kami support untuk brand seperti J&T Cargo, Hanasui, Line Friends, sampai Teh Pucuk.\n\n" +
-          "Kalau di " + brand + " lagi ada agenda event, pameran, atau kebutuhan display toko yang butuh vendor produksi langsung tangan pertama, boleh saya kirimkan PDF portfolio ringkas kami?\n\n" +
-          "Terima kasih, Kak.\n\n" +
-          "Zefry Dany\n" +
-          "Cahaya Selatan Kreasindo\n" +
-          "WhatsApp: 0888-8533-488\n" +
-          "Portofolio: cahayaselatankreasindo.my.id\n\n" +
-          "---\n" +
-          "Jika Kakak/tim tidak berkenan menerima info ini, cukup balas email ini dengan 'Stop' ya Kak. Terima kasih banyak.";
-
-        GmailApp.sendEmail(toEmail, subject, body, {
-          name: "Zefry Dany (Cahaya Selatan Kreasindo)"
-        });
-
-        // 4. Update counter terkirim
-        countToday++;
-        props.setProperty("COLD_EMAIL_COUNT", String(countToday));
-
-        return jsonResponse({
-          status: "success",
-          message: "Cold email terkirim (" + countToday + "/50 hari ini) ke " + toEmail,
-          countToday: countToday
-        });
+        throw new Error("Pengiriman cold email dinonaktifkan sementara sampai autentikasi Owner/Tim dan pencatatan persetujuan diterapkan di server.");
       }
 
       default:
@@ -759,100 +699,12 @@ function handleAutoTrigger(e) {
  * lalu mengirim cold email resmi (maks 15 per hari agar bertahap dan aman).
  */
 function cronDailyOutreach() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName("Leads");
-  if (!sheet || sheet.getLastRow() <= 1) return;
-
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0].map(h => String(h).toLowerCase().trim());
-  
-  const statusIdx = headers.indexOf("status");
-  const nameIdx = headers.indexOf("nama");
-  const notesIdx = headers.indexOf("catatan");
-  
-  if (statusIdx === -1 || nameIdx === -1) return;
-
-  // Cek kuota sisa Gmail
-  if (MailApp.getRemainingDailyQuota() < 5) {
-    Logger.log("Kuota Gmail menipis, cron dibatalkan.");
-    return;
-  }
-
-  let sentToday = 0;
-  const maxPerBatch = 15; // Kirim santai 15 lead per pagi
-
-  for (let i = 1; i < data.length; i++) {
-    if (sentToday >= maxPerBatch) break;
-
-    const row = data[i];
-    const status = String(row[statusIdx] || "").toLowerCase().trim();
-    const name = String(row[nameIdx] || "").trim();
-    const notes = String(row[notesIdx] || "").trim();
-
-    // Cari pola email dari kolom catatan atau teks
-    const emailMatch = notes.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-    
-    if (status === "new" && emailMatch) {
-      const toEmail = emailMatch[0];
-      
-      try {
-        const subject = "Vendor Produksi Booth & Display POSM — Cahaya Selatan Kreasindo";
-        const body = "Halo Kak " + name + ",\n\n" +
-          "Salam kenal, saya Zefry dari Cahaya Selatan Kreasindo (CSK).\n\n" +
-          "Kebetulan workshop fabrikasi kami di Serpong spesialis handle:\n" +
-          "- Booth pameran, backdrop event, & sewa equipment\n" +
-          "- POSM, rak display, & akrilik custom\n\n" +
-          "Beberapa project sebelumnya kami support untuk brand seperti J&T Cargo, Hanasui, Line Friends, sampai Teh Pucuk.\n\n" +
-          "Kalau di tim Kakak lagi ada agenda event, pameran, atau kebutuhan display toko yang butuh vendor produksi langsung tangan pertama, boleh saya kirimkan PDF portfolio ringkas kami?\n\n" +
-          "Terima kasih, Kak.\n\n" +
-          "Zefry Dany\n" +
-          "Cahaya Selatan Kreasindo\n" +
-          "WhatsApp: 0888-8533-488\n" +
-          "Portofolio: cahayaselatankreasindo.my.id\n\n" +
-          "---\n" +
-          "Jika tidak berkenan menerima info ini, cukup balas email ini dengan 'Stop' ya Kak. Terima kasih banyak.";
-
-        GmailApp.sendEmail(toEmail, subject, body, {
-          name: "Zefry Dany (Cahaya Selatan Kreasindo)"
-        });
-
-        // Update status di sheet jadi 'contacted'
-        sheet.getRange(i + 1, statusIdx + 1).setValue("contacted");
-        
-        // Tambahkan stempel tanggal di catatan
-        const todayStr = Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyy-MM-dd");
-        sheet.getRange(i + 1, notesIdx + 1).setValue(notes + " | Auto-email 9am " + todayStr);
-
-        sentToday++;
-        Utilities.sleep(1500); // Jeda aman 1.5 detik antar email
-      } catch (err) {
-        Logger.log("Gagal kirim ke " + toEmail + ": " + err.toString());
-      }
-    }
-  }
-
-  Logger.log("Selesai cron jam 9 pagi. Total terkirim: " + sentToday);
+  Logger.log("Cold outreach otomatis dinonaktifkan. Tidak ada email yang dikirim.");
+  return { status: "disabled", sent: 0 };
 }
 
-/**
- * Jalankan fungsi ini sekali dari Apps Script untuk memasang otomatis trigger jam 9 pagi.
- */
 function installDailyOutreachTrigger() {
-  const triggers = ScriptApp.getProjectTriggers();
-  triggers.forEach(t => {
-    if (t.getHandlerFunction() === "cronDailyOutreach") {
-      ScriptApp.deleteTrigger(t);
-    }
-  });
-
-  ScriptApp.newTrigger("cronDailyOutreach")
-    .timeBased()
-    .atHour(9)
-    .everyDays(1)
-    .inTimezone("Asia/Jakarta")
-    .create();
-
-  Logger.log("Pemicu jam 9 pagi berhasil dipasang.");
+  throw new Error("Trigger cold outreach otomatis dinonaktifkan. Pengiriman hanya boleh diaktifkan kembali setelah persetujuan Owner dan kontrol akses server tersedia.");
 }
 
 // ============== UTILITAS RESPONS ==============
