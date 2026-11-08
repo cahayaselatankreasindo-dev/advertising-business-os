@@ -971,7 +971,6 @@ function jsonResponse(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-
 /** Menu untuk menjalankan dialog PIN dari konteks Google Sheets. */
 function onOpen(e) {
   SpreadsheetApp.getUi()
