@@ -159,9 +159,10 @@
     return { modules: checked.length, checkedAt: data.lastSynced || new Date().toISOString() };
   }
   async function syncNow(silent) {
-    if (!ready || !identity) return;
-    if (syncRunning) { syncQueued = true; return; }
+    if (!ready || !identity) return false;
+    if (syncRunning) { syncQueued = true; return false; }
     syncRunning = true;
+    var succeeded = false;
     try {
       var payload = makeSyncPayload();
       await post(payload);
@@ -171,6 +172,7 @@
       db.settings.lastSyncError = '';
       saveScoped();
       if (identity && identity.role === 'owner') legacyOwnerCache = null;
+      succeeded = true;
       if (typeof updateCloudIndicator === 'function') updateCloudIndicator();
       if (!silent && typeof showToast === 'function') showToast('Sinkronisasi terverifikasi: ' + verified.modules + ' modul.');
     } catch (e) {
@@ -189,6 +191,7 @@
         scheduleSync(true);
       }
     }
+    return succeeded;
   }
   function scheduleSync(silent) {
     if (!ready) return;
@@ -305,16 +308,17 @@
   }
   async function logout() {
     var logoutRole = identity && identity.role;
+    var syncSucceeded = false;
     if (ready) {
       if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
-      await syncNow(true);
-      if (logoutRole === 'owner' && identity && db.settings && db.settings.lastSyncError) {
-        var proceed = confirm('Ada data Owner yang belum berhasil diverifikasi tersimpan di Google Sheets. Jika keluar sekarang, perubahan lokal yang belum tersinkron akan hilang. Tetap keluar?');
-        if (!proceed) return;
-      }
+      syncSucceeded = await syncNow(true);
+    }
+    if (logoutRole === 'owner' && !syncSucceeded && legacyOwnerCache) {
+      var proceed = confirm('Ada data Owner yang belum berhasil diverifikasi tersimpan di Google Sheets. Jika keluar sekarang, perubahan lokal yang belum tersinkron akan hilang. Tetap keluar?');
+      if (!proceed) return;
+      legacyOwnerCache = null;
     }
     try { if (sessionId) await post({ action: 'logout' }); } catch (e) { /* sesi lokal tetap ditutup */ }
-    if (logoutRole === 'owner') legacyOwnerCache = null;
     lockScreen('Anda sudah keluar. Masukkan email dan PIN untuk melanjutkan.');
   }
   function migrateLegacyStorage() {
