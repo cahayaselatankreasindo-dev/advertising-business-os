@@ -1402,7 +1402,6 @@
       quotationSnapshots: [],
       settings: {
         googleSheetUrl: '',
-        apiToken: '',
         lastSync: ''
       },
       role: 'owner'
@@ -1433,11 +1432,8 @@
           console.error("Gagal membaca database lokal.");
         }
       }
-      if (!db.settings) db.settings = { googleSheetUrl: '', apiToken: '', lastSync: '' };
-      if (!db.settings.apiToken) db.settings.apiToken = '';
+      if (!db.settings) db.settings = { googleSheetUrl: '', lastSync: '' };
       document.getElementById('setting-google-url').value = db.settings.googleSheetUrl || '';
-      const tokenEl = document.getElementById('setting-api-token');
-      if (tokenEl) tokenEl.value = db.settings.apiToken || '';
       // Set role selector
       document.getElementById('role-select').value = db.role || 'owner';
       const mobSel = document.getElementById('role-select-mob');
@@ -2316,18 +2312,8 @@
      * "muncul lagi" dari cloud saat app dibuka (karena sync memakai merge).
      */
     async function deleteOnCloud(sheetName, id) {
-      const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) return;
-      try {
-        await fetch(url, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'delete', sheet: sheetName, id: id, token: getApiToken() })
-        });
-      } catch (err) {
-        console.warn('Gagal hapus di cloud:', err.message);
-      }
+      if (window.CSKAuth && window.CSKAuth.deleteRecord) return window.CSKAuth.deleteRecord(sheetName, id);
+      showToast('Autentikasi cloud belum siap. Silakan muat ulang aplikasi.', true);
     }
 
     function deleteLead(id) {
@@ -2720,17 +2706,14 @@
 
     function saveGoogleUrl() {
       const url = document.getElementById('setting-google-url').value.trim();
-      const token = (document.getElementById('setting-api-token')?.value || '').trim();
+      if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec\/?$/.test(url)) {
+        showToast('URL Google Apps Script tidak valid.', true);
+        return;
+      }
       db.settings.googleSheetUrl = url;
-      db.settings.apiToken = token;
       localStorage.setItem(DB_KEY, JSON.stringify(db));
       updateCloudIndicator();
-      showToast('URL & token berhasil disimpan!');
-    }
-
-    /** Helper: ambil token akses (untuk disisipkan ke request). */
-    function getApiToken() {
-      return (db.settings && db.settings.apiToken) || '';
+      showToast('URL backend tersimpan. Login PIN diperlukan untuk sinkronisasi.');
     }
 
     function updateCloudIndicator() {
@@ -2744,194 +2727,18 @@
       if (text) text.innerText = !configured ? 'Lokal Offline' : failed ? 'Sync bermasalah' : verified ? 'Cloud terverifikasi' : 'Cloud belum diuji';
     }
 
-    async function verifyCloudSync(payload, url) {
-      const response = await fetch(url + '?token=' + encodeURIComponent(getApiToken()), { cache: 'no-store' });
-      if (!response.ok) throw new Error('Server Google Sheets tidak merespons (' + response.status + ').');
-      const json = await response.json();
-      if (json.status !== 'success' || !json.data) {
-        throw new Error(json.message || 'Server menolak sinkronisasi. Periksa URL dan API token.');
-      }
-      const collections = {
-        leads: 'leads', clients: 'clients', projects: 'projects', finance: 'finance',
-        memory: 'memory', marketingSpend: 'marketingSpend', materials: 'materials',
-        costSheets: 'costSheets', services: 'services', purchaseOrders: 'purchaseOrders',
-        quotationSnapshots: 'quotationSnapshots'
-      };
-      const canonicalize = value => {
-        if (Array.isArray(value)) return value.map(canonicalize);
-        if (value && typeof value === 'object') {
-          return Object.keys(value).sort().reduce((out, key) => {
-            out[key] = canonicalize(value[key]);
-            return out;
-          }, {});
-        }
-        return value;
-      };
-      const normalize = (value, field) => {
-        if (value === undefined || value === null) return '';
-        if (field === 'date' || field === 'deadline') return String(value).slice(0, 10);
-        if (typeof value === 'object') return JSON.stringify(canonicalize(value));
-        return String(value).trim();
-      };
-      const verified = [];
-      Object.keys(collections).forEach(key => {
-        const localRows = Array.isArray(payload[key]) ? payload[key] : [];
-        const cloudRows = Array.isArray(json.data[collections[key]]) ? json.data[collections[key]] : [];
-        const cloudById = new Map(cloudRows.filter(row => row && row.id !== undefined).map(row => [String(row.id), row]));
-        localRows.forEach(localRow => {
-          if (!localRow || localRow.id === undefined) {
-            throw new Error('Verifikasi ' + key + ' gagal: ada data lokal tanpa ID.');
-          }
-          const cloudRow = cloudById.get(String(localRow.id));
-          if (!cloudRow) {
-            throw new Error('Verifikasi ' + key + ' gagal: ID ' + localRow.id + ' belum ditemukan di Google Sheets.');
-          }
-          const ignoredFields = ['updatedAt', 'itemsJson', 'linesJson'];
-          const fields = Object.keys(localRow).filter(field =>
-            localRow[field] !== undefined && ignoredFields.indexOf(field) === -1
-          );
-          const mismatches = fields.filter(field =>
-            normalize(localRow[field], field) !== normalize(cloudRow[field], field)
-          );
-          if (mismatches.length) {
-            throw new Error('Verifikasi ' + key + ' gagal untuk ID ' + localRow.id +
-              '. Nilai berbeda pada: ' + mismatches.join(', ') + '.');
-          }
-        });
-        verified.push(key);
-      });
-      return { modules: verified.length, checkedAt: json.data.lastSynced || new Date().toISOString() };
-    }
-
     async function syncWithGoogle(isSilent = false) {
-      const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) {
-        if (!isSilent) {
-          alert('URL Google Sheets belum disetel!'); nav('settings');
-        }
-        return;
-      }
-      const token = getApiToken();
-      if (!/^[a-f0-9]{64}$/i.test(token)) {
-        if (!isSilent) showToast('API token belum valid. Periksa Pengaturan CSK.', true);
-        return;
-      }
-      if (!isSilent) showToast('Mengirim dan memverifikasi data ke Google Sheets...');
-      const payload = {
-        action: 'sync_all', token,
-        leads: db.leads, clients: db.clients, projects: db.projects, finance: db.finance,
-        memory: db.memory, marketingSpend: db.marketingSpend, materials: db.materials || [],
-        costSheets: db.costSheets || [], services: db.services || [],
-        purchaseOrders: db.purchaseOrders || [], quotationSnapshots: db.quotationSnapshots || []
-      };
-      try {
-        // Apps Script POST uses no-cors because Google may redirect the response.
-        // A subsequent authenticated GET confirms that every submitted ID exists.
-        await fetch(url, {
-          method: 'POST', mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload)
-        });
-        const verification = await verifyCloudSync(payload, url);
-        db.settings.lastSync = verification.checkedAt;
-        db.settings.lastSyncModules = verification.modules;
-        db.settings.lastSyncError = '';
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
-        updateCloudIndicator();
-        if (!isSilent) showToast('Sinkronisasi terverifikasi. ' + verification.modules + ' modul cocok dengan Google Sheets.');
-      } catch (err) {
-        db.settings.lastSyncError = String(err && err.message || err);
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
-        updateCloudIndicator();
-        if (!isSilent) showToast('Sinkronisasi belum terverifikasi: ' + db.settings.lastSyncError, true);
-        else console.warn('CSK cloud sync verification failed:', db.settings.lastSyncError);
-      }
+      if (window.CSKAuth && window.CSKAuth.sync) return window.CSKAuth.sync(isSilent);
+      if (!isSilent) showToast('Autentikasi cloud belum siap. Silakan muat ulang aplikasi.', true);
     }
 
-    /**
-     * Tarik data dari server Google Sheets dan timpa penyimpanan lokal.
-     * Server overwrites local — pastikan Anda sudah menyimpan perubahan penting sebelum menarik.
-     */
     async function pullData() {
-      const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) {
-        alert('URL Google Sheets belum disetel! Buka Pengaturan dulu.');
-        nav('settings');
-        return;
-      }
-      if (!confirm('Tarik data dari Google Sheets?\n\nTindakan ini akan MENIMPA data lokal Anda dengan data terbaru dari server.\nData yang hanya ada di HP/laptop ini dan belum pernah disinkronkan akan hilang.\n\nLanjutkan?')) return;
-
-      showToast('Mengambil data dari cloud...');
-      try {
-        const resp = await fetch(url + '?token=' + encodeURIComponent(getApiToken()));
-        const json = await resp.json();
-        if (json.status !== 'success' || !json.data) throw new Error('Respon tidak valid dari server.');
-
-        const d = json.data;
-        db.leads          = d.leads          || [];
-        db.clients        = d.clients        || [];
-        db.projects       = d.projects       || [];
-        db.finance        = d.finance        || [];
-        db.memory         = d.memory         || [];
-        db.marketingSpend = d.marketingSpend || [];
-        db.materials = d.materials || [];
-        db.costSheets = d.costSheets || [];
-        db.services = d.services || [];
-        db.purchaseOrders = d.purchaseOrders || [];
-        db.quotationSnapshots = d.quotationSnapshots || [];
-        db.settings.lastSync = d.lastSynced || new Date().toISOString();
-
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
-        updateCloudIndicator();
-        renderAll();
-        showToast('Data berhasil ditarik dari cloud! (' + new Date().toLocaleTimeString('id-ID') + ')');
-      } catch (err) {
-        showToast('Gagal menarik data: ' + err.message, true);
-      }
+      if (window.CSKAuth && window.CSKAuth.pull) return window.CSKAuth.pull();
+      showToast('Autentikasi cloud belum siap. Silakan muat ulang aplikasi.', true);
     }
 
-    /**
-     * Tarik data dari cloud lalu GABUNGKAN dengan data lokal (bukan menimpa).
-     * Aman: data lokal & data cloud sama-sama dipertahankan, digabung by ID.
-     * Dipanggil otomatis saat aplikasi dibuka.
-     */
     async function pullAndMerge() {
-      const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) return;
-      try {
-        const resp = await fetch(url + '?token=' + encodeURIComponent(getApiToken()));
-        const json = await resp.json();
-        if (json.status !== 'success' || !json.data) return;
-        const d = json.data;
-
-        // Gabungkan: cloud + lokal, dedupe by id (lokal menang jika sama)
-        const mergeById = (cloudArr, localArr) => {
-          const map = new Map();
-          (cloudArr || []).forEach(x => { if (x && x.id !== undefined) map.set(String(x.id), x); });
-          (localArr || []).forEach(x => { if (x && x.id !== undefined) map.set(String(x.id), x); });
-          return Array.from(map.values());
-        };
-
-        db.leads          = mergeById(d.leads, db.leads);
-        db.clients        = mergeById(d.clients, db.clients);
-        db.projects       = mergeById(d.projects, db.projects);
-        db.finance        = mergeById(d.finance, db.finance);
-        db.memory         = mergeById(d.memory, db.memory);
-        db.marketingSpend = mergeById(d.marketingSpend, db.marketingSpend);
-        db.materials = mergeById(d.materials, db.materials);
-        db.costSheets = mergeById(d.costSheets, db.costSheets);
-        db.services = mergeById(d.services, db.services);
-        db.purchaseOrders = mergeById(d.purchaseOrders, db.purchaseOrders);
-        db.quotationSnapshots = mergeById(d.quotationSnapshots, db.quotationSnapshots);
-        db.settings.lastSync = d.lastSynced || new Date().toISOString();
-
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
-        renderAll();
-        updateCloudIndicator();
-      } catch (err) {
-        // Diamkan — offline tidak boleh mengganggu aplikasi
-        console.warn('pullAndMerge gagal (offline?):', err.message);
-      }
+      if (window.CSKAuth && window.CSKAuth.pull) return window.CSKAuth.pull();
     }
 
     function exportData() {
