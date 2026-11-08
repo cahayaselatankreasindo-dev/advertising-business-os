@@ -304,16 +304,17 @@
     }
   }
   async function logout() {
+    var logoutRole = identity && identity.role;
     if (ready) {
       if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
       await syncNow(true);
-      if (identity && identity.role === 'owner' && db.settings && db.settings.lastSyncError) {
+      if (logoutRole === 'owner' && identity && db.settings && db.settings.lastSyncError) {
         var proceed = confirm('Ada data Owner yang belum berhasil diverifikasi tersimpan di Google Sheets. Jika keluar sekarang, perubahan lokal yang belum tersinkron akan hilang. Tetap keluar?');
         if (!proceed) return;
       }
     }
     try { if (sessionId) await post({ action: 'logout' }); } catch (e) { /* sesi lokal tetap ditutup */ }
-    legacyOwnerCache = null;
+    if (logoutRole === 'owner') legacyOwnerCache = null;
     lockScreen('Anda sudah keluar. Masukkan email dan PIN untuk melanjutkan.');
   }
   function migrateLegacyStorage() {
