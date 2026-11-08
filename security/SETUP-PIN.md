@@ -11,7 +11,7 @@ Role ditentukan oleh backend dari email yang login. Dropdown role di antarmuka b
 
 ## Instalasi pertama
 
-1. Buat Google Spreadsheet bernama **Database CSK Business OS**.
+1. Gunakan Spreadsheet database CSK yang sudah ada agar data lama tetap terhubung. Buat Spreadsheet baru bernama **Database CSK Business OS** hanya jika belum ada database.
 2. Dari Spreadsheet, buka **Extensions → Apps Script**.
 3. Ganti kode editor dengan isi file `apps-script/Code.gs` dari repositori.
 4. Simpan, lalu jalankan `setupSheet()` sekali. Berikan izin yang diminta.
