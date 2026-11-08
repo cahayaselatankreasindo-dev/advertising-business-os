@@ -87,7 +87,7 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 
 ## 📊 Cara Menghubungkan ke Google Sheets (Database Gratis)
 
-1. Buat **Google Spreadsheet** bernama `Database CSK Business OS`.
+1. Gunakan Google Spreadsheet database CSK yang sudah ada. **Jangan buat spreadsheet baru jika database lama masih dipakai.** Jika belum ada, buat spreadsheet bernama `Database CSK Business OS`.
 2. Buka **Extensions → Apps Script**.
 3. Ganti kode editor dengan seluruh isi file [`apps-script/Code.gs`](apps-script/Code.gs) atau [`google_apps_script.js`](google_apps_script.js).
 4. Simpan kode.
