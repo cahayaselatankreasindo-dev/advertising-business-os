@@ -68,8 +68,8 @@ Ketika status Lead diubah menjadi **Deal Menang**, sistem akan secara otomatis:
 Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 
 - **Kirim (Push)**: setiap perubahan di aplikasi otomatis tersinkron ke Google Sheets (sync_all)
-- **Tarik (Pull)**: tombol **"Tarik Data"** di Dashboard mengambil data terbaru dari cloud dan menimpa penyimpanan lokal
-- **Catatan**: Pull bersifat *server overwrites local* — pastikan perubahan lokal sudah disinkronkan terlebih dahulu
+- **Tarik (Pull)**: tombol **"Tarik Data"** menggabungkan data cloud dan lokal berdasarkan ID.
+- **Catatan**: sinkronisasi memakai merge/upsert. Data lama yang tidak dikirim tidak dihapus.
 
 ---
 
@@ -87,19 +87,20 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 
 ## 📊 Cara Menghubungkan ke Google Sheets (Database Gratis)
 
-1. Buat **Google Spreadsheet baru** → beri nama `Database CSK Business OS`
-2. Klik menu **Extensions** → **Apps Script**
-3. Hapus semua kode bawaan, lalu **PASTE** seluruh isi file [`google_apps_script.js`](google_apps_script.js)
-4. Simpan (Ctrl+S)
-5. Pilih fungsi **`setupSheet`** → klik **Run** (berikan izin jika diminta)
-6. Klik **Deploy** (kanan atas) → **New deployment** → pilih **Web app**
-7. Konfigurasi:
-   - Description: `CSK OS API v2`
+1. Buat **Google Spreadsheet** bernama `Database CSK Business OS`.
+2. Buka **Extensions → Apps Script**.
+3. Ganti kode editor dengan seluruh isi file [`apps-script/Code.gs`](apps-script/Code.gs) atau [`google_apps_script.js`](google_apps_script.js).
+4. Simpan kode.
+5. Jalankan fungsi **`setupSheet`** sekali dan berikan izin yang diminta.
+6. Jalankan fungsi **`setupCSKPinCredentialsFromPrompt`** sekali. Buat PIN Owner dan PIN Tim yang berbeda (masing-masing 8–12 digit). PIN disimpan sebagai hash di Script Properties, bukan di Spreadsheet.
+7. Klik **Deploy → New deployment → Web app**:
    - Execute as: **Me**
-   - Who has access: **Anyone**
-8. Klik **Deploy** → salin URL Web App yang berakhiran `/exec`
-9. Buka aplikasi → masuk ke menu **Pengaturan & Cloud** → tempelkan URL → **Simpan URL**
-10. *(Opsional)* Jalankan fungsi **`installAutoTrigger`** sekali untuk mengaktifkan otomasi Deal Menang
+   - Who has access: **Anyone** (akses data tetap membutuhkan sesi email + PIN yang diverifikasi server).
+8. Deploy dan salin URL Web App yang berakhiran `/exec`.
+9. Buka aplikasi. Masukkan URL Web App, email terdaftar, dan PIN pada layar login.
+10. Opsional: jalankan **`installAutoTrigger`** sekali untuk otomasi Deal Menang.
+
+**Tidak memerlukan Google Cloud OAuth, domain, hosting berbayar, atau API token bersama.** Jangan bagikan PIN Owner. Untuk mengganti PIN yang sudah terpasang, gunakan `rotateCSKPinCredentialsFromPrompt`.
 
 ---
 
