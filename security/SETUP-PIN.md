@@ -14,14 +14,24 @@ Role ditentukan oleh backend dari email yang login. Dropdown role di antarmuka b
 1. Gunakan Spreadsheet database CSK yang sudah ada agar data lama tetap terhubung. Buat Spreadsheet baru bernama **Database CSK Business OS** hanya jika belum ada database.
 2. Dari Spreadsheet, buka **Extensions → Apps Script**.
 3. Ganti kode editor dengan isi file `apps-script/Code.gs` dari repositori.
-4. Simpan, lalu jalankan `setupSheet()` sekali. Berikan izin yang diminta.
-5. Jalankan `setupCSKPinCredentialsFromPrompt()` sekali.
-6. Masukkan PIN Owner dan PIN Tim yang berbeda. Setiap PIN harus 8–12 digit. Gunakan PIN yang tidak dipakai untuk akun lain.
+4. Simpan, lalu jalankan `setupSheet()` sekali. Berikan izin yang diminta. Fungsi ini memvalidasi header dan menambahkan tab/kolom yang belum ada tanpa menghapus data lama. Cadangkan Spreadsheet sebelum perubahan skema.
+5. Kembali ke Google Spreadsheet dan muat ulang halaman agar menu **CSK Security** muncul.
+6. Pilih **CSK Security → Setup PIN Owner & Tim**. Masukkan PIN Owner dan PIN Tim yang berbeda (masing-masing 8–12 digit). Gunakan PIN yang tidak dipakai untuk akun lain. **Jangan jalankan fungsi dialog ini melalui tombol Run di Apps Script Editor** karena dialog Spreadsheet memerlukan konteks UI.
 7. Buka **Deploy → New deployment → Web app**:
    - Execute as: **Me**
    - Who has access: **Anyone**
 8. Deploy dan salin URL yang berakhiran `/exec`.
 9. Buka aplikasi CSK. Tempel URL pada layar login, lalu masuk menggunakan email dan PIN.
+
+## Memisahkan pembaruan frontend dan backend
+
+GitHub Pages menerbitkan frontend dari branch `main`. Merge kode ke GitHub tidak memperbarui Google Apps Script Web App secara otomatis. Setelah mengganti kode Apps Script:
+
+1. Simpan kode di Apps Script Editor.
+2. Buka **Deploy → Manage deployments**.
+3. Klik Edit pada deployment Web App yang sedang dipakai.
+4. Pilih **New version**, lalu klik **Deploy**.
+5. Pertahankan URL deployment `/exec` yang sama dan pastikan URL itu dimasukkan pada layar login aplikasi.
 
 ## Perlindungan akses
 
@@ -47,6 +57,6 @@ Jangan jalankan ulang setup PIN jika kredensial sudah dibuat. Untuk rotasi PIN y
 
 ## Catatan migrasi
 
-Data lama pada penyimpanan lokal Owner dipindahkan sementara ke memori aplikasi dan dikirim ke cloud setelah login Owner berhasil. Database Owner tidak disimpan permanen di localStorage. Data operasional Tim disimpan terpisah karena tidak memuat koleksi sensitif Owner. Sinkronisasi cloud menggunakan merge/upsert berdasarkan ID; data lama yang tidak dikirim tidak dihapus.
+Data lama pada penyimpanan lokal Owner dipertahankan sampai sinkronisasi cloud berhasil dibaca ulang dan diverifikasi. Setelah verifikasi berhasil, salinan lama di localStorage dihapus. Jika sinkronisasi gagal, aplikasi mempertahankan salinan lama dan memperingatkan sebelum halaman ditutup. Data operasional Tim disimpan terpisah karena tidak memuat koleksi sensitif Owner. Sinkronisasi cloud menggunakan merge/upsert berdasarkan ID; data lama yang tidak dikirim tidak dihapus.
 
 `setupSheet()` memvalidasi header yang duplikat atau ambigu dan menghentikan proses tanpa menghapus kolom/data. Lakukan backup Spreadsheet sebelum perubahan skema besar.
