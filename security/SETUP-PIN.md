@@ -47,6 +47,6 @@ Jangan jalankan ulang setup PIN jika kredensial sudah dibuat. Untuk rotasi PIN y
 
 ## Catatan migrasi
 
-Data lama pada penyimpanan lokal Owner dimigrasikan ke penyimpanan Owner terpisah pada perangkat saat aplikasi pertama kali dibuka dengan guard baru. Data lokal Tim disimpan terpisah. Sinkronisasi cloud menggunakan merge/upsert berdasarkan ID; data lama yang tidak dikirim tidak dihapus.
+Data lama pada penyimpanan lokal Owner dipindahkan sementara ke memori aplikasi dan dikirim ke cloud setelah login Owner berhasil. Database Owner tidak disimpan permanen di localStorage. Data operasional Tim disimpan terpisah karena tidak memuat koleksi sensitif Owner. Sinkronisasi cloud menggunakan merge/upsert berdasarkan ID; data lama yang tidak dikirim tidak dihapus.
 
 `setupSheet()` memvalidasi header yang duplikat atau ambigu dan menghentikan proses tanpa menghapus kolom/data. Lakukan backup Spreadsheet sebelum perubahan skema besar.
