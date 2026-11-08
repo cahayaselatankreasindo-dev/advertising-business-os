@@ -40,7 +40,7 @@ Aplikasi menggunakan login email + PIN. Peran ditentukan dan diverifikasi oleh b
 
 - **Owner** dapat mengakses seluruh modul dan data.
 - **Tim** hanya dapat mengakses Leads, Clients, dan Projects untuk operasional.
-- **Tim dapat membuat dan memperbarui** data bersama tersebut, tetapi **tidak dapat menghapus** Leads, Clients, atau Projects. Penghapusan hanya dapat dilakukan Owner dan diverifikasi ulang dari Google Sheets.
+- **Tim dapat membuat dan memperbarui** data bersama tersebut, tetapi **tidak dapat menghapus** Leads, Clients, atau Projects. Backend menolak penghapusan Tim; penghapusan hanya dapat dilakukan Owner dan diverifikasi ulang dari Google Sheets.
 - Finance, Memory, Marketing, HPP, Purchase Orders, Quotations, dan pengaturan backend hanya tersedia untuk Owner.
 - PIN disimpan sebagai hash bersalt di Script Properties. Lima kegagalan login memicu pembatasan sementara selama 15 menit.
 - Sesi berlaku maksimal 30 menit sejak aktivitas terakhir. PIN dan session ID tidak disimpan di localStorage.
