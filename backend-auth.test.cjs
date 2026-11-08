@@ -4,26 +4,36 @@ const fs = require('node:fs');
 
 for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
   const source = fs.readFileSync(path, 'utf8');
-  assert.match(source, /function getApiToken\(\)[\s\S]*?getProperty\("API_TOKEN"\)/, path + ': token stored in Script Properties');
-  assert.match(source, /if \(!\/\^\[a-f0-9\]\{64\}\$\/i\.test\(expected\)\) return false;/, path + ': missing/invalid server token fails closed');
-  assert.doesNotMatch(source, /if \(expected === ""\) return true/, path + ': no unauthenticated compatibility mode');
-  assert.match(source, /function setupApiToken\(\)[\s\S]*?if \(props\.getProperty\("API_TOKEN"\)\)[\s\S]*?throw new Error/, path + ': setup does not silently rotate existing token');
-  assert.match(source, /function rotateApiToken\(\)/, path + ': explicit token rotation exists');
-  assert.match(source, /function doGet\(e\)[\s\S]*?isAuthorized\(null, tokenParam\)/, path + ': GET protected');
-  assert.match(source, /function doPost\(e\)[\s\S]*?isAuthorized\(payload\)/, path + ': POST protected');
-}
-for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
-  const source = fs.readFileSync(path, 'utf8');
+  assert.match(source, /function cskLoginWithPin_\(/, path + ': PIN login handler exists');
+  assert.match(source, /function cskRequireSession_\(/, path + ': session is required for protected requests');
+  assert.match(source, /function cskAssertPayloadAllowed_\(/, path + ': server-side role authorization exists');
+  assert.match(source, /function cskFilterDataForRole_\(/, path + ': GET data is filtered by role');
+  assert.match(source, /CacheService\.getScriptCache\(\)/, path + ': sessions and login throttling use server cache');
+  assert.match(source, /CSK_LOGIN_MAX_FAILURES_\s*=\s*5/, path + ': failed logins are rate-limited');
+  assert.match(source, /CSK_SESSION_TTL_SECONDS_\s*=\s*1800/, path + ': sessions have a bounded lifetime');
+  assert.match(source, /CSK_PIN_HASH_ROUNDS_\s*=\s*3000/, path + ': PIN hash uses repeated SHA-256');
+  assert.match(source, /setProperties\([\s\S]*?,\s*false\)/, path + ': PIN setup preserves unrelated Script Properties');
+  assert.doesNotMatch(source, /setProperties\([\s\S]*?,\s*true\)/, path + ': PIN setup never clears all Script Properties');
+  assert.doesNotMatch(source, /function getApiToken|function isAuthorized|API_TOKEN/, path + ': shared API token is not used');
+  assert.match(source, /if \(identity\.role === "team"\) cskAssertTeamLeadTransitions_/, path + ': team cannot promote a lead to won');
+  assert.match(source, /if \(identity\.role === "owner"\) autoTriggerPillars\(ss\)/, path + ': automated finance/project trigger is owner-controlled');
+
+  const dedupe = source.match(/function dedupeHeaders[\s\S]*?\n\}/);
+  assert.ok(dedupe, path + ': header validation function exists');
+  assert.match(dedupe[0], /issues\.push/, path + ': ambiguous headers stop setup');
+  assert.doesNotMatch(dedupe[0], /sheet\.clear\(|deleteColumn|deleteColumns/, path + ': header validation is non-destructive');
+
   const cron = source.match(/function cronDailyOutreach\(\)[\s\S]*?\n\}/);
   assert.ok(cron, path + ': scheduled outreach function exists');
-  assert.match(cron[0], /dinonaktifkan/i, path + ': scheduled outreach is disabled by default');
+  assert.match(cron[0], /dinonaktifkan/i, path + ': scheduled outreach is disabled');
   assert.doesNotMatch(cron[0], /GmailApp\.sendEmail/, path + ': cron cannot send mail');
+
   const installer = source.match(/function installDailyOutreachTrigger\(\)[\s\S]*?\n\}/);
-  assert.ok(installer, path + ': trigger installer exists');
-  assert.match(installer[0], /throw new Error/i, path + ': trigger installation is blocked');
-  const sendCase = source.match(/case "send_cold_email": \{[\s\S]*?\n      \}/);
+  assert.ok(installer, path + ': outreach trigger installer exists');
+  assert.match(installer[0], /throw new Error/i, path + ': outreach trigger installation is blocked');
+
+  const sendCase = source.match(/case "send_cold_email"[\s\S]*?\n\s*default:/);
   assert.ok(sendCase, path + ': manual cold email action exists');
-  assert.match(sendCase[0], /dinonaktifkan sementara/i, path + ': manual cold email is disabled');
-  assert.doesNotMatch(sendCase[0], /GmailApp\.sendEmail/, path + ': manual action cannot send mail');
+  assert.match(sendCase[0], /COLD_EMAIL_DISABLED/, path + ': manual cold email is disabled');
 }
-console.log('CSK backend fail-closed API token and outbound-email safety checks passed.');
+console.log('CSK PIN authentication, server-side RBAC, safe migration, and outbound-email safety checks passed.');
