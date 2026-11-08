@@ -144,6 +144,11 @@ const sandbox = {
   SpreadsheetApp: SpreadsheetAppStub,
   ContentService: ContentServiceStub,
   ScriptApp: ScriptAppStub,
+  LockService: {
+    getScriptLock() {
+      return { waitLock() {}, releaseLock() {} };
+    }
+  },
   Logger: LoggerStub,
   PropertiesService: PropertiesServiceStub,
   CacheService: CacheServiceStub,
@@ -394,6 +399,23 @@ eq(capsRow[idx('skorprioritas')], 90, 'CAPS: SkorPrioritas masuk kolom SkorPrior
 const gotCaps = callDoGet().data.leads.find(l => String(l.id) === 'L-CAPS');
 eq(gotCaps.email, 'pic@testcaps.co.id', 'CAPS doGet: email terbaca benar');
 eq(gotCaps.picTitle, 'Store Dev Manager', 'CAPS doGet: picTitle terbaca benar');
+
+// ---------- 9c2. Kolom custom milik pengguna harus tetap terjaga saat upsert ----------
+// Kolom yang tidak termasuk FIELD_MAP tidak boleh dikosongkan oleh sinkronisasi.
+const customLeadSheet = sheets['Leads'];
+const customColumnIndex = customLeadSheet.rows[0].length;
+customLeadSheet.rows[0].push('Custom_Operational_Note');
+const customLeadRow = customLeadSheet.rows.find(r => String(r[0]) === 'L-CAPS');
+customLeadRow.push('jangan-hapus-catatan-ini');
+const customUpsert = callDoPost({ action: 'sync_all', leads: [{
+  id: 'L-CAPS', date: '2026-10-09', name: 'PT Test Caps', phone: '0899',
+  source: 'Referral', value: 5000000, status: 'new', notes: 'catatan caps',
+  email: 'pic@testcaps.co.id', website: 'https://testcaps.co.id', industry: 'Retail',
+  pic: 'Siti', picTitle: 'Store Dev Manager', linkedin: 'https://linkedin.com/in/siti', score: 90
+}] });
+eq(customUpsert.status, 'success', 'upsert dengan kolom custom tetap berhasil');
+const customLeadAfter = customLeadSheet.rows.find(r => String(r[0]) === 'L-CAPS');
+eq(customLeadAfter[customColumnIndex], 'jangan-hapus-catatan-ini', 'upsert mempertahankan isi kolom custom di luar FIELD_MAP');
 
 // ---------- 9d. Tes action 'delete' (tombol hapus di app) ----------
 const beforeDel = sheets['Leads'].rows.length;
