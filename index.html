@@ -1466,15 +1466,30 @@
 
     // ============== ROLE-BASED ACCESS ==============
 
-    function onRoleChange(role) {
-      db.role = role;
-      localStorage.setItem(DB_KEY, JSON.stringify(db));
-      applyRoleUI();
-      showToast(role === 'owner' ? 'Tampilan Owner aktif.' : 'Tampilan Tim aktif. Menu keuangan & riset disembunyikan.');
+    function getAuthenticatedRole() {
+      const auth = window.CSKAuth && typeof window.CSKAuth.getIdentity === 'function'
+        ? window.CSKAuth.getIdentity() : null;
+      return auth && auth.role === 'owner' ? 'owner' : 'team';
     }
-
+    function isOwnerSession() { return getAuthenticatedRole() === 'owner'; }
+    function requireOwnerForDelete() {
+      if (isOwnerSession()) return true;
+      showToast('Penghapusan data hanya dapat dilakukan oleh Owner.', true);
+      return false;
+    }
+    function onRoleChange(requestedRole) {
+      const actualRole = getAuthenticatedRole();
+      db.role = actualRole;
+      ['role-select', 'role-select-mob'].forEach(id => {
+        const control = document.getElementById(id);
+        if (control) { control.value = actualRole; control.disabled = true; }
+      });
+      applyRoleUI();
+      if (requestedRole !== actualRole) showToast('Peran ditentukan oleh akun login dan tidak dapat diganti dari menu.', true);
+    }
     function applyRoleUI() {
-      const isTeam = db.role !== 'owner';
+      const isTeam = !isOwnerSession();
+      db.role = isTeam ? 'team' : 'owner';
       const selectors = ['.pillar-finance', '.pillar-marketing', '.pillar-riset', '.pillar-marketing-mob'];
       selectors.forEach(sel => {
         document.querySelectorAll(sel).forEach(el => {
@@ -1783,7 +1798,7 @@
               '<span><i class="fa fa-tag mr-1"></i>'+escapeInvoiceHtml(l.source||'Sumber tidak dicatat')+'</span>' +
               '<span><i class="fa fa-money mr-1"></i>'+formatRp(l.value)+'</span>' +
               (l.date?'<span><i class="fa fa-calendar mr-1"></i>'+escapeInvoiceHtml(l.date)+'</span>':'') +
-            '</div></div><button onclick="deleteLead(\''+id+'\')" aria-label="Hapus lead" class="shrink-0 w-9 h-9 rounded-xl border border-stone-200 text-stone-400 hover:text-red-600 hover:bg-red-50"><i class="fa fa-trash"></i></button></div>' +
+            '</div></div>' + (isOwnerSession() ? '<button onclick="deleteLead(\''+id+'\')" aria-label="Hapus lead" class="shrink-0 w-9 h-9 rounded-xl border border-stone-200 text-stone-400 hover:text-red-600 hover:bg-red-50"><i class="fa fa-trash"></i></button>' : '') + '</div>' +
           (l.notes?'<p class="text-xs leading-relaxed text-stone-600 bg-stone-50 border border-stone-100 rounded-xl p-3 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(l.notes)+'</p>':'') +
           ((l.industry||l.pic||l.picTitle||websiteUrl||l.score||l.email)?'<div class="flex flex-wrap gap-2 text-[11px] text-stone-500 border-t border-stone-100 pt-3">'+
             (l.industry?'<span><i class="fa fa-industry mr-1"></i>'+escapeInvoiceHtml(l.industry)+'</span>':'')+
@@ -1808,7 +1823,7 @@
       if(!db.clients.length){container.innerHTML='<div class="col-span-full bg-white p-8 rounded-2xl border border-stone-200 text-center text-xs text-stone-400">Belum ada klien tersimpan.</div>';return;}
       container.innerHTML=db.clients.map(c=>{
         const rating=Math.max(0,Math.min(5,Math.round(Number(c.rating)||0))),review=c.review||c.ratingReview||'',id=escapeInvoiceHtml(c.id),phone=String(c.phone||'');
-        return '<article class="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-sm space-y-3 min-w-0"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold text-sm text-stone-900 break-words">'+escapeInvoiceHtml(c.name||'Tanpa nama')+'</h3><div class="text-xs text-stone-500 mt-1 break-all">'+escapeInvoiceHtml(phone||'-')+'</div></div><button onclick="deleteClient(\''+id+'\')" aria-label="Hapus klien" class="w-9 h-9 shrink-0 rounded-lg border border-stone-200 text-stone-400 hover:text-red-600"><i class="fa fa-trash"></i></button></div><div class="flex items-center gap-2">'+renderStars(rating)+'<span class="text-xs text-stone-500">'+rating+'/5</span></div>'+(review?'<p class="text-xs text-stone-600 bg-stone-50 border border-stone-100 p-3 rounded-xl whitespace-pre-wrap break-words">'+escapeInvoiceHtml(review)+'</p>':'')+'<div class="grid grid-cols-2 gap-2 bg-stone-50 p-3 rounded-xl text-xs"><div><div class="text-[10px] text-stone-400 font-semibold uppercase">Total Proyek</div><div class="font-bold text-stone-800 mt-1">'+Number(c.projectsCount||0)+' Proyek</div></div><div><div class="text-[10px] text-stone-400 font-semibold uppercase">LTV Total</div><div class="font-bold text-emerald-700 mt-1">'+formatRp(c.totalSpend||0)+'</div></div></div>'+(c.notes?'<p class="text-xs text-stone-600 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(c.notes)+'</p>':'')+(phone?'<a rel="noopener noreferrer" href="https://wa.me/'+cleanPhone(phone)+'" target="_blank" class="min-h-10 flex items-center justify-center w-full rounded-xl bg-emerald-50 text-emerald-700 font-semibold text-xs"><i class="fa fa-whatsapp mr-2"></i>Hubungi Klien</a>':'')+'</article>';
+        return '<article class="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-sm space-y-3 min-w-0"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold text-sm text-stone-900 break-words">'+escapeInvoiceHtml(c.name||'Tanpa nama')+'</h3><div class="text-xs text-stone-500 mt-1 break-all">'+escapeInvoiceHtml(phone||'-')+'</div></div>'+(isOwnerSession()?'<button onclick="deleteClient(\''+id+'\')" aria-label="Hapus klien" class="w-9 h-9 shrink-0 rounded-lg border border-stone-200 text-stone-400 hover:text-red-600"><i class="fa fa-trash"></i></button>':'')+'</div><div class="flex items-center gap-2">'+renderStars(rating)+'<span class="text-xs text-stone-500">'+rating+'/5</span></div>'+(review?'<p class="text-xs text-stone-600 bg-stone-50 border border-stone-100 p-3 rounded-xl whitespace-pre-wrap break-words">'+escapeInvoiceHtml(review)+'</p>':'')+'<div class="grid grid-cols-2 gap-2 bg-stone-50 p-3 rounded-xl text-xs"><div><div class="text-[10px] text-stone-400 font-semibold uppercase">Total Proyek</div><div class="font-bold text-stone-800 mt-1">'+Number(c.projectsCount||0)+' Proyek</div></div><div><div class="text-[10px] text-stone-400 font-semibold uppercase">LTV Total</div><div class="font-bold text-emerald-700 mt-1">'+formatRp(c.totalSpend||0)+'</div></div></div>'+(c.notes?'<p class="text-xs text-stone-600 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(c.notes)+'</p>':'')+(phone?'<a rel="noopener noreferrer" href="https://wa.me/'+cleanPhone(phone)+'" target="_blank" class="min-h-10 flex items-center justify-center w-full rounded-xl bg-emerald-50 text-emerald-700 font-semibold text-xs"><i class="fa fa-whatsapp mr-2"></i>Hubungi Klien</a>':'')+'</article>';
       }).join('');
     }
 
@@ -1877,7 +1892,7 @@
             '<button onclick="openInvoiceModal(\''+id+'\')" class="min-h-10 px-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-stone-950 font-semibold text-xs"><i class="fa fa-file-text-o mr-1"></i>Quotation / Invoice</button>'+
             '<button onclick="openProjectPhotoReport(\''+id+'\')" class="min-h-10 px-3 rounded-xl bg-stone-900 text-white font-semibold text-xs"><i class="fa fa-camera mr-1"></i>Foto Laporan</button>'+
             (p.status!=='done'?'<button onclick="markProjectDone(\''+id+'\')" class="min-h-10 px-3 rounded-xl bg-emerald-600 text-white font-semibold text-xs"><i class="fa fa-check mr-1"></i>Selesai</button>':'')+
-            '<button onclick="deleteProject(\''+id+'\')" aria-label="Hapus proyek" class="min-h-10 px-3 rounded-xl border border-stone-200 text-stone-500 hover:text-red-600 text-xs"><i class="fa fa-trash mr-1"></i>Hapus</button>'+
+            (isOwnerSession() ? '<button onclick="deleteProject(\''+id+'\')" aria-label="Hapus proyek" class="min-h-10 px-3 rounded-xl border border-stone-200 text-stone-500 hover:text-red-600 text-xs"><i class="fa fa-trash mr-1"></i>Hapus</button>' : '') +
           '</div></article>';
       }).join('');
     }
@@ -2315,13 +2330,13 @@
       showToast('Autentikasi cloud belum siap. Silakan muat ulang aplikasi.', true);
     }
 
-    function deleteLead(id) {
-      if (confirm('Yakin ingin menghapus lead ini?')) {
-        db.leads = db.leads.filter(l => l.id !== id);
-        saveDB(true);
-        deleteOnCloud('Leads', id);
-        showToast('Lead dihapus.');
-      }
+    async function deleteLead(id) {
+      if (!requireOwnerForDelete() || !confirm('Yakin ingin menghapus lead ini?')) return;
+      const verified = await deleteOnCloud('Leads', id);
+      if (!verified) return;
+      db.leads = db.leads.filter(l => l.id !== id);
+      saveDB(true);
+      showToast('Lead berhasil dihapus dan diverifikasi di cloud.');
     }
 
     function submitClient(e) {
@@ -2344,13 +2359,13 @@
       showToast('Klien baru berhasil ditambahkan!');
     }
 
-    function deleteClient(id) {
-      if (confirm('Hapus klien ini?')) {
-        db.clients = db.clients.filter(c => c.id !== id);
-        saveDB(true);
-        deleteOnCloud('Clients', id);
-        showToast('Klien dihapus.');
-      }
+    async function deleteClient(id) {
+      if (!requireOwnerForDelete() || !confirm('Hapus klien ini?')) return;
+      const verified = await deleteOnCloud('Clients', id);
+      if (!verified) return;
+      db.clients = db.clients.filter(c => c.id !== id);
+      saveDB(true);
+      showToast('Klien berhasil dihapus dan diverifikasi di cloud.');
     }
 
     function submitProject(e) {
@@ -2383,13 +2398,13 @@
       }
     }
 
-    function deleteProject(id) {
-      if (confirm('Hapus proyek ini?')) {
-        db.projects = db.projects.filter(p => p.id !== id);
-        saveDB(true);
-        deleteOnCloud('Projects', id);
-        showToast('Proyek dihapus.');
-      }
+    async function deleteProject(id) {
+      if (!requireOwnerForDelete() || !confirm('Hapus proyek ini?')) return;
+      const verified = await deleteOnCloud('Projects', id);
+      if (!verified) return;
+      db.projects = db.projects.filter(p => p.id !== id);
+      saveDB(true);
+      showToast('Proyek berhasil dihapus dan diverifikasi di cloud.');
     }
 
     // ============== INVOICE & PENAWARAN (CSK BRANDING) ==============
