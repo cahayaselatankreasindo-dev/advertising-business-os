@@ -34,13 +34,18 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 
 ---
 
-## 🔐 Mode Tampilan dan Batas Keamanan
+## 🔐 Autentikasi dan Hak Akses
 
-Dropdown Owner/Tim saat ini hanya mengatur tampilan menu di frontend. Dropdown tersebut **belum menjadi autentikasi atau pembatas hak akses di server**.
+Aplikasi menggunakan login email + PIN. Peran ditentukan dan diverifikasi oleh backend Apps Script; pilihan role pada antarmuka bukan mekanisme keamanan.
 
-Backend mewajibkan satu API token global yang disimpan di Script Properties. Simpan token tersebut hanya pada perangkat Owner dan jangan membagikannya kepada Tim. Pemisahan token Owner/Tim dan verifikasi identitas email harus diselesaikan sebelum akses Tim dianggap aman.
+- **Owner** dapat mengakses seluruh modul dan data.
+- **Tim** hanya dapat mengakses Leads, Clients, dan Projects.
+- Finance, Memory, Marketing, HPP, Purchase Orders, Quotations, dan pengaturan backend hanya tersedia untuk Owner.
+- PIN disimpan sebagai hash bersalt di Script Properties. Lima kegagalan login memicu pembatasan sementara selama 15 menit.
+- Sesi berlaku maksimal 30 menit sejak aktivitas terakhir. PIN dan session ID tidak disimpan di localStorage.
+- Cold email otomatis maupun manual dinonaktifkan. Tidak ada email yang dikirim oleh fitur tersebut.
 
-Pengiriman cold email otomatis maupun manual dinonaktifkan sementara sampai kontrol akses Owner/Tim dan persetujuan server-side tersedia. Trigger cold outreach lama yang masih terpasang menjadi no-op setelah backend diperbarui.
+Google Apps Script Web App harus dapat menerima request publik agar halaman login dapat menghubungi backend. Data tetap dilindungi oleh verifikasi email, PIN, sesi, dan RBAC di server. Jangan membagikan PIN Owner atau URL pengelolaan Apps Script.
 
 ---
 
@@ -68,8 +73,8 @@ Ketika status Lead diubah menjadi **Deal Menang**, sistem akan secara otomatis:
 Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 
 - **Kirim (Push)**: setiap perubahan di aplikasi otomatis tersinkron ke Google Sheets (sync_all)
-- **Tarik (Pull)**: tombol **"Tarik Data"** di Dashboard mengambil data terbaru dari cloud dan menimpa penyimpanan lokal
-- **Catatan**: Pull bersifat *server overwrites local* — pastikan perubahan lokal sudah disinkronkan terlebih dahulu
+- **Tarik (Pull)**: tombol **"Tarik Data"** menggabungkan data cloud dan lokal berdasarkan ID.
+- **Catatan**: sinkronisasi memakai merge/upsert. Data lama yang tidak dikirim tidak dihapus.
 
 ---
 
@@ -87,19 +92,23 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 
 ## 📊 Cara Menghubungkan ke Google Sheets (Database Gratis)
 
-1. Buat **Google Spreadsheet baru** → beri nama `Database CSK Business OS`
-2. Klik menu **Extensions** → **Apps Script**
-3. Hapus semua kode bawaan, lalu **PASTE** seluruh isi file [`google_apps_script.js`](google_apps_script.js)
-4. Simpan (Ctrl+S)
-5. Pilih fungsi **`setupSheet`** → klik **Run** (berikan izin jika diminta)
-6. Klik **Deploy** (kanan atas) → **New deployment** → pilih **Web app**
-7. Konfigurasi:
-   - Description: `CSK OS API v2`
+1. Gunakan Google Spreadsheet database CSK yang sudah ada. **Jangan buat spreadsheet baru jika database lama masih dipakai.** Jika belum ada, buat spreadsheet bernama `Database CSK Business OS`.
+2. Buka **Extensions → Apps Script**.
+3. Ganti kode editor dengan seluruh isi file [`apps-script/Code.gs`](apps-script/Code.gs) atau [`google_apps_script.js`](google_apps_script.js).
+4. Simpan kode.
+5. Jalankan fungsi **`setupSheet`** sekali dan berikan izin yang diminta. Fungsi ini memvalidasi header dan menambahkan tab/kolom yang belum ada tanpa menghapus data lama. Cadangkan Spreadsheet sebelum perubahan skema.
+6. Kembali ke Google Spreadsheet dan muat ulang halaman agar menu **CSK Security** muncul.
+7. Pilih **CSK Security → Setup PIN Owner & Tim**. Masukkan dua PIN berbeda (masing-masing 8–12 digit). **Jangan jalankan fungsi dialog ini melalui tombol Run di Apps Script Editor** karena dialog Spreadsheet memerlukan konteks UI.
+8. Klik **Deploy → New deployment → Web app**:
    - Execute as: **Me**
-   - Who has access: **Anyone**
-8. Klik **Deploy** → salin URL Web App yang berakhiran `/exec`
-9. Buka aplikasi → masuk ke menu **Pengaturan & Cloud** → tempelkan URL → **Simpan URL**
-10. *(Opsional)* Jalankan fungsi **`installAutoTrigger`** sekali untuk mengaktifkan otomasi Deal Menang
+   - Who has access: **Anyone** (data tetap memerlukan email + PIN dan sesi yang diverifikasi backend).
+9. Deploy dan salin URL Web App yang berakhiran `/exec`.
+10. Buka aplikasi. Masukkan URL Web App, email terdaftar, dan PIN pada layar login.
+11. Opsional: jalankan **`installAutoTrigger`** sekali untuk otomasi Deal Menang.
+
+**Pemisahan deployment:** GitHub Pages menerbitkan frontend dari branch `main`. Perubahan file Apps Script di GitHub tidak otomatis memperbarui deployment Web App. Setelah backend diperbarui di Apps Script Editor, buka **Deploy → Manage deployments → Edit → New version → Deploy**. URL `/exec` yang sudah digunakan aplikasi biasanya tetap sama saat deployment yang sama diperbarui.
+
+**Tidak memerlukan Google Cloud OAuth, domain, hosting berbayar, atau API token bersama.** Jangan bagikan PIN Owner. Untuk mengganti PIN yang sudah terpasang, gunakan `rotateCSKPinCredentialsFromPrompt`. Data Owner tidak disimpan permanen di browser; Google Sheets menjadi sumber data utama. Pastikan sinkronisasi berhasil sebelum keluar dari aplikasi.
 
 ---
 

@@ -1,0 +1,32 @@
+name: CSK Security Tests
+
+on:
+  push:
+    branches:
+      - main
+      - security/csk-pin-rbac-hardening
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Syntax checks
+        run: |
+          node --check google_apps_script.js
+          node -e "new Function(require('fs').readFileSync('apps-script/Code.gs','utf8'))"
+          node --check security/guard.js
+          node --check mapping.test.js
+          node --check backend-auth.test.cjs
+      - name: Mapping and RBAC integration tests
+        run: node mapping.test.js
+      - name: Backend security policy tests
+        run: node backend-auth.test.cjs

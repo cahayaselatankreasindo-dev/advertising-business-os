@@ -48,6 +48,7 @@ function makeSheet(headers) {
           }
           return out;
         },
+        getValue() { return (self.rows[r - 1] || [])[c - 1]; },
         setValues(vals) {
           // Tiru Google Sheets asli: range di luar data otomatis memperluas sheet.
           for (let i = 0; i < vals.length; i++) {
@@ -102,11 +103,40 @@ const PropertiesServiceStub = {
     return {
       getProperty(k) { return (k in _props) ? _props[k] : null; },
       setProperty(k, v) { _props[k] = v; },
+      setProperties(values, deleteAll) {
+        if (deleteAll) Object.keys(_props).forEach(k => delete _props[k]);
+        Object.assign(_props, values);
+      },
     };
   },
 };
+const _cache = new Map();
+const CacheServiceStub = {
+  getScriptCache() {
+    return {
+      get(k) { return _cache.has(k) ? _cache.get(k) : null; },
+      put(k, v) { _cache.set(k, String(v)); },
+      remove(k) { _cache.delete(k); },
+    };
+  },
+};
+let uuidCounter = 0;
+function fakeDigest(value) {
+  let h = 2166136261 >>> 0;
+  const str = String(value);
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  const out = [];
+  for (let i = 0; i < 32; i++) { h = (Math.imul(h, 1664525) + 1013904223) >>> 0; out.push((h >>> 24) & 255); }
+  return out;
+}
 const MailAppStub = { getRemainingDailyQuota() { return 100; }, sendEmail() {} };
-const UtilitiesStub = { formatDate() { return '2026-10-09'; } };
+const UtilitiesStub = {
+  formatDate() { return '2026-10-09'; },
+  getUuid() { uuidCounter++; return 'test-uuid-' + uuidCounter; },
+  DigestAlgorithm: { SHA_256: 'SHA_256' },
+  Charset: { UTF_8: 'UTF_8' },
+  computeDigest(algorithm, value) { return fakeDigest(value); },
+};
 
 // ---------- 2. Muat google_apps_script.js ke sandbox ----------
 const src = fs.readFileSync(path.join(__dirname, 'google_apps_script.js'), 'utf8');
@@ -116,6 +146,7 @@ const sandbox = {
   ScriptApp: ScriptAppStub,
   Logger: LoggerStub,
   PropertiesService: PropertiesServiceStub,
+  CacheService: CacheServiceStub,
   MailApp: MailAppStub,
   Utilities: UtilitiesStub,
   console,
@@ -123,9 +154,18 @@ const sandbox = {
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
 
-// Semua tes integrasi memakai token server valid; tes negatif dibuat eksplisit di bagian 9e.
-const TEST_API_TOKEN = 'a'.repeat(64);
-_props['API_TOKEN'] = TEST_API_TOKEN;
+// Autentikasi uji menggunakan PIN Owner dan Tim yang berbeda.
+_props['API_TOKEN'] = 'legacy-token-must-remain-unused';
+_props['UNRELATED_PROPERTY'] = 'preserve-this-value';
+sandbox.setupCSKPinCredentials('12345678', '87654321');
+const OWNER_SESSION = 'O'.repeat(43);
+const TEAM_SESSION = 'T'.repeat(43);
+function login(email, pin, sessionId) {
+  const out = sandbox.doPost({ postData: { contents: JSON.stringify({ action: 'login', email, pin, sessionId }) } });
+  return JSON.parse(out._t);
+}
+const ownerLogin = login('cahayaselatankreasindo@gmail.com', '12345678', OWNER_SESSION);
+const teamLogin = login('zefdas@gmail.com', '87654321', TEAM_SESSION);
 
 // ---------- 3. Mini test runner ----------
 let pass = 0, fail = 0;
@@ -180,8 +220,8 @@ if (FIELD_MAP) {
 }
 
 // ---------- 6. Tes BACA (doGet): Sheet -> field HTML ----------
-function callDoGet(token = TEST_API_TOKEN) {
-  const out = sandbox.doGet({ parameter: token ? { token } : {} });
+function callDoGet(sessionId = OWNER_SESSION) {
+  const out = sandbox.doGet({ parameter: sessionId ? { sessionId } : {} });
   return JSON.parse(out._t);
 }
 const got = callDoGet();
@@ -198,10 +238,10 @@ if (got.status === 'success') {
 }
 
 // ---------- 7. Tes TULIS (sync_all): MERGE — tidak menghapus data lama ----------
-function callDoPost(payload, token = TEST_API_TOKEN) {
+function callDoPost(payload, sessionId = OWNER_SESSION) {
   const request = Object.assign({}, payload);
-  if (token) request.token = token;
-  else delete request.token;
+  if (sessionId) request.sessionId = sessionId;
+  else delete request.sessionId;
   const out = sandbox.doPost({ postData: { contents: JSON.stringify(request) } });
   return JSON.parse(out._t);
 }
@@ -365,31 +405,64 @@ eq(sheets['Leads'].rows.length, beforeDel - 1, 'delete: jumlah baris berkurang 1
 const delRes2 = callDoPost({ action: 'delete', sheet: 'Leads', id: 'TIDAK-ADA-XYZ' });
 eq(delRes2.status, 'success', 'delete: ID tidak ada tetap success (idempoten)');
 
-// ---------- 9e. Tes KEAMANAN: token API fail-closed ----------
-delete _props['API_TOKEN'];
-eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: token server belum diset -> DITOLAK');
-eq(callDoGet(null).status, 'error', 'auth: GET tanpa token -> DITOLAK');
+// ---------- 9e. Tes KEAMANAN: PIN, sesi, dan RBAC server-side ----------
+eq(ownerLogin.status, 'success', 'auth: Owner dapat login dengan email dan PIN yang benar');
+eq(ownerLogin.identity.role, 'owner', 'auth: role Owner ditentukan server');
+eq(teamLogin.status, 'success', 'auth: Tim dapat login dengan email dan PIN yang benar');
+eq(teamLogin.identity.role, 'team', 'auth: role Tim ditentukan server');
+eq(_props['API_TOKEN'], 'legacy-token-must-remain-unused', 'auth: setup PIN tidak menghapus properti API_TOKEN lama');
+eq(_props['UNRELATED_PROPERTY'], 'preserve-this-value', 'auth: setup PIN mempertahankan Script Properties lain');
 
-_props['API_TOKEN'] = TEST_API_TOKEN;
-eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: token request kosong -> DITOLAK');
-eq(sandbox.isAuthorized({ action: 'sync_all', token: 'SALAH' }), false, 'auth: token salah -> DITOLAK');
-eq(sandbox.isAuthorized({ action: 'sync_all', token: TEST_API_TOKEN }), true, 'auth: token valid -> DIIZINKAN');
-eq(sandbox.isAuthorized(null, TEST_API_TOKEN), true, 'auth: token valid via query string -> DIIZINKAN');
-eq(sandbox.isAuthorized(null, ''), false, 'auth: GET tanpa token -> DITOLAK');
+const wrongPin = login('cahayaselatankreasindo@gmail.com', '00000000', 'W'.repeat(43));
+eq(wrongPin.status, 'error', 'auth: PIN salah ditolak');
+const unknownEmail = login('intruder@example.com', '12345678', 'X'.repeat(43));
+eq(unknownEmail.status, 'error', 'auth: email tidak terdaftar ditolak');
 
-const beforeAuth = sheets['Leads'].rows.length;
-const authRes = callDoPost({ action: 'sync_all', leads: [{ id: 'HACK-1', name: 'Hacker' }] }, null);
-eq(authRes.status, 'error', 'auth: doPost tanpa token -> status error');
-eq(sheets['Leads'].rows.length, beforeAuth, 'auth: doPost tanpa token tidak mengubah data');
+const noSessionGet = callDoGet(null);
+eq(noSessionGet.status, 'error', 'auth: GET tanpa sesi ditolak');
+const noSessionPost = callDoPost({ action: 'sync_all', leads: [{ id: 'NOSESSION', name: 'No Session' }] }, null);
+eq(noSessionPost.status, 'error', 'auth: POST tanpa sesi ditolak');
 
-const okRes = callDoPost({ action: 'sync_all', leads: [{
-  id: 'OKAUTH-1', date: '2026-10-09', name: 'Authorized', phone: '',
-  source: 'x', value: 0, status: 'new', notes: ''
-}] }, TEST_API_TOKEN);
-eq(okRes.status, 'success', 'auth: doPost dengan token valid -> success');
-eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'OKAUTH-1'), true, 'auth: data dengan token valid tersimpan');
+const ownerData = callDoGet(OWNER_SESSION);
+eq(ownerData.status, 'success', 'auth: Owner dapat membaca data');
+eq(!!ownerData.data.finance, true, 'RBAC: Owner menerima data Finance');
+eq(!!ownerData.data.marketingSpend, true, 'RBAC: Owner menerima data Marketing');
 
-delete _props['API_TOKEN'];
+const teamData = callDoGet(TEAM_SESSION);
+eq(teamData.status, 'success', 'auth: Tim dapat membaca data operasional');
+eq(Object.prototype.hasOwnProperty.call(teamData.data, 'finance'), false, 'RBAC: Finance tidak dikirim kepada Tim');
+eq(Object.prototype.hasOwnProperty.call(teamData.data, 'memory'), false, 'RBAC: Memory tidak dikirim kepada Tim');
+eq(Object.prototype.hasOwnProperty.call(teamData.data, 'marketingSpend'), false, 'RBAC: Marketing tidak dikirim kepada Tim');
+
+const financeBeforeTeam = sheets['Finance'].rows.length;
+const forbiddenSync = callDoPost({ action: 'sync_all', finance: [{ id: 'HACK-FIN', amount: 999999 }] }, TEAM_SESSION);
+eq(forbiddenSync.status, 'error', 'RBAC: Tim tidak dapat mengirim Finance');
+eq(sheets['Finance'].rows.length, financeBeforeTeam, 'RBAC: Finance tidak berubah setelah percobaan Tim');
+
+const forbiddenInsert = callDoPost({ action: 'insert', sheet: 'Finance', data: { id: 'HACK-FIN-2', amount: 1 } }, TEAM_SESSION);
+eq(forbiddenInsert.status, 'error', 'RBAC: Tim tidak dapat insert Finance');
+
+const forbiddenDelete = callDoPost({ action: 'delete', sheet: 'Finance', id: 'F1' }, TEAM_SESSION);
+eq(forbiddenDelete.status, 'error', 'RBAC: Tim tidak dapat menghapus Finance');
+eq(sheets['Finance'].rows.some(r => String(r[0]) === 'F1'), true, 'RBAC: baris Finance tetap utuh setelah percobaan hapus');
+
+const forbiddenWon = callDoPost({ action: 'update_status', sheet: 'Leads', id: 'L9', status: 'won' }, TEAM_SESSION);
+eq(forbiddenWon.status, 'error', 'RBAC: Tim tidak dapat menetapkan status Deal Menang');
+const forbiddenNewWon = callDoPost({ action: 'sync_all', leads: [{ id: 'TEAM-WON', name: 'Team Won', status: 'won' }] }, TEAM_SESSION);
+eq(forbiddenNewWon.status, 'error', 'RBAC: Tim tidak dapat menyisipkan Lead baru berstatus Deal Menang');
+
+const allowedTeamSync = callDoPost({ action: 'sync_all', leads: [{ id: 'TEAM-OK', date: '2026-10-09', name: 'Team Allowed', phone: '', source: 'WA', value: 0, status: 'new', notes: '' }] }, TEAM_SESSION);
+eq(allowedTeamSync.status, 'success', 'RBAC: Tim dapat sinkronisasi Leads operasional');
+eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'TEAM-OK'), true, 'RBAC: Lead operasional Tim tersimpan');
+
+const beforeOwnerWrite = sheets['Finance'].rows.length;
+const ownerWrite = callDoPost({ action: 'sync_all', finance: [{ id: 'OWNER-FIN', date: '2026-10-09', type: 'expense', category: 'Test', amount: 1, description: 'Owner test' }] }, OWNER_SESSION);
+eq(ownerWrite.status, 'success', 'RBAC: Owner dapat sinkronisasi Finance');
+eq(sheets['Finance'].rows.length, beforeOwnerWrite + 1, 'RBAC: Finance hanya berubah melalui sesi Owner');
+
+const logoutRes = callDoPost({ action: 'logout' }, TEAM_SESSION);
+eq(logoutRes.status, 'success', 'auth: logout berhasil');
+eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat digunakan lagi');
 
 // ---------- 10. Ringkasan ----------
 console.log(`\nmapping.test.js: ${pass} lolos, ${fail} gagal`);

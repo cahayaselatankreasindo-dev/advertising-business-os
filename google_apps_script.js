@@ -348,65 +348,19 @@ function readSheetData(ss, sheetName) {
   });
 }
 
-// ============== KEAMANAN: TOKEN API ==============
- // Token disimpan hanya di Script Properties. Backend fail-closed.
- function getApiToken() {
-   return PropertiesService.getScriptProperties().getProperty("API_TOKEN") || "";
- }
-
- /**
-  * Jalankan sekali dari Apps Script editor. Mengembalikan token hanya saat
-  * pertama kali dibuat. Pemanggilan ulang tidak merotasi token diam-diam.
-  */
- function setupApiToken() {
-   var props = PropertiesService.getScriptProperties();
-   if (props.getProperty("API_TOKEN")) {
-     throw new Error("API_TOKEN sudah ada. Gunakan rotateApiToken() hanya jika ingin mengganti token.");
-   }
-   var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
-   props.setProperty("API_TOKEN", token);
-   Logger.log("API_TOKEN: " + token + " (rahasia, simpan di Pengaturan CSK dan jangan bagikan).");
-   return token;
- }
-
- /** Rotasi eksplisit. Token lama langsung tidak berlaku. */
- function rotateApiToken() {
-   var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
-   PropertiesService.getScriptProperties().setProperty("API_TOKEN", token);
-   Logger.log("API_TOKEN BARU: " + token + " (rahasia, perbarui di seluruh perangkat CSK).");
-   return token;
- }
-
- /**
-  * Valid hanya jika token server sudah dikonfigurasi dan token request cocok.
-  * Tidak ada mode kompatibilitas tanpa autentikasi.
-  */
- function isAuthorized(payloadOrEvent, tokenParam) {
-   var expected = getApiToken();
-   if (!/^[a-f0-9]{64}$/i.test(expected)) return false;
-
-   var provided = "";
-   if (payloadOrEvent && typeof payloadOrEvent === "object") {
-     provided = payloadOrEvent.token || "";
-   }
-   if (!provided && tokenParam) provided = tokenParam;
-   return String(provided) === String(expected);
- }
-
- function unauthorizedResponse() {
-   return jsonResponse({ status: "error", code: "UNAUTHORIZED", message: "Tidak diizinkan: token akses salah, kosong, atau backend belum dikonfigurasi." });
- }
-
- // ============== GET — TARIK DATA SEMUA TAB ==============
+// ============== KEAMANAN: EMAIL + PIN + SESSION RBAC ==============
+// Semua hak akses divalidasi di server. PIN tidak pernah disimpan sebagai teks biasa.
+// Sesi disimpan di CacheService dan hanya ID sesi yang dikirim browser.
 
 function doGet(e) {
   try {
-    // Proteksi token (via query string ?token=...)
-    var tokenParam = (e && e.parameter) ? e.parameter.token : "";
-    if (!isAuthorized(null, tokenParam)) return unauthorizedResponse();
+    var params = (e && e.parameter) ? e.parameter : {};
+    var identity = cskRequireSession_(params.sessionId);
+    var action = String(params.action || "get_data").toLowerCase();
+    if (action !== "get_data") throw new Error("ACTION_NOT_ALLOWED");
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const result = {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var result = {
       leads: readSheetData(ss, "Leads"),
       clients: readSheetData(ss, "Clients"),
       projects: readSheetData(ss, "Projects"),
@@ -420,120 +374,307 @@ function doGet(e) {
       quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
       lastSynced: new Date().toISOString()
     };
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", data: result }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonResponse({ status: "success", identity: identity, data: cskFilterDataForRole_(result, identity.role) });
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonResponse({ status: "error", code: String(err && err.message || err), message: "Akses ditolak atau sesi berakhir." });
   }
 }
 
-// ============== POST — CRUD (sync_all, insert, update_status) ==============
-
 function doPost(e) {
   try {
-    const payload = JSON.parse(e.postData.contents);
+    var payload = JSON.parse((e && e.postData && e.postData.contents) || "{}");
+    var action = String(payload.action || "").toLowerCase();
 
-    // Proteksi token (via field payload.token)
-    if (!isAuthorized(payload)) return unauthorizedResponse();
-
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const action = (payload.action || "").toLowerCase();
-
-    switch (action) {
-
-      // --- sync_all (MERGE / UPSERT — tidak pernah menghapus data lama) ---
-      // Aman: lead yang sudah ada di Sheets tetap tersimpan; hanya ditambah/diupdate.
-      case "sync_all": {
-        var mergeSummary = {};
-        if (payload.leads)          mergeSummary.Leads           = mergeSheet(ss, "Leads",           payload.leads);
-        if (payload.clients)        mergeSummary.Clients         = mergeSheet(ss, "Clients",         payload.clients);
-        if (payload.projects)       mergeSummary.Projects        = mergeSheet(ss, "Projects",        payload.projects);
-        if (payload.finance)        mergeSummary.Finance         = mergeSheet(ss, "Finance",         payload.finance);
-        if (payload.memory)         mergeSummary.Memory          = mergeSheet(ss, "Memory",          payload.memory);
-        if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
-        if (payload.materials) mergeSummary.Materials = mergeSheet(ss, "Materials", payload.materials);
-        if (payload.costSheets) mergeSummary.Cost_Sheets = mergeSheet(ss, "Cost_Sheets", payload.costSheets.map(function(x){ var y=Object.assign({},x); y.itemsJson=JSON.stringify(x.items || []); return y; }));
-        if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
-        if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y=Object.assign({},x); y.itemsJson=JSON.stringify(x.items || []); return y; }));
-        if (payload.quotationSnapshots) mergeSummary.Quotations = mergeSheet(ss, "Quotations", payload.quotationSnapshots.map(function(x){ var y=Object.assign({},x); y.linesJson=JSON.stringify(x.lines || []); return y; }));
-        // Setelah sinkronisasi, cek apakah ada lead baru yang won
-        autoTriggerPillars(ss);
-        return jsonResponse({ status: "success", message: "Data di-merge (tidak ada yang dihapus)", summary: mergeSummary });
-      }
-
-      // --- delete: hapus 1 baris berdasarkan ID (dipakai tombol hapus di app) ---
-      case "delete": {
-        const sheetName = payload.sheet || "Leads";
-        const delId = payload.id;
-        if (!delId) throw new Error("Parameter id diperlukan untuk aksi delete.");
-        const sheet = ss.getSheetByName(sheetName);
-        if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
-        const rowNum = findRowById(sheet, delId);
-        if (rowNum === -1) {
-          return jsonResponse({ status: "success", message: "Baris " + delId + " tidak ada (sudah terhapus)." });
-        }
-        sheet.deleteRow(rowNum);
-        return jsonResponse({ status: "success", message: "Baris " + delId + " dihapus dari " + sheetName });
-      }
-
-      // --- insert: tambahkan 1 baris ke tab tertentu ---
-      case "insert": {
-        const sheetName = payload.sheet;
-        const data = payload.data || {};
-        if (!sheetName || !data.id) {
-          throw new Error("Parameter sheet dan data.id diperlukan untuk aksi insert.");
-        }
-        ensureSheet(ss, sheetName, FIELD_MAP[sheetName] ? FIELD_MAP[sheetName].headers : []);
-        if (FIELD_MAP[sheetName]) {
-          insertRecord(ss, sheetName, data);
-        } else {
-          // Tab di luar kontrak: ikut header Sheet apa adanya.
-          const sheet = ss.getSheetByName(sheetName);
-          const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-          const row = headers.map(h => data[String(h).toLowerCase()] !== undefined ? data[String(h).toLowerCase()] : "");
-          sheet.appendRow(row);
-        }
-        return jsonResponse({ status: "success", message: "Baris berhasil disisipkan di " + sheetName, id: data.id });
-      }
-
-      // --- update_status: ubah kolom Status baris berdasarkan ID ---
-      case "update_status": {
-        const sheetName = payload.sheet || "Leads";
-        const id = payload.id;
-        const status = payload.status;
-        if (!id || !status) throw new Error("Parameter id dan status diperlukan.");
-        const sheet = ss.getSheetByName(sheetName);
-        if (!sheet) throw new Error("Tab '" + sheetName + "' tidak ditemukan.");
-        const rowNum = findRowById(sheet, id);
-        if (rowNum === -1) throw new Error("Baris dengan ID " + id + " tidak ditemukan di " + sheetName);
-        // Kolom Status adalah kolom ke-7 untuk Leads, Projects — umum di kolom terakhir sebelum catatan
-        // Kita cari indeks header "status" (case-insensitive)
-        const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-        let statusCol = headers.findIndex(h => String(h).toLowerCase() === "status");
-        if (statusCol === -1) statusCol = 6; // fallback kolom G (index 7)
-        sheet.getRange(rowNum, statusCol + 1).setValue(status);
-        // Jika status berubah jadi deal menang → jalankan otomasi
-        if ((sheetName === "Leads" || sheetName === "Leads_CRM") && isDealMenang(status)) {
-          autoTriggerPillars(ss, id);
-        }
-        return jsonResponse({ status: "success", message: "Status diperbarui di " + sheetName, row: rowNum });
-      }
-
-      // --- send_cold_email: kirim outreach resmi via Gmail dengan batas kuota 50 & opt-out ---
-      case "send_cold_email": {
-        throw new Error("Pengiriman cold email dinonaktifkan sementara sampai autentikasi Owner/Tim dan pencatatan persetujuan diterapkan di server.");
-      }
-
-      default:
-        throw new Error("Aksi tidak dikenal: " + action + ". Gunakan: sync_all, insert, update_status, send_cold_email.");
+    // Login adalah satu-satunya aksi yang tidak memerlukan sesi aktif.
+    if (action === "login") {
+      return jsonResponse(cskLoginWithPin_(payload.email, payload.pin, payload.sessionId));
     }
 
-    return jsonResponse({ status: "success", message: "Data tersinkronisasi ke Google Sheets" });
+    var identity = cskRequireSession_(payload.sessionId);
+    if (action === "logout") {
+      cskRevokeSession_(payload.sessionId);
+      return jsonResponse({ status: "success", message: "Sesi ditutup." });
+    }
 
+    cskAssertPayloadAllowed_(identity, payload);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    switch (action) {
+      case "sync_all": {
+        if (identity.role === "team") cskAssertTeamLeadTransitions_(ss, payload.leads || []);
+        var mergeSummary = {};
+        if (payload.leads)          mergeSummary.Leads           = mergeSheet(ss, "Leads", payload.leads);
+        if (payload.clients)        mergeSummary.Clients         = mergeSheet(ss, "Clients", payload.clients);
+        if (payload.projects)       mergeSummary.Projects        = mergeSheet(ss, "Projects", payload.projects);
+        if (payload.finance)        mergeSummary.Finance         = mergeSheet(ss, "Finance", payload.finance);
+        if (payload.memory)         mergeSummary.Memory          = mergeSheet(ss, "Memory", payload.memory);
+        if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
+        if (payload.materials)      mergeSummary.Materials       = mergeSheet(ss, "Materials", payload.materials);
+        if (payload.costSheets) mergeSummary.Cost_Sheets = mergeSheet(ss, "Cost_Sheets", payload.costSheets.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
+        if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
+        if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
+        if (payload.quotationSnapshots) mergeSummary.Quotations = mergeSheet(ss, "Quotations", payload.quotationSnapshots.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
+        if (identity.role === "owner") autoTriggerPillars(ss);
+        return jsonResponse({ status: "success", message: "Data di-merge; data lama yang tidak dikirim tetap dipertahankan.", summary: mergeSummary });
+      }
+
+      case "delete": {
+        var sheetName = String(payload.sheet || "Leads");
+        var delId = payload.id;
+        if (!delId) throw new Error("ID_REQUIRED");
+        var delSheet = ss.getSheetByName(sheetName);
+        if (!delSheet) throw new Error("SHEET_NOT_FOUND");
+        var rowNum = findRowById(delSheet, delId);
+        if (rowNum === -1) return jsonResponse({ status: "success", message: "Data sudah tidak ada." });
+        delSheet.deleteRow(rowNum);
+        return jsonResponse({ status: "success", message: "Data dihapus.", sheet: sheetName, id: delId });
+      }
+
+      case "insert": {
+        var insertSheetName = String(payload.sheet || "");
+        var data = payload.data || {};
+        if (!insertSheetName || !data.id) throw new Error("SHEET_AND_ID_REQUIRED");
+        ensureSheet(ss, insertSheetName, FIELD_MAP[insertSheetName].headers);
+        insertRecord(ss, insertSheetName, data);
+        return jsonResponse({ status: "success", message: "Data ditambahkan.", id: data.id });
+      }
+
+      case "update_status": {
+        var statusSheetName = String(payload.sheet || "Leads");
+        var id = payload.id;
+        var status = payload.status;
+        if (!id || !status) throw new Error("ID_AND_STATUS_REQUIRED");
+        if (identity.role === "team" && statusSheetName === "Leads" && isDealMenang(status)) throw new Error("OWNER_APPROVAL_REQUIRED_FOR_WON");
+        var statusSheet = ss.getSheetByName(statusSheetName);
+        if (!statusSheet) throw new Error("SHEET_NOT_FOUND");
+        var statusRow = findRowById(statusSheet, id);
+        if (statusRow === -1) throw new Error("RECORD_NOT_FOUND");
+        var headers = statusSheet.getRange(1, 1, 1, statusSheet.getLastColumn()).getValues()[0];
+        var statusCol = headers.findIndex(function(h){ return String(h).trim().toLowerCase() === "status"; });
+        if (statusCol < 0) throw new Error("STATUS_COLUMN_NOT_FOUND");
+        statusSheet.getRange(statusRow, statusCol + 1).setValue(status);
+        if (identity.role === "owner" && (statusSheetName === "Leads" || statusSheetName === "Leads_CRM") && isDealMenang(status)) autoTriggerPillars(ss, id);
+        return jsonResponse({ status: "success", message: "Status diperbarui.", row: statusRow });
+      }
+
+      case "send_cold_email":
+        throw new Error("COLD_EMAIL_DISABLED");
+
+      default:
+        throw new Error("ACTION_NOT_ALLOWED");
+    }
   } catch (err) {
-    return jsonResponse({ status: "error", message: err.toString() });
+    return jsonResponse({ status: "error", code: String(err && err.message || err), message: "Permintaan ditolak atau gagal diproses." });
   }
+}
+
+// ============== PIN, RATE LIMIT, DAN SESSION HELPERS ==============
+
+var CSK_SESSION_TTL_SECONDS_ = 1800;
+var CSK_LOGIN_LOCK_SECONDS_ = 900;
+var CSK_LOGIN_MAX_FAILURES_ = 5;
+var CSK_PIN_HASH_ROUNDS_ = 3000;
+
+function cskHex_(bytes) {
+  return bytes.map(function(b) {
+    var v = (b + 256) % 256;
+    return ("0" + v.toString(16)).slice(-2);
+  }).join("");
+}
+
+function cskHashPin_(pin, salt) {
+  var value = String(salt) + "|" + String(pin);
+  for (var i = 0; i < CSK_PIN_HASH_ROUNDS_; i++) {
+    value = cskHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, value, Utilities.Charset.UTF_8));
+  }
+  return value;
+}
+
+function cskConstantTimeEquals_(a, b) {
+  a = String(a || "");
+  b = String(b || "");
+  var diff = a.length ^ b.length;
+  var max = Math.max(a.length, b.length);
+  for (var i = 0; i < max; i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
+
+function setupCSKPinCredentialsFromPrompt() {
+  var ui = SpreadsheetApp.getUi();
+  var owner = ui.prompt("CSK Security Setup", "Masukkan PIN Owner (8-12 digit):", ui.ButtonSet.OK_CANCEL);
+  if (owner.getSelectedButton() !== ui.Button.OK) return "Setup dibatalkan.";
+  var team = ui.prompt("CSK Security Setup", "Masukkan PIN Tim (8-12 digit), harus berbeda:", ui.ButtonSet.OK_CANCEL);
+  if (team.getSelectedButton() !== ui.Button.OK) return "Setup dibatalkan.";
+  var result = setupCSKPinCredentials(owner.getResponseText(), team.getResponseText());
+  owner = null;
+  team = null;
+  ui.alert("Setup login selesai", result, ui.ButtonSet.OK);
+  return result;
+}
+
+function rotateCSKPinCredentialsFromPrompt() {
+  var ui = SpreadsheetApp.getUi();
+  var owner = ui.prompt("CSK PIN Rotation", "Masukkan PIN Owner baru (8-12 digit):", ui.ButtonSet.OK_CANCEL);
+  if (owner.getSelectedButton() !== ui.Button.OK) return "Rotasi dibatalkan.";
+  var team = ui.prompt("CSK PIN Rotation", "Masukkan PIN Tim baru (8-12 digit), harus berbeda:", ui.ButtonSet.OK_CANCEL);
+  if (team.getSelectedButton() !== ui.Button.OK) return "Rotasi dibatalkan.";
+  var result = cskStorePinCredentials_(owner.getResponseText(), team.getResponseText(), true);
+  owner = null;
+  team = null;
+  ui.alert("Rotasi PIN selesai", result, ui.ButtonSet.OK);
+  return result;
+}
+
+function setupCSKPinCredentials(ownerPin, teamPin) {
+  return cskStorePinCredentials_(ownerPin, teamPin, false);
+}
+
+function cskStorePinCredentials_(ownerPin, teamPin, allowReplace) {
+  ownerPin = String(ownerPin || "");
+  teamPin = String(teamPin || "");
+  if (!/^\d{8,12}$/.test(ownerPin) || !/^\d{8,12}$/.test(teamPin)) throw new Error("PIN harus terdiri dari 8-12 digit.");
+  if (ownerPin === teamPin) throw new Error("PIN Owner dan Tim harus berbeda.");
+
+  var props = PropertiesService.getScriptProperties();
+  if (!allowReplace && (props.getProperty("CSK_OWNER_PIN_HASH") || props.getProperty("CSK_TEAM_PIN_HASH"))) {
+    throw new Error("PIN sudah pernah disetel. Gunakan rotateCSKPinCredentialsFromPrompt() untuk menggantinya.");
+  }
+
+  var ownerSalt = Utilities.getUuid() + Utilities.getUuid();
+  var teamSalt = Utilities.getUuid() + Utilities.getUuid();
+  props.setProperties({
+    CSK_OWNER_EMAIL: "cahayaselatankreasindo@gmail.com",
+    CSK_TEAM_EMAILS: "zefdas@gmail.com",
+    CSK_OWNER_PIN_SALT: ownerSalt,
+    CSK_OWNER_PIN_HASH: cskHashPin_(ownerPin, ownerSalt),
+    CSK_TEAM_PIN_SALT: teamSalt,
+    CSK_TEAM_PIN_HASH: cskHashPin_(teamPin, teamSalt)
+  }, false);
+
+  return "PIN Owner dan Tim tersimpan sebagai hash. Properti Apps Script lainnya tetap dipertahankan; sesi lama akan kedaluwarsa saat masa aktifnya habis.";
+}
+
+function cskLoginWithPin_(email, pin, sessionId) {
+  email = String(email || "").trim().toLowerCase();
+  pin = String(pin || "");
+  if (!/^[A-Za-z0-9_-]{40,100}$/.test(String(sessionId || ""))) throw new Error("LOGIN_INVALID");
+  if (!/^\d{8,12}$/.test(pin)) throw new Error("LOGIN_INVALID");
+
+  var props = PropertiesService.getScriptProperties();
+  var ownerEmail = String(props.getProperty("CSK_OWNER_EMAIL") || "").trim().toLowerCase();
+  var teamEmails = String(props.getProperty("CSK_TEAM_EMAILS") || "").split(/[;,\n]/).map(function(x){ return x.trim().toLowerCase(); }).filter(Boolean);
+  var role = email && email === ownerEmail ? "owner" : (teamEmails.indexOf(email) >= 0 ? "team" : null);
+  var cache = CacheService.getScriptCache();
+  var failKey = "CSK_LOGIN_FAIL_" + cskHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, email, Utilities.Charset.UTF_8)).slice(0, 32);
+  var failures = Number(cache.get(failKey) || 0);
+  if (failures >= CSK_LOGIN_MAX_FAILURES_) throw new Error("LOGIN_LOCKED_15_MIN");
+
+  var prefix = role === "owner" ? "CSK_OWNER" : "CSK_TEAM";
+  var salt = role ? String(props.getProperty(prefix + "_PIN_SALT") || "") : "unknown-account-salt";
+  var expected = role ? String(props.getProperty(prefix + "_PIN_HASH") || "") : "";
+  var actual = cskHashPin_(pin, salt);
+  if (!role || !salt || !expected || !cskConstantTimeEquals_(actual, expected)) {
+    cache.put(failKey, String(failures + 1), CSK_LOGIN_LOCK_SECONDS_);
+    throw new Error("LOGIN_INVALID");
+  }
+
+  cache.remove(failKey);
+  var session = { email: email, role: role, credentialHash: expected, issuedAt: new Date().toISOString() };
+  cache.put(cskSessionKey_(sessionId), JSON.stringify(session), CSK_SESSION_TTL_SECONDS_);
+  return { status: "success", identity: { email: email, role: role }, expiresIn: CSK_SESSION_TTL_SECONDS_ };
+}
+
+function cskSessionKey_(sessionId) {
+  if (!sessionId || !/^[A-Za-z0-9_-]{40,100}$/.test(String(sessionId))) throw new Error("AUTH_REQUIRED");
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(sessionId), Utilities.Charset.UTF_8);
+  return "CSK_SESSION_" + cskHex_(digest);
+}
+
+function cskRequireSession_(sessionId) {
+  var cache = CacheService.getScriptCache();
+  var key = cskSessionKey_(sessionId);
+  var raw = cache.get(key);
+  if (!raw) throw new Error("SESSION_EXPIRED");
+  var session = JSON.parse(raw);
+  var props = PropertiesService.getScriptProperties();
+  var ownerEmail = String(props.getProperty("CSK_OWNER_EMAIL") || "").trim().toLowerCase();
+  var teamEmails = String(props.getProperty("CSK_TEAM_EMAILS") || "").split(/[;,\n]/).map(function(x){ return x.trim().toLowerCase(); }).filter(Boolean);
+  var prefix = session.email === ownerEmail ? "CSK_OWNER" : (teamEmails.indexOf(session.email) >= 0 ? "CSK_TEAM" : "");
+  if (!prefix) {
+    cache.remove(key);
+    throw new Error("AUTH_EMAIL_NOT_ALLOWED");
+  }
+  var currentHash = String(props.getProperty(prefix + "_PIN_HASH") || "");
+  if (!currentHash || !cskConstantTimeEquals_(currentHash, session.credentialHash)) {
+    cache.remove(key);
+    throw new Error("SESSION_REVOKED");
+  }
+  var identity = { email: session.email, role: prefix === "CSK_OWNER" ? "owner" : "team" };
+  cache.put(key, JSON.stringify(session), CSK_SESSION_TTL_SECONDS_);
+  return identity;
+}
+
+function cskRevokeSession_(sessionId) {
+  CacheService.getScriptCache().remove(cskSessionKey_(sessionId));
+}
+
+function cskFilterDataForRole_(data, role) {
+  if (role === "owner") return data;
+  if (role !== "team") throw new Error("FORBIDDEN");
+  return {
+    leads: data.leads || [],
+    clients: data.clients || [],
+    projects: data.projects || [],
+    lastSynced: data.lastSynced || new Date().toISOString()
+  };
+}
+
+function cskAssertTeamLeadTransitions_(ss, leads) {
+  var sheet = ss.getSheetByName("Leads");
+  var statusCol = -1;
+  if (sheet && sheet.getLastRow() > 0) {
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    statusCol = headers.findIndex(function(h){ return String(h).trim().toLowerCase() === "status"; });
+  }
+  (leads || []).forEach(function(lead) {
+    if (!lead || !isDealMenang(lead.status)) return;
+    var row = sheet ? findRowById(sheet, lead.id) : -1;
+    if (row < 0 || statusCol < 0) throw new Error("OWNER_APPROVAL_REQUIRED_FOR_WON");
+    var currentStatus = sheet.getRange(row, statusCol + 1).getValue();
+    if (!isDealMenang(currentStatus)) throw new Error("OWNER_APPROVAL_REQUIRED_FOR_WON");
+  });
+}
+
+function cskAssertPayloadAllowed_(identity, payload) {
+  var role = identity && identity.role;
+  var action = String(payload.action || "").toLowerCase();
+  if (role !== "owner" && role !== "team") throw new Error("FORBIDDEN");
+
+  if (action === "sync_all") {
+    var ownerCollections = ["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots"];
+    var teamCollections = ["leads","clients","projects"];
+    var allowed = role === "owner" ? ownerCollections : teamCollections;
+    Object.keys(payload).forEach(function(key) {
+      if (ownerCollections.indexOf(key) >= 0 && allowed.indexOf(key) < 0) throw new Error("FORBIDDEN_COLLECTION:" + key);
+    });
+    allowed.forEach(function(key) {
+      if (Object.prototype.hasOwnProperty.call(payload, key) && !Array.isArray(payload[key])) throw new Error("INVALID_COLLECTION:" + key);
+    });
+    return true;
+  }
+
+  if (["insert","delete","update_status"].indexOf(action) >= 0) {
+    var ownerSheets = Object.keys(FIELD_MAP || {});
+    var teamSheets = ["Leads","Clients","Projects"];
+    var sheet = String(payload.sheet || (action === "insert" ? "" : "Leads"));
+    var allowedSheets = role === "owner" ? ownerSheets : teamSheets;
+    if (allowedSheets.indexOf(sheet) < 0) throw new Error("FORBIDDEN_SHEET");
+    if (action === "update_status" && ["Leads","Projects"].indexOf(sheet) < 0) throw new Error("FORBIDDEN_SHEET");
+    return true;
+  }
+
+  if (action === "send_cold_email") throw new Error("COLD_EMAIL_DISABLED");
+  throw new Error("ACTION_NOT_ALLOWED");
 }
 
 // ============== OTOMATISASI PILLAR ==============
@@ -828,4 +969,13 @@ function mergeSheet(ss, sheetName, items) {
 function jsonResponse(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/** Menu untuk menjalankan dialog PIN dari konteks Google Sheets. */
+function onOpen(e) {
+  SpreadsheetApp.getUi()
+    .createMenu("CSK Security")
+    .addItem("Setup PIN Owner & Tim", "setupCSKPinCredentialsFromPrompt")
+    .addItem("Rotasi PIN Owner & Tim", "rotateCSKPinCredentialsFromPrompt")
+    .addToUi();
 }

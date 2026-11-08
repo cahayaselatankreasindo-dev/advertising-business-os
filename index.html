@@ -324,6 +324,7 @@
       main.flex-1.overflow-y-auto { position:relative; z-index:1; }
     }
   </style>
+  <script src="./security/guard.js" defer></script>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden select-none">
 
@@ -836,9 +837,7 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Token Akses (wajib):</label>
-            <input type="password" id="setting-api-token" placeholder="Token rahasia dari setupApiToken()" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-amber-500 font-mono">
-            <p class="text-[11px] text-slate-500 mt-1">API token wajib untuk semua akses cloud. Jalankan <code>setupApiToken()</code> sekali di Apps Script, lalu simpan token rahasia hanya pada perangkat Owner. Jangan bagikan token ini kepada Tim sebelum hak akses server-side dipisahkan.</p>
+            <p class="text-[11px] text-slate-500">Akses cloud memakai email terdaftar dan PIN individual. PIN diverifikasi di Google Apps Script dan disimpan sebagai hash di Script Properties. Hak akses Owner/Tim diperiksa kembali di server; PIN maupun session ID tidak disimpan di database lokal.</p>
           </div>
 
           <div class="flex flex-wrap gap-2 pt-1">
@@ -1403,7 +1402,6 @@
       quotationSnapshots: [],
       settings: {
         googleSheetUrl: '',
-        apiToken: '',
         lastSync: ''
       },
       role: 'owner'
@@ -1434,11 +1432,8 @@
           console.error("Gagal membaca database lokal.");
         }
       }
-      if (!db.settings) db.settings = { googleSheetUrl: '', apiToken: '', lastSync: '' };
-      if (!db.settings.apiToken) db.settings.apiToken = '';
+      if (!db.settings) db.settings = { googleSheetUrl: '', lastSync: '' };
       document.getElementById('setting-google-url').value = db.settings.googleSheetUrl || '';
-      const tokenEl = document.getElementById('setting-api-token');
-      if (tokenEl) tokenEl.value = db.settings.apiToken || '';
       // Set role selector
       document.getElementById('role-select').value = db.role || 'owner';
       const mobSel = document.getElementById('role-select-mob');
@@ -1813,7 +1808,7 @@
       if(!db.clients.length){container.innerHTML='<div class="col-span-full bg-white p-8 rounded-2xl border border-stone-200 text-center text-xs text-stone-400">Belum ada klien tersimpan.</div>';return;}
       container.innerHTML=db.clients.map(c=>{
         const rating=Math.max(0,Math.min(5,Math.round(Number(c.rating)||0))),review=c.review||c.ratingReview||'',id=escapeInvoiceHtml(c.id),phone=String(c.phone||'');
-        return '<article class="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-sm space-y-3 min-w-0"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold text-sm text-stone-900 break-words">'+escapeInvoiceHtml(c.name||'Tanpa nama')+'</h3><div class="text-xs text-stone-500 mt-1 break-all">'+escapeInvoiceHtml(phone||'-')+'</div></div><button onclick="deleteClient(\\''+id+'\\')" aria-label="Hapus klien" class="w-9 h-9 shrink-0 rounded-lg border border-stone-200 text-stone-400 hover:text-red-600"><i class="fa fa-trash"></i></button></div><div class="flex items-center gap-2">'+renderStars(rating)+'<span class="text-xs text-stone-500">'+rating+'/5</span></div>'+(review?'<p class="text-xs text-stone-600 bg-stone-50 border border-stone-100 p-3 rounded-xl whitespace-pre-wrap break-words">'+escapeInvoiceHtml(review)+'</p>':'')+'<div class="grid grid-cols-2 gap-2 bg-stone-50 p-3 rounded-xl text-xs"><div><div class="text-[10px] text-stone-400 font-semibold uppercase">Total Proyek</div><div class="font-bold text-stone-800 mt-1">'+Number(c.projectsCount||0)+' Proyek</div></div><div><div class="text-[10px] text-stone-400 font-semibold uppercase">LTV Total</div><div class="font-bold text-emerald-700 mt-1">'+formatRp(c.totalSpend||0)+'</div></div></div>'+(c.notes?'<p class="text-xs text-stone-600 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(c.notes)+'</p>':'')+(phone?'<a rel="noopener noreferrer" href="https://wa.me/'+cleanPhone(phone)+'" target="_blank" class="min-h-10 flex items-center justify-center w-full rounded-xl bg-emerald-50 text-emerald-700 font-semibold text-xs"><i class="fa fa-whatsapp mr-2"></i>Hubungi Klien</a>':'')+'</article>';
+        return '<article class="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-sm space-y-3 min-w-0"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold text-sm text-stone-900 break-words">'+escapeInvoiceHtml(c.name||'Tanpa nama')+'</h3><div class="text-xs text-stone-500 mt-1 break-all">'+escapeInvoiceHtml(phone||'-')+'</div></div><button onclick="deleteClient(\''+id+'\')" aria-label="Hapus klien" class="w-9 h-9 shrink-0 rounded-lg border border-stone-200 text-stone-400 hover:text-red-600"><i class="fa fa-trash"></i></button></div><div class="flex items-center gap-2">'+renderStars(rating)+'<span class="text-xs text-stone-500">'+rating+'/5</span></div>'+(review?'<p class="text-xs text-stone-600 bg-stone-50 border border-stone-100 p-3 rounded-xl whitespace-pre-wrap break-words">'+escapeInvoiceHtml(review)+'</p>':'')+'<div class="grid grid-cols-2 gap-2 bg-stone-50 p-3 rounded-xl text-xs"><div><div class="text-[10px] text-stone-400 font-semibold uppercase">Total Proyek</div><div class="font-bold text-stone-800 mt-1">'+Number(c.projectsCount||0)+' Proyek</div></div><div><div class="text-[10px] text-stone-400 font-semibold uppercase">LTV Total</div><div class="font-bold text-emerald-700 mt-1">'+formatRp(c.totalSpend||0)+'</div></div></div>'+(c.notes?'<p class="text-xs text-stone-600 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(c.notes)+'</p>':'')+(phone?'<a rel="noopener noreferrer" href="https://wa.me/'+cleanPhone(phone)+'" target="_blank" class="min-h-10 flex items-center justify-center w-full rounded-xl bg-emerald-50 text-emerald-700 font-semibold text-xs"><i class="fa fa-whatsapp mr-2"></i>Hubungi Klien</a>':'')+'</article>';
       }).join('');
     }
 
@@ -1894,7 +1889,7 @@
       const rows=db.services.filter(x=>[x.name,x.category,x.spec].some(v=>String(v||'').toLowerCase().includes(q)));
       const count=document.getElementById('svc-count');if(count)count.innerText=rows.length+' dari '+db.services.length+' layanan';
       const el=document.getElementById('services-list');if(!el)return;
-      el.innerHTML=rows.map(x=>{const id=escapeInvoiceHtml(x.id);return '<article class="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 min-w-0"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold text-sm text-stone-900 break-words">'+escapeInvoiceHtml(x.name)+'</h3><div class="inline-flex mt-2 px-2 py-1 rounded-full bg-violet-50 text-violet-700 text-[10px] font-semibold">'+escapeInvoiceHtml(x.category)+'</div></div><b class="text-sm whitespace-nowrap">'+formatRp(x.basePrice)+'</b></div><p class="text-xs text-stone-600 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(x.spec||'Belum ada spesifikasi')+'</p><div class="grid grid-cols-2 gap-2 pt-2 border-t border-stone-100"><button onclick="editService(\\''+id+'\\')" class="min-h-9 rounded-lg border border-stone-200 bg-white text-xs font-semibold">Edit layanan</button><button onclick="deleteService(\\''+id+'\\')" class="min-h-9 rounded-lg border border-red-100 bg-red-50 text-xs font-semibold text-red-600">Hapus</button></div></article>';}).join('')||'<div class="bg-white border border-stone-200 rounded-2xl p-6 text-sm text-stone-500 text-center">Tidak ada layanan yang cocok dengan pencarian.</div>';
+      el.innerHTML=rows.map(x=>{const id=escapeInvoiceHtml(x.id);return '<article class="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 min-w-0"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold text-sm text-stone-900 break-words">'+escapeInvoiceHtml(x.name)+'</h3><div class="inline-flex mt-2 px-2 py-1 rounded-full bg-violet-50 text-violet-700 text-[10px] font-semibold">'+escapeInvoiceHtml(x.category)+'</div></div><b class="text-sm whitespace-nowrap">'+formatRp(x.basePrice)+'</b></div><p class="text-xs text-stone-600 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(x.spec||'Belum ada spesifikasi')+'</p><div class="grid grid-cols-2 gap-2 pt-2 border-t border-stone-100"><button onclick="editService(\''+id+'\')" class="min-h-9 rounded-lg border border-stone-200 bg-white text-xs font-semibold">Edit layanan</button><button onclick="deleteService(\''+id+'\')" class="min-h-9 rounded-lg border border-red-100 bg-red-50 text-xs font-semibold text-red-600">Hapus</button></div></article>';}).join('')||'<div class="bg-white border border-stone-200 rounded-2xl p-6 text-sm text-stone-500 text-center">Tidak ada layanan yang cocok dengan pencarian.</div>';
     }
     function editService(id) {
       const item=(db.services||[]).find(x=>x.id===id);if(!item)return;
@@ -1906,7 +1901,6 @@
       Object.assign(item,{name:name.trim(),category:category.trim(),spec:spec.trim(),basePrice:price,updatedAt:new Date().toISOString()});saveDB();renderServices();showToast('Layanan diperbarui.');
     }
 
-    function addService()
     function addService() {
       const name=document.getElementById('svc-name').value.trim(), category=document.getElementById('svc-category').value.trim(), spec=document.getElementById('svc-spec').value.trim(), basePrice=Number(document.getElementById('svc-price').value);
       if(!name||!category||!Number.isFinite(basePrice)||basePrice<0)return showToast('Lengkapi nama, kategori, dan harga dasar layanan.',true);
@@ -1960,7 +1954,7 @@
     function renderPoList() {
       const el=document.getElementById('po-list'); if(!el)return;
       const labels={draft:'Draft',ordered:'Dipesan',received:'Diterima',cancelled:'Dibatalkan'};
-      el.innerHTML=(db.purchaseOrders||[]).slice().reverse().map(x=>'<article class="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><b class="text-sm text-stone-900">'+escapeInvoiceHtml(x.id)+'</b><div class="text-xs text-stone-500 mt-1 break-words">'+escapeInvoiceHtml(x.projectName)+' · '+escapeInvoiceHtml(x.supplier)+'</div><div class="text-[11px] text-stone-400 mt-1">'+escapeInvoiceHtml(x.date)+'</div></div><b class="text-sm whitespace-nowrap">'+formatRp(x.total)+'</b></div><div class="flex flex-wrap gap-2 text-[11px]"><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600">Status: '+escapeInvoiceHtml(labels[x.status]||x.status||'-')+'</span><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600">'+((x.items||[]).length)+' item</span></div><div class="grid grid-cols-2 sm:grid-cols-3 gap-2">'+(x.status!=='ordered'&&x.status!=='received'&&x.status!=='cancelled'?'<button onclick="updatePoStatus(\\''+escapeInvoiceHtml(x.id)+'\\',\\'ordered\\')" class="min-h-9 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold">Tandai dipesan</button>':'')+(x.status!=='received'&&x.status!=='cancelled'?'<button onclick="updatePoStatus(\\''+escapeInvoiceHtml(x.id)+'\\',\\'received\\')" class="min-h-9 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold">Tandai diterima</button>':'')+(x.status!=='received'&&x.status!=='cancelled'?'<button onclick="updatePoStatus(\\''+escapeInvoiceHtml(x.id)+'\\',\\'cancelled\\')" class="min-h-9 rounded-lg bg-red-50 text-red-600 text-xs font-semibold">Batalkan</button>':'')+'</div></article>').join('')||'<div class="text-sm text-stone-400 bg-white border border-stone-200 rounded-2xl p-6 text-center">Belum ada Purchase Order.</div>';
+      el.innerHTML=(db.purchaseOrders||[]).slice().reverse().map(x=>'<article class="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><b class="text-sm text-stone-900">'+escapeInvoiceHtml(x.id)+'</b><div class="text-xs text-stone-500 mt-1 break-words">'+escapeInvoiceHtml(x.projectName)+' · '+escapeInvoiceHtml(x.supplier)+'</div><div class="text-[11px] text-stone-400 mt-1">'+escapeInvoiceHtml(x.date)+'</div></div><b class="text-sm whitespace-nowrap">'+formatRp(x.total)+'</b></div><div class="flex flex-wrap gap-2 text-[11px]"><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600">Status: '+escapeInvoiceHtml(labels[x.status]||x.status||'-')+'</span><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600">'+((x.items||[]).length)+' item</span></div><div class="grid grid-cols-2 sm:grid-cols-3 gap-2">'+(x.status!=='ordered'&&x.status!=='received'&&x.status!=='cancelled'?'<button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'ordered\')" class="min-h-9 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold">Tandai dipesan</button>':'')+(x.status!=='received'&&x.status!=='cancelled'?'<button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'received\')" class="min-h-9 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold">Tandai diterima</button>':'')+(x.status!=='received'&&x.status!=='cancelled'?'<button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'cancelled\')" class="min-h-9 rounded-lg bg-red-50 text-red-600 text-xs font-semibold">Batalkan</button>':'')+'</div></article>').join('')||'<div class="text-sm text-stone-400 bg-white border border-stone-200 rounded-2xl p-6 text-center">Belum ada Purchase Order.</div>';
     }
 
     // ============== HPP & MATERIAL CALCULATOR ==============
@@ -1970,7 +1964,7 @@
       const project = document.getElementById('hpp-project');
       if (project) project.innerHTML = '<option value="">Pilih proyek</option>' + db.projects.map(p => '<option value="' + escapeInvoiceHtml(p.id) + '">' + escapeInvoiceHtml(p.title || p.id) + '</option>').join('');
       const mats = document.getElementById('hpp-material-list');
-      if (mats) mats.innerHTML = db.materials.length ? db.materials.map(m => '<article class="rounded-xl border border-stone-100 bg-stone-50/70 p-3 flex flex-col gap-2"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="font-semibold text-xs text-stone-800 break-words">'+escapeInvoiceHtml(m.name)+'</div><div class="text-[11px] text-stone-500 mt-1">Satuan: '+escapeInvoiceHtml(m.unit)+'</div></div><b class="text-xs text-stone-900 whitespace-nowrap">'+formatRp(m.unitPrice)+'</b></div><div class="grid grid-cols-2 gap-2"><button onclick="editHppMaterial(\\''+escapeInvoiceHtml(m.id)+'\\')" class="min-h-9 rounded-lg border border-stone-200 bg-white text-xs font-semibold text-stone-700">Edit material</button><button onclick="deleteHppMaterial(\\''+escapeInvoiceHtml(m.id)+'\\')" class="min-h-9 rounded-lg border border-red-100 bg-red-50 text-xs font-semibold text-red-600">Hapus</button></div></article>').join('') : '<p class="text-xs text-stone-400 text-center py-4">Belum ada material.</p>';
+      if (mats) mats.innerHTML = db.materials.length ? db.materials.map(m => '<article class="rounded-xl border border-stone-100 bg-stone-50/70 p-3 flex flex-col gap-2"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="font-semibold text-xs text-stone-800 break-words">'+escapeInvoiceHtml(m.name)+'</div><div class="text-[11px] text-stone-500 mt-1">Satuan: '+escapeInvoiceHtml(m.unit)+'</div></div><b class="text-xs text-stone-900 whitespace-nowrap">'+formatRp(m.unitPrice)+'</b></div><div class="grid grid-cols-2 gap-2"><button onclick="editHppMaterial(\''+escapeInvoiceHtml(m.id)+'\')" class="min-h-9 rounded-lg border border-stone-200 bg-white text-xs font-semibold text-stone-700">Edit material</button><button onclick="deleteHppMaterial(\''+escapeInvoiceHtml(m.id)+'\')" class="min-h-9 rounded-lg border border-red-100 bg-red-50 text-xs font-semibold text-red-600">Hapus</button></div></article>').join('') : '<p class="text-xs text-stone-400 text-center py-4">Belum ada material.</p>';
       const select = document.getElementById('hpp-material');
       if (select) select.innerHTML = db.materials.map(m => '<option value="' + escapeInvoiceHtml(m.id) + '">' + escapeInvoiceHtml(m.name) + ' (' + formatRp(m.unitPrice) + '/' + escapeInvoiceHtml(m.unit) + ')</option>').join('');
       renderHppEstimate(); renderHppSaved();
@@ -2048,7 +2042,7 @@
     }
     function renderHppEstimate() {
       const el=document.getElementById('hpp-lines'); if(!el)return;
-      el.innerHTML=hppLines.map((x,i)=>'<div class="border rounded-lg p-3 space-y-2"><div class="grid grid-cols-2 sm:grid-cols-4 gap-2"><label class="text-[11px] text-slate-500">Nama material<input value="'+escapeInvoiceHtml(x.name)+'" onchange="setHppLineField('+i+',\\'name\\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Satuan<input value="'+escapeInvoiceHtml(x.unit)+'" onchange="setHppLineField('+i+',\\'unit\\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Kuantitas<input type="number" min="0.01" step="0.01" value="'+Number(x.qty)+'" onchange="setHppLineField('+i+',\\'qty\\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Harga satuan (Rp)<input type="number" min="0" step="1" value="'+Number(x.unitPrice)+'" onchange="setHppLineField('+i+',\\'unitPrice\\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label></div><div class="flex justify-between items-center text-xs"><span class="text-slate-500">Subtotal item</span><b>'+formatRp(Number(x.qty)*Number(x.unitPrice))+'</b><button onclick="removeHppLine('+i+')" class="text-red-600">Hapus item</button></div></div>').join('') || '<p class="text-xs text-slate-400">Belum ada item material.</p>';
+      el.innerHTML=hppLines.map((x,i)=>'<div class="border rounded-lg p-3 space-y-2"><div class="grid grid-cols-2 sm:grid-cols-4 gap-2"><label class="text-[11px] text-slate-500">Nama material<input value="'+escapeInvoiceHtml(x.name)+'" onchange="setHppLineField('+i+',\'name\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Satuan<input value="'+escapeInvoiceHtml(x.unit)+'" onchange="setHppLineField('+i+',\'unit\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Kuantitas<input type="number" min="0.01" step="0.01" value="'+Number(x.qty)+'" onchange="setHppLineField('+i+',\'qty\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Harga satuan (Rp)<input type="number" min="0" step="1" value="'+Number(x.unitPrice)+'" onchange="setHppLineField('+i+',\'unitPrice\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label></div><div class="flex justify-between items-center text-xs"><span class="text-slate-500">Subtotal item</span><b>'+formatRp(Number(x.qty)*Number(x.unitPrice))+'</b><button onclick="removeHppLine('+i+')" class="text-red-600">Hapus item</button></div></div>').join('') || '<p class="text-xs text-slate-400">Belum ada item material.</p>';
       calculateHpp();
     }
     function removeHppLine(i) { hppLines.splice(i,1); renderHppEstimate(); }
@@ -2074,7 +2068,7 @@
 
     function renderHppSaved() {
       const el=document.getElementById('hpp-saved-list'); if(!el)return;
-      el.innerHTML='<h3 class="font-semibold text-sm">HPP tersimpan</h3>'+(db.costSheets||[]).map(x=>'<div class="flex items-center justify-between gap-2 border-b py-2"><button onclick="document.getElementById(\\'hpp-project\\').value=\\''+escapeInvoiceHtml(x.projectId)+'\\';loadHppProject(\\''+escapeInvoiceHtml(x.projectId)+'\\')" class="flex-1 text-left text-xs"><span class="font-semibold">'+escapeInvoiceHtml(x.projectName)+'</span><span class="block text-slate-500">HPP '+formatRp(x.total)+' · Penawaran '+formatRp(x.price)+'</span></button><button onclick="deleteHppEstimate(\\''+escapeInvoiceHtml(x.projectId)+'\\')" class="text-xs text-red-600">Hapus HPP</button></div>').join('');
+      el.innerHTML='<h3 class="font-semibold text-sm">HPP tersimpan</h3>'+(db.costSheets||[]).map(x=>'<div class="flex items-center justify-between gap-2 border-b py-2"><button onclick="document.getElementById(\'hpp-project\').value=\''+escapeInvoiceHtml(x.projectId)+'\';loadHppProject(\''+escapeInvoiceHtml(x.projectId)+'\')" class="flex-1 text-left text-xs"><span class="font-semibold">'+escapeInvoiceHtml(x.projectName)+'</span><span class="block text-slate-500">HPP '+formatRp(x.total)+' · Penawaran '+formatRp(x.price)+'</span></button><button onclick="deleteHppEstimate(\''+escapeInvoiceHtml(x.projectId)+'\')" class="text-xs text-red-600">Hapus HPP</button></div>').join('');
     }
 
     // ============== DOCUMENT CENTER ==============
@@ -2169,7 +2163,7 @@
         return '<article class="p-4 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-stone-50/70">'+
           '<div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><span class="inline-flex px-2 py-1 rounded-full text-[10px] font-semibold '+(isIncome?'bg-emerald-50 text-emerald-700':'bg-red-50 text-red-700')+'">'+(isIncome?'Pemasukan':'Pengeluaran')+'</span><span class="text-[11px] text-stone-400">'+escapeInvoiceHtml(f.date||'-')+'</span></div>'+
           '<div class="font-semibold text-sm text-stone-800 mt-1 break-words">'+escapeInvoiceHtml(f.description||'Transaksi')+'</div><div class="text-xs text-stone-500 mt-1">'+escapeInvoiceHtml(f.category||'Tanpa kategori')+'</div></div>'+
-          '<div class="flex items-center justify-between sm:justify-end gap-3"><span class="font-bold text-sm whitespace-nowrap '+(isIncome?'text-emerald-700':'text-red-600')+'">'+(isIncome?'+ ':'− ')+formatRp(f.amount)+'</span><button onclick="deleteFinance(\\''+escapeInvoiceHtml(f.id)+'\\')" aria-label="Hapus transaksi" class="w-9 h-9 rounded-lg border border-stone-200 text-stone-400 hover:text-red-600"><i class="fa fa-trash"></i></button></div></article>';
+          '<div class="flex items-center justify-between sm:justify-end gap-3"><span class="font-bold text-sm whitespace-nowrap '+(isIncome?'text-emerald-700':'text-red-600')+'">'+(isIncome?'+ ':'− ')+formatRp(f.amount)+'</span><button onclick="deleteFinance(\''+escapeInvoiceHtml(f.id)+'\')" aria-label="Hapus transaksi" class="w-9 h-9 rounded-lg border border-stone-200 text-stone-400 hover:text-red-600"><i class="fa fa-trash"></i></button></div></article>';
       }).join('');
     }
 
@@ -2203,7 +2197,7 @@
       if(!entries.length)roasEl.innerHTML='<div class="text-xs text-stone-400 text-center py-4">Belum ada data campaign.</div>';
       else {const wonValue=db.leads.filter(l=>l.status==='won').reduce((s,l)=>s+Number(l.value||0),0),overall=totalSpent?(wonValue/totalSpent).toFixed(2)+'x':'—';let html='<div class="grid grid-cols-2 gap-2 mb-3"><div class="bg-stone-50 border border-stone-100 p-3 rounded-xl text-center"><div class="text-[10px] text-stone-500">Total ROAS</div><div class="font-bold text-stone-900 text-sm mt-1">'+overall+'</div></div><div class="bg-stone-50 border border-stone-100 p-3 rounded-xl text-center"><div class="text-[10px] text-stone-500">CPL Global</div><div class="font-bold text-stone-900 text-sm mt-1">'+formatRp(cpl)+'</div></div></div><div class="space-y-2">';entries.forEach(([platform,d])=>{html+='<article class="rounded-xl bg-stone-50 border border-stone-100 p-3 flex flex-col gap-2"><div class="font-semibold text-xs text-stone-800">'+escapeInvoiceHtml(platform)+'</div><div class="grid grid-cols-3 gap-2 text-[11px]"><div><div class="text-stone-400">Budget</div><b>'+formatRp(d.budget)+'</b></div><div><div class="text-stone-400">CPL</div><b>'+formatRp(d.leads?Math.round(d.spent/d.leads):0)+'</b></div><div><div class="text-stone-400">Leads</div><b>'+d.leads+'</b></div></div></article>';});roasEl.innerHTML=html+'</div>';}
       const tableEl=document.getElementById('marketing-table');if(!db.marketingSpend.length){tableEl.innerHTML='<div class="p-6 text-center text-xs text-stone-400">Belum ada campaign iklan tercatat.</div>';return;}
-      tableEl.innerHTML=db.marketingSpend.slice().reverse().map(m=>{const id=escapeInvoiceHtml(m.id),remaining=Number(m.budget||0)-Number(m.spent||0);return '<article class="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-stone-50/70"><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><b class="text-sm text-stone-800 break-words">'+escapeInvoiceHtml(m.campaign||'Campaign')+'</b><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600 text-[10px]">'+escapeInvoiceHtml(m.platform||'-')+'</span></div><div class="text-[11px] text-stone-400 mt-1">'+escapeInvoiceHtml(m.date||'-')+' · Budget '+formatRp(m.budget)+'</div></div><div class="grid grid-cols-2 sm:flex sm:items-center gap-3 text-xs"><span class="text-stone-500">Terpakai <b class="text-stone-800">'+formatRp(m.spent)+'</b></span><span class="text-stone-500">Sisa <b class="'+(remaining<0?'text-red-600':'text-emerald-700')+'">'+formatRp(remaining)+'</b></span><span class="text-stone-500">Leads <b class="text-stone-800">'+Number(m.leadsGenerated||0)+'</b></span><button onclick="deleteMarketing(\\''+id+'\\')" class="min-h-9 rounded-lg border border-red-100 bg-red-50 text-red-600 text-xs font-semibold">Hapus</button></div></article>';}).join('');
+      tableEl.innerHTML=db.marketingSpend.slice().reverse().map(m=>{const id=escapeInvoiceHtml(m.id),remaining=Number(m.budget||0)-Number(m.spent||0);return '<article class="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-stone-50/70"><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><b class="text-sm text-stone-800 break-words">'+escapeInvoiceHtml(m.campaign||'Campaign')+'</b><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600 text-[10px]">'+escapeInvoiceHtml(m.platform||'-')+'</span></div><div class="text-[11px] text-stone-400 mt-1">'+escapeInvoiceHtml(m.date||'-')+' · Budget '+formatRp(m.budget)+'</div></div><div class="grid grid-cols-2 sm:flex sm:items-center gap-3 text-xs"><span class="text-stone-500">Terpakai <b class="text-stone-800">'+formatRp(m.spent)+'</b></span><span class="text-stone-500">Sisa <b class="'+(remaining<0?'text-red-600':'text-emerald-700')+'">'+formatRp(remaining)+'</b></span><span class="text-stone-500">Leads <b class="text-stone-800">'+Number(m.leadsGenerated||0)+'</b></span><button onclick="deleteMarketing(\''+id+'\')" class="min-h-9 rounded-lg border border-red-100 bg-red-50 text-red-600 text-xs font-semibold">Hapus</button></div></article>';}).join('');
     }
 
 
@@ -2212,7 +2206,7 @@
     function renderMemory() {
       const container=document.getElementById('memory-container');if(!container)return;
       if(!db.memory.length){container.innerHTML='<div class="col-span-full bg-white p-8 rounded-2xl border border-stone-200 text-center text-xs text-stone-400">Belum ada catatan strategi bisnis.</div>';return;}
-      container.innerHTML=db.memory.slice().reverse().map(m=>'<article class="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-sm border-l-4 border-l-orange-400 space-y-3 min-w-0"><div class="flex items-center justify-between gap-2 text-xs"><span class="font-semibold text-orange-700">'+escapeInvoiceHtml(m.category||'Catatan')+'</span><span class="text-stone-400">'+escapeInvoiceHtml(m.date||'')+'</span></div><h3 class="font-semibold text-sm text-stone-900 break-words">'+escapeInvoiceHtml(m.title||'Tanpa judul')+'</h3><p class="text-xs leading-relaxed text-stone-600 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(m.content||m.note||'')+'</p><div class="flex justify-end"><button onclick="deleteMemory(\\''+escapeInvoiceHtml(m.id)+'\\')" class="min-h-9 px-3 rounded-lg border border-red-100 bg-red-50 text-xs font-semibold text-red-600">Hapus catatan</button></div></article>').join('');
+      container.innerHTML=db.memory.slice().reverse().map(m=>'<article class="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-sm border-l-4 border-l-orange-400 space-y-3 min-w-0"><div class="flex items-center justify-between gap-2 text-xs"><span class="font-semibold text-orange-700">'+escapeInvoiceHtml(m.category||'Catatan')+'</span><span class="text-stone-400">'+escapeInvoiceHtml(m.date||'')+'</span></div><h3 class="font-semibold text-sm text-stone-900 break-words">'+escapeInvoiceHtml(m.title||'Tanpa judul')+'</h3><p class="text-xs leading-relaxed text-stone-600 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(m.content||m.note||'')+'</p><div class="flex justify-end"><button onclick="deleteMemory(\''+escapeInvoiceHtml(m.id)+'\')" class="min-h-9 px-3 rounded-lg border border-red-100 bg-red-50 text-xs font-semibold text-red-600">Hapus catatan</button></div></article>').join('');
     }
 
     // ============== ANALYSIS ==============
@@ -2317,18 +2311,8 @@
      * "muncul lagi" dari cloud saat app dibuka (karena sync memakai merge).
      */
     async function deleteOnCloud(sheetName, id) {
-      const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) return;
-      try {
-        await fetch(url, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'delete', sheet: sheetName, id: id, token: getApiToken() })
-        });
-      } catch (err) {
-        console.warn('Gagal hapus di cloud:', err.message);
-      }
+      if (window.CSKAuth && window.CSKAuth.deleteRecord) return window.CSKAuth.deleteRecord(sheetName, id);
+      showToast('Autentikasi cloud belum siap. Silakan muat ulang aplikasi.', true);
     }
 
     function deleteLead(id) {
@@ -2721,17 +2705,14 @@
 
     function saveGoogleUrl() {
       const url = document.getElementById('setting-google-url').value.trim();
-      const token = (document.getElementById('setting-api-token')?.value || '').trim();
+      if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec\/?$/.test(url)) {
+        showToast('URL Google Apps Script tidak valid.', true);
+        return;
+      }
       db.settings.googleSheetUrl = url;
-      db.settings.apiToken = token;
       localStorage.setItem(DB_KEY, JSON.stringify(db));
       updateCloudIndicator();
-      showToast('URL & token berhasil disimpan!');
-    }
-
-    /** Helper: ambil token akses (untuk disisipkan ke request). */
-    function getApiToken() {
-      return (db.settings && db.settings.apiToken) || '';
+      showToast('URL backend tersimpan. Login PIN diperlukan untuk sinkronisasi.');
     }
 
     function updateCloudIndicator() {
@@ -2745,194 +2726,18 @@
       if (text) text.innerText = !configured ? 'Lokal Offline' : failed ? 'Sync bermasalah' : verified ? 'Cloud terverifikasi' : 'Cloud belum diuji';
     }
 
-    async function verifyCloudSync(payload, url) {
-      const response = await fetch(url + '?token=' + encodeURIComponent(getApiToken()), { cache: 'no-store' });
-      if (!response.ok) throw new Error('Server Google Sheets tidak merespons (' + response.status + ').');
-      const json = await response.json();
-      if (json.status !== 'success' || !json.data) {
-        throw new Error(json.message || 'Server menolak sinkronisasi. Periksa URL dan API token.');
-      }
-      const collections = {
-        leads: 'leads', clients: 'clients', projects: 'projects', finance: 'finance',
-        memory: 'memory', marketingSpend: 'marketingSpend', materials: 'materials',
-        costSheets: 'costSheets', services: 'services', purchaseOrders: 'purchaseOrders',
-        quotationSnapshots: 'quotationSnapshots'
-      };
-      const canonicalize = value => {
-        if (Array.isArray(value)) return value.map(canonicalize);
-        if (value && typeof value === 'object') {
-          return Object.keys(value).sort().reduce((out, key) => {
-            out[key] = canonicalize(value[key]);
-            return out;
-          }, {});
-        }
-        return value;
-      };
-      const normalize = (value, field) => {
-        if (value === undefined || value === null) return '';
-        if (field === 'date' || field === 'deadline') return String(value).slice(0, 10);
-        if (typeof value === 'object') return JSON.stringify(canonicalize(value));
-        return String(value).trim();
-      };
-      const verified = [];
-      Object.keys(collections).forEach(key => {
-        const localRows = Array.isArray(payload[key]) ? payload[key] : [];
-        const cloudRows = Array.isArray(json.data[collections[key]]) ? json.data[collections[key]] : [];
-        const cloudById = new Map(cloudRows.filter(row => row && row.id !== undefined).map(row => [String(row.id), row]));
-        localRows.forEach(localRow => {
-          if (!localRow || localRow.id === undefined) {
-            throw new Error('Verifikasi ' + key + ' gagal: ada data lokal tanpa ID.');
-          }
-          const cloudRow = cloudById.get(String(localRow.id));
-          if (!cloudRow) {
-            throw new Error('Verifikasi ' + key + ' gagal: ID ' + localRow.id + ' belum ditemukan di Google Sheets.');
-          }
-          const ignoredFields = ['updatedAt', 'itemsJson', 'linesJson'];
-          const fields = Object.keys(localRow).filter(field =>
-            localRow[field] !== undefined && ignoredFields.indexOf(field) === -1
-          );
-          const mismatches = fields.filter(field =>
-            normalize(localRow[field], field) !== normalize(cloudRow[field], field)
-          );
-          if (mismatches.length) {
-            throw new Error('Verifikasi ' + key + ' gagal untuk ID ' + localRow.id +
-              '. Nilai berbeda pada: ' + mismatches.join(', ') + '.');
-          }
-        });
-        verified.push(key);
-      });
-      return { modules: verified.length, checkedAt: json.data.lastSynced || new Date().toISOString() };
-    }
-
     async function syncWithGoogle(isSilent = false) {
-      const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) {
-        if (!isSilent) {
-          alert('URL Google Sheets belum disetel!'); nav('settings');
-        }
-        return;
-      }
-      const token = getApiToken();
-      if (!/^[a-f0-9]{64}$/i.test(token)) {
-        if (!isSilent) showToast('API token belum valid. Periksa Pengaturan CSK.', true);
-        return;
-      }
-      if (!isSilent) showToast('Mengirim dan memverifikasi data ke Google Sheets...');
-      const payload = {
-        action: 'sync_all', token,
-        leads: db.leads, clients: db.clients, projects: db.projects, finance: db.finance,
-        memory: db.memory, marketingSpend: db.marketingSpend, materials: db.materials || [],
-        costSheets: db.costSheets || [], services: db.services || [],
-        purchaseOrders: db.purchaseOrders || [], quotationSnapshots: db.quotationSnapshots || []
-      };
-      try {
-        // Apps Script POST uses no-cors because Google may redirect the response.
-        // A subsequent authenticated GET confirms that every submitted ID exists.
-        await fetch(url, {
-          method: 'POST', mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload)
-        });
-        const verification = await verifyCloudSync(payload, url);
-        db.settings.lastSync = verification.checkedAt;
-        db.settings.lastSyncModules = verification.modules;
-        db.settings.lastSyncError = '';
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
-        updateCloudIndicator();
-        if (!isSilent) showToast('Sinkronisasi terverifikasi. ' + verification.modules + ' modul cocok dengan Google Sheets.');
-      } catch (err) {
-        db.settings.lastSyncError = String(err && err.message || err);
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
-        updateCloudIndicator();
-        if (!isSilent) showToast('Sinkronisasi belum terverifikasi: ' + db.settings.lastSyncError, true);
-        else console.warn('CSK cloud sync verification failed:', db.settings.lastSyncError);
-      }
+      if (window.CSKAuth && window.CSKAuth.sync) return window.CSKAuth.sync(isSilent);
+      if (!isSilent) showToast('Autentikasi cloud belum siap. Silakan muat ulang aplikasi.', true);
     }
 
-    /**
-     * Tarik data dari server Google Sheets dan timpa penyimpanan lokal.
-     * Server overwrites local — pastikan Anda sudah menyimpan perubahan penting sebelum menarik.
-     */
     async function pullData() {
-      const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) {
-        alert('URL Google Sheets belum disetel! Buka Pengaturan dulu.');
-        nav('settings');
-        return;
-      }
-      if (!confirm('Tarik data dari Google Sheets?\n\nTindakan ini akan MENIMPA data lokal Anda dengan data terbaru dari server.\nData yang hanya ada di HP/laptop ini dan belum pernah disinkronkan akan hilang.\n\nLanjutkan?')) return;
-
-      showToast('Mengambil data dari cloud...');
-      try {
-        const resp = await fetch(url + '?token=' + encodeURIComponent(getApiToken()));
-        const json = await resp.json();
-        if (json.status !== 'success' || !json.data) throw new Error('Respon tidak valid dari server.');
-
-        const d = json.data;
-        db.leads          = d.leads          || [];
-        db.clients        = d.clients        || [];
-        db.projects       = d.projects       || [];
-        db.finance        = d.finance        || [];
-        db.memory         = d.memory         || [];
-        db.marketingSpend = d.marketingSpend || [];
-        db.materials = d.materials || [];
-        db.costSheets = d.costSheets || [];
-        db.services = d.services || [];
-        db.purchaseOrders = d.purchaseOrders || [];
-        db.quotationSnapshots = d.quotationSnapshots || [];
-        db.settings.lastSync = d.lastSynced || new Date().toISOString();
-
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
-        updateCloudIndicator();
-        renderAll();
-        showToast('Data berhasil ditarik dari cloud! (' + new Date().toLocaleTimeString('id-ID') + ')');
-      } catch (err) {
-        showToast('Gagal menarik data: ' + err.message, true);
-      }
+      if (window.CSKAuth && window.CSKAuth.pull) return window.CSKAuth.pull();
+      showToast('Autentikasi cloud belum siap. Silakan muat ulang aplikasi.', true);
     }
 
-    /**
-     * Tarik data dari cloud lalu GABUNGKAN dengan data lokal (bukan menimpa).
-     * Aman: data lokal & data cloud sama-sama dipertahankan, digabung by ID.
-     * Dipanggil otomatis saat aplikasi dibuka.
-     */
     async function pullAndMerge() {
-      const url = db.settings && db.settings.googleSheetUrl;
-      if (!url) return;
-      try {
-        const resp = await fetch(url + '?token=' + encodeURIComponent(getApiToken()));
-        const json = await resp.json();
-        if (json.status !== 'success' || !json.data) return;
-        const d = json.data;
-
-        // Gabungkan: cloud + lokal, dedupe by id (lokal menang jika sama)
-        const mergeById = (cloudArr, localArr) => {
-          const map = new Map();
-          (cloudArr || []).forEach(x => { if (x && x.id !== undefined) map.set(String(x.id), x); });
-          (localArr || []).forEach(x => { if (x && x.id !== undefined) map.set(String(x.id), x); });
-          return Array.from(map.values());
-        };
-
-        db.leads          = mergeById(d.leads, db.leads);
-        db.clients        = mergeById(d.clients, db.clients);
-        db.projects       = mergeById(d.projects, db.projects);
-        db.finance        = mergeById(d.finance, db.finance);
-        db.memory         = mergeById(d.memory, db.memory);
-        db.marketingSpend = mergeById(d.marketingSpend, db.marketingSpend);
-        db.materials = mergeById(d.materials, db.materials);
-        db.costSheets = mergeById(d.costSheets, db.costSheets);
-        db.services = mergeById(d.services, db.services);
-        db.purchaseOrders = mergeById(d.purchaseOrders, db.purchaseOrders);
-        db.quotationSnapshots = mergeById(d.quotationSnapshots, db.quotationSnapshots);
-        db.settings.lastSync = d.lastSynced || new Date().toISOString();
-
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
-        renderAll();
-        updateCloudIndicator();
-      } catch (err) {
-        // Diamkan — offline tidak boleh mengganggu aplikasi
-        console.warn('pullAndMerge gagal (offline?):', err.message);
-      }
+      if (window.CSKAuth && window.CSKAuth.pull) return window.CSKAuth.pull();
     }
 
     function exportData() {
