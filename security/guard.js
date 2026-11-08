@@ -107,7 +107,8 @@
       // Owner collections are not persisted in browser storage. Google Sheets is the source of truth.
       // Keep only an in-memory recovery copy until the server confirms synchronization.
       try { legacyOwnerCache = JSON.parse(JSON.stringify(db)); } catch (e) { legacyOwnerCache = null; }
-      try { localStorage.removeItem(OWNER_KEY); localStorage.removeItem(DB_KEY); } catch (e) {}
+      // Keep legacy browser data until the cloud write is read back and verified.
+      // Removing it before verification can permanently lose data on refresh/login failure.
     } else {
       safeLocalSet(TEAM_KEY, JSON.stringify({ leads: db.leads || [], clients: db.clients || [], projects: db.projects || [] }));
     }
@@ -198,7 +199,11 @@
       db.settings.lastSyncModules = verified.modules;
       db.settings.lastSyncError = '';
       saveScoped();
-      if (identity && identity.role === 'owner') legacyOwnerCache = null;
+      if (identity && identity.role === 'owner') {
+        legacyOwnerCache = null;
+        // Retire legacy local copies only after the server read-back confirms every row.
+        try { localStorage.removeItem(DB_KEY); localStorage.removeItem(OWNER_KEY); } catch (e) {}
+      }
       succeeded = true;
       if (typeof updateCloudIndicator === 'function') updateCloudIndicator();
       if (!silent && typeof showToast === 'function') showToast('Sinkronisasi terverifikasi: ' + verified.modules + ' modul.');
@@ -318,8 +323,12 @@
       if (pinInput) pinInput.value = '';
       if (typeof renderAll === 'function') renderAll();
       if (typeof initStarPicker === 'function') initStarPicker('client-star-picker');
-      await syncNow(true);
-      if (typeof showToast === 'function') showToast('Login berhasil sebagai ' + (identity.role === 'owner' ? 'Owner.' : 'Tim.'));
+      var syncVerified = await syncNow(true);
+      if (!syncVerified) {
+        status('Login berhasil, tetapi sinkronisasi belum terverifikasi. Jangan tutup atau muat ulang halaman sampai koneksi cloud pulih.', true);
+      } else if (typeof showToast === 'function') {
+        showToast('Login berhasil sebagai ' + (identity.role === 'owner' ? 'Owner.' : 'Tim.'));
+      }
     } catch (e) {
       sessionId = '';
       identity = null;
@@ -365,9 +374,9 @@
       merged.settings = merged.settings || {};
       merged.settings.googleSheetUrl = url || merged.settings.googleSheetUrl || '';
       delete merged.settings.apiToken;
-      // This cache is memory-only and is cleared after a verified Owner sync.
+      // Preserve the original browser copy until a verified Owner sync succeeds.
+      // A failed login, refresh, or network interruption must not destroy the only copy.
       legacyOwnerCache = merged;
-      try { localStorage.removeItem(DB_KEY); localStorage.removeItem(OWNER_KEY); } catch (e) {}
     }
     resetDb();
     var input = document.getElementById('csk-backend-url');
@@ -468,6 +477,14 @@
     deleteRecord: function (sheet, id) { return window.deleteOnCloud(sheet, id); },
     getData: function () { return get('get_data'); }
   };
+
+  // Warn before leaving while Owner changes or a legacy migration still await verified cloud sync.
+  window.addEventListener('beforeunload', function (event) {
+    if (!ready || !identity || identity.role !== 'owner') return;
+    if (!legacyOwnerCache && !syncTimer && !syncRunning && !syncQueued) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
 
   // Gate is inserted before the application becomes interactive.
   ensureGate();
