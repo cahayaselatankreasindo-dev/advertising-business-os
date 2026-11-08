@@ -83,7 +83,7 @@
   function resetDb() {
     if (typeof db === 'undefined') return;
     ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','services','purchaseOrders','quotationSnapshots'].forEach(function (key) { db[key] = []; });
-    db.settings = { googleSheetUrl: apiUrl(), apiToken: '', lastSync: '', lastSyncError: '' };
+    db.settings = { googleSheetUrl: apiUrl(), lastSync: '', lastSyncError: '' };
     db.role = 'team';
   }
   function mergeById(cloudRows, localRows) {
@@ -101,7 +101,6 @@
   function saveScoped() {
     if (!ready || typeof db === 'undefined') return;
     db.settings = db.settings || {};
-    db.settings.apiToken = '';
     db.role = identity.role;
     if (identity.role === 'owner') {
       safeLocalSet(OWNER_KEY, JSON.stringify(db));
@@ -270,9 +269,10 @@
       });
       db.settings = db.settings || {};
       db.settings.googleSheetUrl = url;
-      db.settings.apiToken = '';
       db.settings.lastSync = cloud.lastSynced || '';
       db.settings.lastSyncError = '';
+      var settingsUrlInput = document.getElementById('setting-google-url');
+      if (settingsUrlInput) settingsUrlInput.value = url;
       db.role = identity.role;
       ready = true;
       saveScoped();
@@ -318,7 +318,7 @@
       merged.settings = Object.assign({}, legacy.settings || {}, owner.settings || {});
       merged.settings = merged.settings || {};
       merged.settings.googleSheetUrl = url || merged.settings.googleSheetUrl || '';
-      merged.settings.apiToken = '';
+      delete merged.settings.apiToken;
       safeLocalSet(OWNER_KEY, JSON.stringify(merged));
       try { localStorage.removeItem(DB_KEY); } catch (e) {}
     }
@@ -416,6 +416,9 @@
     isReady: function () { return ready; },
     getIdentity: function () { return identity ? { email: identity.email, role: identity.role } : null; },
     logout: logout,
+    sync: function (silent) { return syncNow(!!silent); },
+    pull: function () { return window.pullAndMerge(); },
+    deleteRecord: function (sheet, id) { return window.deleteOnCloud(sheet, id); },
     getData: function () { return get('get_data'); }
   };
 
