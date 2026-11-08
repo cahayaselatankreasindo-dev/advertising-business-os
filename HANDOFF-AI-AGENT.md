@@ -114,15 +114,14 @@ Test ini memuat `google_apps_script.js` ke sandbox Node dengan stub SpreadsheetA
 
 ## 5. Isu & Status (per 9 Okt 2026, sesi lanjutan)
 
-### 5.1 🟢 Keamanan URL — SOLUSI SUDAH DIBUAT
+### 5.1 🔐 Status keamanan API
 
-Repo publik → URL Apps Script di `index.html` (3 tempat) bisa dibaca siapa saja.
-
-**Fix (commit `466a419`):** token API opsional.
-- Backend: `setupApiToken()` + `isAuthorized()` — token di Script Properties (bukan kode)
-- Frontend: field **Token Akses** di Pengaturan, dikirim di semua request
-- **Mode kompatibel:** token belum diset → sistem jalan normal (tidak memutus app)
-- Aktifkan: jalankan `setupApiToken()` (ganti nilai token dulu) → paste token di app → semua perangkat
+- Backend menggunakan autentikasi fail-closed: API_TOKEN wajib valid 64 karakter hex. Request tanpa token ditolak.
+- Dropdown Owner/Tim di frontend masih merupakan mode tampilan, bukan otorisasi server-side.
+- API_TOKEN masih satu token global. Jangan bagikan token Owner kepada Tim.
+- Pemisahan token Owner/Tim dan verifikasi identitas email belum selesai.
+- Cold outreach otomatis dan manual dinonaktifkan sampai kontrol akses serta persetujuan server-side diterapkan.
+- Trigger cold outreach lama yang masih terpasang menjadi no-op setelah backend diperbarui.
 
 ### 5.2 🟢 Lead tidak muncul — SUDAH DIFIX
 

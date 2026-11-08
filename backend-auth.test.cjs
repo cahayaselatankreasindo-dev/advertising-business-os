@@ -12,4 +12,18 @@ for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
   assert.match(source, /function doGet\(e\)[\s\S]*?isAuthorized\(null, tokenParam\)/, path + ': GET protected');
   assert.match(source, /function doPost\(e\)[\s\S]*?isAuthorized\(payload\)/, path + ': POST protected');
 }
-console.log('CSK backend fail-closed API token checks passed.');
+for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
+  const source = fs.readFileSync(path, 'utf8');
+  const cron = source.match(/function cronDailyOutreach\(\)[\s\S]*?\n\}/);
+  assert.ok(cron, path + ': scheduled outreach function exists');
+  assert.match(cron[0], /dinonaktifkan/i, path + ': scheduled outreach is disabled by default');
+  assert.doesNotMatch(cron[0], /GmailApp\.sendEmail/, path + ': cron cannot send mail');
+  const installer = source.match(/function installDailyOutreachTrigger\(\)[\s\S]*?\n\}/);
+  assert.ok(installer, path + ': trigger installer exists');
+  assert.match(installer[0], /throw new Error/i, path + ': trigger installation is blocked');
+  const sendCase = source.match(/case "send_cold_email": \{[\s\S]*?\n      \}/);
+  assert.ok(sendCase, path + ': manual cold email action exists');
+  assert.match(sendCase[0], /dinonaktifkan sementara/i, path + ': manual cold email is disabled');
+  assert.doesNotMatch(sendCase[0], /GmailApp\.sendEmail/, path + ': manual action cannot send mail');
+}
+console.log('CSK backend fail-closed API token and outbound-email safety checks passed.');

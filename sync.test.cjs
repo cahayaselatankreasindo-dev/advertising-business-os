@@ -6,7 +6,7 @@ const html = fs.readFileSync('index.html', 'utf8');
 const backend = fs.readFileSync('apps-script/Code.gs', 'utf8');
 const noCorsPosts = [...html.matchAll(/mode: 'no-cors',[\s\S]{0,180}?headers: \{ 'Content-Type': '([^']+)' \}/g)];
 
-assert.equal(noCorsPosts.length, 3, 'all three Apps Script POST calls are covered');
+assert.equal(noCorsPosts.length, 2, 'delete and sync POST calls remain; cold email POST is disabled');
 for (const match of noCorsPosts) {
   assert.equal(match[1], 'text/plain;charset=utf-8', 'no-cors POST uses a CORS-safelisted content type');
 }
@@ -17,5 +17,8 @@ assert.ok(html.includes('const verification = await verifyCloudSync(payload, url
 assert.ok(html.includes('Sinkronisasi terverifikasi.'), 'success message is shown only after verification');
 assert.ok(html.includes('Cloud terverifikasi'), 'cloud indicator distinguishes verified sync from configured URL');
 assert.ok(html.includes('Cloud belum diuji'), 'cloud indicator does not claim connection before verification');
+assert.ok(html.includes('Pengiriman cold email dinonaktifkan sementara'), 'cold email UI is disabled pending server-side authorization and approval controls');
+assert.ok(html.includes('const mismatches = fields.filter'), 'read-back verification compares actual field values');
+assert.ok(html.includes('Nilai berbeda pada:'), 'mismatched cloud values prevent a verified-sync success state');
 assert.ok(html.includes('Mode Tampilan'), 'owner/team selector is described as a display mode, not server authorization');
 console.log('CSK Apps Script transport, verified read-back sync, and honest access-mode UI checks passed.');

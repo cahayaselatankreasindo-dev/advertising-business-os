@@ -10,6 +10,7 @@ on:
       - 'apps-script/Code.gs'
       - 'google_apps_script.js'
       - 'backend-auth.test.cjs'
+      - 'mapping.test.js'
       - 'photo-lab/**'
       - 'photo-lab.test.cjs'
       - 'invoice.test.cjs'
@@ -25,6 +26,8 @@ jobs:
           node-version: '22'
       - name: Validate backend API authentication contract
         run: node backend-auth.test.cjs
+      - name: Validate Apps Script field mapping and migration safety
+        run: node mapping.test.js
       - name: Validate Photo LAB source and private access contract
         run: node photo-lab.test.cjs
       - name: Validate quotation, DP and settlement calculations

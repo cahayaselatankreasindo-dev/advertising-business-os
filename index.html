@@ -836,9 +836,9 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Token Akses (opsional, untuk keamanan):</label>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Token Akses (wajib):</label>
             <input type="password" id="setting-api-token" placeholder="Token rahasia dari setupApiToken()" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-amber-500 font-mono">
-            <p class="text-[11px] text-slate-500 mt-1">Isi ini agar URL yang bocor tidak bisa dipakai orang lain. Jalankan <code>setupApiToken()</code> sekali di Apps Script, lalu paste token-nya di sini.</p>
+            <p class="text-[11px] text-slate-500 mt-1">API token wajib untuk semua akses cloud. Jalankan <code>setupApiToken()</code> sekali di Apps Script, lalu simpan token rahasia hanya pada perangkat Owner. Jangan bagikan token ini kepada Tim sebelum hak akses server-side dipisahkan.</p>
           </div>
 
           <div class="flex flex-wrap gap-2 pt-1">
@@ -2273,59 +2273,9 @@
       showToast('Lead baru berhasil ditambahkan!');
     }
 
-    async function sendColdEmailLead(id) {
-      const lead = db.leads.find(l => l.id === id);
-      if (!lead || !lead.email) {
-        showToast('Email lead tidak ditemukan.', true);
-        return;
-      }
-
-      if (!db.settings.googleSheetUrl) {
-        showToast('URL Google Apps Script belum diisi di Pengaturan.', true);
-        return;
-      }
-
-      // Cek counter lokal harian (maks 50)
-      const todayKey = 'csk_cold_email_' + new Date().toISOString().slice(0, 10);
-      const sentCount = parseInt(localStorage.getItem(todayKey) || '0', 10);
-      if (sentCount >= 50) {
-        showToast('Batas aman harian tercapai (50/50 email hari ini). Lanjutkan besok.', true);
-        return;
-      }
-
-      if (!confirm('Kirim cold email resmi dari Gmail CSK ke ' + lead.email + ' (' + lead.name + ')?\n[Terkirim hari ini: ' + sentCount + '/50]')) {
-        return;
-      }
-
-      showToast('Mengirim cold email (' + (sentCount + 1) + '/50)...');
-      try {
-        const res = await fetch(db.settings.googleSheetUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: 'send_cold_email',
-            token: getApiToken(),
-            toEmail: lead.email,
-            name: lead.name,
-            brand: lead.name
-          })
-        });
-
-        // Simpan increment counter lokal
-        localStorage.setItem(todayKey, String(sentCount + 1));
-
-        // Tandai status jadi contacted jika sebelumnya new
-        if (lead.status === 'new') {
-          lead.status = 'contacted';
-        }
-        lead.notes = (lead.notes ? lead.notes + ' | ' : '') + 'Cold email terkirim (' + (sentCount + 1) + '/50) ' + new Date().toISOString().slice(0, 10);
-        saveDB();
-        showToast('Cold email berhasil dikirim ke ' + lead.email + ' (' + (sentCount + 1) + '/50 hari ini)!');
-      } catch (err) {
-        console.error(err);
-        showToast('Gagal mengirim email: ' + err.message, true);
-      }
+    function sendColdEmailLead(id) {
+      showToast('Pengiriman cold email dinonaktifkan sementara sampai autentikasi Owner/Tim dan persetujuan server-side tersedia.', true);
+      return;
     }
 
     function convertLeadToWon(id) {
@@ -2808,15 +2758,47 @@
         costSheets: 'costSheets', services: 'services', purchaseOrders: 'purchaseOrders',
         quotationSnapshots: 'quotationSnapshots'
       };
+      const canonicalize = value => {
+        if (Array.isArray(value)) return value.map(canonicalize);
+        if (value && typeof value === 'object') {
+          return Object.keys(value).sort().reduce((out, key) => {
+            out[key] = canonicalize(value[key]);
+            return out;
+          }, {});
+        }
+        return value;
+      };
+      const normalize = (value, field) => {
+        if (value === undefined || value === null) return '';
+        if (field === 'date' || field === 'deadline') return String(value).slice(0, 10);
+        if (typeof value === 'object') return JSON.stringify(canonicalize(value));
+        return String(value).trim();
+      };
       const verified = [];
       Object.keys(collections).forEach(key => {
         const localRows = Array.isArray(payload[key]) ? payload[key] : [];
         const cloudRows = Array.isArray(json.data[collections[key]]) ? json.data[collections[key]] : [];
-        const cloudIds = new Set(cloudRows.map(row => String(row && row.id)));
-        const missing = localRows.filter(row => !row || row.id === undefined || !cloudIds.has(String(row.id)));
-        if (missing.length) {
-          throw new Error('Verifikasi ' + key + ' gagal. ' + missing.length + ' data belum ditemukan di Google Sheets.');
-        }
+        const cloudById = new Map(cloudRows.filter(row => row && row.id !== undefined).map(row => [String(row.id), row]));
+        localRows.forEach(localRow => {
+          if (!localRow || localRow.id === undefined) {
+            throw new Error('Verifikasi ' + key + ' gagal: ada data lokal tanpa ID.');
+          }
+          const cloudRow = cloudById.get(String(localRow.id));
+          if (!cloudRow) {
+            throw new Error('Verifikasi ' + key + ' gagal: ID ' + localRow.id + ' belum ditemukan di Google Sheets.');
+          }
+          const ignoredFields = ['updatedAt', 'itemsJson', 'linesJson'];
+          const fields = Object.keys(localRow).filter(field =>
+            localRow[field] !== undefined && ignoredFields.indexOf(field) === -1
+          );
+          const mismatches = fields.filter(field =>
+            normalize(localRow[field], field) !== normalize(cloudRow[field], field)
+          );
+          if (mismatches.length) {
+            throw new Error('Verifikasi ' + key + ' gagal untuk ID ' + localRow.id +
+              '. Nilai berbeda pada: ' + mismatches.join(', ') + '.');
+          }
+        });
         verified.push(key);
       });
       return { modules: verified.length, checkedAt: json.data.lastSynced || new Date().toISOString() };

@@ -123,6 +123,10 @@ const sandbox = {
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
 
+// Semua tes integrasi memakai token server valid; tes negatif dibuat eksplisit di bagian 9e.
+const TEST_API_TOKEN = 'a'.repeat(64);
+_props['API_TOKEN'] = TEST_API_TOKEN;
+
 // ---------- 3. Mini test runner ----------
 let pass = 0, fail = 0;
 const failures = [];
@@ -162,8 +166,8 @@ const FIELD_MAP = sandbox.FIELD_MAP;
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
-    ['Clients','Finance','Leads','Marketing_Spend','Memory','Projects'].sort(),
-    'FIELD_MAP mencakup 6 tab');
+    ['Clients','Cost_Sheets','Finance','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Services'].sort(),
+    'FIELD_MAP mencakup 11 tab');
   eq(FIELD_MAP.Projects.headers,
     ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim'],
     'FIELD_MAP.Projects.headers = hasil Tahap 2 + PIC_Tim');
@@ -176,8 +180,8 @@ if (FIELD_MAP) {
 }
 
 // ---------- 6. Tes BACA (doGet): Sheet -> field HTML ----------
-function callDoGet() {
-  const out = sandbox.doGet({});
+function callDoGet(token = TEST_API_TOKEN) {
+  const out = sandbox.doGet({ parameter: token ? { token } : {} });
   return JSON.parse(out._t);
 }
 const got = callDoGet();
@@ -194,8 +198,11 @@ if (got.status === 'success') {
 }
 
 // ---------- 7. Tes TULIS (sync_all): MERGE — tidak menghapus data lama ----------
-function callDoPost(payload) {
-  const out = sandbox.doPost({ postData: { contents: JSON.stringify(payload) } });
+function callDoPost(payload, token = TEST_API_TOKEN) {
+  const request = Object.assign({}, payload);
+  if (token) request.token = token;
+  else delete request.token;
+  const out = sandbox.doPost({ postData: { contents: JSON.stringify(request) } });
   return JSON.parse(out._t);
 }
 const leadsBefore = sheets['Leads'].rows.length;
@@ -297,31 +304,40 @@ eq(gotB2B.pic, 'Budi Santoso', 'doGet: PIC -> pic');
 eq(gotB2B.picTitle, 'Procurement Manager', 'doGet: JabatanPIC -> picTitle');
 eq(gotB2B.score, 85, 'doGet: SkorPrioritas -> score');
 
-// ---------- 9c. Kasus NYATA: header HURUF BESAR + kolom duplikat ----------
-// Ganti sheet "Leads" dengan versi header HURUF BESAR + kolom duplikat
-// (persis kondisi sheet user). Sistem harus: dedupe + tetap tulis kolom benar.
-sheets['Leads'] = makeSheet([
-  'ID','TANGGAL','Nama','Whatsapp','SUMBER','ESTIMASINILAI','STATUS','CATATAN',   // asli (HURUF BESAR)
-  'Tanggal','WhatsApp','Sumber','EstimasiNilai','Status','Catatan',               // duplikat (campur)
-  'Email','Website','Industri','PIC','JabatanPIC','LinkedIn','SkorPrioritas'      // B2B
+// ---------- 9c. Migrasi aman: header ambigu tidak boleh menghapus data ----------
+const duplicateLeads = makeSheet([
+  'ID','TANGGAL','Nama','Whatsapp','SUMBER','ESTIMASINILAI','STATUS','CATATAN',
+  'Tanggal','WhatsApp','Sumber','EstimasiNilai','Status','Catatan',
+  'Email','Website','Industri','PIC','JabatanPIC','LinkedIn','SkorPrioritas'
 ]);
-sheets['Leads'].appendRow(['L-OLD','2026-09-01','Budi','081','IG',8000000,'won','ok','','','','','','','','','','','','','']);
+duplicateLeads.appendRow(['L-OLD','2026-09-01','Budi','081','IG',8000000,'won','ok','','','','','','','','','','','','','']);
+sheets['Leads'] = duplicateLeads;
+const duplicateBefore = JSON.stringify(duplicateLeads.rows);
+const beforeSetupNames = Object.keys(sheets).sort();
+const beforeSetupState = JSON.stringify(beforeSetupNames.map(name => [name, sheets[name].rows]));
+let duplicateError = '';
+try { sandbox.setupSheet(); } catch (err) { duplicateError = String(err.message || err); }
+eq(!!duplicateError, true, 'migrasi aman: header duplikat menghentikan setup');
+eq(JSON.stringify(duplicateLeads.rows), duplicateBefore, 'migrasi aman: semua data Leads dipertahankan saat header duplikat');
+eq(JSON.stringify(Object.keys(sheets).sort()), JSON.stringify(beforeSetupNames), 'migrasi aman: setup tidak membuat tab sebelum preflight selesai');
+eq(JSON.stringify(Object.keys(sheets).sort().map(name => [name, sheets[name].rows])), beforeSetupState, 'migrasi aman: setup tidak mengubah tab/data apa pun saat preflight gagal');
+eq(duplicateError.indexOf('tidak ada data yang diubah') !== -1, true, 'migrasi aman: error menegaskan tidak ada perubahan');
 
-// Paksa dedupe + migrasi lewat setupSheet (pakai SpreadsheetApp stub yg sama)
+sheets['Leads'] = makeSheet([
+  'ID','TANGGAL','Nama','Whatsapp','SUMBER','ESTIMASINILAI','STATUS','CATATAN',
+  'Email','Website','Industri','PIC','JabatanPIC','LinkedIn','SkorPrioritas'
+]);
+sheets['Leads'].appendRow(['L-OLD','2026-09-01','Budi','081','IG',8000000,'won','ok','','','','','','','']);
 sandbox.setupSheet();
 
 const h2 = sheets['Leads'].rows[0].map(h => String(h).trim().toLowerCase());
-const dupCount = h2.filter(x => x === 'tanggal').length;
-eq(dupCount, 1, 'dedupe: kolom "TANGGAL/Tanggal" jadi 1 (tidak duplikat)');
-eq(h2.filter(x => x === 'sumber').length, 1, 'dedupe: kolom "SUMBER/Sumber" jadi 1');
-eq(h2.filter(x => x === 'whatsapp').length, 1, 'dedupe: kolom "WhatsApp" jadi 1');
-
-// Data lama harus tetap ada setelah dedupe
+eq(h2.filter(x => x === 'tanggal').length, 1, 'migrasi aman: header TANGGAL tetap tunggal');
+eq(h2.filter(x => x === 'sumber').length, 1, 'migrasi aman: header SUMBER tetap tunggal');
+eq(h2.filter(x => x === 'whatsapp').length, 1, 'migrasi aman: header Whatsapp tetap tunggal');
 const oldRow2 = sheets['Leads'].rows.find(r => String(r[0]) === 'L-OLD');
-eq(!!oldRow2, true, 'dedupe: baris lama L-OLD tetap ada');
-eq(oldRow2[2], 'Budi', 'dedupe: data kolom Nama tidak rusak');
+eq(!!oldRow2, true, 'migrasi aman: baris lama tetap ada');
+eq(oldRow2[2], 'Budi', 'migrasi aman: nilai kolom Nama tidak rusak');
 
-// Tulis lead baru dgn header HURUF BESAR -> harus masuk kolom yang benar
 callDoPost({ action: 'sync_all', leads: [{
   id: 'L-CAPS', date: '2026-10-09', name: 'PT Test Caps', phone: '0899',
   source: 'Referral', value: 5000000, status: 'new', notes: 'catatan caps',
@@ -330,13 +346,11 @@ callDoPost({ action: 'sync_all', leads: [{
 }] });
 const capsRow = sheets['Leads'].rows.find(r => String(r[0]) === 'L-CAPS');
 const idx = (n) => h2.indexOf(n);
-eq(capsRow[idx('email')], 'pic@testcaps.co.id', 'CAPS: Email masuk kolom Email (header huruf besar)');
+eq(capsRow[idx('email')], 'pic@testcaps.co.id', 'CAPS: Email masuk kolom Email');
 eq(capsRow[idx('website')], 'https://testcaps.co.id', 'CAPS: Website masuk kolom Website');
 eq(capsRow[idx('industri')], 'Retail', 'CAPS: Industri masuk kolom Industri');
 eq(capsRow[idx('pic')], 'Siti', 'CAPS: PIC masuk kolom PIC');
 eq(capsRow[idx('skorprioritas')], 90, 'CAPS: SkorPrioritas masuk kolom SkorPrioritas');
-
-// doGet harus baca benar meski header huruf besar
 const gotCaps = callDoGet().data.leads.find(l => String(l.id) === 'L-CAPS');
 eq(gotCaps.email, 'pic@testcaps.co.id', 'CAPS doGet: email terbaca benar');
 eq(gotCaps.picTitle, 'Store Dev Manager', 'CAPS doGet: picTitle terbaca benar');
@@ -351,31 +365,30 @@ eq(sheets['Leads'].rows.length, beforeDel - 1, 'delete: jumlah baris berkurang 1
 const delRes2 = callDoPost({ action: 'delete', sheet: 'Leads', id: 'TIDAK-ADA-XYZ' });
 eq(delRes2.status, 'success', 'delete: ID tidak ada tetap success (idempoten)');
 
-// ---------- 9e. Tes KEAMANAN: token API ----------
-// Mode 1: token belum diset -> semua request diizinkan (kompatibel)
-eq(sandbox.isAuthorized({ action: 'sync_all' }), true, 'auth: token belum diset -> diizinkan (kompatibel)');
+// ---------- 9e. Tes KEAMANAN: token API fail-closed ----------
+delete _props['API_TOKEN'];
+eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: token server belum diset -> DITOLAK');
+eq(callDoGet(null).status, 'error', 'auth: GET tanpa token -> DITOLAK');
 
-// Mode 2: token diset -> request tanpa token DITOLAK
-sandbox.setupApiToken && null; // pastikan fungsi ada
-_props['API_TOKEN'] = 'RAHASIA123';
-eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: token diset, request tanpa token -> DITOLAK');
+_props['API_TOKEN'] = TEST_API_TOKEN;
+eq(sandbox.isAuthorized({ action: 'sync_all' }), false, 'auth: token request kosong -> DITOLAK');
 eq(sandbox.isAuthorized({ action: 'sync_all', token: 'SALAH' }), false, 'auth: token salah -> DITOLAK');
-eq(sandbox.isAuthorized({ action: 'sync_all', token: 'RAHASIA123' }), true, 'auth: token benar -> DIIZINKAN');
-eq(sandbox.isAuthorized(null, 'RAHASIA123'), true, 'auth: token via query string (GET) -> DIIZINKAN');
+eq(sandbox.isAuthorized({ action: 'sync_all', token: TEST_API_TOKEN }), true, 'auth: token valid -> DIIZINKAN');
+eq(sandbox.isAuthorized(null, TEST_API_TOKEN), true, 'auth: token valid via query string -> DIIZINKAN');
 eq(sandbox.isAuthorized(null, ''), false, 'auth: GET tanpa token -> DITOLAK');
 
-// Mode 3: doPost tanpa token -> balasan error, TIDAK mengubah data
 const beforeAuth = sheets['Leads'].rows.length;
-const authRes = callDoPost({ action: 'sync_all', leads: [{ id: 'HACK-1', name: 'Hacker' }] });
+const authRes = callDoPost({ action: 'sync_all', leads: [{ id: 'HACK-1', name: 'Hacker' }] }, null);
 eq(authRes.status, 'error', 'auth: doPost tanpa token -> status error');
-eq(sheets['Leads'].rows.length, beforeAuth, 'auth: doPost tanpa token TIDAK mengubah data');
+eq(sheets['Leads'].rows.length, beforeAuth, 'auth: doPost tanpa token tidak mengubah data');
 
-// doPost dengan token benar -> berhasil
-const okRes = callDoPost({ action: 'sync_all', token: 'RAHASIA123', leads: [{ id: 'OKAUTH-1', date: '2026-10-09', name: 'Authorized', phone: '', source: 'x', value: 0, status: 'new', notes: '' }] });
-eq(okRes.status, 'success', 'auth: doPost dengan token benar -> success');
-eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'OKAUTH-1'), true, 'auth: data dengan token benar tersimpan');
+const okRes = callDoPost({ action: 'sync_all', leads: [{
+  id: 'OKAUTH-1', date: '2026-10-09', name: 'Authorized', phone: '',
+  source: 'x', value: 0, status: 'new', notes: ''
+}] }, TEST_API_TOKEN);
+eq(okRes.status, 'success', 'auth: doPost dengan token valid -> success');
+eq(!!sheets['Leads'].rows.find(r => String(r[0]) === 'OKAUTH-1'), true, 'auth: data dengan token valid tersimpan');
 
-// Kembalikan ke mode kompatibel untuk test berikutnya
 delete _props['API_TOKEN'];
 
 // ---------- 10. Ringkasan ----------
