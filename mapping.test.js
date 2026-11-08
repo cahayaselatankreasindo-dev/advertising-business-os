@@ -144,6 +144,11 @@ const sandbox = {
   SpreadsheetApp: SpreadsheetAppStub,
   ContentService: ContentServiceStub,
   ScriptApp: ScriptAppStub,
+  LockService: {
+    getScriptLock() {
+      return { waitLock() {}, releaseLock() {} };
+    }
+  },
   Logger: LoggerStub,
   PropertiesService: PropertiesServiceStub,
   CacheService: CacheServiceStub,
