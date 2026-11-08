@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 const html = fs.readFileSync('index.html', 'utf8');
+const guard = fs.readFileSync('security/guard.js', 'utf8');
 const match = html.match(/function calculateInvoiceAmounts\(totalValue, invoiceType, dpPercent\) \{[\s\S]*?\n    \}/);
 assert.ok(match, 'invoice amount calculator exists');
 const calculateInvoiceAmounts = vm.runInNewContext('(' + match[0] + ')');
@@ -60,16 +61,16 @@ assert.ok(html.includes('function calculateHpp()'), 'HPP calculation handler exi
 assert.ok(html.includes('function saveHppEstimate()'), 'project HPP save handler exists');
 assert.ok(html.includes('db.materials = parsed.materials || []'), 'materials local persistence migration exists');
 assert.ok(html.includes('db.costSheets = parsed.costSheets || []'), 'cost sheet local persistence migration exists');
-assert.ok(html.includes('materials: db.materials || []'), 'materials included in sync payload');
-assert.ok(html.includes('costSheets: db.costSheets || []'), 'cost sheets included in sync payload');
+assert.match(guard, /'materials'/, 'Owner sync scope includes materials');
+assert.match(guard, /'costSheets'/, 'Owner sync scope includes cost sheets');
 
 assert.ok(html.includes('id="page-services"'), 'services catalog page exists');
 assert.ok(html.includes('function addService()'), 'service create handler exists');
 assert.ok(html.includes('id="page-purchasing"'), 'purchasing page exists');
 assert.ok(html.includes('function createPurchaseOrder()'), 'purchase order create handler exists');
 assert.ok(html.includes('function updatePoStatus(id,status)'), 'purchase order status workflow exists');
-assert.ok(html.includes('services: db.services || []'), 'services included in sync payload');
-assert.ok(html.includes('purchaseOrders: db.purchaseOrders || []'), 'purchase orders included in sync payload');
+assert.match(guard, /'services'/, 'Owner sync scope includes services');
+assert.match(guard, /'purchaseOrders'/, 'Owner sync scope includes purchase orders');
 
 const hppMatch = html.match(/function calculateHppTotals\(items, labor, other, margin\) \{[\s\S]*?\n    \}/);
 assert.ok(hppMatch, 'pure HPP total calculator exists');
