@@ -38,7 +38,8 @@ GitHub Pages menerbitkan frontend dari branch `main`. Merge kode ke GitHub tidak
 - PIN di-hash berulang dengan salt acak dan disimpan di Script Properties.
 - Lima kegagalan login memicu pembatasan sementara selama 15 menit.
 - Sesi backend aktif maksimal 30 menit dan diperbarui selama aktivitas.
-- Tim hanya dapat membaca dan mengubah Leads, Clients, dan Projects.
+- Tim hanya dapat membaca, membuat, dan memperbarui Leads, Clients, dan Projects.
+- Tim tidak dapat menghapus Leads, Clients, atau Projects. Larangan penghapusan diperiksa di backend dan UI; hanya Owner yang dapat menghapus setelah hasilnya terverifikasi di Google Sheets.
 - Finance, Memory, Marketing, HPP, Purchase Orders, dan data sensitif lain hanya dikirim ke sesi Owner.
 - Server menolak upaya Tim mengirim atau menghapus koleksi Owner.
 - Status Deal Menang hanya dapat ditetapkan oleh Owner.

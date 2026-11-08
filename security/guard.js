@@ -437,15 +437,22 @@
     if (typeof showToast === 'function') showToast('Data cloud dan lokal selesai digabungkan.');
   };
   window.deleteOnCloud = async function (sheet, id) {
-    if (!ready) return;
+    if (!ready || !identity) return false;
+    if (identity.role !== 'owner') {
+      if (typeof showToast === 'function') showToast('Penghapusan data hanya dapat dilakukan oleh Owner.', true);
+      return false;
+    }
     try {
       await post({ action: 'delete', sheet: sheet, id: id });
       var response = await get('get_data');
       var rows = response.data && response.data[({Leads:'leads',Clients:'clients',Projects:'projects',Finance:'finance',Memory:'memory',Marketing_Spend:'marketingSpend',Materials:'materials',Cost_Sheets:'costSheets',Services:'services',Purchase_Orders:'purchaseOrders',Quotations:'quotationSnapshots'})[sheet]];
-      if (Array.isArray(rows) && rows.some(function (row) { return String(row.id) === String(id); })) throw new Error('Penghapusan belum terverifikasi.');
+      if (!Array.isArray(rows)) throw new Error('Data penghapusan tidak dapat diverifikasi.');
+      if (rows.some(function (row) { return String(row.id) === String(id); })) throw new Error('Penghapusan belum terverifikasi.');
+      return true;
     } catch (e) {
       console.warn('CSK cloud delete failed:', e);
       if (typeof showToast === 'function') showToast('Penghapusan cloud belum terverifikasi: ' + String(e && e.message || e), true);
+      return false;
     }
   };
   window.saveGoogleUrl = function () {

@@ -7,6 +7,7 @@ for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
   assert.match(source, /function cskLoginWithPin_\(/, path + ': PIN login handler exists');
   assert.match(source, /function cskRequireSession_\(/, path + ': session is required for protected requests');
   assert.match(source, /function cskAssertPayloadAllowed_\(/, path + ': server-side role authorization exists');
+  assert.match(source, /if \(action === "delete" && role !== "owner"\) throw new Error\("FORBIDDEN_DELETE"\)/, path + ': Team cannot delete shared records through the API');
   assert.match(source, /function cskFilterDataForRole_\(/, path + ': GET data is filtered by role');
   assert.match(source, /CacheService\.getScriptCache\(\)/, path + ': sessions and login throttling use server cache');
   assert.match(source, /CSK_LOGIN_MAX_FAILURES_\s*=\s*5/, path + ': failed logins are rate-limited');
@@ -50,6 +51,11 @@ const appScript = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)]
 assert.ok(appScript, 'frontend: main application script exists');
 assert.doesNotThrow(() => new Function(appScript), 'frontend: main application JavaScript parses without syntax errors');
 assert.doesNotMatch(appScript, /function\s+addService\(\)\s+function\s+addService\(/, 'frontend: no duplicate addService declaration');
+assert.match(appScript, /function getAuthenticatedRole\(\)[\s\S]*?window\.CSKAuth\.getIdentity\(\)/, 'frontend: displayed role comes from authenticated server identity');
+assert.match(appScript, /if \(!requireOwnerForDelete\(\)/, 'frontend: shared record delete handlers require Owner');
+assert.match(appScript, /isOwnerSession\(\) \? '<button onclick="deleteLead/, 'frontend: Team does not see the Leads delete button');
+assert.match(appScript, /isOwnerSession\(\)\?'<button onclick="deleteClient/, 'frontend: Team does not see the Clients delete button');
+assert.match(appScript, /isOwnerSession\(\) \? '<button onclick="deleteProject/, 'frontend: Team does not see the Projects delete button');
 
 assert.match(guard, /legacyOwnerCache/, 'frontend: legacy Owner migration uses a temporary recovery cache');
 assert.doesNotMatch(guard, /safeLocalSet\(OWNER_KEY/, 'frontend: Owner database is not written to a persistent Owner cache');
@@ -64,6 +70,9 @@ assert.ok(sync, 'frontend: cloud sync handler exists');
 assert.match(sync[0], /legacyOwnerCache = null;[\s\S]*?localStorage\.removeItem\(DB_KEY\)/, 'frontend: legacy data is removed only after verified cloud sync');
 assert.match(guard, /beforeunload/, 'frontend: pending Owner changes warn before leaving');
 assert.match(guard, /safeLocalSet\(TEAM_KEY/, 'frontend: Team operational cache remains separately scoped');
+assert.match(guard, /window\.deleteOnCloud = async function \(sheet, id\)[\s\S]*?identity\.role !== 'owner'[\s\S]*?return false/, 'frontend: Team cloud deletion is blocked before sending a request');
+assert.match(guard, /if \(!Array\.isArray\(rows\)\) throw new Error\('Data penghapusan tidak dapat diverifikasi\.'\)/, 'frontend: deletion requires a valid cloud read-back');
+assert.match(guard, /return true;[\s\S]*?return false;/, 'frontend: deletion result is explicit for the caller');
 assert.match(guard, /normalizeSyncValue/, 'frontend: cloud sync verification compares field values');
 assert.match(guard, /mismatches\.join/, 'frontend: sync reports field-level mismatches');
 assert.match(html, /security\/guard\.js/, 'frontend: authentication guard is loaded');

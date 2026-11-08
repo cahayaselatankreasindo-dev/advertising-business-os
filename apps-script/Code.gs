@@ -650,6 +650,10 @@ function cskAssertPayloadAllowed_(identity, payload) {
   var action = String(payload.action || "").toLowerCase();
   if (role !== "owner" && role !== "team") throw new Error("FORBIDDEN");
 
+  // Team members may create and update shared operational records, but deletion is Owner-only.
+  // Enforce this on the server so hiding a button cannot be bypassed from the browser.
+  if (action === "delete" && role !== "owner") throw new Error("FORBIDDEN_DELETE");
+
   if (action === "sync_all") {
     var ownerCollections = ["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots"];
     var teamCollections = ["leads","clients","projects"];
