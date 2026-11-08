@@ -34,14 +34,13 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 
 ---
 
-## 🔐 Hak Akses Berjenjang
+## 🔐 Mode Tampilan dan Batas Keamanan
 
-| Role | Akses |
-|------|-------|
-| **Owner** | Semua menu, Keuangan, Riset, Marketing |
-| **Tim Kreatif / Admin** | Leads, Proyek, Klien — menu Keuangan & Marketing disembunyikan |
+Dropdown Owner/Tim saat ini hanya mengatur tampilan menu di frontend. Dropdown tersebut **belum menjadi autentikasi atau pembatas hak akses di server**.
 
-Pilih role via dropdown di pojok kiri atas (desktop) atau header (mobile).
+Backend mewajibkan satu API token global yang disimpan di Script Properties. Simpan token tersebut hanya pada perangkat Owner dan jangan membagikannya kepada Tim. Pemisahan token Owner/Tim dan verifikasi identitas email harus diselesaikan sebelum akses Tim dianggap aman.
+
+Pengiriman cold email otomatis maupun manual dinonaktifkan sementara sampai kontrol akses Owner/Tim dan persetujuan server-side tersedia. Trigger cold outreach lama yang masih terpasang menjadi no-op setelah backend diperbarui.
 
 ---
 
