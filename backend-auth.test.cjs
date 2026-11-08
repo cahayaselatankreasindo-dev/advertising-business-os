@@ -36,4 +36,14 @@ for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
   assert.ok(sendCase, path + ': manual cold email action exists');
   assert.match(sendCase[0], /COLD_EMAIL_DISABLED/, path + ': manual cold email is disabled');
 }
+
+const guard = fs.readFileSync('security/guard.js', 'utf8');
+const html = fs.readFileSync('index.html', 'utf8');
+assert.match(guard, /legacyOwnerCache/, 'frontend: legacy Owner migration is memory-only');
+assert.doesNotMatch(guard, /safeLocalSet\(OWNER_KEY/, 'frontend: Owner database is not persisted in localStorage');
+assert.match(guard, /localStorage\.removeItem\(OWNER_KEY\)/, 'frontend: old persistent Owner cache is cleared');
+assert.match(guard, /safeLocalSet\(TEAM_KEY/, 'frontend: Team operational cache remains separately scoped');
+assert.match(html, /security\/guard\.js/, 'frontend: authentication guard is loaded');
+assert.doesNotMatch(html, /getApiToken|setting-api-token|API token|\?token=/i, 'frontend: no shared API token flow remains');
+
 console.log('CSK PIN authentication, server-side RBAC, safe migration, and outbound-email safety checks passed.');
