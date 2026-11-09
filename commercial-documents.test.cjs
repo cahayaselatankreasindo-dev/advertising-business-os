@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { calculateCommercialTotals, nextDocumentNumber } = require('./commercial-documents.js');
+const { calculateCommercialTotals, nextDocumentNumber, findExistingProjectForDocument } = require('./commercial-documents.js');
 const html = fs.readFileSync('index.html', 'utf8');
 const source = fs.readFileSync('commercial-documents.js', 'utf8');
 const guard = fs.readFileSync('security/guard.js', 'utf8');
@@ -19,6 +19,11 @@ assert.equal(
   'QUO-CSK-2026-00008'
 );
 assert.equal(nextDocumentNumber('invoice', [], '2026-11-09'), 'INV-CSK-2026-00001');
+const leadQueueProject = { id: 'P-LEAD', notes: 'Antrean otomatis dari Lead [LEAD-L1]' };
+assert.equal(findExistingProjectForDocument([leadQueueProject], { id: 'INV1', leadId: 'L1' }, '', 'INV1'), leadQueueProject);
+assert.equal(findExistingProjectForDocument([leadQueueProject], { id: 'INV2', leadId: 'L2' }, '', 'INV2'), null);
+const quoteProject = { id: 'P-QUOTE', sourceQuotationId: 'CQ1' };
+assert.equal(findExistingProjectForDocument([quoteProject], { id: 'INV3' }, 'CQ1', 'INV3'), quoteProject);
 assert.ok(html.includes('<script src="./commercial-documents.js"></script>'));
 assert.ok(html.includes('db.quotations = parsed.quotations || []'));
 assert.ok(html.includes('db.invoices = parsed.invoices || []'));
