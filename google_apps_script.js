@@ -48,11 +48,10 @@
 var FIELD_MAP = {
   Leads: {
     headers: ["ID", "Tanggal", "Nama", "WhatsApp", "Sumber", "EstimasiNilai", "Status", "Catatan",
-              "Email", "Website", "Industri", "PIC", "JabatanPIC", "LinkedIn", "SkorPrioritas"],
+              "Email", "Website", "Industri", "PIC", "JabatanPIC", "LinkedIn", "SkorPrioritas", "NextFollowUp", "LastContactAt", "FollowUpNote"],
     fields:  ["id", "date", "name", "phone", "source", "value", "status", "notes",
-              "email", "website", "industry", "pic", "picTitle", "linkedin", "score"]
-    // 8 kolom pertama = skema lama (posisi TIDAK berubah agar data lama aman).
-    // 7 kolom baru (Email..SkorPrioritas) khusus data B2B / prospecting.
+              "email", "website", "industry", "pic", "picTitle", "linkedin", "score", "nextFollowUp", "lastContactAt", "followUpNote"]
+    // Kolom follow-up ditambahkan di kanan; delapan kolom lama tidak digeser.
   },
   Clients: {
     headers: ["ID", "NamaKlien", "WhatsApp", "TotalProyek", "TotalBelanja", "Catatan", "Rating_Review"],
@@ -808,36 +807,83 @@ function cskAssertPayloadAllowed_(identity, payload) {
  * Finance; pemasukan hanya dicatat setelah pembayaran benar-benar dikonfirmasi.
  * Fungsi ini IDEMPOTEN: antrean yang sudah punya token tidak akan diduplikasi.
  */
-function autoTriggerPillars(ss, forceLeadId) {
-  const leadsSheet = ss.getSheetByName("Leads");
-  if (!leadsSheet || leadsSheet.getLastRow() <= 1) return { financeCreated: 0, projectCreated: 0 };
-  const leads = readSheetData(ss, "Leads");
-  let projectCreated = 0;
-  leads.forEach(lead => {
-    if (!isDealMenang(lead.status)) return;
-    if (forceLeadId && String(lead.id).trim() !== String(forceLeadId).trim()) return;
-    const refToken = "[LEAD-" + lead.id + "]";
-    const projectAlreadyExists = hasTokenInSheet(ss, "Projects", refToken);
-    // Deal Won hanya membuat antrean proyek; tidak mencatat uang masuk.
-    if (!projectAlreadyExists) {
-      const deadlineDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
-      const projectRow = {
-        id: "AUTO-PRJ-" + Date.now(),
-        title: "Proyek " + (lead.name || ""),
-        client: lead.name || "",
-        value: Number(lead.value) || 0,
-        status: "plan",
-        deadline: deadlineDate,
-        notes: "Antrean otomatis dari Lead [LEAD-" + lead.id + "]",
-        sopChecklist: "Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0"
-      };
-      insertRecord(ss, "Projects", projectRow, ["id","title","client","value","status","deadline","notes","sopChecklist"]);
-      projectCreated++;
-    }
-  });
-  // financeCreated dipertahankan untuk kompatibilitas pemanggil lama; nilainya selalu nol.
-  return { financeCreated: 0, projectCreated: projectCreated };
+function stableLeadEntityId_(prefix, leadId) {
+  const safeId = String(leadId == null ? "" : leadId).trim()
+    .replace(/[^A-Za-z0-9._:-]/g, "-")
+    .slice(0, Math.max(1, 80 - prefix.length));
+  return safeId ? prefix + safeId : "";
 }
+function leadReferenceToken_(leadId) {
+  return "[LEAD-" + String(leadId == null ? "" : leadId).trim() + "]";
+}
+function normalizedClientName_(value) {
+  return String(value == null ? "" : value).trim().toLowerCase().replace(/\s+/g, " ");
+}
+function ensureLeadClient_(ss, lead, refToken) {
+  const clientName = String(lead.name == null ? "" : lead.name).trim();
+  const normalizedName = normalizedClientName_(clientName);
+  if (!normalizedName) return false;
+  const clients = readSheetData(ss, "Clients");
+  const existingClient = clients.find(client => normalizedClientName_(client.name) === normalizedName);
+  const clientProjects = readSheetData(ss, "Projects").filter(project => normalizedClientName_(project.client) === normalizedName);
+  const totalSpend = clientProjects.reduce((sum, project) => sum + (Number(project.value) || 0), 0);
+  if (existingClient) {
+    const updatedClient = Object.assign({}, existingClient, {
+      phone: existingClient.phone || lead.phone || "",
+      projectsCount: clientProjects.length,
+      totalSpend: totalSpend
+    });
+    // Header-aware upsert preserves custom columns and non-standard column order.
+    mergeSheet(ss, "Clients", [updatedClient]);
+    return false;
+  }
+  insertRecord(ss, "Clients", {
+    id: stableLeadEntityId_("AUTO-CLI-LEAD-", lead.id),
+    name: clientName, phone: lead.phone || "", projectsCount: clientProjects.length,
+    totalSpend: totalSpend, notes: "Dikonversi dari Lead " + refToken, rating: 0, review: ""
+  });
+  return true;
+}
+/**
+ * Deal Won creates one linked project and ensures one client record.
+ * It deliberately does NOT create Finance income: a won contract is not cash received.
+ */
+function autoTriggerPillars(ss, forceLeadId) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const leadsSheet = ss.getSheetByName("Leads");
+    if (!leadsSheet || leadsSheet.getLastRow() <= 1) return { financeCreated: 0, projectCreated: 0, clientCreated: 0 };
+    const leads = readSheetData(ss, "Leads");
+    const projectsSheet = ss.getSheetByName("Projects");
+    let projectCreated = 0, clientCreated = 0;
+    leads.forEach(lead => {
+      if (!isDealMenang(lead.status)) return;
+      if (forceLeadId && String(lead.id).trim() !== String(forceLeadId).trim()) return;
+      const leadId = String(lead.id == null ? "" : lead.id).trim();
+      if (!leadId) return;
+      const refToken = leadReferenceToken_(leadId);
+      const projectId = stableLeadEntityId_("AUTO-PRJ-LEAD-", leadId);
+      const projectAlreadyExists = hasTokenInSheet(ss, "Projects", refToken) ||
+        (projectsSheet && findRowById(projectsSheet, projectId) !== -1);
+      if (!projectAlreadyExists) {
+        const deadlineDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+        insertRecord(ss, "Projects", {
+          id: projectId, title: "Proyek " + (lead.name || ""), client: lead.name || "",
+          value: Number(lead.value) || 0, status: "plan", deadline: deadlineDate,
+          notes: "Konversi otomatis dari Lead " + refToken,
+          sopChecklist: "Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0"
+        });
+        projectCreated++;
+      }
+      if (ensureLeadClient_(ss, lead, refToken)) clientCreated++;
+    });
+    return { financeCreated: 0, projectCreated: projectCreated, clientCreated: clientCreated };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function hasTokenInSheet(ss, sheetName, token) {
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() <= 1) return false;
@@ -1033,6 +1079,11 @@ function mergeSheet(ss, sheetName, items) {
       // Baris sudah ada di sheet -> update HANYA kolom yang berubah
       var rowIdx = idToRow[id] - 2; // index di dataRange
       var oldRow = dataRange[rowIdx] || [];
+      // Preserve user-owned columns outside FIELD_MAP during header-aware upserts.
+      for (var c = 0; c < newRow.length; c++) {
+        var headerKey = String(headerRow[c] || "").trim().toLowerCase();
+        if (!Object.prototype.hasOwnProperty.call(contractPos, headerKey)) newRow[c] = oldRow[c];
+      }
       var changed = false;
       for (var c = 0; c < newRow.length; c++) {
         // Normalisasi angka vs string agar tidak update palsu

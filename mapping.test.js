@@ -5,11 +5,11 @@
  *
  * File ini memuat google_apps_script.js apa adanya ke dalam sandbox Node
  * dengan stub SpreadsheetApp/ContentService/ScriptApp minimal, lalu
- * memverifikasi KONTRAK MAPPING dua arah untuk 6 tab:
+ * memverifikasi KONTRAK MAPPING dua arah untuk seluruh tab:
  *   Sheet header (huruf besar, hasil Tahap 1-2) <-> field HTML (camelCase)
  *
  * Aturan kontrak (single source of truth = FIELD_MAP):
- *   Leads:           ID,Tanggal,Nama,WhatsApp,Sumber,EstimasiNilai,Status,Catatan
+ *   Leads:           ID,Tanggal,Nama,WhatsApp,Sumber,EstimasiNilai,Status,Catatan,NextFollowUp,LastContactAt,FollowUpNote
  *   Clients:         ID,NamaKlien,WhatsApp,TotalProyek,TotalBelanja,Catatan,Rating_Review
  *   Projects:        ID,NamaProyek,Klien,NilaiProyek,Status,Deadline,Catatan,SOP_Checklist,PIC_Tim
  *   Finance:         ID,Tanggal,Tipe,Kategori,Nominal,Keterangan
@@ -209,7 +209,13 @@ eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
     ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoice_Payments','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Services'].sort(),
-    'FIELD_MAP mencakup 13 tab');
+    'FIELD_MAP mencakup 14 tab');
+  eq(FIELD_MAP.Leads.headers.slice(-3),
+    ['NextFollowUp','LastContactAt','FollowUpNote'],
+    'FIELD_MAP.Leads menambahkan field follow-up di kanan');
+  eq(FIELD_MAP.Leads.fields.slice(-3),
+    ['nextFollowUp','lastContactAt','followUpNote'],
+    'FIELD_MAP.Leads fields follow-up lengkap');
   eq(FIELD_MAP.Projects.headers,
     ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim','SuggestedPrice','SourceQuotationID','SourceInvoiceID'],
     'FIELD_MAP.Projects.headers = hasil Tahap 2 + PIC_Tim');
@@ -405,6 +411,23 @@ eq(capsRow[idx('skorprioritas')], 90, 'CAPS: SkorPrioritas masuk kolom SkorPrior
 const gotCaps = callDoGet().data.leads.find(l => String(l.id) === 'L-CAPS');
 eq(gotCaps.email, 'pic@testcaps.co.id', 'CAPS doGet: email terbaca benar');
 eq(gotCaps.picTitle, 'Store Dev Manager', 'CAPS doGet: picTitle terbaca benar');
+
+// ---------- 9c2. Kolom custom milik pengguna harus tetap terjaga saat upsert ----------
+const customLeadSheet = sheets['Leads'];
+const customColumnIndex = customLeadSheet.rows[0].length;
+customLeadSheet.rows[0].push('Custom_Operational_Note');
+const customLeadRow = customLeadSheet.rows.find(r => String(r[0]) === 'L-CAPS');
+customLeadRow.push('jangan-hapus-catatan-ini');
+const customUpsert = callDoPost({ action: 'sync_all', leads: [{
+  id: 'L-CAPS', date: '2026-10-09', name: 'PT Test Caps', phone: '0899',
+  source: 'Referral', value: 5000000, status: 'new', notes: 'catatan caps',
+  email: 'pic@testcaps.co.id', website: 'https://testcaps.co.id', industry: 'Retail',
+  pic: 'Siti', picTitle: 'Store Dev Manager', linkedin: 'https://linkedin.com/in/siti', score: 90,
+  nextFollowUp: '2026-11-10', lastContactAt: '2026-11-08', followUpNote: 'Kirim revisi quotation'
+}] });
+eq(customUpsert.status, 'success', 'upsert dengan kolom custom tetap berhasil');
+const customLeadAfter = customLeadSheet.rows.find(r => String(r[0]) === 'L-CAPS');
+eq(customLeadAfter[customColumnIndex], 'jangan-hapus-catatan-ini', 'upsert mempertahankan isi kolom custom di luar FIELD_MAP');
 
 // ---------- 9d. Tes action 'delete' (tombol hapus di app) ----------
 const beforeDel = sheets['Leads'].rows.length;

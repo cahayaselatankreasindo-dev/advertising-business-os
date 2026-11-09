@@ -10,6 +10,8 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 
 ### Pilar 1 — Leads CRM
 - Pencatatan calon klien dari WhatsApp, Instagram Ads, TikTok, dan Referensi
+- Pencarian Lead berdasarkan nama, WhatsApp, email, PIC, industri, dan catatan
+- Jadwal follow-up, catatan tindak lanjut, tanggal kontak terakhir, serta antrean follow-up terlambat/hari ini
 - Tombol **Direct WhatsApp Chat** dan konversi 1-klik menjadi Klien + Proyek
 - Status: Baru → Dihubungi → Negosiasi → **Deal Menang** → Batal
 
@@ -18,7 +20,8 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - **Auto-trigger**: saat lead berubah jadi Deal Menang, skrip otomatis membuat baris pendapatan di tab Finance (kategori *DP Proyek*)
 
 ### Pilar 3 — Production Projects
-- Pelacakan deadline, status Brief/Pengerjaan/Review/Selesai
+- Pelacakan deadline, status Brief/Pengerjaan/Review/Selesai, PIC, dan pencarian proyek
+- Filter status serta deadline; indikator proyek terlambat dan persentase penyelesaian SOP
 - **SOP Checklist interaktif** per proyek: Brief → Produksi → Review → Revisi → Delivery
 - **Auto-trigger**: saat lead Deal Menang, baris antrean kerja baru dibuat otomatis di tab Projects (status *plan*, deadline +14 hari)
 
@@ -66,11 +69,11 @@ Google Apps Script Web App harus dapat menerima request publik agar halaman logi
 
 Ketika status Lead diubah menjadi **Deal Menang**, sistem akan secara otomatis:
 
-1. ✅ Menulis baris **Pendapatan** ke tab Finance (kategori: DP Proyek)
-2. ✅ Menulis baris **Antrean Proyek** ke tab Projects (status: plan, deadline +14 hari)
-3. ✅ Menciptakan entri Klien baru jika belum ada
+1. Memastikan satu entri Klien tersedia dan memperbarui jumlah serta total nilai proyek.
+2. Membuat satu antrean Proyek (status `plan`, deadline awal +14 hari) jika belum ada.
+3. Menggunakan ID stabil dan token `[LEAD-{id}]` agar pengulangan trigger tidak membuat duplikasi.
 
-**Mekanisme idempoten**: token `[LEAD-{id}]` mencegah duplikasi baris meskipun trigger berjalan berulang kali.
+**Penting:** Deal Won bukan bukti uang diterima. Sistem tidak mencatat pendapatan Finance dari nilai kontrak. Catat DP, cicilan, atau pelunasan hanya melalui konfirmasi pembayaran Invoice setelah dana benar-benar diterima.
 
 ### Cara Mengaktifkan Auto-Trigger (Sekali Setup)
 
@@ -129,7 +132,7 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 
 | Pilar | Tab Google Sheets | Kolom Kunci |
 |-------|-------------------|-------------|
-| **Leads CRM** | Leads | ID, Tanggal, Nama, WA, Sumber, EstimasiNilai, Status, Catatan |
+| **Leads CRM** | Leads | ID, Tanggal, Nama, WA, Sumber, EstimasiNilai, Status, Catatan, NextFollowUp, LastContactAt, FollowUpNote |
 | **Financial Journal** | Finance | ID, Tanggal, Tipe, Kategori, Nominal, Keterangan |
 | **Production Projects** | Projects | ID, NamaProyek, Klien, Nilai, Status, Deadline, Catatan, **SOP_Checklist** |
 | **Product-Market Fit** | Clients | ID, NamaKlien, WA, TotalProyek, TotalBelanja, Catatan, **Rating_Review** |
@@ -161,3 +164,11 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 - Jenis pembayaran: DP, cicilan, dan pelunasan. Nominal harus sesuai sisa tagihan; pelunasan wajib sama dengan saldo terutang.
 - ID pembayaran menjadi kunci idempotensi. Pengiriman ulang ID yang sama tidak menggandakan jurnal; jika penulisan Finance gagal setelah ledger tersimpan, retry akan memperbaiki jurnal.
 - `Invoice_Payments` dibaca oleh Owner dan tidak dapat ditulis melalui `sync_all` atau endpoint CRUD generik.
+
+
+### Pusat Tindakan CRM
+
+- Dashboard menampilkan jumlah follow-up terlambat, follow-up hari ini, Lead tanpa jadwal, dan proyek terlambat.
+- Lead, Klien, dan Proyek dapat dicari serta difilter tanpa menghapus data dari sumber.
+- Perubahan follow-up, kontak terakhir, dan PIC proyek disimpan melalui sinkronisasi terverifikasi.
+- Nilai proyek pada profil Klien adalah nilai kontrak/proyek, bukan kas yang sudah diterima.

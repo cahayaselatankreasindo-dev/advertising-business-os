@@ -851,7 +851,7 @@
         <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4 pillar-finance">
           <h3 class="font-heading font-bold text-slate-800 text-sm">Auto-Trigger Otomatisasi</h3>
           <p class="text-xs text-slate-500">
-            Untuk mengaktifkan otomatisasi "Deal Menang → Pendapatan + Antrean Proyek", buka Apps Script editor, 
+            Untuk mengaktifkan otomatisasi "Deal Menang → Klien + Antrean Proyek", buka Apps Script editor, 
             pilih fungsi <code>installAutoTrigger</code>, lalu klik Run. Ini akan memasang trigger onEdit & time-driven (per jam).
           </p>
         </div>
@@ -1491,6 +1491,10 @@
     function applyRoleUI() {
       const isTeam = !isOwnerSession();
       db.role = isTeam ? 'team' : 'owner';
+      const leadWonOption = document.querySelector('#lead-status option[value="won"]');
+      if (leadWonOption) leadWonOption.disabled = isTeam;
+      const leadStatusControl = document.getElementById('lead-status');
+      if (isTeam && leadStatusControl && leadStatusControl.value === 'won') leadStatusControl.value = 'new';
       const selectors = ['.pillar-finance', '.pillar-marketing', '.pillar-riset', '.pillar-marketing-mob'];
       selectors.forEach(sel => {
         document.querySelectorAll(sel).forEach(el => {
@@ -1813,7 +1817,7 @@
           '<div class="grid grid-cols-2 sm:flex sm:justify-end gap-2 pt-1">'+
             (l.email?'<button onclick="sendColdEmailLead(\''+id+'\')" class="min-h-10 px-3 rounded-xl border border-blue-100 bg-blue-50 text-blue-700 text-xs font-semibold"><i class="fa fa-paper-plane mr-1"></i>Email</button>':'')+
             (l.phone?'<a rel="noopener noreferrer" target="_blank" href="https://wa.me/'+cleanPhone(l.phone)+'" class="min-h-10 px-3 rounded-xl bg-emerald-600 text-white text-xs font-semibold flex items-center justify-center"><i class="fa fa-whatsapp mr-1"></i>WhatsApp</a>':'')+
-            (l.status!=='won'?'<button onclick="convertLeadToWon(\''+id+'\')" class="min-h-10 px-3 rounded-xl bg-stone-900 text-white text-xs font-semibold"><i class="fa fa-check mr-1"></i>Tandai Deal</button>':'<span class="col-span-2 sm:col-span-1 min-h-10 px-3 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-semibold flex items-center justify-center">✓ Deal</span>')+
+            (l.status==='won'?'<span class="col-span-2 sm:col-span-1 min-h-10 px-3 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-semibold flex items-center justify-center">✓ Deal</span>':(isOwnerSession()?'<button onclick="convertLeadToWon(\''+id+'\')" class="min-h-10 px-3 rounded-xl bg-stone-900 text-white text-xs font-semibold"><i class="fa fa-check mr-1"></i>Tandai Deal</button>':''))+
           '</div></article>';
       }).join('');
     }
@@ -2275,7 +2279,10 @@
         pic: val('lead-pic'),
         picTitle: val('lead-pic-title'),
         linkedin: val('lead-linkedin'),
-        score: Number(val('lead-score') || 0)
+        score: Number(val('lead-score') || 0),
+        nextFollowUp: val('lead-next-follow-up'),
+        lastContactAt: '',
+        followUpNote: val('lead-follow-up-note')
       };
       db.leads.unshift(lead);
       saveDB();
@@ -2290,36 +2297,56 @@
     }
 
     function convertLeadToWon(id) {
-      const lead = db.leads.find(l => l.id === id);
+      const lead = db.leads.find(l => String(l.id) === String(id));
       if (!lead) return;
-      lead.status = 'won';
-
-      if (!db.clients.some(c => c.name.toLowerCase() === lead.name.toLowerCase())) {
-        db.clients.unshift({
-          id: Date.now().toString(),
-          name: lead.name,
-          phone: lead.phone,
-          projectsCount: 1,
-          totalSpend: lead.value,
-          notes: 'Dikonversi dari Lead (' + lead.source + ')',
-          rating: 0,
-          review: ''
-        });
+      if (!isOwnerSession()) {
+        showToast('Konversi Deal hanya dapat dilakukan oleh Owner.', true);
+        return;
       }
-
-      db.projects.unshift({
-        id: Date.now().toString(),
-        title: 'Proyek ' + lead.name,
-        client: lead.name,
-        value: lead.value,
-        status: 'plan',
-        deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
-        notes: lead.notes || 'Hasil konversi Deal',
-        sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
-      });
-
+      const leadId = String(lead.id).trim();
+      const safeLeadId = leadId.replace(/[^A-Za-z0-9._:-]/g, '-').slice(0, 66);
+      const leadToken = '[LEAD-' + leadId + ']';
+      const projectId = 'AUTO-PRJ-LEAD-' + safeLeadId;
+      const clientId = 'AUTO-CLI-LEAD-' + safeLeadId;
+      const clientName = String(lead.name || '').trim();
+      const normalizedName = clientName.toLowerCase().replace(/\s+/g, ' ');
+      lead.status = 'won';
+      let linkedProject = db.projects.find(project =>
+        String(project.id) === projectId || String(project.notes || '').includes(leadToken)
+      );
+      if (!linkedProject) {
+        linkedProject = {
+          id: projectId, title: 'Proyek ' + clientName, client: clientName,
+          value: Number(lead.value) || 0, status: 'plan',
+          deadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+          notes: [String(lead.notes || 'Hasil konversi Deal').trim(), 'Konversi dari Lead ' + leadToken].filter(Boolean).join(' '),
+          sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
+        };
+        db.projects.unshift(linkedProject);
+      } else if (!String(linkedProject.notes || '').includes(leadToken)) {
+        linkedProject.notes = [String(linkedProject.notes || '').trim(), 'Konversi dari Lead ' + leadToken].filter(Boolean).join(' ');
+      }
+      const clientProjects = db.projects.filter(project =>
+        String(project.client || '').trim().toLowerCase().replace(/\s+/g, ' ') === normalizedName
+      );
+      const totalSpend = clientProjects.reduce((sum, project) => sum + (Number(project.value) || 0), 0);
+      let client = db.clients.find(item =>
+        String(item.name || '').trim().toLowerCase().replace(/\s+/g, ' ') === normalizedName
+      );
+      if (!client && clientName) {
+        client = {
+          id: clientId, name: clientName, phone: lead.phone || '',
+          projectsCount: clientProjects.length, totalSpend: totalSpend,
+          notes: 'Dikonversi dari Lead (' + (lead.source || 'CRM') + ')', rating: 0, review: ''
+        };
+        db.clients.unshift(client);
+      } else if (client) {
+        client.projectsCount = clientProjects.length;
+        client.totalSpend = totalSpend;
+        if (!client.phone && lead.phone) client.phone = lead.phone;
+      }
       saveDB();
-      showToast('Lead ditandai DEAL & otomatis masuk ke Klien, Proyek, dan jurnal Keuangan!');
+      showToast('Deal tercatat. Klien dan proyek diperbarui. Catat DP di Keuangan setelah pembayaran diterima.');
     }
 
     /**
@@ -2380,6 +2407,7 @@
         deadline: document.getElementById('proj-deadline').value,
         status: document.getElementById('proj-status').value,
         notes: document.getElementById('proj-notes').value,
+        pic: (document.getElementById('proj-pic')?.value || '').trim(),
         sopChecklist: 'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0'
       };
       db.projects.unshift(proj);
@@ -3059,5 +3087,6 @@
     });
   </script>
   <script src="./commercial-documents.js"></script>
+  <script src="./crm-upgrade.js"></script>
 </body>
 </html>
