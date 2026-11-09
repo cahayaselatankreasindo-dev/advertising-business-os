@@ -499,14 +499,17 @@ eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat 
  eq(ownerCommercialData.data.quotations[0].lines[0].name, 'Backdrop', 'Quotation line JSON decodes');
  eq(ownerCommercialData.data.invoices[0].quotationId, 'CQ1', 'Invoice quotation relation reads');
  eq(ownerCommercialData.data.projects.find(x => x.id === 'PC1').sourceInvoiceId, 'CI1', 'Project invoice relation reads');
- const teamCommercialData = callDoGet(TEAM_SESSION);
+ const TEAM_SESSION_COMMERCIAL = 'C'.repeat(43);
+ const teamCommercialLogin = login('zefdas@gmail.com', '87654321', TEAM_SESSION_COMMERCIAL);
+ eq(teamCommercialLogin.status, 'success', 'Team can start a fresh session for access tests');
+ const teamCommercialData = callDoGet(TEAM_SESSION_COMMERCIAL);
  eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'quotations'), false, 'Team cannot read quotations');
  eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'invoices'), false, 'Team cannot read invoices');
  const beforeTeamCommercial = sheets['Invoices'].rows.length;
- eq(callDoPost({ action:'sync_all', invoices:[{id:'TEAM-I',docNo:'INV-TEAM'}] }, TEAM_SESSION).status, 'error', 'Team cannot sync invoices');
- eq(callDoPost({ action:'sync_all', quotations:[{id:'TEAM-Q',docNo:'QUO-TEAM'}] }, TEAM_SESSION).status, 'error', 'Team cannot sync quotations');
+ eq(callDoPost({ action:'sync_all', invoices:[{id:'TEAM-I',docNo:'INV-TEAM'}] }, TEAM_SESSION_COMMERCIAL).status, 'error', 'Team cannot sync invoices');
+ eq(callDoPost({ action:'sync_all', quotations:[{id:'TEAM-Q',docNo:'QUO-TEAM'}] }, TEAM_SESSION_COMMERCIAL).status, 'error', 'Team cannot sync quotations');
  eq(sheets['Invoices'].rows.length, beforeTeamCommercial, 'Team invoice write denied');
- eq(callDoPost({ action:'delete', sheet:'Invoices', id:'CI1' }, TEAM_SESSION).status, 'error', 'Team cannot delete invoices');
+ eq(callDoPost({ action:'delete', sheet:'Invoices', id:'CI1' }, TEAM_SESSION_COMMERCIAL).status, 'error', 'Team cannot delete invoices');
 
 // ---------- 10. Ringkasan ----------
 console.log(`\nmapping.test.js: ${pass} lolos, ${fail} gagal`);
