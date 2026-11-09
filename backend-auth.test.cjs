@@ -7,6 +7,11 @@ for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
   assert.match(source, /function cskLoginWithPin_\(/, path + ': PIN login handler exists');
   assert.match(source, /function cskRequireSession_\(/, path + ': session is required for protected requests');
   assert.match(source, /function cskAssertPayloadAllowed_\(/, path + ': server-side role authorization exists');
+  assert.ok(source.includes('record_invoice_payment'), path + ': payment endpoint is registered');
+  assert.match(source, /function recordInvoicePayment_\(/, path + ': payment writes use server-side ledger handler');
+  assert.ok(source.includes('FORBIDDEN_PAYMENT_WRITE'), path + ': payment recording is Owner-only');
+  assert.ok(source.includes('PAYMENT_LEDGER_SERVER_ONLY'), path + ': payment ledger cannot use generic CRUD');
+  assert.ok(source.includes('LockService.getScriptLock()'), path + ': payment writes use a script lock');
   assert.match(source, /if \(action === "delete" && role !== "owner"\) throw new Error\("FORBIDDEN_DELETE"\)/, path + ': Team cannot delete shared records through the API');
   assert.match(source, /function cskFilterDataForRole_\(/, path + ': GET data is filtered by role');
   assert.match(source, /CacheService\.getScriptCache\(\)/, path + ': sessions and login throttling use server cache');

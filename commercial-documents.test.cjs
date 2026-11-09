@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { calculateCommercialTotals, nextDocumentNumber, findExistingProjectForDocument } = require('./commercial-documents.js');
+const { calculateCommercialTotals, nextDocumentNumber, findExistingProjectForDocument, summarizeInvoicePayments } = require('./commercial-documents.js');
 const html = fs.readFileSync('index.html', 'utf8');
 const source = fs.readFileSync('commercial-documents.js', 'utf8');
 const guard = fs.readFileSync('security/guard.js', 'utf8');
@@ -24,6 +24,9 @@ assert.equal(findExistingProjectForDocument([leadQueueProject], { id: 'INV1', le
 assert.equal(findExistingProjectForDocument([leadQueueProject], { id: 'INV2', leadId: 'L2' }, '', 'INV2'), null);
 const quoteProject = { id: 'P-QUOTE', sourceQuotationId: 'CQ1' };
 assert.equal(findExistingProjectForDocument([quoteProject], { id: 'INV3' }, 'CQ1', 'INV3'), quoteProject);
+assert.deepEqual(summarizeInvoicePayments({ id:'I1', total:300000 }, []), { total:300000, paid:0, balance:300000, count:0, status:'unpaid' });
+assert.deepEqual(summarizeInvoicePayments({ id:'I1', total:300000 }, [{ invoiceId:'I1', amount:100000 }]), { total:300000, paid:100000, balance:200000, count:1, status:'partial' });
+assert.deepEqual(summarizeInvoicePayments({ id:'I1', total:300000 }, [{ invoiceId:'I1', amount:100000 },{ invoiceId:'I1', amount:200000 }]), { total:300000, paid:300000, balance:0, count:2, status:'paid' });
 assert.ok(html.includes('<script src="./commercial-documents.js"></script>'));
 assert.ok(html.includes('db.quotations = parsed.quotations || []'));
 assert.ok(html.includes('db.invoices = parsed.invoices || []'));
@@ -38,6 +41,16 @@ for (const name of [
   'saveCommercialDocument', 'printCommercialDocument', 'copyCommercialDocumentWA'
 ]) assert.ok(source.includes('function ' + name + '(') || source.includes('w.' + name + '='));
 assert.ok(source.includes('sourceInvoiceId:sourceI'));
+assert.ok(source.includes('function openPaymentEditor(invoiceId)'));
+assert.ok(source.includes('function saveInvoicePayment()'));
+assert.ok(source.includes('data-action="payment"'));
+assert.ok(source.includes('recordInvoicePayment(payment)'));
+assert.ok(source.includes('Catat Pembayaran'));
+assert.ok(source.includes('Total invoice tidak boleh diubah setelah ada pembayaran'));
+assert.ok(source.includes('riwayat pembayaran tidak dapat dihapus'));
+assert.ok(guard.includes('recordInvoicePayment: recordInvoicePayment'));
+assert.ok(backend.includes('Invoice_Payments'));
+assert.ok(backend.includes('record_invoice_payment'));
 assert.match(source, /data-kind="'\+k\+'"/);
 assert.ok(source.includes('Dokumen komersial hanya dapat dikelola Owner.'));
 for (const s of [backend, mirror]) {
@@ -52,6 +65,8 @@ for (const s of [backend, mirror]) {
 }
 assert.equal(backend.trimEnd(), mirror.trimEnd());
 assert.match(guard, /'quotationSnapshots','quotations','invoices'/);
+assert.ok(guard.includes("db.invoicePayments = identity.role === 'owner'"));
+assert.doesNotMatch(guard.match(/function makeSyncPayload\(\)[\s\S]*?\n  }/)[0], /invoicePayments/, 'payment ledger is read-only in generic sync payload');
 assert.match(guard, /Commercial_Quotations:'quotations',Invoices:'invoices'/);
 assert.match(sw, /commercial-documents\.js/);
 assert.match(workflow, /node commercial-documents\.test\.cjs/);

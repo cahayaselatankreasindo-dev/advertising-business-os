@@ -153,3 +153,11 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 - ✅ View **Marketing Spend** baru dengan kalkulasi CPL & ROAS
 - ✅ Tombol **"Tarik Data"** (pull server overwrites local) di dashboard
 - ✅ Versi PWA bumped ke **v2.0.0** (service worker cache baru)
+
+
+### Invoice Payment Ledger
+
+- Pembayaran Invoice dicatat melalui endpoint Owner-only yang menulis satu baris ke `Invoice_Payments` dan satu pemasukan ke `Finance`.
+- Jenis pembayaran: DP, cicilan, dan pelunasan. Nominal harus sesuai sisa tagihan; pelunasan wajib sama dengan saldo terutang.
+- ID pembayaran menjadi kunci idempotensi. Pengiriman ulang ID yang sama tidak menggandakan jurnal; jika penulisan Finance gagal setelah ledger tersimpan, retry akan memperbaiki jurnal.
+- `Invoice_Payments` dibaca oleh Owner dan tidak dapat ditulis melalui `sync_all` atau endpoint CRUD generik.

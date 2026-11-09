@@ -95,6 +95,7 @@ const ContentServiceStub = {
   },
 };
 const ScriptAppStub = { getProjectTriggers() { return []; } };
+const LockServiceStub = { getScriptLock() { return { waitLock() {}, releaseLock() {} }; } };
 const LoggerStub = { log() {} };
 // Stub PropertiesService (in-memory) untuk fitur token API
 const _props = {};
@@ -144,6 +145,7 @@ const sandbox = {
   SpreadsheetApp: SpreadsheetAppStub,
   ContentService: ContentServiceStub,
   ScriptApp: ScriptAppStub,
+  LockService: LockServiceStub,
   Logger: LoggerStub,
   PropertiesService: PropertiesServiceStub,
   CacheService: CacheServiceStub,
@@ -206,7 +208,7 @@ const FIELD_MAP = sandbox.FIELD_MAP;
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
-    ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Services'].sort(),
+    ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoice_Payments','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Services'].sort(),
     'FIELD_MAP mencakup 13 tab');
   eq(FIELD_MAP.Projects.headers,
     ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim','SuggestedPrice','SourceQuotationID','SourceInvoiceID'],
@@ -223,6 +225,9 @@ if (FIELD_MAP) {
   eq(FIELD_MAP.Invoices.fields,
     ['id','projectId','leadId','quotationId','sourceQuotationId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','paymentTerms','terms','notes','status','createdAt','updatedAt'],
     'FIELD_MAP.Invoices.fields lengkap');
+  eq(FIELD_MAP.Invoice_Payments.fields,
+    ['id','invoiceId','invoiceNo','paymentDate','paymentType','amount','method','reference','notes','financeId','createdAt','createdBy'],
+    'FIELD_MAP.Invoice_Payments.fields lengkap');
 }
 
 // ---------- 6. Tes BACA (doGet): Sheet -> field HTML ----------
@@ -512,6 +517,7 @@ eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat 
  const ownerCommercialData = callDoGet(OWNER_SESSION);
  eq(ownerCommercialData.data.quotations[0].id, 'CQ1', 'Owner reads commercial quotation');
  eq(ownerCommercialData.data.invoices[0].id, 'CI1', 'Owner reads invoice');
+ eq(Array.isArray(ownerCommercialData.data.invoicePayments), true, 'Owner reads invoice payment ledger');
  eq(ownerCommercialData.data.quotations[0].lines[0].name, 'Backdrop', 'Quotation line JSON decodes');
  eq(ownerCommercialData.data.invoices[0].quotationId, 'CQ1', 'Invoice quotation relation reads');
  eq(ownerCommercialData.data.projects.find(x => x.id === 'PC1').sourceInvoiceId, 'CI1', 'Project invoice relation reads');
@@ -521,11 +527,60 @@ eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat 
  const teamCommercialData = callDoGet(TEAM_SESSION_COMMERCIAL);
  eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'quotations'), false, 'Team cannot read quotations');
  eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'invoices'), false, 'Team cannot read invoices');
+ eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'invoicePayments'), false, 'Team cannot read invoice payment ledger');
  const beforeTeamCommercial = sheets['Invoices'].rows.length;
  eq(callDoPost({ action:'sync_all', invoices:[{id:'TEAM-I',docNo:'INV-TEAM'}] }, TEAM_SESSION_COMMERCIAL).status, 'error', 'Team cannot sync invoices');
  eq(callDoPost({ action:'sync_all', quotations:[{id:'TEAM-Q',docNo:'QUO-TEAM'}] }, TEAM_SESSION_COMMERCIAL).status, 'error', 'Team cannot sync quotations');
  eq(sheets['Invoices'].rows.length, beforeTeamCommercial, 'Team invoice write denied');
  eq(callDoPost({ action:'delete', sheet:'Invoices', id:'CI1' }, TEAM_SESSION_COMMERCIAL).status, 'error', 'Team cannot delete invoices');
+
+ // ---------- 9e. Invoice payment ledger -> Finance: DP, cicilan, pelunasan, idempotency ----------
+ const payment1 = { id:'PAY-CI1-DP-001', invoiceId:'CI1', paymentDate:'2026-11-10', paymentType:'dp', amount:100000, method:'transfer', reference:'TRX-DP-001', notes:'DP pertama' };
+ const financeBeforePayment = sheets['Finance'].rows.length;
+ const paymentWrite1 = callDoPost({ action:'record_invoice_payment', payment:payment1 }, OWNER_SESSION);
+ eq(paymentWrite1.status, 'success', 'Owner can record invoice DP');
+ eq(sheets['Invoice_Payments'].rows.length, 2, 'DP creates one ledger row');
+ eq(sheets['Finance'].rows.length, financeBeforePayment + 1, 'DP creates one Finance income row');
+ const paymentHeaders = sheets['Invoice_Payments'].rows[0].map(String);
+ const paymentRow = sheets['Invoice_Payments'].rows.find(r => String(r[0]) === payment1.id);
+ const financePaymentId = 'FIN-PAY-' + payment1.id;
+ const dpFinanceRow = sheets['Finance'].rows.find(r => String(r[0]) === financePaymentId);
+ eq(paymentRow[paymentHeaders.indexOf('InvoiceID')], 'CI1', 'Payment links to invoice');
+ eq(paymentRow[paymentHeaders.indexOf('Nominal')], 100000, 'Payment amount persists');
+ eq(paymentRow[paymentHeaders.indexOf('FinanceID')], financePaymentId, 'Payment stores Finance reference');
+ eq(dpFinanceRow[2], 'income', 'Payment Finance type is income');
+ eq(dpFinanceRow[3], 'Pembayaran Invoice', 'Payment Finance category is invoice payment');
+ eq(dpFinanceRow[4], 100000, 'Payment Finance amount matches received amount');
+ const financeAfterDp = sheets['Finance'].rows.length;
+ const ledgerAfterDp = sheets['Invoice_Payments'].rows.length;
+ eq(callDoPost({ action:'record_invoice_payment', payment:payment1 }, OWNER_SESSION).status, 'success', 'Retry same payment ID is accepted idempotently');
+ eq(sheets['Finance'].rows.length, financeAfterDp, 'Retry does not duplicate Finance');
+ eq(sheets['Invoice_Payments'].rows.length, ledgerAfterDp, 'Retry does not duplicate payment ledger');
+ const conflictingPayment = Object.assign({}, payment1, { amount:110000 });
+ eq(callDoPost({ action:'record_invoice_payment', payment:conflictingPayment }, OWNER_SESSION).status, 'error', 'Reusing payment ID with changed amount is rejected');
+ eq(sheets['Finance'].rows.length, financeAfterDp, 'Conflicting retry does not change Finance');
+ eq(callDoPost({ action:'record_invoice_payment', payment:Object.assign({}, payment1, { id:'PAY-CI1-OVER-001', amount:250001 }) }, OWNER_SESSION).status, 'error', 'Overpayment beyond outstanding balance is rejected');
+ const payment2 = { id:'PAY-CI1-SET-001', invoiceId:'CI1', paymentDate:'2026-11-12', paymentType:'settlement', amount:200000, method:'qris', reference:'QR-SET-001', notes:'Pelunasan' };
+ eq(callDoPost({ action:'record_invoice_payment', payment:payment2 }, OWNER_SESSION).status, 'success', 'Remaining balance can be settled');
+ eq(sheets['Invoice_Payments'].rows.length, ledgerAfterDp + 1, 'Settlement creates one more payment row');
+ eq(sheets['Finance'].rows.length, financeAfterDp + 1, 'Settlement creates one more Finance income row');
+ const paymentReadback = callDoGet(OWNER_SESSION).data.invoicePayments;
+ eq(paymentReadback.length, 2, 'Owner reads both payment rows');
+ eq(paymentReadback.reduce((sum,x)=>sum+Number(x.amount||0),0), 300000, 'Payment ledger total equals invoice total');
+ eq(callDoGet(TEAM_SESSION_COMMERCIAL).data.invoicePayments, undefined, 'Team response omits invoice payment ledger');
+ const settlementFinanceIndex = sheets['Finance'].rows.findIndex(r => String(r[0]) === 'FIN-PAY-' + payment2.id);
+ sheets['Finance'].deleteRow(settlementFinanceIndex + 1);
+ eq(callDoPost({ action:'record_invoice_payment', payment:payment2 }, OWNER_SESSION).status, 'success', 'Retry repairs missing Finance row after partial write');
+ eq(sheets['Finance'].rows.filter(r => String(r[0]) === 'FIN-PAY-' + payment2.id).length, 1, 'Finance repair remains idempotent');
+ const beforeTeamPaymentLedger = sheets['Invoice_Payments'].rows.length;
+ const beforeTeamPaymentFinance = sheets['Finance'].rows.length;
+ const forbiddenPayment = callDoPost({ action:'record_invoice_payment', payment:{ id:'PAY-TEAM-001', invoiceId:'CI1', paymentDate:'2026-11-13', paymentType:'installment', amount:1, method:'cash' } }, TEAM_SESSION_COMMERCIAL);
+ eq(forbiddenPayment.status, 'error', 'Team cannot record invoice payment');
+ eq(sheets['Invoice_Payments'].rows.length, beforeTeamPaymentLedger, 'Team payment attempt does not change ledger');
+ eq(sheets['Finance'].rows.length, beforeTeamPaymentFinance, 'Team payment attempt does not change Finance');
+ eq(callDoPost({ action:'sync_all', invoicePayments:[{ id:'PAY-SPOOF-001' }] }, OWNER_SESSION).status, 'error', 'Invoice payment ledger cannot be client-synced');
+ eq(callDoPost({ action:'delete', sheet:'Invoice_Payments', id:payment1.id }, OWNER_SESSION).status, 'error', 'Invoice payment ledger cannot be deleted through generic endpoint');
+
 
 // ---------- 10. Ringkasan ----------
 console.log(`\nmapping.test.js: ${pass} lolos, ${fail} gagal`);

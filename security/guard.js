@@ -83,7 +83,7 @@
   }
   function resetDb() {
     if (typeof db === 'undefined') return;
-    ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','services','purchaseOrders','quotationSnapshots','quotations','invoices'].forEach(function (key) { db[key] = []; });
+    ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','services','purchaseOrders','quotationSnapshots','quotations','invoices','invoicePayments'].forEach(function (key) { db[key] = []; });
     db.settings = { googleSheetUrl: apiUrl(), lastSync: '', lastSyncError: '' };
     db.role = 'team';
   }
@@ -306,6 +306,7 @@
       collectionsForRole().forEach(function (collection) {
         db[collection] = mergeById(cloud[collection], local[collection]);
       });
+      db.invoicePayments = identity.role === 'owner' && Array.isArray(cloud.invoicePayments) ? cloud.invoicePayments : [];
       db.settings = db.settings || {};
       db.settings.googleSheetUrl = url;
       db.settings.lastSync = cloud.lastSynced || '';
@@ -420,6 +421,7 @@
       var response = await get('get_data');
       var cloud = response.data || {};
       collectionsForRole().forEach(function (key) { db[key] = mergeById(cloud[key], db[key]); });
+      db.invoicePayments = identity.role === 'owner' && Array.isArray(cloud.invoicePayments) ? cloud.invoicePayments : [];
       db.settings.lastSync = cloud.lastSynced || new Date().toISOString();
       db.settings.lastSyncError = '';
       saveScoped();
@@ -475,6 +477,40 @@
     };
   }
 
+  async function recordInvoicePayment(payment) {
+    if (!ready || !identity) throw new Error('AUTH_REQUIRED');
+    if (identity.role !== 'owner') throw new Error('FORBIDDEN_PAYMENT_WRITE');
+    if (!payment || !payment.id || !payment.invoiceId) throw new Error('PAYMENT_REQUIRED');
+    if (syncRunning) throw new Error('SYNC_IN_PROGRESS_TRY_AGAIN');
+    var synced = await syncNow(true);
+    if (!synced) throw new Error('INVOICE_SYNC_REQUIRED_BEFORE_PAYMENT');
+    await post({ action: 'record_invoice_payment', payment: payment });
+    var response = await get('get_data');
+    var cloud = response.data || {};
+    var paymentRows = Array.isArray(cloud.invoicePayments) ? cloud.invoicePayments : [];
+    var financeRows = Array.isArray(cloud.finance) ? cloud.finance : [];
+    var stored = paymentRows.find(function(x) { return String(x.id) === String(payment.id); });
+    var financeId = 'FIN-PAY-' + String(payment.id);
+    var finance = financeRows.find(function(x) { return String(x.id) === financeId; });
+    if (!stored || !finance ||
+        String(stored.invoiceId) !== String(payment.invoiceId) ||
+        Number(stored.amount) !== Number(payment.amount) ||
+        String(stored.paymentDate) !== String(payment.paymentDate) ||
+        String(stored.paymentType) !== String(payment.paymentType) ||
+        String(stored.method) !== String(payment.method) ||
+        Number(finance.amount) !== Number(payment.amount) ||
+        String(finance.type).toLowerCase() !== 'income') {
+      throw new Error('PAYMENT_NOT_VERIFIED_CHECK_AND_RETRY');
+    }
+    db.invoicePayments = paymentRows;
+    db.finance = financeRows;
+    db.invoices = Array.isArray(cloud.invoices) ? cloud.invoices : db.invoices;
+    saveScoped();
+    if (typeof renderAll === 'function') renderAll();
+    if (typeof updateCloudIndicator === 'function') updateCloudIndicator();
+    return { payment: stored, finance: finance };
+  }
+
   window.CSKAuth = {
     isReady: function () { return ready; },
     getIdentity: function () { return identity ? { email: identity.email, role: identity.role } : null; },
@@ -482,7 +518,8 @@
     sync: function (silent) { return syncNow(!!silent); },
     pull: function () { return window.pullAndMerge(); },
     deleteRecord: function (sheet, id) { return window.deleteOnCloud(sheet, id); },
-    getData: function () { return get('get_data'); }
+    getData: function () { return get('get_data'); },
+    recordInvoicePayment: recordInvoicePayment
   };
 
   // Warn before leaving while Owner changes or a legacy migration still await verified cloud sync.

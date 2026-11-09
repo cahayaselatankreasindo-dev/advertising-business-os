@@ -1397,6 +1397,7 @@
       quotationSnapshots: [],
       quotations: [],
       invoices: [],
+      invoicePayments: [],
       settings: {
         googleSheetUrl: '',
         lastSync: ''
@@ -1425,6 +1426,7 @@
           db.quotationSnapshots = parsed.quotationSnapshots || [];
           db.quotations = parsed.quotations || [];
           db.invoices = parsed.invoices || [];
+          db.invoicePayments = parsed.invoicePayments || [];
           db.settings       = parsed.settings       || { googleSheetUrl: '', lastSync: '' };
           db.role           = parsed.role           || 'owner';
         } catch (e) {

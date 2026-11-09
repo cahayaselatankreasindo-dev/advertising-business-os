@@ -102,6 +102,10 @@ var FIELD_MAP = {
   Invoices: {
     headers: ["ID", "ProjectID", "LeadID", "QuotationID", "SourceQuotationID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "AlamatKlien", "PICKlien", "NomorDokumen", "TanggalDokumen", "JatuhTempo", "LinesJSON", "Subtotal", "Diskon", "PajakPersen", "PajakNominal", "Total", "DPPersen", "KetentuanPembayaran", "SyaratKetentuan", "Catatan", "Status", "CreatedAt", "UpdatedAt"],
     fields: ["id", "projectId", "leadId", "quotationId", "sourceQuotationId", "projectName", "client", "clientPhone", "clientEmail", "clientAddress", "contactPerson", "docNo", "date", "dueDate", "linesJson", "subtotal", "discount", "taxRate", "taxAmount", "total", "dpPercent", "paymentTerms", "terms", "notes", "status", "createdAt", "updatedAt"]
+  },
+  Invoice_Payments: {
+    headers: ["ID", "InvoiceID", "NomorInvoice", "TanggalPembayaran", "JenisPembayaran", "Nominal", "Metode", "Referensi", "Catatan", "FinanceID", "CreatedAt", "CreatedBy"],
+    fields: ["id", "invoiceId", "invoiceNo", "paymentDate", "paymentType", "amount", "method", "reference", "notes", "financeId", "createdAt", "createdBy"]
   }
 };
 var RATING_REVIEW_SEP = " | ";
@@ -223,6 +227,7 @@ function setupSheet() {
   ensureSheet(ss, "Quotations", FIELD_MAP.Quotations.headers);
   ensureSheet(ss, "Commercial_Quotations", FIELD_MAP.Commercial_Quotations.headers);
   ensureSheet(ss, "Invoices", FIELD_MAP.Invoices.headers);
+  ensureSheet(ss, "Invoice_Payments", FIELD_MAP.Invoice_Payments.headers);
 
   // Validasi header tanpa menghapus kolom; kolom kontrak yang belum ada ditambahkan di kanan.
   Object.keys(FIELD_MAP).forEach(function (name) {
@@ -384,6 +389,7 @@ function doGet(e) {
       quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
       quotations: readSheetData(ss, "Commercial_Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
       invoices: readSheetData(ss, "Invoices").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
+      invoicePayments: readSheetData(ss, "Invoice_Payments"),
       lastSynced: new Date().toISOString()
     };
     return jsonResponse({ status: "success", identity: identity, data: cskFilterDataForRole_(result, identity.role) });
@@ -430,6 +436,11 @@ function doPost(e) {
         if (payload.invoices) mergeSummary.Invoices = mergeSheet(ss, "Invoices", payload.invoices.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
         if (identity.role === "owner") autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge; data lama yang tidak dikirim tetap dipertahankan.", summary: mergeSummary });
+      }
+
+      case "record_invoice_payment": {
+        var paymentResult = recordInvoicePayment_(ss, payload.payment, identity);
+        return jsonResponse({ status: "success", result: paymentResult });
       }
 
       case "delete": {
@@ -479,6 +490,91 @@ function doPost(e) {
     }
   } catch (err) {
     return jsonResponse({ status: "error", code: String(err && err.message || err), message: "Permintaan ditolak atau gagal diproses." });
+  }
+}
+
+// Catat pembayaran secara idempoten: satu baris ledger dan satu jurnal Finance.
+function recordInvoicePayment_(ss, rawPayment, identity) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var p = rawPayment || {};
+    var id = String(p.id || "").trim();
+    var invoiceId = String(p.invoiceId || "").trim();
+    var paymentDate = String(p.paymentDate || "").trim();
+    var paymentType = String(p.paymentType || "").trim().toLowerCase();
+    var method = String(p.method || "").trim().toLowerCase();
+    var amount = Number(p.amount);
+    var reference = String(p.reference || "").trim();
+    var notes = String(p.notes || "").trim();
+    if (!/^[A-Za-z0-9_-]{8,100}$/.test(id)) throw new Error("INVALID_PAYMENT_ID");
+    if (!invoiceId) throw new Error("INVOICE_ID_REQUIRED");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) throw new Error("INVALID_PAYMENT_DATE");
+    var parsedDate = new Date(paymentDate + "T00:00:00Z");
+    if (isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== paymentDate) throw new Error("INVALID_PAYMENT_DATE");
+    if (["dp", "installment", "settlement"].indexOf(paymentType) < 0) throw new Error("INVALID_PAYMENT_TYPE");
+    if (["transfer", "cash", "qris", "ewallet", "other"].indexOf(method) < 0) throw new Error("INVALID_PAYMENT_METHOD");
+    if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("INVALID_PAYMENT_AMOUNT");
+    if (reference.length > 120 || notes.length > 500) throw new Error("PAYMENT_TEXT_TOO_LONG");
+    ensureSheet(ss, "Invoices", FIELD_MAP.Invoices.headers);
+    ensureSheet(ss, "Invoice_Payments", FIELD_MAP.Invoice_Payments.headers);
+    ensureSheet(ss, "Finance", FIELD_MAP.Finance.headers);
+    var invoice = readSheetData(ss, "Invoices").find(function(x) { return String(x.id) === invoiceId; });
+    if (!invoice) throw new Error("INVOICE_NOT_FOUND");
+    if (String(invoice.status || "").toLowerCase() === "cancelled") throw new Error("INVOICE_CANCELLED");
+    var paymentRows = readSheetData(ss, "Invoice_Payments");
+    var existing = paymentRows.find(function(x) { return String(x.id) === id; });
+    var invoiceNo = String(existing && existing.invoiceNo || invoice.docNo || invoice.id);
+    var typeLabel = paymentType === "dp" ? "DP" : paymentType === "settlement" ? "Pelunasan" : "Cicilan";
+    var financeId = "FIN-PAY-" + id;
+    var financeDescription = "Pembayaran invoice " + invoiceNo + " · " + typeLabel + (reference ? " · Ref " + reference : "");
+    var financeRows = readSheetData(ss, "Finance");
+    var existingFinance = financeRows.find(function(x) { return String(x.id) === financeId; });
+    if (existing) {
+      var same = String(existing.invoiceId) === invoiceId &&
+        String(existing.paymentDate) === paymentDate &&
+        String(existing.paymentType).toLowerCase() === paymentType &&
+        Number(existing.amount) === amount &&
+        String(existing.method).toLowerCase() === method &&
+        String(existing.reference || "") === reference &&
+        String(existing.notes || "") === notes;
+      if (!same) throw new Error("PAYMENT_ID_CONFLICT");
+      if (existing.financeId && String(existing.financeId) !== financeId) throw new Error("PAYMENT_FINANCE_LINK_CONFLICT");
+      existing.financeId = financeId;
+      mergeSheet(ss, "Invoice_Payments", [existing]);
+      if (existingFinance) {
+        if (String(existingFinance.date) !== paymentDate ||
+            String(existingFinance.type).toLowerCase() !== "income" ||
+            String(existingFinance.category) !== "Pembayaran Invoice" ||
+            Number(existingFinance.amount) !== amount ||
+            String(existingFinance.description) !== financeDescription) throw new Error("PAYMENT_FINANCE_CONFLICT");
+      } else {
+        insertRecord(ss, "Finance", { id: financeId, date: paymentDate, type: "income", category: "Pembayaran Invoice", amount: amount, description: financeDescription });
+      }
+      return { duplicate: true, payment: existing, financeId: financeId };
+    }
+    if (existingFinance) throw new Error("PAYMENT_FINANCE_ORPHANED");
+    var total = Math.round(Number(invoice.total) || 0);
+    if (!Number.isSafeInteger(total) || total <= 0) throw new Error("INVALID_INVOICE_TOTAL");
+    var paidBefore = paymentRows.filter(function(x) { return String(x.invoiceId) === invoiceId; }).reduce(function(sum, x) { return sum + Math.max(0, Number(x.amount) || 0); }, 0);
+    var balance = total - paidBefore;
+    if (balance <= 0) throw new Error("INVOICE_ALREADY_PAID");
+    if (amount > balance) throw new Error("PAYMENT_EXCEEDS_BALANCE");
+    if (paymentType === "dp" && paidBefore > 0) throw new Error("DP_ALREADY_RECORDED");
+    if (paymentType === "dp" && amount >= balance) throw new Error("DP_CANNOT_SETTLE_INVOICE");
+    if (paymentType === "settlement" && amount !== balance) throw new Error("SETTLEMENT_MUST_MATCH_BALANCE");
+    var payment = {
+      id: id, invoiceId: invoiceId, invoiceNo: invoiceNo, paymentDate: paymentDate,
+      paymentType: paymentType, amount: amount, method: method, reference: reference,
+      notes: notes, financeId: financeId, createdAt: new Date().toISOString(),
+      createdBy: String(identity && identity.email || "")
+    };
+    insertRecord(ss, "Invoice_Payments", payment);
+    // Jika Finance gagal setelah ledger tersimpan, retry ID yang sama memperbaiki jurnal.
+    insertRecord(ss, "Finance", { id: financeId, date: paymentDate, type: "income", category: "Pembayaran Invoice", amount: amount, description: financeDescription });
+    return { duplicate: false, payment: payment, financeId: financeId };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -667,8 +763,15 @@ function cskAssertPayloadAllowed_(identity, payload) {
   // Team members may create and update shared operational records, but deletion is Owner-only.
   // Enforce this on the server so hiding a button cannot be bypassed from the browser.
   if (action === "delete" && role !== "owner") throw new Error("FORBIDDEN_DELETE");
+  if ((action === "insert" || action === "delete") && String(payload.sheet || "") === "Invoice_Payments") throw new Error("PAYMENT_LEDGER_SERVER_ONLY");
+  if (action === "record_invoice_payment") {
+    if (role !== "owner") throw new Error("FORBIDDEN_PAYMENT_WRITE");
+    if (!payload.payment || typeof payload.payment !== "object") throw new Error("PAYMENT_REQUIRED");
+    return true;
+  }
 
   if (action === "sync_all") {
+    if (Object.prototype.hasOwnProperty.call(payload, "invoicePayments")) throw new Error("PAYMENT_LEDGER_SERVER_ONLY");
     var ownerCollections = ["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots","quotations","invoices"];
     var teamCollections = ["leads","clients","projects"];
     var allowed = role === "owner" ? ownerCollections : teamCollections;
