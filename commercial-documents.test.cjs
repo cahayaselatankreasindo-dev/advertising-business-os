@@ -78,3 +78,8 @@ assert.doesNotThrow(() => new Function(source));
 assert.doesNotThrow(() => new Function(guard));
 assert.doesNotThrow(() => new Function(backend));
 console.log('Commercial Document Center tests passed.');
+
+const readme = fs.readFileSync('README.md', 'utf8');
+assert.ok(readme.includes('Status Deal Menang hanya membuat antrean proyek; tidak membuat pendapatan Finance.'));
+assert.ok(readme.includes('hanya setelah pembayaran benar-benar diterima'));
+assert.ok(!readme.includes('skrip otomatis membuat baris pendapatan di tab Finance (kategori *DP Proyek*)'));
