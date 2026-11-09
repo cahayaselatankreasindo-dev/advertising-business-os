@@ -197,7 +197,7 @@ assert.throws(() => sandbox.checkUniqueDocumentNumbers(ss, 'Commercial_Quotation
   { id: 'Q-003', docNo: 'QUO-CSK-2026-00002' }
 ]), /DUPLICATE_DOCUMENT_NUMBER/);
 assert.throws(() => sandbox.checkUniqueDocumentNumbers(ss, 'Invoices', [
-  { id: 'I-002', docNo: ''
+  { id: 'I-002', docNo: '' }
 ]), /DOCUMENT_NUMBER_REQUIRED/);
 assert.equal(sandbox.checkUniqueDocumentNumbers(ss, 'Invoices', [
   { id: 'I-001', docNo: 'INV-CSK-2026-00009' }

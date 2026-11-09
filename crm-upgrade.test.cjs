@@ -59,6 +59,6 @@ assert.match(html,/isOwnerSession\(\)\?'<button onclick="convertLeadToWon/);
 assert.match(html,/leadWonOption\.disabled = isTeam/);
 assert.match(html,/src="\.\/crm-upgrade\.js"/);
 assert.doesNotMatch(html,/Deal Menang → Pendapatan \+ Antrean Proyek/);
-assert.match(sw,/csk-business-os-v3\.2\.1/);
+assert.match(sw,/csk-business-os-v3\.2\.2/);
 assert.match(sw,/'\.\/crm-upgrade\.js'/);
 console.log('CSK CRM upgrade unit and integration checks passed.');
