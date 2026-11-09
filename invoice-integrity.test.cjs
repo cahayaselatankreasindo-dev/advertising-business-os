@@ -65,17 +65,17 @@ const sandbox = {
 };
 vm.runInNewContext(
   extractFunction('assertPaidInvoiceChangesAllowed_') +
-  '\\nthis.checkPaidInvoice = assertPaidInvoiceChangesAllowed_;',
+  '\nthis.checkPaidInvoice = assertPaidInvoiceChangesAllowed_;',
   sandbox
 );
 vm.runInNewContext(
   extractFunction('assertCommercialRecordDeletionAllowed_') +
-  '\\nthis.checkDeletion = assertCommercialRecordDeletionAllowed_;',
+  '\nthis.checkDeletion = assertCommercialRecordDeletionAllowed_;',
   sandbox
 );
 vm.runInNewContext(
   extractFunction('recordInvoicePayment_') +
-  '\\nthis.recordPayment = recordInvoicePayment_;',
+  '\nthis.recordPayment = recordInvoicePayment_;',
   sandbox
 );
 const ss = {};
