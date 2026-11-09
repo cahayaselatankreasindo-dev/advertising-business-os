@@ -83,3 +83,10 @@ const readme = fs.readFileSync('README.md', 'utf8');
 assert.ok(readme.includes('Status Deal Menang hanya membuat antrean proyek; tidak membuat pendapatan Finance.'));
 assert.ok(readme.includes('hanya setelah pembayaran benar-benar diterima'));
 assert.ok(!readme.includes('skrip otomatis membuat baris pendapatan di tab Finance (kategori *DP Proyek*)'));
+
+assert.ok(source.includes('async function persistCommercialChanges('));
+assert.ok(source.includes('await w.CSKAuth.sync(true)'));
+assert.ok(source.includes('saveDB(true)'));
+assert.ok(source.includes('await persistCommercialChanges('));
+assert.ok(source.includes('berhasil disimpan dan diverifikasi di Google Sheets'));
+assert.match(guard, /if \(syncTimer\) \{ clearTimeout\(syncTimer\); syncTimer = null; \}/);
