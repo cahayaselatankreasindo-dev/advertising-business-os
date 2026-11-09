@@ -13,8 +13,8 @@ function extractFunction(name) {
 let tables = {};
 function readSheetData(_ss, sheetName) { return (tables[sheetName] || []).map(row => ({ ...row })); }
 const sandbox = { readSheetData };
-vm.runInNewContext(extractFunction('assertPaidInvoiceChangesAllowed_') + '\\nthis.checkPaidInvoice = assertPaidInvoiceChangesAllowed_;', sandbox);
-vm.runInNewContext(extractFunction('assertCommercialRecordDeletionAllowed_') + '\\nthis.checkDeletion = assertCommercialRecordDeletionAllowed_;', sandbox);
+vm.runInNewContext(extractFunction('assertPaidInvoiceChangesAllowed_') + '\nthis.checkPaidInvoice = assertPaidInvoiceChangesAllowed_;', sandbox);
+vm.runInNewContext(extractFunction('assertCommercialRecordDeletionAllowed_') + '\nthis.checkDeletion = assertCommercialRecordDeletionAllowed_;', sandbox);
 const ss = {};
 
 tables = {
