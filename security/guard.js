@@ -188,6 +188,7 @@
   }
   async function syncNow(silent) {
     if (!ready || !identity) return false;
+    if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
     if (syncRunning) { syncQueued = true; return false; }
     syncRunning = true;
     var succeeded = false;
