@@ -466,6 +466,22 @@ const ownerWrite = callDoPost({ action: 'sync_all', finance: [{ id: 'OWNER-FIN',
 eq(ownerWrite.status, 'success', 'RBAC: Owner dapat sinkronisasi Finance');
 eq(sheets['Finance'].rows.length, beforeOwnerWrite + 1, 'RBAC: Finance hanya berubah melalui sesi Owner');
 
+// Deal Won membuat antrean proyek, bukan pemasukan Finance.
+const financeBeforeWonLead = sheets['Finance'].rows.length;
+const wonLeadPayload = { action: 'sync_all', leads: [{
+  id: 'L-WON-NO-FIN', date: '2026-11-09', name: 'Lead Belum Bayar', phone: '080',
+  source: 'WA', value: 9000000, status: 'won', notes: ''
+}] };
+const wonLeadWrite = callDoPost(wonLeadPayload, OWNER_SESSION);
+eq(wonLeadWrite.status, 'success', 'Deal Won owner tersimpan');
+eq(sheets['Finance'].rows.length, financeBeforeWonLead, 'Deal Won tidak membuat pemasukan Finance');
+const wonLeadToken = '[LEAD-L-WON-NO-FIN]';
+const wonLeadProjects = () => sheets['Projects'].rows.filter(row => row.map(String).join('|').indexOf(wonLeadToken) !== -1);
+eq(wonLeadProjects().length, 1, 'Deal Won membuat satu antrean proyek');
+callDoPost(wonLeadPayload, OWNER_SESSION);
+eq(sheets['Finance'].rows.length, financeBeforeWonLead, 'Sinkronisasi ulang Deal Won tetap tanpa pemasukan Finance');
+eq(wonLeadProjects().length, 1, 'Antrean proyek Deal Won idempoten');
+
 const logoutRes = callDoPost({ action: 'logout' }, TEAM_SESSION);
 eq(logoutRes.status, 'success', 'auth: logout berhasil');
 eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat digunakan lagi');
