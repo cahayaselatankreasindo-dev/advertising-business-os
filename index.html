@@ -660,18 +660,13 @@
       <!-- DOCUMENT CENTER: QUOTATION & INVOICE -->
       <section id="page-documents" class="page-content hidden space-y-6">
         <div>
-          <span class="inline-flex items-center px-2 py-1 rounded bg-amber-100 text-amber-800 text-[10px] font-bold uppercase tracking-wide">Administrasi Proyek</span>
-          <h1 class="text-2xl font-bold font-heading text-slate-900 mt-2">Dokumen Penawaran & Penagihan</h1>
-          <p class="text-sm text-slate-500">Buat Surat Penawaran (Quotation), Invoice DP dengan persentase fleksibel, dan Invoice Pelunasan dari data proyek.</p>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div class="bg-white p-4 rounded-xl border border-slate-200"><div class="text-xs text-slate-500">Jenis dokumen</div><div class="font-bold text-slate-900 mt-1">Quotation</div><div class="text-[11px] text-slate-500 mt-1">Surat penawaran harga proyek.</div></div>
-          <div class="bg-white p-4 rounded-xl border border-slate-200"><div class="text-xs text-slate-500">Jenis dokumen</div><div class="font-bold text-slate-900 mt-1">Invoice DP</div><div class="text-[11px] text-slate-500 mt-1">Tagihan uang muka proyek.</div></div>
-          <div class="bg-white p-4 rounded-xl border border-slate-200"><div class="text-xs text-slate-500">Jenis dokumen</div><div class="font-bold text-slate-900 mt-1">Invoice Pelunasan</div><div class="text-[11px] text-slate-500 mt-1">Tagihan sisa pembayaran proyek.</div></div>
+          <span class="inline-flex items-center px-2 py-1 rounded bg-amber-100 text-amber-800 text-[10px] font-bold uppercase tracking-wide">Administrasi Komersial</span>
+          <h1 class="text-2xl font-bold font-heading text-slate-900 mt-2">Commercial Document Center</h1>
+          <p class="text-sm text-slate-500">Buat Quotation dan Invoice tanpa proyek. Ambil data Lead, pilih material/jasa, ubah harga, tanggal, jatuh tempo, DP, pajak, serta syarat dan ketentuan. Dokumen dapat menjadi sumber proyek.</p>
         </div>
         <div class="flex items-center justify-between gap-3">
-          <h2 class="font-bold text-slate-800">Pilih proyek</h2>
-          <button onclick="nav('projects')" class="text-xs text-amber-700 font-semibold hover:underline">Kelola proyek</button>
+          <h2 class="font-bold text-slate-800">Quotation & Invoice</h2>
+          <button onclick="nav('leads')" class="text-xs text-amber-700 font-semibold hover:underline">Buka Leads</button>
         </div>
         <div id="documents-projects-container" class="space-y-3"></div>
       </section>
@@ -1400,6 +1395,8 @@
       services: [],
       purchaseOrders: [],
       quotationSnapshots: [],
+      quotations: [],
+      invoices: [],
       settings: {
         googleSheetUrl: '',
         lastSync: ''
@@ -1426,6 +1423,8 @@
           db.services = parsed.services || [];
           db.purchaseOrders = parsed.purchaseOrders || [];
           db.quotationSnapshots = parsed.quotationSnapshots || [];
+          db.quotations = parsed.quotations || [];
+          db.invoices = parsed.invoices || [];
           db.settings       = parsed.settings       || { googleSheetUrl: '', lastSync: '' };
           db.role           = parsed.role           || 'owner';
         } catch (e) {
@@ -1551,7 +1550,7 @@
       target.setAttribute('aria-hidden', 'false');
 
       try {
-        if (page === 'documents') renderDocuments();
+        if (page === 'documents') (window.renderDocuments || renderDocuments)();
         if (page === 'hpp') renderHpp();
         if (page === 'services') renderServices();
         if (page === 'purchasing') renderPurchasing();
@@ -1674,6 +1673,7 @@
       renderMarketing();
       renderMemory();
       renderAnalysis();
+      (window.renderDocuments || renderDocuments)();
       applyRoleUI();
       renderMarketingCharts(db.marketingSpend, db.finance);
       renderWorkloadChart(db.projects);
@@ -2776,6 +2776,9 @@
           if (parsed && parsed.leads && parsed.finance) {
             // Restore all fields including new marketingSpend
             db = parsed;
+            db.quotationSnapshots = db.quotationSnapshots || [];
+            db.quotations = db.quotations || [];
+            db.invoices = db.invoices || [];
             if (!db.marketingSpend) db.marketingSpend = [];
             if (!db.role) db.role = 'owner';
             saveDB();
@@ -3053,5 +3056,6 @@
       pullAndMerge();
     });
   </script>
+  <script src="./commercial-documents.js"></script>
 </body>
 </html>
