@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - security/csk-pin-rbac-hardening
+      - feature/commercial-documents-standalone-20261109
   pull_request:
     branches:
       - main
@@ -24,9 +25,13 @@ jobs:
           node --check google_apps_script.js
           node -e "new Function(require('fs').readFileSync('apps-script/Code.gs','utf8'))"
           node --check security/guard.js
+          node --check commercial-documents.js
+          node --check commercial-documents.test.cjs
           node --check mapping.test.js
           node --check backend-auth.test.cjs
       - name: Mapping and RBAC integration tests
         run: node mapping.test.js
+      - name: Commercial Document Center tests
+        run: node commercial-documents.test.cjs
       - name: Backend security policy tests
         run: node backend-auth.test.cjs
