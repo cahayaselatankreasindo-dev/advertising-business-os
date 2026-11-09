@@ -60,8 +60,8 @@ var FIELD_MAP = {
     // NB: fields 8 item vs headers 7 kolom — rating+review digabung ke Rating_Review.
   },
   Projects: {
-    headers: ["ID", "NamaProyek", "Klien", "NilaiProyek", "Status", "Deadline", "Catatan", "SOP_Checklist", "PIC_Tim"],
-    fields:  ["id", "title", "client", "value", "status", "deadline", "notes", "sopChecklist", "pic"]
+    headers: ["ID", "NamaProyek", "Klien", "NilaiProyek", "Status", "Deadline", "Catatan", "SOP_Checklist", "PIC_Tim", "SuggestedPrice", "SourceQuotationID", "SourceInvoiceID"],
+    fields:  ["id", "title", "client", "value", "status", "deadline", "notes", "sopChecklist", "pic", "suggestedPrice", "sourceQuotationId", "sourceInvoiceId"]
   },
   Finance: {
     headers: ["ID", "Tanggal", "Tipe", "Kategori", "Nominal", "Keterangan"],
@@ -94,6 +94,14 @@ var FIELD_MAP = {
   Quotations: {
     headers: ["ID", "ProjectID", "NamaProyek", "Klien", "Deadline", "Catatan", "LinesJSON", "Total", "SourceCostSheetID", "SourceCostSheetUpdatedAt", "DPPersen", "Status", "CreatedAt", "UpdatedAt"],
     fields: ["id", "projectId", "projectName", "client", "deadline", "notes", "linesJson", "total", "sourceCostSheetId", "sourceCostSheetUpdatedAt", "dpPercent", "status", "createdAt", "updatedAt"]
+  },
+  Commercial_Quotations: {
+    headers: ["ID", "ProjectID", "LeadID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "AlamatKlien", "PICKlien", "NomorDokumen", "TanggalDokumen", "JatuhTempo", "LinesJSON", "Subtotal", "Diskon", "PajakPersen", "PajakNominal", "Total", "DPPersen", "SyaratKetentuan", "KetentuanPembayaran", "Catatan", "Status", "ConvertedInvoiceID", "CreatedAt", "UpdatedAt"],
+    fields: ["id", "projectId", "leadId", "projectName", "client", "clientPhone", "clientEmail", "clientAddress", "contactPerson", "docNo", "date", "dueDate", "linesJson", "subtotal", "discount", "taxRate", "taxAmount", "total", "dpPercent", "terms", "paymentTerms", "notes", "status", "convertedInvoiceId", "createdAt", "updatedAt"]
+  },
+  Invoices: {
+    headers: ["ID", "ProjectID", "LeadID", "QuotationID", "SourceQuotationID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "AlamatKlien", "PICKlien", "NomorDokumen", "TanggalDokumen", "JatuhTempo", "LinesJSON", "Subtotal", "Diskon", "PajakPersen", "PajakNominal", "Total", "DPPersen", "KetentuanPembayaran", "SyaratKetentuan", "Catatan", "Status", "CreatedAt", "UpdatedAt"],
+    fields: ["id", "projectId", "leadId", "quotationId", "sourceQuotationId", "projectName", "client", "clientPhone", "clientEmail", "clientAddress", "contactPerson", "docNo", "date", "dueDate", "linesJson", "subtotal", "discount", "taxRate", "taxAmount", "total", "dpPercent", "paymentTerms", "terms", "notes", "status", "createdAt", "updatedAt"]
   }
 };
 var RATING_REVIEW_SEP = " | ";
@@ -213,6 +221,8 @@ function setupSheet() {
   ensureSheet(ss, "Services", FIELD_MAP.Services.headers);
   ensureSheet(ss, "Purchase_Orders", FIELD_MAP.Purchase_Orders.headers);
   ensureSheet(ss, "Quotations", FIELD_MAP.Quotations.headers);
+  ensureSheet(ss, "Commercial_Quotations", FIELD_MAP.Commercial_Quotations.headers);
+  ensureSheet(ss, "Invoices", FIELD_MAP.Invoices.headers);
 
   // Validasi header tanpa menghapus kolom; kolom kontrak yang belum ada ditambahkan di kanan.
   Object.keys(FIELD_MAP).forEach(function (name) {
@@ -372,6 +382,8 @@ function doGet(e) {
       services: readSheetData(ss, "Services"),
       purchaseOrders: readSheetData(ss, "Purchase_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
       quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
+      quotations: readSheetData(ss, "Commercial_Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
+      invoices: readSheetData(ss, "Invoices").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
       lastSynced: new Date().toISOString()
     };
     return jsonResponse({ status: "success", identity: identity, data: cskFilterDataForRole_(result, identity.role) });
@@ -414,6 +426,8 @@ function doPost(e) {
         if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
         if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
         if (payload.quotationSnapshots) mergeSummary.Quotations = mergeSheet(ss, "Quotations", payload.quotationSnapshots.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
+        if (payload.quotations) mergeSummary.Commercial_Quotations = mergeSheet(ss, "Commercial_Quotations", payload.quotations.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
+        if (payload.invoices) mergeSummary.Invoices = mergeSheet(ss, "Invoices", payload.invoices.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
         if (identity.role === "owner") autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge; data lama yang tidak dikirim tetap dipertahankan.", summary: mergeSummary });
       }
@@ -655,7 +669,7 @@ function cskAssertPayloadAllowed_(identity, payload) {
   if (action === "delete" && role !== "owner") throw new Error("FORBIDDEN_DELETE");
 
   if (action === "sync_all") {
-    var ownerCollections = ["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots"];
+    var ownerCollections = ["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots","quotations","invoices"];
     var teamCollections = ["leads","clients","projects"];
     var allowed = role === "owner" ? ownerCollections : teamCollections;
     Object.keys(payload).forEach(function(key) {
