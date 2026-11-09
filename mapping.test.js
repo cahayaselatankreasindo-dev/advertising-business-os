@@ -209,7 +209,7 @@ if (FIELD_MAP) {
     ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Services'].sort(),
     'FIELD_MAP mencakup 13 tab');
   eq(FIELD_MAP.Projects.headers,
-    ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim'],
+    ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim','SuggestedPrice','SourceQuotationID','SourceInvoiceID'],
     'FIELD_MAP.Projects.headers = hasil Tahap 2 + PIC_Tim');
   eq(FIELD_MAP.Clients.fields,
     ['id','name','phone','projectsCount','totalSpend','notes','rating','review'],
