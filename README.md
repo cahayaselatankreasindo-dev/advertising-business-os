@@ -45,6 +45,7 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - Tanggal, jatuh tempo, diskon, pajak, DP, ketentuan pembayaran, syarat, dan catatan dapat diubah.
 - Quotation dapat dikonversi menjadi Invoice. Quotation maupun Invoice dapat membuat atau menghubungkan proyek tanpa duplikasi.
 - Invoice tidak otomatis dicatat sebagai kas masuk; Finance hanya mencatat pembayaran yang benar-benar diterima.
+- Backend menolak perubahan nilai total atau pembatalan Invoice yang sudah memiliki pembayaran, serta melindungi jurnal Finance terkait dari penghapusan generik.
 - HPP quotation snapshots tetap berada di tab `Quotations`; dokumen komersial disimpan terpisah di `Commercial_Quotations` dan `Invoices`.
 - Dokumen komersial dibatasi untuk Owner di antarmuka dan backend.
 

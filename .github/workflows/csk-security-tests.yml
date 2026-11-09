@@ -46,5 +46,7 @@ jobs:
         run: |
           node invoice.test.cjs
           node sync.test.cjs
+      - name: Invoice payment ledger integrity tests
+        run: node invoice-integrity.test.cjs
       - name: Photo LAB private-access regression tests
         run: node photo-lab.test.cjs

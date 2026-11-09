@@ -397,6 +397,58 @@ function doGet(e) {
   }
 }
 
+function assertPaidInvoiceChangesAllowed_(ss, incomingInvoices) {
+  var existingInvoices = readSheetData(ss, "Invoices");
+  var paymentRows = readSheetData(ss, "Invoice_Payments");
+  var paidIds = {};
+  paymentRows.forEach(function(payment) {
+    var invoiceId = String(payment.invoiceId || "").trim();
+    if (invoiceId) paidIds[invoiceId] = true;
+  });
+  (incomingInvoices || []).forEach(function(incoming) {
+    if (!incoming || !incoming.id) return;
+    var id = String(incoming.id).trim();
+    if (!paidIds[id]) return;
+    var existing = existingInvoices.find(function(invoice) { return String(invoice.id) === id; });
+    if (!existing) throw new Error("INVOICE_PAYMENT_ORPHANED");
+    var oldTotal = Number(existing.total);
+    var newTotal = Number(incoming.total);
+    if (!Number.isFinite(oldTotal) || !Number.isFinite(newTotal) || Math.round(oldTotal) !== Math.round(newTotal)) throw new Error("PAID_INVOICE_TOTAL_IMMUTABLE");
+    var oldStatus = String(existing.status || "").trim().toLowerCase();
+    var newStatus = String(incoming.status || "").trim().toLowerCase();
+    if (newStatus === "cancelled" && oldStatus !== "cancelled") throw new Error("PAID_INVOICE_CANNOT_CANCEL");
+  });
+  return true;
+}
+
+function assertCommercialRecordDeletionAllowed_(ss, sheetName, recordId) {
+  var id = String(recordId || "").trim();
+  if (sheetName === "Invoices") {
+    var hasPayments = readSheetData(ss, "Invoice_Payments").some(function(payment) { return String(payment.invoiceId || "") === id; });
+    if (hasPayments) throw new Error("INVOICE_HAS_PAYMENTS");
+  }
+  if (sheetName === "Finance") {
+    var linkedPayment = id.indexOf("FIN-PAY-") === 0 || readSheetData(ss, "Invoice_Payments").some(function(payment) { return String(payment.financeId || "") === id; });
+    if (linkedPayment) throw new Error("PAYMENT_FINANCE_LEDGER_PROTECTED");
+  }
+  return true;
+}
+
+function mergeInvoicesSafely_(ss, incomingInvoices) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    assertPaidInvoiceChangesAllowed_(ss, incomingInvoices);
+    var normalized = (incomingInvoices || []).map(function(item) {
+      var copy = Object.assign({}, item);
+      copy.linesJson = JSON.stringify(item.lines || []);
+      return copy;
+    });
+    return mergeSheet(ss, "Invoices", normalized);
+  } finally {
+    lock.releaseLock();
+  }
+}
 function doPost(e) {
   try {
     var payload = JSON.parse((e && e.postData && e.postData.contents) || "{}");
@@ -432,7 +484,7 @@ function doPost(e) {
         if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
         if (payload.quotationSnapshots) mergeSummary.Quotations = mergeSheet(ss, "Quotations", payload.quotationSnapshots.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
         if (payload.quotations) mergeSummary.Commercial_Quotations = mergeSheet(ss, "Commercial_Quotations", payload.quotations.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
-        if (payload.invoices) mergeSummary.Invoices = mergeSheet(ss, "Invoices", payload.invoices.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
+        if (payload.invoices) mergeSummary.Invoices = mergeInvoicesSafely_(ss, payload.invoices);
         if (identity.role === "owner") autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge; data lama yang tidak dikirim tetap dipertahankan.", summary: mergeSummary });
       }
@@ -446,12 +498,22 @@ function doPost(e) {
         var sheetName = String(payload.sheet || "Leads");
         var delId = payload.id;
         if (!delId) throw new Error("ID_REQUIRED");
-        var delSheet = ss.getSheetByName(sheetName);
-        if (!delSheet) throw new Error("SHEET_NOT_FOUND");
-        var rowNum = findRowById(delSheet, delId);
-        if (rowNum === -1) return jsonResponse({ status: "success", message: "Data sudah tidak ada." });
-        delSheet.deleteRow(rowNum);
-        return jsonResponse({ status: "success", message: "Data dihapus.", sheet: sheetName, id: delId });
+        var deletionLock = null;
+        if (sheetName === "Invoices" || sheetName === "Finance") {
+          deletionLock = LockService.getScriptLock();
+          deletionLock.waitLock(30000);
+        }
+        try {
+          var delSheet = ss.getSheetByName(sheetName);
+          if (!delSheet) throw new Error("SHEET_NOT_FOUND");
+          var rowNum = findRowById(delSheet, delId);
+          if (rowNum === -1) return jsonResponse({ status: "success", message: "Data sudah tidak ada." });
+          assertCommercialRecordDeletionAllowed_(ss, sheetName, delId);
+          delSheet.deleteRow(rowNum);
+          return jsonResponse({ status: "success", message: "Data dihapus.", sheet: sheetName, id: delId });
+        } finally {
+          if (deletionLock) deletionLock.releaseLock();
+        }
       }
 
       case "insert": {

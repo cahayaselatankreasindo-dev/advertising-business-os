@@ -11,6 +11,10 @@ for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
   assert.match(source, /function recordInvoicePayment_\(/, path + ': payment writes use server-side ledger handler');
   assert.ok(source.includes('FORBIDDEN_PAYMENT_WRITE'), path + ': payment recording is Owner-only');
   assert.ok(source.includes('PAYMENT_LEDGER_SERVER_ONLY'), path + ': payment ledger cannot use generic CRUD');
+  assert.match(source, /function assertPaidInvoiceChangesAllowed_\(/, path + ': paid invoice totals are protected server-side');
+  assert.match(source, /function mergeInvoicesSafely_\(/, path + ': invoice updates are serialized with payment writes');
+  assert.match(source, /function assertCommercialRecordDeletionAllowed_\(/, path + ': payment-linked records cannot be deleted generically');
+  assert.match(source, /assertCommercialRecordDeletionAllowed_\(ss, sheetName, delId\)/, path + ': delete endpoint enforces payment-ledger integrity');
   assert.ok(source.includes('LockService.getScriptLock()'), path + ': payment writes use a script lock');
   assert.match(source, /if \(action === "delete" && role !== "owner"\) throw new Error\("FORBIDDEN_DELETE"\)/, path + ': Team cannot delete shared records through the API');
   assert.match(source, /function cskFilterDataForRole_\(/, path + ': GET data is filtered by role');
