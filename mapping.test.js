@@ -188,7 +188,7 @@ seed('Leads', ['ID','Tanggal','Nama','WhatsApp','Sumber','EstimasiNilai','Status
 seed('Clients', ['ID','NamaKlien','WhatsApp','TotalProyek','TotalBelanja','Catatan','Rating_Review'], [
   ['C1','Budi','081',1,8000000,'loyal','5 | Sangat puas'],
 ]);
-seed('Projects', ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim'], [
+seed('Projects', ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim','SuggestedPrice','SourceQuotationID','SourceInvoiceID'], [
   ['P1','Branding','Budi',8000000,'ongoing','2026-09-20','n','Brief:1;Produksi:0;Review:0;Revisi:0;Delivery:0','Andi'],
 ]);
 seed('Finance', ['ID','Tanggal','Tipe','Kategori','Nominal','Keterangan'], [
@@ -206,8 +206,8 @@ const FIELD_MAP = sandbox.FIELD_MAP;
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
-    ['Clients','Cost_Sheets','Finance','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Services'].sort(),
-    'FIELD_MAP mencakup 11 tab');
+    ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Services'].sort(),
+    'FIELD_MAP mencakup 13 tab');
   eq(FIELD_MAP.Projects.headers,
     ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim'],
     'FIELD_MAP.Projects.headers = hasil Tahap 2 + PIC_Tim');
@@ -215,8 +215,14 @@ if (FIELD_MAP) {
     ['id','name','phone','projectsCount','totalSpend','notes','rating','review'],
     'FIELD_MAP.Clients.fields memakai rating+review (bukan ratingReview)');
   eq(FIELD_MAP.Projects.fields,
-    ['id','title','client','value','status','deadline','notes','sopChecklist','pic'],
-    'FIELD_MAP.Projects.fields memuat pic');
+    ['id','title','client','value','status','deadline','notes','sopChecklist','pic','suggestedPrice','sourceQuotationId','sourceInvoiceId'],
+    'FIELD_MAP.Projects.fields memuat referensi dokumen');
+  eq(FIELD_MAP.Commercial_Quotations.fields,
+    ['id','projectId','leadId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','terms','paymentTerms','notes','status','convertedInvoiceId','createdAt','updatedAt'],
+    'FIELD_MAP.Commercial_Quotations.fields lengkap');
+  eq(FIELD_MAP.Invoices.fields,
+    ['id','projectId','leadId','quotationId','sourceQuotationId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','paymentTerms','terms','notes','status','createdAt','updatedAt'],
+    'FIELD_MAP.Invoices.fields lengkap');
 }
 
 // ---------- 6. Tes BACA (doGet): Sheet -> field HTML ----------
@@ -463,6 +469,44 @@ eq(sheets['Finance'].rows.length, beforeOwnerWrite + 1, 'RBAC: Finance hanya ber
 const logoutRes = callDoPost({ action: 'logout' }, TEAM_SESSION);
 eq(logoutRes.status, 'success', 'auth: logout berhasil');
 eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat digunakan lagi');
+
+
+ // ---------- 9d. Commercial Document Center: storage, relations, and Owner-only access ----------
+ const commercialWrite = callDoPost({
+   action: 'sync_all',
+   quotations: [{ id:'CQ1', projectId:'', leadId:'L1', projectName:'Booth', client:'PT Buyer', clientPhone:'081', clientEmail:'buyer@example.test', clientAddress:'Jakarta', contactPerson:'Ayu', docNo:'QUO-CSK-2026-00001', date:'2026-11-09', dueDate:'2026-11-23', lines:[{id:'QL1',name:'Backdrop',qty:2,unit:'unit',unitPrice:150000}], subtotal:300000, discount:10000, taxRate:11, taxAmount:31900, total:321900, dpPercent:50, terms:'Syarat quote', paymentTerms:'50% DP', notes:'Catatan quote', status:'draft', convertedInvoiceId:'CI1', createdAt:'2026-11-09T01:00:00.000Z', updatedAt:'2026-11-09T01:00:00.000Z' }],
+   invoices: [{ id:'CI1', projectId:'', leadId:'L1', quotationId:'CQ1', sourceQuotationId:'CQ1', projectName:'Booth', client:'PT Buyer', clientPhone:'081', clientEmail:'buyer@example.test', clientAddress:'Jakarta', contactPerson:'Ayu', docNo:'INV-CSK-2026-00001', date:'2026-11-09', dueDate:'2026-11-16', lines:[{id:'IL1',name:'Backdrop',qty:2,unit:'unit',unitPrice:150000}], subtotal:300000, discount:0, taxRate:0, taxAmount:0, total:300000, dpPercent:50, paymentTerms:'Transfer', terms:'Syarat invoice', notes:'Catatan invoice', status:'draft', createdAt:'2026-11-09T01:00:00.000Z', updatedAt:'2026-11-09T01:00:00.000Z' }],
+   projects: [{ id:'PC1', title:'Booth', client:'PT Buyer', value:300000, suggestedPrice:300000, status:'plan', deadline:'2026-11-16', notes:'From invoice', sopChecklist:'Brief:0', pic:'', sourceQuotationId:'CQ1', sourceInvoiceId:'CI1' }]
+ }, OWNER_SESSION);
+ eq(commercialWrite.status, 'success', 'Owner sync quotation, invoice, and project');
+ eq(!!sheets['Commercial_Quotations'], true, 'Commercial_Quotations tab created');
+ eq(!!sheets['Invoices'], true, 'Invoices tab created');
+ const quoteRow = sheets['Commercial_Quotations'].rows.find(r => String(r[0]) === 'CQ1');
+ const invoiceRow = sheets['Invoices'].rows.find(r => String(r[0]) === 'CI1');
+ const projectDocRow = sheets['Projects'].rows.find(r => String(r[0]) === 'PC1');
+ const quoteHeaders = sheets['Commercial_Quotations'].rows[0].map(String);
+ const invoiceHeaders = sheets['Invoices'].rows[0].map(String);
+ const projectHeaders = sheets['Projects'].rows[0].map(String);
+ eq(quoteRow[quoteHeaders.indexOf('NomorDokumen')], 'QUO-CSK-2026-00001', 'Quotation number persisted');
+ eq(JSON.parse(quoteRow[quoteHeaders.indexOf('LinesJSON')])[0].name, 'Backdrop', 'Quotation item JSON persisted');
+ eq(invoiceRow[invoiceHeaders.indexOf('NomorDokumen')], 'INV-CSK-2026-00001', 'Invoice number persisted');
+ eq(invoiceRow[invoiceHeaders.indexOf('SourceQuotationID')], 'CQ1', 'Invoice source quotation persisted');
+ eq(projectDocRow[projectHeaders.indexOf('SourceInvoiceID')], 'CI1', 'Project source invoice persisted');
+ eq(sheets['Quotations'].rows[0][0], 'ID', 'Legacy HPP quotation tab remains separate');
+ const ownerCommercialData = callDoGet(OWNER_SESSION);
+ eq(ownerCommercialData.data.quotations[0].id, 'CQ1', 'Owner reads commercial quotation');
+ eq(ownerCommercialData.data.invoices[0].id, 'CI1', 'Owner reads invoice');
+ eq(ownerCommercialData.data.quotations[0].lines[0].name, 'Backdrop', 'Quotation line JSON decodes');
+ eq(ownerCommercialData.data.invoices[0].quotationId, 'CQ1', 'Invoice quotation relation reads');
+ eq(ownerCommercialData.data.projects.find(x => x.id === 'PC1').sourceInvoiceId, 'CI1', 'Project invoice relation reads');
+ const teamCommercialData = callDoGet(TEAM_SESSION);
+ eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'quotations'), false, 'Team cannot read quotations');
+ eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'invoices'), false, 'Team cannot read invoices');
+ const beforeTeamCommercial = sheets['Invoices'].rows.length;
+ eq(callDoPost({ action:'sync_all', invoices:[{id:'TEAM-I',docNo:'INV-TEAM'}] }, TEAM_SESSION).status, 'error', 'Team cannot sync invoices');
+ eq(callDoPost({ action:'sync_all', quotations:[{id:'TEAM-Q',docNo:'QUO-TEAM'}] }, TEAM_SESSION).status, 'error', 'Team cannot sync quotations');
+ eq(sheets['Invoices'].rows.length, beforeTeamCommercial, 'Team invoice write denied');
+ eq(callDoPost({ action:'delete', sheet:'Invoices', id:'CI1' }, TEAM_SESSION).status, 'error', 'Team cannot delete invoices');
 
 // ---------- 10. Ringkasan ----------
 console.log(`\nmapping.test.js: ${pass} lolos, ${fail} gagal`);
