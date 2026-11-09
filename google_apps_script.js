@@ -16,7 +16,7 @@
  *
  * OTOMATISASI PILLAR (autoTriggerPillars):
  * - Dipicu setelah setiap sync_all atau update_status 'won'/'Deal Menang'
- * - Menulis baris Pendapatan ke Finance (kategori DP Proyek, token [LEAD-{id}])
+ * - Tidak mencatat pemasukan Finance; status Deal Won bukan bukti pembayaran diterima
  * - Menulis baris Antrean ke Projects (status plan, token [LEAD-{id}])
  * - Idempoten: tidak membuat duplikat jika dijalankan berulang
  *
@@ -700,46 +700,22 @@ function cskAssertPayloadAllowed_(identity, payload) {
 /**
  * autoTriggerPillars()
  * Menelusuri tab Leads untuk baris dengan status 'won' / 'Deal Menang' yang
- * belum pernah ditandai dengan token [LEAD-{id}]. Baris tersebut akan:
- *   1. Ditulis sebagai Pendapatan di tab Finance (kategori "DP Proyek")
- *   2. Ditulis sebagai antrean proyek baru di tab Projects (status "plan")
- * Fungsi ini IDEMPOTEN: baris yang sudah punya token tidak akan diduplikasi.
+ * belum memiliki antrean proyek bertanda token [LEAD-{id}].
+ * Deal Won hanya membuat antrean proyek. Fungsi ini TIDAK menulis pemasukan
+ * Finance; pemasukan hanya dicatat setelah pembayaran benar-benar dikonfirmasi.
+ * Fungsi ini IDEMPOTEN: antrean yang sudah punya token tidak akan diduplikasi.
  */
 function autoTriggerPillars(ss, forceLeadId) {
   const leadsSheet = ss.getSheetByName("Leads");
   if (!leadsSheet || leadsSheet.getLastRow() <= 1) return { financeCreated: 0, projectCreated: 0 };
-
   const leads = readSheetData(ss, "Leads");
-  let financeCreated = 0;
   let projectCreated = 0;
-
   leads.forEach(lead => {
     if (!isDealMenang(lead.status)) return;
-    // Lewati jika ini bukan baris yang difokuskan (kalau forceLeadId diberikan)
     if (forceLeadId && String(lead.id).trim() !== String(forceLeadId).trim()) return;
-
     const refToken = "[LEAD-" + lead.id + "]";
-
-    // Cek duplikat di Finance
-    const financeAlreadyExists = hasTokenInSheet(ss, "Finance", refToken);
-    // Cek duplikat di Projects
     const projectAlreadyExists = hasTokenInSheet(ss, "Projects", refToken);
-
-    // Tulis ke Finance jika belum ada
-    if (!financeAlreadyExists) {
-      const financeRow = {
-        id: "AUTO-FIN-" + Date.now(),
-        date: new Date().toISOString().slice(0, 10),
-        type: "income",
-        category: "DP Proyek",
-        amount: Number(lead.value) || 0,
-        description: "Auto (Deal Menang) " + (lead.name || "") + " " + refToken
-      };
-      insertRecord(ss, "Finance", financeRow, ["id","date","type","category","amount","description"]);
-      financeCreated++;
-    }
-
-    // Tulis ke Projects jika belum ada
+    // Deal Won hanya membuat antrean proyek; tidak mencatat uang masuk.
     if (!projectAlreadyExists) {
       const deadlineDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
       const projectRow = {
@@ -756,10 +732,9 @@ function autoTriggerPillars(ss, forceLeadId) {
       projectCreated++;
     }
   });
-
-  return { financeCreated: financeCreated, projectCreated: projectCreated };
+  // financeCreated dipertahankan untuk kompatibilitas pemanggil lama; nilainya selalu nol.
+  return { financeCreated: 0, projectCreated: projectCreated };
 }
-
 function hasTokenInSheet(ss, sheetName, token) {
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() <= 1) return false;
