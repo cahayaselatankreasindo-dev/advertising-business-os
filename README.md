@@ -17,7 +17,7 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 
 ### Pilar 2 — Financial Journal
 - Pencatatan DP Proyek, Pelunasan, Retainer Iklan, Expense, dll
-- **Auto-trigger**: saat lead berubah jadi Deal Menang, skrip otomatis membuat baris pendapatan di tab Finance (kategori *DP Proyek*)
+- **Pencatatan kas berbasis penerimaan aktual**: DP, cicilan, dan pelunasan dicatat ke Finance hanya setelah pembayaran benar-benar diterima dan dikonfirmasi melalui Invoice Payment Ledger. Status Deal Menang hanya membuat antrean proyek; tidak membuat pendapatan Finance.
 
 ### Pilar 3 — Production Projects
 - Pelacakan deadline, status Brief/Pengerjaan/Review/Selesai, PIC, dan pencarian proyek
