@@ -121,13 +121,127 @@ function addCommercialMasterItem(){if(!doc)return;var v=el('cd-master').value;if
 function addCommercialManualLine(){if(!doc)return;doc.lines.push({id:'L-'+Date.now(),name:'Item baru',description:'',qty:1,unit:'unit',unitPrice:0});renderLines();preview();}
 function removeCommercialLine(i){if(!doc)return;doc.lines.splice(i,1);renderLines();preview();}
 function readForm(){[['cd-lead','leadId'],['cd-client','client'],['cd-phone','clientPhone'],['cd-email','clientEmail'],['cd-contact','contactPerson'],['cd-address','clientAddress'],['cd-project','projectName'],['cd-number','docNo'],['cd-status','status'],['cd-date','date'],['cd-due','dueDate'],['cd-payment','paymentTerms'],['cd-terms','terms'],['cd-notes','notes']].forEach(function(x){doc[x[1]]=el(x[0]).value.trim();});doc.discount=n(el('cd-discount').value);doc.taxRate=n(el('cd-tax').value);doc.dpPercent=Math.min(99,Math.max(1,n(el('cd-dp').value)||50));}
-function saveCommercialDocument(){if(!doc)return;if(typeof isOwnerSession!=='function'||!isOwnerSession())return say('Dokumen komersial hanya dapat dikelola Owner.',true);readForm();if(!doc.client)return say('Nama pelanggan wajib diisi.',true);if(!doc.docNo)return say('Nomor dokumen wajib diisi.',true);if(!doc.date||!doc.dueDate)return say('Tanggal dan jatuh tempo wajib diisi.',true);if(!doc.lines.length)return say('Tambahkan minimal satu item.',true);if(doc.lines.some(function(x){return !String(x.name||'').trim()||n(x.qty)<=0||n(x.unitPrice)<0;}))return say('Periksa nama item, kuantitas, dan harga.',true);if(arr(kind).some(function(x){return String(x.id)!==String(doc.id)&&String(x.docNo||'').toLowerCase()===doc.docNo.toLowerCase();}))return say('Nomor dokumen sudah digunakan.',true);if(doc.leadId&&!getLead(doc.leadId))doc.leadId='';var totals=calculateCommercialTotals(doc.lines,doc.discount,doc.taxRate);var prior=kind==='invoice'?arr('invoice').find(function(x){return String(x.id)===String(doc.id);}):null;var paid=prior?summarizeInvoicePayments(prior,db.invoicePayments||[]):null;if(paid&&paid.paid>0&&totals.total!==Math.round(n(prior.total)))return say('Total invoice tidak boleh diubah setelah ada pembayaran. Buat dokumen penyesuaian terpisah.',true);if(paid&&paid.paid>0&&doc.status==='cancelled')return say('Invoice dengan pembayaran tidak dapat dibatalkan langsung. Selesaikan rekonsiliasi terlebih dahulu.',true);Object.assign(doc,totals);delete doc.kind;doc.updatedAt=new Date().toISOString();if(!doc.createdAt)doc.createdAt=doc.updatedAt;var a=arr(kind),i=a.findIndex(function(x){return String(x.id)===String(doc.id);});if(i>=0)a[i]=JSON.parse(JSON.stringify(doc));else a.push(JSON.parse(JSON.stringify(doc)));if(typeof saveDB==='function')saveDB();renderDocuments();say((kind==='quotation'?'Quotation':'Invoice')+' tersimpan.');}
+async function persistCommercialChanges(successMessage){
+ if(typeof saveDB==='function')saveDB(true);
+ if(!w.CSKAuth||typeof w.CSKAuth.isReady!=='function'||!w.CSKAuth.isReady()||typeof w.CSKAuth.sync!=='function'){
+  say('Perubahan belum diverifikasi. Login dan koneksi Google Sheets harus aktif.',true);
+  return false;
+ }
+ say('Memverifikasi penyimpanan ke Google Sheets...');
+ try{
+  var verified=await w.CSKAuth.sync(true);
+  if(!verified)throw new Error('SYNC_NOT_VERIFIED');
+  say(successMessage+' berhasil disimpan dan diverifikasi di Google Sheets.');
+  return true;
+ }catch(e){
+  say('Perubahan belum terverifikasi di Google Sheets. Jangan tutup aplikasi; periksa koneksi lalu coba Simpan/Sync lagi. '+String(e&&e.message||e),true);
+  return false;
+ }
+}
+async function saveCommercialDocument(){
+ if(!doc)return;
+ if(typeof isOwnerSession!=='function'||!isOwnerSession())return say('Dokumen komersial hanya dapat dikelola Owner.',true);
+ readForm();
+ if(!doc.client)return say('Nama pelanggan wajib diisi.',true);
+ if(!doc.docNo)return say('Nomor dokumen wajib diisi.',true);
+ if(!doc.date||!doc.dueDate)return say('Tanggal dan jatuh tempo wajib diisi.',true);
+ if(!doc.lines.length)return say('Tambahkan minimal satu item.',true);
+ if(doc.lines.some(function(x){return !String(x.name||'').trim()||n(x.qty)<=0||n(x.unitPrice)<0;}))return say('Periksa nama item, kuantitas, dan harga.',true);
+ if(arr(kind).some(function(x){return String(x.id)!==String(doc.id)&&String(x.docNo||'').toLowerCase()===doc.docNo.toLowerCase();}))return say('Nomor dokumen sudah digunakan.',true);
+ if(doc.leadId&&!getLead(doc.leadId))doc.leadId='';
+ var totals=calculateCommercialTotals(doc.lines,doc.discount,doc.taxRate);
+ var prior=kind==='invoice'?arr('invoice').find(function(x){return String(x.id)===String(doc.id);}):null;
+ var paid=prior?summarizeInvoicePayments(prior,db.invoicePayments||[]):null;
+ if(paid&&paid.paid>0&&totals.total!==Math.round(n(prior.total)))return say('Total invoice tidak boleh diubah setelah ada pembayaran. Buat dokumen penyesuaian terpisah.',true);
+ if(paid&&paid.paid>0&&doc.status==='cancelled')return say('Invoice dengan pembayaran tidak dapat dibatalkan langsung. Selesaikan rekonsiliasi terlebih dahulu.',true);
+ Object.assign(doc,totals);
+ delete doc.kind;
+ doc.updatedAt=new Date().toISOString();
+ if(!doc.createdAt)doc.createdAt=doc.updatedAt;
+ var a=arr(kind),i=a.findIndex(function(x){return String(x.id)===String(doc.id);});
+ if(i>=0)a[i]=JSON.parse(JSON.stringify(doc));
+ else a.push(JSON.parse(JSON.stringify(doc)));
+ await persistCommercialChanges((kind==='quotation'?'Quotation':'Invoice')+' tersimpan');
+}
 function printCommercialDocument(){if(!doc)return;readForm();preview();w.print();}
 function copyCommercialDocumentWA(){if(!doc)return;readForm();var t=calculateCommercialTotals(doc.lines,doc.discount,doc.taxRate),msg='*'+(kind==='quotation'?'QUOTATION':'INVOICE')+' — CAHAYA SELATAN KREASINDO*\\nNo: '+doc.docNo+'\\nKlien: '+doc.client+'\\nTanggal: '+doc.date+' · Jatuh tempo/berlaku: '+doc.dueDate+'\\nPekerjaan: '+(doc.projectName||'-')+'\\n'+doc.lines.map(function(x){return x.name+' × '+x.qty+' '+x.unit+' = '+rp(n(x.qty)*n(x.unitPrice));}).join('\\n')+'\\nSubtotal: '+rp(t.subtotal)+'\\nDiskon: '+rp(t.discount)+'\\nPajak: '+rp(t.taxAmount)+'\\n*TOTAL: '+rp(t.total)+'*\\n\\nKetentuan: '+(doc.paymentTerms||'-')+'\\nSyarat: '+(doc.terms||'-')+'\\nWA 0888-8533-488';if(w.navigator.clipboard&&w.navigator.clipboard.writeText)w.navigator.clipboard.writeText(msg).then(function(){say('Teks dokumen disalin.');}).catch(function(){say('Clipboard tidak tersedia.',true);});else say('Clipboard tidak tersedia.',true);}
-function createProjectFromDocument(k,id){if(typeof isOwnerSession!=='function'||!isOwnerSession())return say('Dokumen komersial hanya dapat dikelola Owner.',true);var d=arr(k).find(function(x){return String(x.id)===String(id);});if(!d)return say('Dokumen tidak ditemukan.',true);var sourceQ=k==='quotation'?String(d.id):String(d.sourceQuotationId||d.quotationId||''),q=k==='quotation'?d:(sourceQ?arr('quotation').find(function(x){return String(x.id)===sourceQ;}):null),sourceI=k==='invoice'?String(d.id):'',old=findExistingProjectForDocument(db.projects||[],d,sourceQ,sourceI);if(old){var leadToken=d.leadId?'[LEAD-'+d.leadId+']':'';var isLeadQueue=!!(leadToken&&String(old.notes||'').indexOf(leadToken)!==-1&&!old.sourceQuotationId&&!old.sourceInvoiceId);if(isLeadQueue){old.title=d.projectName||old.title;old.client=d.client||old.client;old.value=n(d.total);old.suggestedPrice=n(d.total);old.deadline=d.dueDate||old.deadline;old.notes='Dokumen '+(d.docNo||d.id)+' · '+String(old.notes||'');}if(sourceQ)old.sourceQuotationId=sourceQ;if(sourceI)old.sourceInvoiceId=sourceI;d.projectId=String(old.id);if(q){q.projectId=String(old.id);q.status='approved';q.updatedAt=new Date().toISOString();}d.updatedAt=new Date().toISOString();saveDB();renderDocuments();return say('Proyek sudah ada; dokumen dihubungkan tanpa duplikasi.');}var p={id:'PRJ-'+Date.now(),title:d.projectName||('Pekerjaan '+d.client),client:d.client||'',value:n(d.total),suggestedPrice:n(d.total),deadline:d.dueDate||'',status:'plan',notes:'Dibuat dari '+(k==='quotation'?'quotation ':'invoice ')+(d.docNo||d.id)+(d.leadId?' [LEAD-'+d.leadId+']':''),sopChecklist:'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0',sourceQuotationId:sourceQ,sourceInvoiceId:sourceI};db.projects=db.projects||[];db.projects.unshift(p);d.projectId=p.id;if(k==='quotation')d.status='approved';if(q&&q!==d){q.projectId=p.id;q.status='approved';q.updatedAt=new Date().toISOString();}d.updatedAt=new Date().toISOString();saveDB();renderDocuments();say('Proyek dibuat dari dokumen dan terhubung.');}
+async function createProjectFromDocument(k,id){
+ if(typeof isOwnerSession!=='function'||!isOwnerSession())return say('Dokumen komersial hanya dapat dikelola Owner.',true);
+ var d=arr(k).find(function(x){return String(x.id)===String(id);});
+ if(!d)return say('Dokumen tidak ditemukan.',true);
+ var sourceQ=k==='quotation'?String(d.id):String(d.sourceQuotationId||d.quotationId||'');
+ var q=k==='quotation'?d:(sourceQ?arr('quotation').find(function(x){return String(x.id)===sourceQ;}):null);
+ var sourceI=k==='invoice'?String(d.id):'';
+ var old=findExistingProjectForDocument(db.projects||[],d,sourceQ,sourceI);
+ if(old){
+  var leadToken=d.leadId?'[LEAD-'+d.leadId+']':'';
+  var isLeadQueue=!!(leadToken&&String(old.notes||'').indexOf(leadToken)!==-1&&!old.sourceQuotationId&&!old.sourceInvoiceId);
+  if(isLeadQueue){
+   old.title=d.projectName||old.title;
+   old.client=d.client||old.client;
+   old.value=n(d.total);
+   old.suggestedPrice=n(d.total);
+   old.deadline=d.dueDate||old.deadline;
+   old.notes='Dokumen '+(d.docNo||d.id)+' · '+String(old.notes||'');
+  }
+  if(sourceQ)old.sourceQuotationId=sourceQ;
+  if(sourceI)old.sourceInvoiceId=sourceI;
+  d.projectId=String(old.id);
+  if(q){q.projectId=String(old.id);q.status='approved';q.updatedAt=new Date().toISOString();}
+  d.updatedAt=new Date().toISOString();
+  return await persistCommercialChanges('Dokumen dihubungkan ke proyek yang sudah ada tanpa duplikasi');
+ }
+ var p={
+  id:'PRJ-'+Date.now(),
+  title:d.projectName||('Pekerjaan '+d.client),
+  client:d.client||'',
+  value:n(d.total),
+  suggestedPrice:n(d.total),
+  deadline:d.dueDate||'',
+  status:'plan',
+  notes:'Dibuat dari '+(k==='quotation'?'quotation ':'invoice ')+(d.docNo||d.id)+(d.leadId?' [LEAD-'+d.leadId+']':''),
+  sopChecklist:'Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0',
+  sourceQuotationId:sourceQ,
+  sourceInvoiceId:sourceI
+ };
+ db.projects=db.projects||[];
+ db.projects.unshift(p);
+ d.projectId=p.id;
+ if(k==='quotation')d.status='approved';
+ if(q&&q!==d){q.projectId=p.id;q.status='approved';q.updatedAt=new Date().toISOString();}
+ d.updatedAt=new Date().toISOString();
+ return await persistCommercialChanges('Proyek dibuat dari dokumen dan berhasil dihubungkan');
+}
 function createProjectFromQuotation(id){return createProjectFromDocument('quotation',id);}
 function createProjectFromInvoice(id){return createProjectFromDocument('invoice',id);}
-function createInvoiceFromQuotation(id){if(typeof isOwnerSession!=='function'||!isOwnerSession())return say('Dokumen komersial hanya dapat dikelola Owner.',true);var q=arr('quotation').find(function(x){return String(x.id)===String(id);});if(!q)return say('Quotation tidak ditemukan.',true);if(q.convertedInvoiceId){var old=arr('invoice').find(function(x){return String(x.id)===String(q.convertedInvoiceId);});if(old)return openCommercialDocumentEditor('invoice',old.id);}var t=localDate(),v=JSON.parse(JSON.stringify(q));v.id=newid('invoice');delete v.kind;delete v.convertedInvoiceId;v.docNo=nextDocumentNumber('invoice',arr('invoice'),t);v.quotationId=q.id;v.sourceQuotationId=q.id;v.date=t;v.dueDate=q.dueDate||plus(t,7);v.status='draft';v.createdAt=new Date().toISOString();v.updatedAt=v.createdAt;delete v.sourceCostSheetId;delete v.sourceCostSheetUpdatedAt;arr('invoice').push(v);q.convertedInvoiceId=v.id;q.updatedAt=new Date().toISOString();saveDB();renderDocuments();say('Invoice dibuat dari quotation tanpa input ulang.');openCommercialDocumentEditor('invoice',v.id);}
+async function createInvoiceFromQuotation(id){
+ if(typeof isOwnerSession!=='function'||!isOwnerSession())return say('Dokumen komersial hanya dapat dikelola Owner.',true);
+ var q=arr('quotation').find(function(x){return String(x.id)===String(id);});
+ if(!q)return say('Quotation tidak ditemukan.',true);
+ if(q.convertedInvoiceId){
+  var old=arr('invoice').find(function(x){return String(x.id)===String(q.convertedInvoiceId);});
+  if(old)return openCommercialDocumentEditor('invoice',old.id);
+ }
+ var t=localDate(),v=JSON.parse(JSON.stringify(q));
+ v.id=newid('invoice');
+ delete v.kind;
+ delete v.convertedInvoiceId;
+ v.docNo=nextDocumentNumber('invoice',arr('invoice'),t);
+ v.quotationId=q.id;
+ v.sourceQuotationId=q.id;
+ v.date=t;
+ v.dueDate=q.dueDate||plus(t,7);
+ v.status='draft';
+ v.createdAt=new Date().toISOString();
+ v.updatedAt=v.createdAt;
+ delete v.sourceCostSheetId;
+ delete v.sourceCostSheetUpdatedAt;
+ arr('invoice').push(v);
+ q.convertedInvoiceId=v.id;
+ q.updatedAt=new Date().toISOString();
+ await persistCommercialChanges('Invoice dibuat dari quotation');
+ openCommercialDocumentEditor('invoice',v.id);
+}
 async function deleteCommercialDocument(k,id){if(typeof requireOwnerForDelete!=='function'||!requireOwnerForDelete())return;if(k==='invoice'&&paymentRows(id).length)return say('Invoice yang sudah memiliki riwayat pembayaran tidak dapat dihapus.',true);if(!w.confirm('Hapus dokumen ini?'))return;var sheet=k==='quotation'?'Commercial_Quotations':'Invoices';if(db.settings&&db.settings.googleSheetUrl&&typeof deleteOnCloud==='function'&&!await deleteOnCloud(sheet,id))return;if(k==='quotation')db.quotations=arr(k).filter(function(x){return String(x.id)!==String(id);});else db.invoices=arr(k).filter(function(x){return String(x.id)!==String(id);});saveDB(true);renderDocuments();say('Dokumen dihapus.');}
 function renderDocuments(){
  var box=el('documents-projects-container');if(!box)return;
