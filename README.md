@@ -34,6 +34,17 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 
 ---
 
+## Commercial Document Center
+
+- Quotation dan Invoice dapat dibuat mandiri tanpa proyek.
+- Nama, WhatsApp, email, dan PIC dapat dipanggil dari Lead; informasi lain dapat diedit manual.
+- Material/Jasa dapat dipilih dari master atau ditambahkan manual; kuantitas, satuan, deskripsi, dan harga dapat diedit.
+- Tanggal, jatuh tempo, diskon, pajak, DP, ketentuan pembayaran, syarat, dan catatan dapat diubah.
+- Quotation dapat dikonversi menjadi Invoice. Quotation maupun Invoice dapat membuat atau menghubungkan proyek tanpa duplikasi.
+- Invoice tidak otomatis dicatat sebagai kas masuk; Finance hanya mencatat pembayaran yang benar-benar diterima.
+- HPP quotation snapshots tetap berada di tab `Quotations`; dokumen komersial disimpan terpisah di `Commercial_Quotations` dan `Invoices`.
+- Dokumen komersial dibatasi untuk Owner di antarmuka dan backend.
+
 ## 🔐 Autentikasi dan Hak Akses
 
 Aplikasi menggunakan login email + PIN. Peran ditentukan dan diverifikasi oleh backend Apps Script; pilihan role pada antarmuka bukan mekanisme keamanan.
@@ -41,7 +52,7 @@ Aplikasi menggunakan login email + PIN. Peran ditentukan dan diverifikasi oleh b
 - **Owner** dapat mengakses seluruh modul dan data.
 - **Tim** hanya dapat mengakses Leads, Clients, dan Projects untuk operasional.
 - **Tim dapat membuat dan memperbarui** data bersama tersebut, tetapi **tidak dapat menghapus** Leads, Clients, atau Projects. Backend menolak penghapusan Tim; penghapusan hanya dapat dilakukan Owner dan diverifikasi ulang dari Google Sheets.
-- Finance, Memory, Marketing, HPP, Purchase Orders, Quotations, dan pengaturan backend hanya tersedia untuk Owner.
+- Finance, Memory, Marketing, HPP, Purchase Orders, Quotations, Invoices, dan pengaturan backend hanya tersedia untuk Owner.
 - PIN disimpan sebagai hash bersalt di Script Properties. Lima kegagalan login memicu pembatasan sementara selama 15 menit.
 - Sesi berlaku maksimal 30 menit sejak aktivitas terakhir. PIN dan session ID tidak disimpan di localStorage.
 - Cold email otomatis maupun manual dinonaktifkan. Tidak ada email yang dikirim oleh fitur tersebut.
