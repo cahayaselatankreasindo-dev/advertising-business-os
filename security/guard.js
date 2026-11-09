@@ -83,7 +83,7 @@
   }
   function resetDb() {
     if (typeof db === 'undefined') return;
-    ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','services','purchaseOrders','quotationSnapshots'].forEach(function (key) { db[key] = []; });
+    ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','services','purchaseOrders','quotationSnapshots','quotations','invoices'].forEach(function (key) { db[key] = []; });
     db.settings = { googleSheetUrl: apiUrl(), lastSync: '', lastSyncError: '' };
     db.role = 'team';
   }
@@ -138,7 +138,7 @@
   }
   function collectionsForRole() {
     if (identity.role === 'team') return ['leads','clients','projects'];
-    return ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','services','purchaseOrders','quotationSnapshots'];
+    return ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','services','purchaseOrders','quotationSnapshots','quotations','invoices'];
   }
   function makeSyncPayload() {
     var payload = { action: 'sync_all' };
@@ -157,7 +157,7 @@
   }
   function normalizeSyncValue(value, field) {
     if (value === undefined || value === null) return '';
-    if (field === 'date' || field === 'deadline') return String(value).slice(0, 10);
+    if (field === 'date' || field === 'deadline' || field === 'dueDate') return String(value).slice(0, 10);
     if (typeof value === 'object') return JSON.stringify(canonicalize(value));
     return String(value).trim();
   }
@@ -367,7 +367,7 @@
     if (url) safeLocalSet(URL_KEY, url);
     if (hasLegacy || hasOwner) {
       var merged = Object.assign({}, legacy, owner);
-      ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','services','purchaseOrders','quotationSnapshots'].forEach(function (key) {
+      ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','services','purchaseOrders','quotationSnapshots','quotations','invoices'].forEach(function (key) {
         merged[key] = mergeById(legacy[key], owner[key]);
       });
       merged.settings = Object.assign({}, legacy.settings || {}, owner.settings || {});
@@ -445,7 +445,7 @@
     try {
       await post({ action: 'delete', sheet: sheet, id: id });
       var response = await get('get_data');
-      var rows = response.data && response.data[({Leads:'leads',Clients:'clients',Projects:'projects',Finance:'finance',Memory:'memory',Marketing_Spend:'marketingSpend',Materials:'materials',Cost_Sheets:'costSheets',Services:'services',Purchase_Orders:'purchaseOrders',Quotations:'quotationSnapshots'})[sheet]];
+      var rows = response.data && response.data[({Leads:'leads',Clients:'clients',Projects:'projects',Finance:'finance',Memory:'memory',Marketing_Spend:'marketingSpend',Materials:'materials',Cost_Sheets:'costSheets',Services:'services',Purchase_Orders:'purchaseOrders',Quotations:'quotationSnapshots',Commercial_Quotations:'quotations',Invoices:'invoices'})[sheet]];
       if (!Array.isArray(rows)) throw new Error('Data penghapusan tidak dapat diverifikasi.');
       if (rows.some(function (row) { return String(row.id) === String(id); })) throw new Error('Penghapusan belum terverifikasi.');
       return true;
