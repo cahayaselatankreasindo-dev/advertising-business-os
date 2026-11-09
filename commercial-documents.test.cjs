@@ -33,7 +33,7 @@ for (const name of [
   'saveCommercialDocument', 'printCommercialDocument', 'copyCommercialDocumentWA'
 ]) assert.ok(source.includes('function ' + name + '(') || source.includes('w.' + name + '='));
 assert.ok(source.includes('sourceInvoiceId:sourceI'));
-assert.ok(source.includes('data-kind="\'+k+\'"'));
+assert.match(source, /data-kind="'\+k\+'"/);
 assert.ok(source.includes('Dokumen komersial hanya dapat dikelola Owner.'));
 for (const s of [backend, mirror]) {
   assert.match(s, /Commercial_Quotations:\s*\{/);
