@@ -17,7 +17,11 @@ for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
   assert.doesNotMatch(source, /setProperties\([\s\S]*?,\s*true\)/, path + ': PIN setup never clears all Script Properties');
   assert.doesNotMatch(source, /function getApiToken|function isAuthorized|API_TOKEN/, path + ': shared API token is not used');
   assert.match(source, /if \(identity\.role === "team"\) cskAssertTeamLeadTransitions_/, path + ': team cannot promote a lead to won');
-  assert.match(source, /if \(identity\.role === "owner"\) autoTriggerPillars\(ss\)/, path + ': automated finance/project trigger is owner-controlled');
+  assert.match(source, /if \(identity\.role === "owner"\) autoTriggerPillars\(ss\)/, path + ': automated project-queue trigger is owner-controlled');
+  const autoTrigger = source.match(/function autoTriggerPillars\(ss, forceLeadId\)[\s\S]*?\n\}/);
+  assert.ok(autoTrigger, path + ': Deal Won automation exists');
+  assert.doesNotMatch(autoTrigger[0], /insertRecord\(ss,\s*"Finance"/, path + ': Deal Won never records Finance income');
+  assert.match(autoTrigger[0], /insertRecord\(ss,\s*"Projects"/, path + ': Deal Won only creates a project queue');
 
   const dedupe = source.match(/function dedupeHeaders[\s\S]*?\n\}/);
   assert.ok(dedupe, path + ': header validation function exists');
