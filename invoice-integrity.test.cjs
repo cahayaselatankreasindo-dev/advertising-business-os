@@ -64,6 +64,11 @@ const sandbox = {
   }
 };
 vm.runInNewContext(
+  extractFunction('assertUniqueCommercialDocumentNumbers_') +
+  '\nthis.checkUniqueDocumentNumbers = assertUniqueCommercialDocumentNumbers_;',
+  sandbox
+);
+vm.runInNewContext(
   extractFunction('assertPaidInvoiceChangesAllowed_') +
   '\nthis.checkPaidInvoice = assertPaidInvoiceChangesAllowed_;',
   sandbox
@@ -170,3 +175,32 @@ assert.equal(tables.Finance[0].id, 'FIN-PAY-' + retryPayment.id);
 
 assert.equal(lockStats.acquired, lockStats.released, 'every payment path releases the Apps Script lock');
 console.log('CSK invoice payment ledger integrity and idempotent recovery checks passed.');
+
+
+// Commercial document numbers are unique per document type and remain editable for the same ID.
+tables = {
+  Commercial_Quotations: [
+    { id: 'Q-001', docNo: 'QUO-CSK-2026-00001' },
+    { id: 'Q-002', docNo: 'QUO-CSK-2026-00002' }
+  ],
+  Invoices: [{ id: 'I-001', docNo: 'INV-CSK-2026-00001' }]
+};
+assert.equal(sandbox.checkUniqueDocumentNumbers(ss, 'Commercial_Quotations', [
+  { id: 'Q-001', docNo: 'QUO-CSK-2026-00001' },
+  { id: 'Q-002', docNo: 'QUO-CSK-2026-00003' }
+]), true);
+assert.throws(() => sandbox.checkUniqueDocumentNumbers(ss, 'Commercial_Quotations', [
+  { id: 'Q-001', docNo: 'QUO-CSK-2026-00001' },
+  { id: 'Q-003', docNo: 'quo-csk-2026-00001' }
+]), /DUPLICATE_DOCUMENT_NUMBER/);
+assert.throws(() => sandbox.checkUniqueDocumentNumbers(ss, 'Commercial_Quotations', [
+  { id: 'Q-003', docNo: 'QUO-CSK-2026-00002' }
+]), /DUPLICATE_DOCUMENT_NUMBER/);
+assert.throws(() => sandbox.checkUniqueDocumentNumbers(ss, 'Invoices', [
+  { id: 'I-002', docNo: ''
+]), /DOCUMENT_NUMBER_REQUIRED/);
+assert.equal(sandbox.checkUniqueDocumentNumbers(ss, 'Invoices', [
+  { id: 'I-001', docNo: 'INV-CSK-2026-00009' }
+]), true);
+assert.match(source, /function mergeCommercialQuotationsSafely_\(/);
+assert.match(source, /assertUniqueCommercialDocumentNumbers_\(ss, "Invoices", incomingInvoices\)/);

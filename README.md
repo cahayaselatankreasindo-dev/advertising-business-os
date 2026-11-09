@@ -43,7 +43,9 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - Nama, WhatsApp, email, dan PIC dapat dipanggil dari Lead; informasi lain dapat diedit manual.
 - Material/Jasa dapat dipilih dari master atau ditambahkan manual; kuantitas, satuan, deskripsi, dan harga dapat diedit.
 - Tanggal, jatuh tempo, diskon, pajak, DP, ketentuan pembayaran, syarat, dan catatan dapat diubah.
-- Quotation dapat dikonversi menjadi Invoice. Quotation maupun Invoice dapat membuat atau menghubungkan proyek tanpa duplikasi.
+- Quotation berstatus Disetujui dapat dikonversi menjadi Invoice. Quotation yang belum disetujui tidak dapat menjadi sumber Invoice atau proyek. Quotation maupun Invoice dapat membuat atau menghubungkan proyek tanpa duplikasi.
+- Nomor Quotation dan Invoice divalidasi unik di backend, bukan hanya di browser.
+- Percobaan pembayaran yang belum terverifikasi mempertahankan ID dan payload sementara pada sesi tab agar retry memakai transaksi yang sama; data sementara dihapus setelah verifikasi berhasil.
 - Invoice tidak otomatis dicatat sebagai kas masuk; Finance hanya mencatat pembayaran yang benar-benar diterima.
 - Backend menolak perubahan nilai total atau pembatalan Invoice yang sudah memiliki pembayaran, serta melindungi jurnal Finance terkait dari penghapusan generik.
 - HPP quotation snapshots tetap berada di tab `Quotations`; dokumen komersial disimpan terpisah di `Commercial_Quotations` dan `Invoices`.

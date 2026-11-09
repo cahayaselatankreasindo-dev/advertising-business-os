@@ -434,10 +434,58 @@ function assertCommercialRecordDeletionAllowed_(ss, sheetName, recordId) {
   return true;
 }
 
+function assertUniqueCommercialDocumentNumbers_(ss, sheetName, incomingRows) {
+  var currentRows = readSheetData(ss, sheetName);
+  var incoming = Array.isArray(incomingRows) ? incomingRows : [];
+  var incomingIds = {};
+  incoming.forEach(function(row) {
+    if (row && row.id !== undefined && row.id !== null) incomingIds[String(row.id)] = true;
+  });
+  var currentByNumber = {};
+  currentRows.forEach(function(row) {
+    var number = String(row.docNo || "").trim().toLowerCase();
+    if (!number) return;
+    if (!currentByNumber[number]) currentByNumber[number] = [];
+    currentByNumber[number].push(String(row.id));
+  });
+  var incomingByNumber = {};
+  incoming.forEach(function(row) {
+    if (!row || !String(row.id || "").trim()) throw new Error("DOCUMENT_ID_REQUIRED");
+    var number = String(row.docNo || "").trim();
+    if (!number) throw new Error("DOCUMENT_NUMBER_REQUIRED");
+    var key = number.toLowerCase();
+    var id = String(row.id);
+    if (incomingByNumber[key] && incomingByNumber[key] !== id) throw new Error("DUPLICATE_DOCUMENT_NUMBER");
+    incomingByNumber[key] = id;
+    var conflicts = (currentByNumber[key] || []).filter(function(existingId) {
+      return existingId !== id && !incomingIds[existingId];
+    });
+    if (conflicts.length) throw new Error("DUPLICATE_DOCUMENT_NUMBER");
+  });
+  return true;
+}
+
+function mergeCommercialQuotationsSafely_(ss, incomingQuotations) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    assertUniqueCommercialDocumentNumbers_(ss, "Commercial_Quotations", incomingQuotations);
+    var normalized = (incomingQuotations || []).map(function(item) {
+      var copy = Object.assign({}, item);
+      copy.linesJson = JSON.stringify(item.lines || []);
+      return copy;
+    });
+    return mergeSheet(ss, "Commercial_Quotations", normalized);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function mergeInvoicesSafely_(ss, incomingInvoices) {
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    assertUniqueCommercialDocumentNumbers_(ss, "Invoices", incomingInvoices);
     assertPaidInvoiceChangesAllowed_(ss, incomingInvoices);
     var normalized = (incomingInvoices || []).map(function(item) {
       var copy = Object.assign({}, item);
@@ -483,7 +531,7 @@ function doPost(e) {
         if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
         if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
         if (payload.quotationSnapshots) mergeSummary.Quotations = mergeSheet(ss, "Quotations", payload.quotationSnapshots.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
-        if (payload.quotations) mergeSummary.Commercial_Quotations = mergeSheet(ss, "Commercial_Quotations", payload.quotations.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
+        if (payload.quotations) mergeSummary.Commercial_Quotations = mergeCommercialQuotationsSafely_(ss, payload.quotations);
         if (payload.invoices) mergeSummary.Invoices = mergeInvoicesSafely_(ss, payload.invoices);
         if (identity.role === "owner") autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge; data lama yang tidak dikirim tetap dipertahankan.", summary: mergeSummary });

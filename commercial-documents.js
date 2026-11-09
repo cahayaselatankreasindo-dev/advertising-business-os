@@ -23,7 +23,7 @@ function summarizeInvoicePayments(invoice,payments){
 }
 if(typeof module!=='undefined'&&module.exports)module.exports={calculateCommercialTotals:calculateCommercialTotals,nextDocumentNumber:nextDocumentNumber,localDate:localDate,findExistingProjectForDocument:findExistingProjectForDocument,summarizeInvoicePayments:summarizeInvoicePayments};
 if(!w||!w.document)return;
-var doc=null,kind='quotation',paymentDraftId='',currentPaymentInvoiceId='',labels={draft:'Draft',sent:'Dikirim',approved:'Disetujui',rejected:'Ditolak',partial:'Dibayar sebagian',paid:'Lunas',unpaid:'Belum dibayar',cancelled:'Dibatalkan'};
+var doc=null,kind='quotation',paymentDraftId='',currentPaymentInvoiceId='',pendingPaymentDrafts=Object.create(null),labels={draft:'Draft',sent:'Dikirim',approved:'Disetujui',rejected:'Ditolak',partial:'Dibayar sebagian',paid:'Lunas',unpaid:'Belum dibayar',cancelled:'Dibatalkan'};
 function el(id){return w.document.getElementById(id);}
 function say(s,e){if(w.showToast)w.showToast(s,!!e);}
 function esc(v){return typeof escapeInvoiceHtml==='function'?escapeInvoiceHtml(v):String(v==null?'':v).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
@@ -52,7 +52,7 @@ function ensurePaymentModal(){
  st.textContent='#commercial-payment-modal{position:fixed;inset:0;z-index:100060;background:#0f172acc;display:flex;align-items:center;justify-content:center;padding:12px}#commercial-payment-modal.hidden{display:none}#commercial-payment-modal .cp-shell{width:100%;max-width:620px;max-height:94vh;overflow:auto;background:#fff;border-radius:16px;padding:18px}#commercial-payment-modal .cp-field{display:block;font-size:11px;font-weight:700;color:#475569}#commercial-payment-modal .cp-input{display:block;width:100%;margin-top:5px;padding:9px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-size:12px}';
  w.document.head.appendChild(st);
  var m=w.document.createElement('div');m.id='commercial-payment-modal';m.className='hidden';
- m.innerHTML='<div class="cp-shell"><div class="flex items-center justify-between gap-3 mb-3"><div><b class="text-base">Catat Pembayaran Invoice</b><div id="cp-invoice-title" class="text-xs text-slate-500 mt-1"></div></div><button type="button" class="px-3 py-2 rounded-lg bg-slate-100" data-payment-action="close">Tutup</button></div><div id="cp-summary" class="grid grid-cols-3 gap-2 text-xs mb-3"></div><div class="border rounded-xl p-3 mb-4"><b class="text-xs">Riwayat pembayaran</b><div id="cp-history" class="mt-2 space-y-2"></div></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><label class="cp-field">Tanggal pembayaran<input id="cp-date" type="date" class="cp-input"></label><label class="cp-field">Jenis pembayaran<select id="cp-type" class="cp-input"><option value="dp">DP</option><option value="installment">Cicilan</option><option value="settlement">Pelunasan</option></select></label><label class="cp-field">Nominal diterima (Rp)<input id="cp-amount" type="number" min="1" step="1" class="cp-input"></label><label class="cp-field">Metode<select id="cp-method" class="cp-input"><option value="transfer">Transfer bank</option><option value="cash">Tunai</option><option value="qris">QRIS</option><option value="ewallet">E-wallet</option><option value="other">Lainnya</option></select></label><label class="cp-field sm:col-span-2">Nomor referensi / bukti transfer<input id="cp-reference" maxlength="120" class="cp-input" placeholder="Opsional"></label><label class="cp-field sm:col-span-2">Catatan<textarea id="cp-notes" maxlength="500" rows="2" class="cp-input" placeholder="Opsional"></textarea></label></div><div class="flex justify-end gap-2 mt-4"><button type="button" class="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold" data-payment-action="close">Batal</button><button type="button" class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold" data-payment-action="save">Konfirmasi Pembayaran</button></div><p class="text-[10px] text-slate-400 mt-3">Konfirmasi hanya dilakukan setelah dana benar-benar diterima. Setiap pembayaran membuat satu catatan Finance dan satu riwayat pembayaran.</p></div>';
+ m.innerHTML='<div class="cp-shell"><div class="flex items-center justify-between gap-3 mb-3"><div><b class="text-base">Catat Pembayaran Invoice</b><div id="cp-invoice-title" class="text-xs text-slate-500 mt-1"></div></div><button type="button" class="px-3 py-2 rounded-lg bg-slate-100" data-payment-action="close">Tutup</button></div><div id="cp-summary" class="grid grid-cols-3 gap-2 text-xs mb-3"></div><div class="border rounded-xl p-3 mb-4"><b class="text-xs">Riwayat pembayaran</b><div id="cp-history" class="mt-2 space-y-2"></div></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><label class="cp-field">Tanggal pembayaran<input id="cp-date" type="date" class="cp-input"></label><label class="cp-field">Jenis pembayaran<select id="cp-type" class="cp-input"><option value="dp">DP</option><option value="installment">Cicilan</option><option value="settlement">Pelunasan</option></select></label><label class="cp-field">Nominal diterima (Rp)<input id="cp-amount" type="number" min="1" step="1" class="cp-input"></label><label class="cp-field">Metode<select id="cp-method" class="cp-input"><option value="transfer">Transfer bank</option><option value="cash">Tunai</option><option value="qris">QRIS</option><option value="ewallet">E-wallet</option><option value="other">Lainnya</option></select></label><label class="cp-field sm:col-span-2">Nomor referensi / bukti transfer<input id="cp-reference" maxlength="120" class="cp-input" placeholder="Opsional"></label><label class="cp-field sm:col-span-2">Catatan<textarea id="cp-notes" maxlength="500" rows="2" class="cp-input" placeholder="Opsional"></textarea></label></div><div class="flex justify-end gap-2 mt-4"><button type="button" class="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold" data-payment-action="close">Batal</button><button type="button" class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold" data-payment-action="save">Konfirmasi Pembayaran</button></div><p id="cp-retry-note" class="text-xs text-amber-700 bg-amber-50 rounded-lg p-3 mt-3" style="display:none">Percobaan sebelumnya belum terverifikasi. Data dikunci dan ID transaksi dipertahankan. Tekan <b>Coba Verifikasi Ulang</b> untuk melanjutkan tanpa membuat pembayaran ganda.</p><p class="text-[10px] text-slate-400 mt-3>Konfirmasi hanya dilakukan setelah dana benar-benar diterima. Setiap pembayaran membuat satu catatan Finance dan satu riwayat pembayaran.</p></div>';
  m.addEventListener('click',function(e){var b=e.target.closest('[data-payment-action]');if(!b)return;if(b.dataset.paymentAction==='close')closePaymentEditor();if(b.dataset.paymentAction==='save')saveInvoicePayment();});
  m.addEventListener('change',function(e){if(e.target&&e.target.id==='cp-type')updatePaymentType();});
  w.document.body.appendChild(m);
@@ -60,8 +60,32 @@ function ensurePaymentModal(){
 function paymentRows(invoiceId){
  return(db.invoicePayments||[]).filter(function(p){return String(p.invoiceId)===String(invoiceId);}).slice().sort(function(a,b){return String(b.paymentDate||'').localeCompare(String(a.paymentDate||''))||String(b.createdAt||'').localeCompare(String(a.createdAt||''));});
 }
+function pendingPaymentStorageKey(invoiceId){return 'csk_invoice_payment_pending_'+encodeURIComponent(String(invoiceId));}
+function readPendingPayment(invoiceId){
+ var id=String(invoiceId||'');if(!id)return null;
+ if(pendingPaymentDrafts[id])return pendingPaymentDrafts[id];
+ try{if(w.sessionStorage){var raw=w.sessionStorage.getItem(pendingPaymentStorageKey(id));if(raw){var saved=JSON.parse(raw);if(saved&&saved.id&&saved.payload&&String(saved.payload.invoiceId)===id){pendingPaymentDrafts[id]=saved;return saved;}w.sessionStorage.removeItem(pendingPaymentStorageKey(id));}}}catch(e){}
+ return null;
+}
+function writePendingPayment(invoiceId,pending){
+ var id=String(invoiceId||'');if(!id)return;
+ pendingPaymentDrafts[id]=pending;
+ try{if(w.sessionStorage)w.sessionStorage.setItem(pendingPaymentStorageKey(id),JSON.stringify(pending));}catch(e){}
+}
+function clearPendingPayment(invoiceId){
+ var id=String(invoiceId||'');delete pendingPaymentDrafts[id];
+ try{if(w.sessionStorage)w.sessionStorage.removeItem(pendingPaymentStorageKey(id));}catch(e){}
+}
+function setPaymentRetryMode(pending){
+ var retry=!!(pending&&pending.attempted&&pending.payload);
+ ['cp-date','cp-type','cp-amount','cp-method','cp-reference','cp-notes'].forEach(function(id){var field=el(id);if(field)field.disabled=retry;});
+ var note=el('cp-retry-note');if(note)note.style.display=retry?'block':'none';
+ var save=el('commercial-payment-modal')&&el('commercial-payment-modal').querySelector('[data-payment-action="save"]');
+ if(save)save.textContent=retry?'Coba Verifikasi Ulang':'Konfirmasi Pembayaran';
+}
 function closePaymentEditor(){
  var m=el('commercial-payment-modal');if(m)m.classList.add('hidden');
+ if(currentPaymentInvoiceId){var pending=readPendingPayment(currentPaymentInvoiceId);if(pending&&!pending.attempted)clearPendingPayment(currentPaymentInvoiceId);}
  paymentDraftId='';currentPaymentInvoiceId='';
 }
 function updatePaymentType(){
@@ -78,32 +102,61 @@ function openPaymentEditor(invoiceId){
  if(typeof isOwnerSession!=='function'||!isOwnerSession())return say('Pencatatan pembayaran hanya dapat dilakukan Owner.',true);
  if(!w.CSKAuth||!w.CSKAuth.isReady||!w.CSKAuth.isReady()||typeof w.CSKAuth.recordInvoicePayment!=='function')return say('Koneksi Google Sheets belum siap. Pembayaran belum dicatat.',true);
  var invoice=arr('invoice').find(function(x){return String(x.id)===String(invoiceId);});if(!invoice)return say('Invoice tidak ditemukan.',true);
- var summary=summarizeInvoicePayments(invoice,db.invoicePayments||[]);if(summary.balance<=0)return say('Invoice sudah lunas.',true);
- ensurePaymentModal();currentPaymentInvoiceId=String(invoice.id);paymentDraftId='PAY-'+Date.now()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();
+ var id=String(invoice.id),pending=readPendingPayment(id),summary=summarizeInvoicePayments(invoice,db.invoicePayments||[]);
+ if(summary.balance<=0&&!pending)return say('Invoice sudah lunas.',true);
+ ensurePaymentModal();currentPaymentInvoiceId=id;paymentDraftId=pending?pending.id:'PAY-'+Date.now()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();
  el('cp-invoice-title').textContent=(invoice.docNo||invoice.id)+' · '+(invoice.client||'-');
  el('cp-summary').innerHTML='<div class="bg-slate-50 rounded-lg p-2"><span class="text-slate-500">Total</span><b class="block mt-1">'+rp(summary.total)+'</b></div><div class="bg-emerald-50 rounded-lg p-2"><span class="text-slate-500">Diterima</span><b class="block mt-1">'+rp(summary.paid)+'</b></div><div class="bg-amber-50 rounded-lg p-2"><span class="text-slate-500">Sisa</span><b class="block mt-1">'+rp(summary.balance)+'</b></div>';
  var history=paymentRows(invoice.id);
  el('cp-history').innerHTML=history.length?history.map(function(p){return '<div class="flex justify-between gap-3 border-b pb-2 text-xs"><div><b>'+esc(p.paymentType==='dp'?'DP':p.paymentType==='settlement'?'Pelunasan':'Cicilan')+'</b><div class="text-slate-500">'+esc(p.paymentDate)+' · '+esc(p.method)+' '+(p.reference?'· '+esc(p.reference):'')+'</div></div><b>'+rp(p.amount)+'</b></div>';}).join(''):'<div class="text-xs text-slate-400">Belum ada pembayaran.</div>';
- var type=summary.paid>0?'installment':'dp';if(summary.balance<=1)type='settlement';
- el('cp-type').innerHTML=(summary.paid>0?'':'<option value="dp">DP</option>')+'<option value="installment">Cicilan</option><option value="settlement">Pelunasan</option>';
- el('cp-type').value=type;el('cp-date').value=localDate();el('cp-method').value='transfer';el('cp-reference').value='';el('cp-notes').value='';
- updatePaymentType();el('commercial-payment-modal').classList.remove('hidden');
+ var pendingType=pending&&pending.payload?String(pending.payload.paymentType||''):'';
+ var type=pendingType||(summary.paid>0?'installment':'dp');if(!pending&&summary.balance<=1)type='settlement';
+ var includeDp=summary.paid===0||pendingType==='dp';
+ el('cp-type').innerHTML=(includeDp?'<option value="dp">DP</option>':'')+'<option value="installment">Cicilan</option><option value="settlement">Pelunasan</option>';
+ el('cp-type').value=type;
+ el('cp-date').value=pending&&pending.payload?pending.payload.paymentDate:localDate();
+ el('cp-method').value=pending&&pending.payload?pending.payload.method:'transfer';
+ el('cp-reference').value=pending&&pending.payload?pending.payload.reference||'':'';
+ el('cp-notes').value=pending&&pending.payload?pending.payload.notes||'':'';
+ if(pending&&pending.payload){el('cp-amount').value=pending.payload.amount;setPaymentRetryMode(pending);}
+ else{setPaymentRetryMode(null);updatePaymentType();}
+ el('commercial-payment-modal').classList.remove('hidden');
 }
 async function saveInvoicePayment(){
  var invoiceId=currentPaymentInvoiceId,invoice=arr('invoice').find(function(x){return String(x.id)===String(invoiceId);});
  if(!invoice||!paymentDraftId)return;
- var summary=summarizeInvoicePayments(invoice,db.invoicePayments||[]),amount=Number(el('cp-amount').value),type=el('cp-type').value;
- if(!Number.isSafeInteger(amount)||amount<=0)return say('Nominal pembayaran harus berupa rupiah bulat lebih dari nol.',true);
- if(amount>summary.balance)return say('Nominal melebihi sisa tagihan.',true);
- if(type==='settlement'&&amount!==summary.balance)return say('Pelunasan harus sama dengan sisa tagihan.',true);
- if(type==='dp'&&summary.paid>0)return say('DP hanya dapat dicatat pada pembayaran pertama.',true);
- var payment={id:paymentDraftId,invoiceId:String(invoice.id),paymentDate:el('cp-date').value,paymentType:type,amount:amount,method:el('cp-method').value,reference:el('cp-reference').value.trim(),notes:el('cp-notes').value.trim()};
- var button=el('commercial-payment-modal').querySelector('[data-payment-action="save"]');button.disabled=true;button.textContent='Memverifikasi...';
+ var pending=readPendingPayment(invoiceId),payment;
+ if(pending&&pending.payload){payment=pending.payload;paymentDraftId=pending.id;}
+ else{
+  payment={id:paymentDraftId,invoiceId:String(invoice.id),paymentDate:el('cp-date').value,paymentType:el('cp-type').value,amount:Number(el('cp-amount').value),method:el('cp-method').value,reference:el('cp-reference').value.trim(),notes:el('cp-notes').value.trim()};
+ }
+ var summary=summarizeInvoicePayments(invoice,db.invoicePayments||[]);
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(String(payment.paymentDate||'')))return say('Tanggal pembayaran wajib diisi dengan format tanggal yang valid.',true);
+ if(!Number.isSafeInteger(Number(payment.amount))||Number(payment.amount)<=0)return say('Nominal pembayaran harus berupa rupiah bulat lebih dari nol.',true);
+ if(['dp','installment','settlement'].indexOf(String(payment.paymentType))<0)return say('Jenis pembayaran tidak valid.',true);
+ if(['transfer','cash','qris','ewallet','other'].indexOf(String(payment.method))<0)return say('Metode pembayaran tidak valid.',true);
+ if(!(pending&&pending.attempted)){
+  if(Number(payment.amount)>summary.balance)return say('Nominal melebihi sisa tagihan.',true);
+  if(payment.paymentType==='settlement'&&Number(payment.amount)!==summary.balance)return say('Pelunasan harus sama dengan sisa tagihan.',true);
+  if(payment.paymentType==='dp'&&summary.paid>0)return say('DP hanya dapat dicatat pada pembayaran pertama.',true);
+  pending={id:payment.id,payload:payment,attempted:false};
+ }
+ pending.attempted=true;writePendingPayment(invoiceId,pending);
+ setPaymentRetryMode(pending);
+ var modal=el('commercial-payment-modal'),buttons=modal?modal.querySelectorAll('[data-payment-action]'):[];
+ buttons.forEach(function(b){b.disabled=true;});
  try{
   await w.CSKAuth.recordInvoicePayment(payment);
+  clearPendingPayment(invoiceId);
   closePaymentEditor();renderDocuments();say('Pembayaran berhasil diverifikasi dan dicatat di Finance.');
- }catch(e){say('Pembayaran belum terverifikasi: '+String(e&&e.message||e),true);}
- finally{if(button){button.disabled=false;button.textContent='Konfirmasi Pembayaran';}}
+ }catch(e){
+  writePendingPayment(invoiceId,pending);setPaymentRetryMode(pending);
+  say('Pembayaran belum terverifikasi. Data percobaan dan ID transaksi dipertahankan. Buka kembali lalu tekan Coba Verifikasi Ulang; jangan buat pembayaran baru. '+String(e&&e.message||e),true);
+ }finally{
+  buttons.forEach(function(b){b.disabled=false;});
+  var save=modal&&modal.querySelector('[data-payment-action="save"]');
+  if(save)save.textContent=pending&&pending.attempted?'Coba Verifikasi Ulang':'Konfirmasi Pembayaran';
+ }
 }
 function renderMaster(){var s=el('cd-master'),o=['<option value="">Pilih material / jasa</option>'];(db.materials||[]).forEach(function(x){o.push('<option value="m:'+esc(x.id)+'">Material · '+esc(x.name)+' · '+rp(x.unitPrice)+'/'+esc(x.unit||'unit')+'</option>');});(db.services||[]).forEach(function(x){o.push('<option value="s:'+esc(x.id)+'">Jasa · '+esc(x.name)+' · '+rp(x.basePrice)+'</option>');});s.innerHTML=o.join('');}
 function renderLines(){el('cd-lines').innerHTML=doc.lines.map(function(x,i){return '<article class="cd-line"><div class="grid grid-cols-2 gap-2"><label class="cd-field col-span-2">Nama<input class="cd-input" data-line-index="'+i+'" data-line-field="name" value="'+esc(x.name)+'"></label><label class="cd-field col-span-2">Deskripsi<input class="cd-input" data-line-index="'+i+'" data-line-field="description" value="'+esc(x.description||'')+'"></label><label class="cd-field">Qty<input class="cd-input" type="number" min=".01" step=".01" data-line-index="'+i+'" data-line-field="qty" value="'+n(x.qty)+'"></label><label class="cd-field">Satuan<input class="cd-input" data-line-index="'+i+'" data-line-field="unit" value="'+esc(x.unit||'unit')+'"></label><label class="cd-field col-span-2">Harga satuan<input class="cd-input" type="number" min="0" data-line-index="'+i+'" data-line-field="unitPrice" value="'+n(x.unitPrice)+'"></label></div><div class="flex justify-between mt-2 text-xs"><b>'+rp(n(x.qty)*n(x.unitPrice))+'</b><button class="text-red-600" data-remove-line="'+i+'">Hapus</button></div></article>';}).join('')||'<div class="border border-dashed rounded-lg p-4 text-xs text-center text-slate-400">Belum ada item.</div>';}
@@ -111,7 +164,7 @@ function preview(){if(!doc)return;var t=calculateCommercialTotals(doc.lines,doc.
 var rows=d.lines.map(function(x,i){return '<tr><td>'+(i+1)+'. '+esc(x.name)+(x.description?'<div style="color:#64748b">'+esc(x.description)+'</div>':'')+'</td><td style="text-align:center">'+n(x.qty)+' '+esc(x.unit||'')+'</td><td style="text-align:right">'+rp(x.unitPrice)+'</td><td style="text-align:right">'+rp(n(x.qty)*n(x.unitPrice))+'</td></tr>';}).join('')||'<tr><td colspan="4">Belum ada item</td></tr>';
 el('commercial-printable').innerHTML='<div style="border-top:7px solid #f59e0b;padding-top:18px"><div style="display:flex;justify-content:space-between;gap:18px;border-bottom:2px solid #e2e8f0;padding-bottom:16px"><div><b style="font-size:20px">CAHAYA SELATAN KREASINDO</b><div style="font-size:10px;color:#b45309;margin:5px 0">PRODUCTION PARTNER UNTUK BRAND & BISNIS</div><div style="font-size:10px;color:#64748b;line-height:1.6">Jl. Doel Silem No. 45, Rawa Mekar Jaya, Serpong<br>Kota Tangerang Selatan, Banten 15317<br>WA 0888-8533-488 · halo@cahayaselatankreasindo.my.id</div></div><div style="text-align:right"><b style="background:#f59e0b;padding:7px;font-size:10px">'+label+'</b><div style="font-size:10px;margin-top:10px">No. Dokumen</div><b>'+esc(d.docNo||'-')+'</b><div style="font-size:10px;margin-top:5px">Tanggal: '+date+'</div><div style="font-size:10px">Jatuh tempo / berlaku: '+due+'</div></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 0;border-bottom:1px solid #e2e8f0"><div><small>DITUJUKAN KEPADA</small><br><b>'+esc(d.client||'Nama pelanggan')+'</b><br>'+esc(d.clientPhone||'-')+(d.clientEmail?'<br>'+esc(d.clientEmail):'')+(d.contactPerson?'<br>PIC: '+esc(d.contactPerson):'')+(d.clientAddress?'<br>'+esc(d.clientAddress):'')+'</div><div><small>PEKERJAAN / PROYEK</small><br><b>'+esc(d.projectName||'-')+'</b><br><small>'+(d.projectId?'Project ID: '+esc(d.projectId):'Dokumen mandiri')+'</small></div></div><table style="margin:18px 0"><thead><tr><th>Item / pekerjaan</th><th>Qty</th><th style="text-align:right">Harga satuan</th><th style="text-align:right">Jumlah</th></tr></thead><tbody>'+rows+'</tbody></table><div style="margin-left:auto;width:250px;border-top:1px solid #cbd5e1;padding-top:8px"><div>Subtotal: <b style="float:right">'+rp(t.subtotal)+'</b></div><div>Diskon: <b style="float:right">'+rp(t.discount)+'</b></div><div>Pajak ('+t.taxRate+'%): <b style="float:right">'+rp(t.taxAmount)+'</b></div><div style="font-size:14px;font-weight:bold;border-top:2px solid #0f172a;margin-top:8px;padding-top:8px">TOTAL <span style="float:right;color:#b45309">'+rp(t.total)+'</span></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;border-top:1px solid #e2e8f0;margin-top:18px;padding-top:16px"><div><b>KETENTUAN PEMBAYARAN</b><p style="white-space:pre-wrap">'+esc(d.paymentTerms||'-')+'</p><b>SYARAT DAN KETENTUAN</b><p style="white-space:pre-wrap">'+esc(d.terms||'-')+'</p>'+(d.notes?'<b>CATATAN</b><p>'+esc(d.notes)+'</p>':'')+'</div><div style="text-align:right"><b>Hormat kami,</b><div style="margin-top:70px"><b>Zefry Dany Adi Syahputra</b><br>Owner & Lead Project</div></div></div><div style="margin-top:16px;padding:9px;background:#f8fafc;font-size:9px">Bank Jago Syariah · 508705048143 · a.n. Zefry Dany Adi Syahputra · Konfirmasi WA 0888-8533-488</div></div>';
 el('cd-totals').innerHTML='Subtotal: <b>'+rp(t.subtotal)+'</b><br>Diskon: <b>'+rp(t.discount)+'</b><br>Pajak: <b>'+rp(t.taxAmount)+'</b><hr style="margin:6px 0;border-color:#475569">Total: <b>'+rp(t.total)+'</b>';}
-function renderEditor(){el('cd-title').textContent=(kind==='quotation'?'Quotation':'Invoice')+' · Editor';var s=el('cd-lead');s.innerHTML='<option value="">Input pelanggan manual / tanpa Lead</option>'+(db.leads||[]).map(function(x){return '<option value="'+esc(x.id)+'">'+esc(x.name||'Lead')+'</option>';}).join('');s.value=doc.leadId||'';var states=kind==='quotation'?['draft','sent','approved','rejected','cancelled']:['draft','sent','partial','paid','cancelled'];el('cd-status').innerHTML=states.map(function(x){return '<option value="'+x+'">'+labels[x]+'</option>';}).join('');el('cd-status').value=doc.status||'draft';[['cd-client','client'],['cd-phone','clientPhone'],['cd-email','clientEmail'],['cd-contact','contactPerson'],['cd-address','clientAddress'],['cd-project','projectName'],['cd-number','docNo'],['cd-date','date'],['cd-due','dueDate'],['cd-discount','discount'],['cd-tax','taxRate'],['cd-dp','dpPercent'],['cd-payment','paymentTerms'],['cd-terms','terms'],['cd-notes','notes']].forEach(function(x){el(x[0]).value=doc[x[1]]==null?'':doc[x[1]];});renderMaster();renderLines();preview();}
+function renderEditor(){el('cd-title').textContent=(kind==='quotation'?'Quotation':'Invoice')+' · Editor';var s=el('cd-lead');s.innerHTML='<option value="">Input pelanggan manual / tanpa Lead</option>'+(db.leads||[]).map(function(x){return '<option value="'+esc(x.id)+'">'+esc(x.name||'Lead')+'</option>';}).join('');s.value=doc.leadId||'';var states=kind==='quotation'?['draft','sent','approved','rejected','cancelled']:['draft','sent','cancelled'];var savedStatus=doc.status||'draft';if(kind==='invoice'&&['partial','paid','unpaid'].indexOf(savedStatus)>=0)savedStatus='sent';el('cd-status').innerHTML=states.map(function(x){return '<option value="'+x+'">'+labels[x]+'</option>';}).join('');el('cd-status').value=states.indexOf(savedStatus)>=0?savedStatus:'draft';[['cd-client','client'],['cd-phone','clientPhone'],['cd-email','clientEmail'],['cd-contact','contactPerson'],['cd-address','clientAddress'],['cd-project','projectName'],['cd-number','docNo'],['cd-date','date'],['cd-due','dueDate'],['cd-discount','discount'],['cd-tax','taxRate'],['cd-dp','dpPercent'],['cd-payment','paymentTerms'],['cd-terms','terms'],['cd-notes','notes']].forEach(function(x){el(x[0]).value=doc[x[1]]==null?'':doc[x[1]];});renderMaster();renderLines();preview();}
 function openCommercialDocumentEditor(k,id,pid){if(k!=='quotation'&&k!=='invoice')return;if(typeof isOwnerSession!=='function'||!isOwnerSession())return say('Dokumen komersial hanya dapat dikelola Owner.',true);ensure();kind=k;var old=id?arr(k).find(function(x){return String(x.id)===String(id);}):null;doc=old?JSON.parse(JSON.stringify(old)):defaultDoc(k,pid);delete doc.kind;if(!Array.isArray(doc.lines))doc.lines=[];if(!doc.date)doc.date=localDate();if(!doc.dueDate)doc.dueDate=plus(doc.date,7);if(!doc.docNo)doc.docNo=nextDocumentNumber(k,arr(k),doc.date);renderEditor();el('commercial-document-modal').classList.remove('hidden');}
 function closeCommercialDocumentEditor(){if(el('commercial-document-modal'))el('commercial-document-modal').classList.add('hidden');doc=null;}
 function updateCommercialField(f,v){if(!doc)return;doc[f]=['discount','taxRate','dpPercent'].includes(f)?n(v):String(v==null?'':v).trim();preview();}
@@ -164,11 +217,13 @@ async function saveCommercialDocument(){
  await persistCommercialChanges((kind==='quotation'?'Quotation':'Invoice')+' tersimpan');
 }
 function printCommercialDocument(){if(!doc)return;readForm();preview();w.print();}
-function copyCommercialDocumentWA(){if(!doc)return;readForm();var t=calculateCommercialTotals(doc.lines,doc.discount,doc.taxRate),msg='*'+(kind==='quotation'?'QUOTATION':'INVOICE')+' — CAHAYA SELATAN KREASINDO*\\nNo: '+doc.docNo+'\\nKlien: '+doc.client+'\\nTanggal: '+doc.date+' · Jatuh tempo/berlaku: '+doc.dueDate+'\\nPekerjaan: '+(doc.projectName||'-')+'\\n'+doc.lines.map(function(x){return x.name+' × '+x.qty+' '+x.unit+' = '+rp(n(x.qty)*n(x.unitPrice));}).join('\\n')+'\\nSubtotal: '+rp(t.subtotal)+'\\nDiskon: '+rp(t.discount)+'\\nPajak: '+rp(t.taxAmount)+'\\n*TOTAL: '+rp(t.total)+'*\\n\\nKetentuan: '+(doc.paymentTerms||'-')+'\\nSyarat: '+(doc.terms||'-')+'\\nWA 0888-8533-488';if(w.navigator.clipboard&&w.navigator.clipboard.writeText)w.navigator.clipboard.writeText(msg).then(function(){say('Teks dokumen disalin.');}).catch(function(){say('Clipboard tidak tersedia.',true);});else say('Clipboard tidak tersedia.',true);}
+function copyCommercialDocumentWA(){if(!doc)return;readForm();var t=calculateCommercialTotals(doc.lines,doc.discount,doc.taxRate),msg='*'+(kind==='quotation'?'QUOTATION':'INVOICE')+' — CAHAYA SELATAN KREASINDO*\nNo: '+doc.docNo+'\nKlien: '+doc.client+'\nTanggal: '+doc.date+' · Jatuh tempo/berlaku: '+doc.dueDate+'\nPekerjaan: '+(doc.projectName||'-')+'\n'+doc.lines.map(function(x){return x.name+' × '+x.qty+' '+x.unit+' = '+rp(n(x.qty)*n(x.unitPrice));}).join('\n')+'\nSubtotal: '+rp(t.subtotal)+'\nDiskon: '+rp(t.discount)+'\nPajak: '+rp(t.taxAmount)+'\n*TOTAL: '+rp(t.total)+'*\n\nKetentuan: '+(doc.paymentTerms||'-')+'\nSyarat: '+(doc.terms||'-')+'\nWA 0888-8533-488';if(w.navigator.clipboard&&w.navigator.clipboard.writeText)w.navigator.clipboard.writeText(msg).then(function(){say('Teks dokumen disalin.');}).catch(function(){say('Clipboard tidak tersedia.',true);});else say('Clipboard tidak tersedia.',true);}
 async function createProjectFromDocument(k,id){
  if(typeof isOwnerSession!=='function'||!isOwnerSession())return say('Dokumen komersial hanya dapat dikelola Owner.',true);
  var d=arr(k).find(function(x){return String(x.id)===String(id);});
  if(!d)return say('Dokumen tidak ditemukan.',true);
+ if(k==='quotation'&&String(d.status||'').toLowerCase()!=='approved')return say('Quotation harus disetujui terlebih dahulu sebelum membuat atau menghubungkan proyek.',true);
+ if(k==='invoice'&&String(d.status||'').toLowerCase()==='cancelled')return say('Invoice yang dibatalkan tidak dapat menjadi sumber proyek.',true);
  var sourceQ=k==='quotation'?String(d.id):String(d.sourceQuotationId||d.quotationId||'');
  var q=k==='quotation'?d:(sourceQ?arr('quotation').find(function(x){return String(x.id)===sourceQ;}):null);
  var sourceI=k==='invoice'?String(d.id):'';
@@ -222,6 +277,7 @@ async function createInvoiceFromQuotation(id){
   var old=arr('invoice').find(function(x){return String(x.id)===String(q.convertedInvoiceId);});
   if(old)return openCommercialDocumentEditor('invoice',old.id);
  }
+ if(String(q.status||'').toLowerCase()!=='approved')return say('Quotation harus berstatus Disetujui sebelum dikonversi menjadi Invoice.',true);
  var t=localDate(),v=JSON.parse(JSON.stringify(q));
  v.id=newid('invoice');
  delete v.kind;
@@ -252,8 +308,8 @@ function renderDocuments(){
   var k=x.kind==='invoice'?'invoice':'quotation',isq=k==='quotation',id=esc(x.id),summary=isq?null:summarizeInvoicePayments(x,db.invoicePayments||[]);
   var status=isq?(labels[x.status]||x.status||'Draft'):(x.status==='cancelled'?'Dibatalkan':summary.status==='paid'?'Lunas':summary.status==='partial'?'Dibayar sebagian':'Belum dibayar');
   var paymentInfo=isq?'':'<div class="grid grid-cols-2 gap-2 text-xs mt-2"><div class="bg-emerald-50 rounded-lg p-2">Diterima <b class="block">'+rp(summary.paid)+'</b></div><div class="bg-amber-50 rounded-lg p-2">Sisa tagihan <b class="block">'+rp(summary.balance)+'</b></div></div>';
-  var paymentButton=!isq&&summary.balance>0&&x.status!=='cancelled'?'<button class="cd-btn bg-emerald-600 text-white" data-action="payment" data-id="'+id+'">Catat Pembayaran</button>':'';
-  return '<article class="bg-white border rounded-xl p-4 mb-3 space-y-3"><div class="flex justify-between gap-3"><div><b>'+esc(x.docNo||x.id)+'</b> · '+(isq?'Quotation':'Invoice')+'<div class="text-xs mt-1">'+esc(x.client||'-')+' · '+esc(x.projectName||'-')+'</div><small class="text-slate-400">'+esc(x.date||'-')+' · '+(x.projectId?'Terhubung ke proyek':'Dokumen mandiri')+'</small>'+paymentInfo+'</div><div class="text-right"><b>'+rp(x.total)+'</b><div class="text-xs">'+esc(status)+'</div></div></div><div class="flex flex-wrap gap-2"><button class="cd-btn border" data-action="edit" data-kind="'+k+'" data-id="'+id+'">Edit</button>'+(isq?'<button class="cd-btn bg-amber-500" data-action="convert" data-id="'+id+'">Buat Invoice</button>':'')+paymentButton+'<button class="cd-btn bg-emerald-600 text-white" data-action="project" data-kind="'+k+'" data-id="'+id+'">Buat / Hubungkan Proyek</button><button class="cd-btn bg-slate-800 text-white" data-action="print-existing" data-kind="'+k+'" data-id="'+id+'">Cetak PDF</button><button class="cd-btn border border-red-200 text-red-700" data-action="delete" data-kind="'+k+'" data-id="'+id+'">Hapus</button></div></article>';
+  var pendingPayment=!isq?readPendingPayment(x.id):null;var paymentButton=!isq&&x.status!=='cancelled'&&(summary.balance>0||pendingPayment)?'<button class="cd-btn bg-emerald-600 text-white" data-action="payment" data-id="'+id+'">'+(pendingPayment?'Verifikasi Ulang Pembayaran':'Catat Pembayaran')+'</button>':'';
+  return '<article class="bg-white border rounded-xl p-4 mb-3 space-y-3"><div class="flex justify-between gap-3"><div><b>'+esc(x.docNo||x.id)+'</b> · '+(isq?'Quotation':'Invoice')+'<div class="text-xs mt-1">'+esc(x.client||'-')+' · '+esc(x.projectName||'-')+'</div><small class="text-slate-400">'+esc(x.date||'-')+' · '+(x.projectId?'Terhubung ke proyek':'Dokumen mandiri')+'</small>'+paymentInfo+'</div><div class="text-right"><b>'+rp(x.total)+'</b><div class="text-xs">'+esc(status)+'</div></div></div><div class="flex flex-wrap gap-2"><button class="cd-btn border" data-action="edit" data-kind="'+k+'" data-id="'+id+'">Edit</button>'+(isq&&(x.status==='approved'||x.convertedInvoiceId)?'<button class="cd-btn bg-amber-500" data-action="convert" data-id="'+id+'">Buat Invoice</button>':'')+paymentButton+'<button class="cd-btn bg-emerald-600 text-white" data-action="project" data-kind="'+k+'" data-id="'+id+'">Buat / Hubungkan Proyek</button><button class="cd-btn bg-slate-800 text-white" data-action="print-existing" data-kind="'+k+'" data-id="'+id+'">Cetak PDF</button><button class="cd-btn border border-red-200 text-red-700" data-action="delete" data-kind="'+k+'" data-id="'+id+'">Hapus</button></div></article>';
  }).join('');
  box.innerHTML=h;
  if(!box.dataset.bound){box.dataset.bound='1';box.addEventListener('click',function(e){

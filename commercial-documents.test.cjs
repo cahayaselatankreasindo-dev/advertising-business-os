@@ -90,3 +90,16 @@ assert.ok(source.includes('saveDB(true)'));
 assert.ok(source.includes('await persistCommercialChanges('));
 assert.ok(source.includes('berhasil disimpan dan diverifikasi di Google Sheets'));
 assert.match(guard, /if \(syncTimer\) \{ clearTimeout\(syncTimer\); syncTimer = null; \}/);
+
+assert.ok(source.includes('pendingPaymentDrafts=Object.create(null)'));
+assert.ok(source.includes('function readPendingPayment(invoiceId)'));
+assert.ok(source.includes('function setPaymentRetryMode(pending)'));
+assert.ok(source.includes('Coba Verifikasi Ulang'));
+assert.ok(source.includes('Quotation harus berstatus Disetujui sebelum dikonversi menjadi Invoice.'));
+assert.ok(source.includes("['draft','sent','cancelled']"));
+assert.ok(source.includes("x.status==='approved'||x.convertedInvoiceId"));
+assert.ok(source.includes(".join('\\n')"), 'WhatsApp copy uses actual newline escapes');
+assert.match(guard, /Commercial_Quotations:'quotations',Invoices:'invoices'/, 'commercial document deletes can be verified from cloud read-back');
+assert.ok(backend.includes('function assertUniqueCommercialDocumentNumbers_(ss, sheetName, incomingRows)'));
+assert.ok(backend.includes('mergeCommercialQuotationsSafely_(ss, payload.quotations)'));
+assert.ok(backend.includes('assertUniqueCommercialDocumentNumbers_(ss, "Invoices", incomingInvoices)'));
