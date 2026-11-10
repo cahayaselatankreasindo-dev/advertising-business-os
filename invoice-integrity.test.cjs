@@ -74,6 +74,11 @@ vm.runInNewContext(
   sandbox
 );
 vm.runInNewContext(
+  extractFunction('assertUniqueInvoiceQuotationSources_') +
+  '\nthis.checkUniqueInvoiceQuotationSources = assertUniqueInvoiceQuotationSources_;',
+  sandbox
+);
+vm.runInNewContext(
   extractFunction('assertCommercialRecordDeletionAllowed_') +
   '\nthis.checkDeletion = assertCommercialRecordDeletionAllowed_;',
   sandbox
@@ -204,3 +209,23 @@ assert.equal(sandbox.checkUniqueDocumentNumbers(ss, 'Invoices', [
 ]), true);
 assert.match(source, /function mergeCommercialQuotationsSafely_\(/);
 assert.match(source, /assertUniqueCommercialDocumentNumbers_\(ss, "Invoices", incomingInvoices\)/);
+
+
+// One quotation can produce at most one invoice, including concurrent or stale-client syncs.
+tables = {
+  Invoices: [{ id: 'INV-FROM-Q1', sourceQuotationId: 'Q-001', quotationId: 'Q-001', docNo: 'INV-CSK-2026-00001' }]
+};
+assert.equal(sandbox.checkUniqueInvoiceQuotationSources(ss, [
+  { id: 'INV-FROM-Q1', sourceQuotationId: 'Q-001', quotationId: 'Q-001' }
+]), true, 'same invoice ID may be safely re-synced');
+assert.throws(() => sandbox.checkUniqueInvoiceQuotationSources(ss, [
+  { id: 'INV-FROM-Q2', sourceQuotationId: 'Q-001', quotationId: 'Q-001' }
+]), /DUPLICATE_QUOTATION_CONVERSION/, 'a second invoice cannot reuse an already converted quotation');
+assert.equal(sandbox.checkUniqueInvoiceQuotationSources(ss, [
+  { id: 'INV-STANDALONE', docNo: 'INV-CSK-2026-00002' }
+]), true, 'standalone invoices remain independent of quotations');
+assert.throws(() => sandbox.checkUniqueInvoiceQuotationSources(ss, [
+  { id: 'INV-Q2-A', sourceQuotationId: 'Q-002' },
+  { id: 'INV-Q2-B', sourceQuotationId: 'Q-002' }
+]), /DUPLICATE_QUOTATION_CONVERSION/, 'two invoices in one sync cannot originate from the same quotation');
+assert.match(source, /assertUniqueInvoiceQuotationSources_\(ss, incomingInvoices\)/, 'invoice merge enforces one invoice per quotation');
