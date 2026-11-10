@@ -13,6 +13,7 @@ for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
   assert.ok(source.includes('FORBIDDEN_PAYMENT_WRITE'), path + ': payment recording is Owner-only');
   assert.ok(source.includes('PAYMENT_LEDGER_SERVER_ONLY'), path + ': payment ledger cannot use generic CRUD');
   assert.match(source, /function assertPaidInvoiceChangesAllowed_\(/, path + ': paid invoice totals are protected server-side');
+  assert.ok(source.includes('PAID_INVOICE_DOCUMENT_IMMUTABLE'), path + ': paid invoice identity, line items, and terms are immutable');
   assert.match(source, /function mergeInvoicesSafely_\(/, path + ': invoice updates are serialized with payment writes');
   assert.match(source, /function mergeFinanceSafely_\(/, path + ': payment-linked Finance rows are validated against the ledger');
   assert.match(source, /mergeFinanceSafely_\(ss, payload\.finance\)/, path + ': generic sync uses protected Finance merging');

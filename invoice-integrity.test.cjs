@@ -104,6 +104,31 @@ tables = {
 assert.equal(sandbox.checkPaidInvoice(ss, [{ id: 'INV-001', total: 1000000, status: 'partial' }]), true);
 assert.throws(() => sandbox.checkPaidInvoice(ss, [{ id: 'INV-001', total: 900000, status: 'partial' }]), /PAID_INVOICE_TOTAL_IMMUTABLE/);
 assert.throws(() => sandbox.checkPaidInvoice(ss, [{ id: 'INV-001', total: 1000000, status: 'cancelled' }]), /PAID_INVOICE_CANNOT_CANCEL/);
+tables = {
+  Invoices: [{
+    id: 'INV-LOCK', docNo: 'INV-CSK-2026-00110', date: '2026-11-10', leadId: 'LEAD-LOCK',
+    client: 'PT Contoh', clientPhone: '081234567890', clientEmail: 'finance@contoh.id',
+    clientAddress: 'Jakarta', contactPerson: 'PIC', projectName: 'Display',
+    linesJson: '[{"id":"L1","name":"Display","qty":1,"unitPrice":1000000}]',
+    subtotal: 1000000, discount: 0, taxRate: 0, taxAmount: 0, total: 1000000,
+    dpPercent: 50, quotationId: '', sourceQuotationId: '', terms: 'Terms A',
+    paymentTerms: 'DP 50%', status: 'partial'
+  }],
+  Invoice_Payments: [{ id: 'PAY-LOCK-01', invoiceId: 'INV-LOCK', amount: 100000 }]
+};
+const unchangedPaidInvoice = {
+  id: 'INV-LOCK', docNo: 'INV-CSK-2026-00110', date: '2026-11-10', leadId: 'LEAD-LOCK',
+  client: 'PT Contoh', clientPhone: '081234567890', clientEmail: 'finance@contoh.id',
+  clientAddress: 'Jakarta', contactPerson: 'PIC', projectName: 'Display',
+  lines: [{ id: 'L1', name: 'Display', qty: 1, unitPrice: 1000000 }],
+  subtotal: 1000000, discount: 0, taxRate: 0, taxAmount: 0, total: 1000000,
+  dpPercent: 50, quotationId: '', sourceQuotationId: '', terms: 'Terms A',
+  paymentTerms: 'DP 50%', dueDate: '2026-11-17', projectDeadline: '2026-12-01'
+};
+assert.equal(sandbox.checkPaidInvoice(ss, [unchangedPaidInvoice]), true, 'paid invoice can still update separate project deadline and due date');
+assert.throws(() => sandbox.checkPaidInvoice(ss, [{ ...unchangedPaidInvoice, docNo: 'INV-CHANGED' }]), /PAID_INVOICE_DOCUMENT_IMMUTABLE/, 'paid invoice document number is immutable');
+assert.throws(() => sandbox.checkPaidInvoice(ss, [{ ...unchangedPaidInvoice, lines: [{ id: 'L1', name: 'Changed', qty: 1, unitPrice: 1000000 }] }]), /PAID_INVOICE_DOCUMENT_IMMUTABLE/, 'paid invoice lines are immutable');
+assert.throws(() => sandbox.checkPaidInvoice(ss, [{ ...unchangedPaidInvoice, paymentTerms: 'Net 90' }]), /PAID_INVOICE_DOCUMENT_IMMUTABLE/, 'paid invoice payment terms are immutable');
 
 tables.Invoices = [];
 tables.Invoice_Payments = [{ id: 'PAY-ORPHAN', invoiceId: 'INV-ORPHAN', amount: 100000 }];

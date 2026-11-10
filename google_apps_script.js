@@ -481,6 +481,17 @@ function assertPaidInvoiceChangesAllowed_(ss, incomingInvoices) {
     var oldTotal = Number(existing.total);
     var newTotal = Number(incoming.total);
     if (!Number.isFinite(oldTotal) || !Number.isFinite(newTotal) || Math.round(oldTotal) !== Math.round(newTotal)) throw new Error("PAID_INVOICE_TOTAL_IMMUTABLE");
+    var immutableFields = ["docNo","date","leadId","client","clientPhone","clientEmail","clientAddress","contactPerson","projectName","subtotal","discount","taxRate","taxAmount","dpPercent","quotationId","sourceQuotationId","terms","paymentTerms"];
+    immutableFields.forEach(function(field) {
+      var oldValue = existing[field] === undefined || existing[field] === null ? "" : String(existing[field]);
+      var newValue = incoming[field] === undefined || incoming[field] === null ? "" : String(incoming[field]);
+      if (oldValue !== newValue) throw new Error("PAID_INVOICE_DOCUMENT_IMMUTABLE");
+    });
+    var oldLines = existing.linesJson === undefined || existing.linesJson === null ? "" : String(existing.linesJson);
+    var newLines = Array.isArray(incoming.lines)
+      ? JSON.stringify(incoming.lines)
+      : (incoming.linesJson === undefined || incoming.linesJson === null ? "" : String(incoming.linesJson));
+    if (oldLines !== newLines) throw new Error("PAID_INVOICE_DOCUMENT_IMMUTABLE");
     var oldStatus = String(existing.status || "").trim().toLowerCase();
     var newStatus = String(incoming.status || "").trim().toLowerCase();
     if (newStatus === "cancelled" && oldStatus !== "cancelled") throw new Error("PAID_INVOICE_CANNOT_CANCEL");

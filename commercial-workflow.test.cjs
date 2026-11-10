@@ -313,6 +313,18 @@ assert.equal(db.finance.length, 3);
 assert.equal(db.finance.reduce((sum, row) => sum + Number(row.amount), 0), 400000);
 assert.equal(sandbox.module.exports.summarizeInvoicePayments(standaloneInvoice, db.invoicePayments).status, 'paid');
 
+const paidInvoiceClient = standaloneInvoice.client;
+window.openCommercialDocumentEditor('invoice', standaloneInvoice.id);
+field('cd-client', 'Nama Pelanggan yang Tidak Boleh Diubah');
+await window.saveCommercialDocument();
+assert.equal(db.invoices.find(x => x.id === standaloneInvoice.id).client, paidInvoiceClient, 'paid invoice identity remains unchanged after rejected edit');
+assert.equal(messages[messages.length - 1].isError, true, 'UI explains why a paid invoice cannot be altered');
+messages.pop();
+window.openCommercialDocumentEditor('invoice', standaloneInvoice.id);
+field('cd-due', '2026-11-20');
+await saveCurrentDocument();
+assert.equal(db.invoices.find(x => x.id === standaloneInvoice.id).dueDate, '2026-11-20', 'due date remains editable independently from immutable invoice identity and value');
+
 const finalMessages = messages.filter(x => x.isError);
 assert.deepEqual(finalMessages.map(x => x.message), [], 'no simulated workflow step should raise a UI error');
 console.log('CSK commercial workflow simulation passed: Lead → Quotation → Invoice → Project → DP → Installment → Settlement → Finance.');

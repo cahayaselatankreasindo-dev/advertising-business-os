@@ -219,8 +219,13 @@ async function saveCommercialDocument(){
  var totals=calculateCommercialTotals(doc.lines,doc.discount,doc.taxRate);
  var prior=kind==='invoice'?arr('invoice').find(function(x){return String(x.id)===String(doc.id);}):null;
  var paid=prior?summarizeInvoicePayments(prior,db.invoicePayments||[]):null;
- if(paid&&paid.paid>0&&totals.total!==Math.round(n(prior.total)))return say('Total invoice tidak boleh diubah setelah ada pembayaran. Buat dokumen penyesuaian terpisah.',true);
- if(paid&&paid.paid>0&&doc.status==='cancelled')return say('Invoice dengan pembayaran tidak dapat dibatalkan langsung. Selesaikan rekonsiliasi terlebih dahulu.',true);
+ if(paid&&paid.paid>0){
+  var immutableFields=['docNo','date','leadId','client','clientPhone','clientEmail','clientAddress','contactPerson','projectName','subtotal','discount','taxRate','taxAmount','dpPercent','quotationId','sourceQuotationId','terms','paymentTerms'];
+  var immutableChanged=immutableFields.some(function(field){return String(doc[field]==null?'':doc[field])!==String(prior[field]==null?'':prior[field]);});
+  var linesChanged=JSON.stringify(doc.lines||[])!==JSON.stringify(prior.lines||[]);
+  if(totals.total!==Math.round(n(prior.total))||immutableChanged||linesChanged)return say('Invoice yang sudah menerima pembayaran tidak dapat mengubah identitas, rincian, syarat, atau nilai dokumen. Perubahan tagihan harus dibuat sebagai dokumen penyesuaian terpisah.',true);
+  if(doc.status==='cancelled')return say('Invoice dengan pembayaran tidak dapat dibatalkan langsung. Selesaikan rekonsiliasi terlebih dahulu.',true);
+ }
  Object.assign(doc,totals);
  delete doc.kind;
  doc.updatedAt=new Date().toISOString();

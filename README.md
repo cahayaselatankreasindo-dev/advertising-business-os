@@ -171,6 +171,7 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 - `Invoice_Payments` dibaca oleh Owner dan tidak dapat ditulis melalui `sync_all` atau endpoint CRUD generik.
 - Jurnal Finance dengan ID `FIN-PAY-*` divalidasi terhadap ledger; sinkronisasi umum tidak boleh mengubah tanggal, kategori, nominal, atau deskripsinya. Pemulihan jurnal yang hilang hanya diizinkan jika cocok dengan ledger.
 - Invoice dan Quotation komersial hanya dibuat melalui jalur sinkronisasi tervalidasi; endpoint insert generik ditolak. Quotation yang sudah menjadi sumber Invoice tidak dapat dihapus.
+- Setelah Invoice menerima pembayaran, nomor dokumen, identitas pelanggan, rincian item, nilai, dan ketentuan pembayaran dikunci. Jatuh tempo, deadline proyek, dan catatan operasional tetap dapat diperbarui.
 
 
 ### Pusat Tindakan CRM
