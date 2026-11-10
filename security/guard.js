@@ -83,7 +83,7 @@
   }
   function resetDb() {
     if (typeof db === 'undefined') return;
-    ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','services','purchaseOrders','quotationSnapshots','quotations','invoices','invoicePayments'].forEach(function (key) { db[key] = []; });
+    ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','legacyCostings','projectCosts','services','purchaseOrders','quotationSnapshots','quotations','invoices','invoicePayments'].forEach(function (key) { db[key] = []; });
     db.settings = { googleSheetUrl: apiUrl(), lastSync: '', lastSyncError: '' };
     db.role = 'team';
   }
@@ -93,6 +93,13 @@
     (localRows || []).forEach(function (row) { if (row && row.id !== undefined && row.id !== null) map.set(String(row.id), row); });
     return Array.from(map.values());
   }
+  function setLegacyReadOnlyCollections(data) {
+    if (typeof db === 'undefined') return;
+    var owner = !!(identity && identity.role === 'owner');
+    db.legacyCostings = owner && Array.isArray(data && data.legacyCostings) ? data.legacyCostings : [];
+    db.projectCosts = owner && Array.isArray(data && data.projectCosts) ? data.projectCosts : [];
+  }
+
   function readSaved(key) {
     try {
       var value = JSON.parse(safeLocalGet(key) || '{}');
@@ -304,6 +311,7 @@
 
       var local = identity.role === 'owner' ? (legacyOwnerCache || {}) : readSaved(TEAM_KEY);
       var cloud = response.data || {};
+      setLegacyReadOnlyCollections(cloud);
       collectionsForRole().forEach(function (collection) {
         db[collection] = mergeById(cloud[collection], local[collection]);
       });
@@ -421,6 +429,7 @@
     try {
       var response = await get('get_data');
       var cloud = response.data || {};
+      setLegacyReadOnlyCollections(cloud);
       collectionsForRole().forEach(function (key) { db[key] = mergeById(cloud[key], db[key]); });
       db.invoicePayments = identity.role === 'owner' && Array.isArray(cloud.invoicePayments) ? cloud.invoicePayments : [];
       db.settings.lastSync = cloud.lastSynced || new Date().toISOString();
