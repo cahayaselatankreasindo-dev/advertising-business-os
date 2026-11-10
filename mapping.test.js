@@ -522,7 +522,18 @@ eq(noSessionGet.status, 'error', 'auth: GET tanpa sesi ditolak');
 const noSessionPost = callDoPost({ action: 'sync_all', leads: [{ id: 'NOSESSION', name: 'No Session' }] }, null);
 eq(noSessionPost.status, 'error', 'auth: POST tanpa sesi ditolak');
 
+const legacyReadCounts = { Costings: 0, Project_Costs: 0 };
+['Costings','Project_Costs'].forEach(name => {
+  const sheet = sheets[name];
+  const originalGetDataRange = sheet.getDataRange;
+  sheet.getDataRange = function () {
+    legacyReadCounts[name]++;
+    return originalGetDataRange.call(this);
+  };
+});
 const ownerData = callDoGet(OWNER_SESSION);
+eq(legacyReadCounts.Costings, 1, 'Owner GET reads the legacy Costings archive');
+eq(legacyReadCounts.Project_Costs, 1, 'Owner GET reads the legacy Project_Costs archive');
 eq(ownerData.status, 'success', 'auth: Owner dapat membaca data');
 eq(!!ownerData.data.finance, true, 'RBAC: Owner menerima data Finance');
 eq(!!ownerData.data.marketingSpend, true, 'RBAC: Owner menerima data Marketing');
@@ -535,10 +546,16 @@ eq(legacyWriteAttempt.status, 'error', 'legacy Costings cannot be written throug
 eq(legacyWriteAttempt.code, 'LEGACY_COST_DATA_READ_ONLY', 'legacy write rejection has an explicit reason');
 eq(JSON.stringify(sheets['Costings'].rows), legacyCostingsBefore, 'legacy Costings source rows remain unchanged');
 eq(JSON.stringify(sheets['Project_Costs'].rows), legacyProjectCostsBefore, 'legacy Project_Costs source rows remain unchanged');
+eq(callDoPost({ action:'insert', sheet:'Costings', data:{ id:'SPOOF-COSTING' } }, OWNER_SESSION).status, 'error', 'legacy Costings cannot be inserted through generic endpoint');
 eq(callDoPost({ action:'delete', sheet:'Costings', id:'LEGACY-COST-1' }, OWNER_SESSION).status, 'error', 'legacy Costings cannot be deleted through generic endpoint');
-eq(JSON.stringify(sheets['Costings'].rows), legacyCostingsBefore, 'legacy Costings remains unchanged after delete attempt');
+eq(callDoPost({ action:'insert', sheet:'Project_Costs', data:{ id:'SPOOF-PROJECT-COST' } }, OWNER_SESSION).status, 'error', 'legacy Project_Costs cannot be inserted through generic endpoint');
+eq(callDoPost({ action:'delete', sheet:'Project_Costs', id:'LEGACY-PCOST-1' }, OWNER_SESSION).status, 'error', 'legacy Project_Costs cannot be deleted through generic endpoint');
+eq(JSON.stringify(sheets['Costings'].rows), legacyCostingsBefore, 'legacy Costings remains unchanged after generic write attempts');
+eq(JSON.stringify(sheets['Project_Costs'].rows), legacyProjectCostsBefore, 'legacy Project_Costs remains unchanged after generic write attempts');
 
+const readsAfterOwner = JSON.stringify(legacyReadCounts);
 const teamData = callDoGet(TEAM_SESSION);
+eq(JSON.stringify(legacyReadCounts), readsAfterOwner, 'Team GET does not read Owner-only legacy finance archives');
 eq(teamData.status, 'success', 'auth: Tim dapat membaca data operasional');
 eq(Object.prototype.hasOwnProperty.call(teamData.data, 'finance'), false, 'RBAC: Finance tidak dikirim kepada Tim');
 eq(Object.prototype.hasOwnProperty.call(teamData.data, 'memory'), false, 'RBAC: Memory tidak dikirim kepada Tim');
