@@ -253,10 +253,10 @@ if (FIELD_MAP) {
     ['id','title','client','value','status','deadline','notes','sopChecklist','pic','suggestedPrice','sourceQuotationId','sourceInvoiceId'],
     'FIELD_MAP.Projects.fields memuat referensi dokumen');
   eq(FIELD_MAP.Commercial_Quotations.fields,
-    ['id','projectId','leadId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','terms','paymentTerms','notes','status','convertedInvoiceId','createdAt','updatedAt'],
+    ['id','projectId','leadId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','terms','paymentTerms','notes','status','convertedInvoiceId','createdAt','updatedAt','projectDeadline'],
     'FIELD_MAP.Commercial_Quotations.fields lengkap');
   eq(FIELD_MAP.Invoices.fields,
-    ['id','projectId','leadId','quotationId','sourceQuotationId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','paymentTerms','terms','notes','status','createdAt','updatedAt'],
+    ['id','projectId','leadId','quotationId','sourceQuotationId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','paymentTerms','terms','notes','status','createdAt','updatedAt','projectDeadline'],
     'FIELD_MAP.Invoices.fields lengkap');
   eq(FIELD_MAP.Invoice_Payments.fields,
     ['id','invoiceId','invoiceNo','paymentDate','paymentType','amount','method','reference','notes','financeId','createdAt','createdBy'],
