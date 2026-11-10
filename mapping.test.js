@@ -203,6 +203,33 @@ seed('Marketing_Spend', ['ID','Tanggal','Platform','Kampanye','Budget','Terpakai
   ['K1','2026-09-04','Meta Ads','Sept',1000000,500000,8,''],
 ]);
 
+// Legacy cost history is seeded separately and must remain read-only.
+const legacyCostItems = JSON.stringify([
+  { id:'LCI-1', name:'PVC 5 mm', category:'material', source:'vendor', qty:1, unitCost:180000 },
+  { id:'LCI-2', name:'Potong dan rakit', category:'labor', source:'internal', qty:1, unitCost:125000 }
+]);
+const legacyQuotationHistory = JSON.stringify([
+  { docNo:'QUO-LEGACY-001', version:1, status:'sent', quotedPrice:420000 }
+]);
+seed('Costings', [
+  'ID','Tanggal','Klien','NamaPekerjaan','ModelProduksi','LeadID','ItemsJSON','BiayaLangsung',
+  'OverheadPersen','OverheadNominal','CadanganPersen','CadanganNominal','HPP','MarginPersen',
+  'HargaPenawaran','Status','ProjectID','Catatan','NomorQuotation','VersiQuotation',
+  'MasaBerlakuHari','WaktuPengerjaanHari','SyaratPembayaran','RuangLingkup','DisetujuiPada',
+  'POConfirmedAt','RiwayatQuotationJSON','DikirimPada'
+], [[
+  'LEGACY-COST-1','2026-11-01','PT Arsip Dummy','Rak Display','hybrid','L1',legacyCostItems,
+  305000,5,15250,3,9608,329858,30,471226,'sent','P1','arsip lama','QUO-LEGACY-001',1,
+  14,10,'DP 50%','Ruang lingkup arsip','','',legacyQuotationHistory,'2026-11-02'
+]]);
+seed('Project_Costs', [
+  'ID','Tanggal','ProjectID','Kategori','Sumber','Deskripsi','Vendor','Qty',
+  'HargaSatuan','Nominal','StatusPembayaran','Referensi','Catatan'
+], [[
+  'LEGACY-PCOST-1','2026-11-03','P1','finishing','vendor','Finishing arsip','Vendor Dummy',
+  1,75000,75000,'unpaid','REF-LEGACY-1','read-only archive'
+]]);
+
 // ---------- 5. Tes KONTRAK: FIELD_MAP harus ada & lengkap ----------
 const FIELD_MAP = sandbox.FIELD_MAP;
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
@@ -252,6 +279,13 @@ if (got.status === 'success') {
   eq(got.data.finance[0].amount, 4000000, 'doGet Finance Nominal -> amount');
   eq(got.data.marketingSpend[0].spent, 500000, 'doGet Marketing Terpakai -> spent');
   eq(got.data.marketingSpend[0].leadsGenerated, 8, 'doGet Marketing LeadsDihasilkan -> leadsGenerated');
+  eq(got.data.legacyCostings[0].id, 'LEGACY-COST-1', 'doGet reads legacy Costings without adding it to FIELD_MAP');
+  eq(got.data.legacyCostings[0].jobName, 'Rak Display', 'legacy Costings maps NamaPekerjaan -> jobName');
+  eq(got.data.legacyCostings[0].items[1].unitCost, 125000, 'legacy Costings ItemsJSON is decoded');
+  eq(got.data.legacyCostings[0].quotationHistory[0].docNo, 'QUO-LEGACY-001', 'legacy quotation history JSON is decoded');
+  eq(got.data.legacyCostings[0].readOnly, true, 'legacy Costings is marked read-only');
+  eq(got.data.projectCosts[0].amount, 75000, 'legacy Project_Costs maps Nominal -> amount');
+  eq(got.data.projectCosts[0].paymentStatus, 'unpaid', 'legacy Project_Costs maps payment status');
 }
 
 // ---------- 7. Tes TULIS (sync_all): MERGE — tidak menghapus data lama ----------
@@ -492,12 +526,25 @@ const ownerData = callDoGet(OWNER_SESSION);
 eq(ownerData.status, 'success', 'auth: Owner dapat membaca data');
 eq(!!ownerData.data.finance, true, 'RBAC: Owner menerima data Finance');
 eq(!!ownerData.data.marketingSpend, true, 'RBAC: Owner menerima data Marketing');
+eq(ownerData.data.legacyCostings.length, 1, 'RBAC: Owner dapat membaca arsip Costings');
+eq(ownerData.data.projectCosts.length, 1, 'RBAC: Owner dapat membaca arsip Project_Costs');
+const legacyCostingsBefore = JSON.stringify(sheets['Costings'].rows);
+const legacyProjectCostsBefore = JSON.stringify(sheets['Project_Costs'].rows);
+const legacyWriteAttempt = callDoPost({ action:'sync_all', legacyCostings:[{ id:'SPOOF-LEGACY', hpp:1 }] }, OWNER_SESSION);
+eq(legacyWriteAttempt.status, 'error', 'legacy Costings cannot be written through sync_all');
+eq(legacyWriteAttempt.code, 'LEGACY_COST_DATA_READ_ONLY', 'legacy write rejection has an explicit reason');
+eq(JSON.stringify(sheets['Costings'].rows), legacyCostingsBefore, 'legacy Costings source rows remain unchanged');
+eq(JSON.stringify(sheets['Project_Costs'].rows), legacyProjectCostsBefore, 'legacy Project_Costs source rows remain unchanged');
+eq(callDoPost({ action:'delete', sheet:'Costings', id:'LEGACY-COST-1' }, OWNER_SESSION).status, 'error', 'legacy Costings cannot be deleted through generic endpoint');
+eq(JSON.stringify(sheets['Costings'].rows), legacyCostingsBefore, 'legacy Costings remains unchanged after delete attempt');
 
 const teamData = callDoGet(TEAM_SESSION);
 eq(teamData.status, 'success', 'auth: Tim dapat membaca data operasional');
 eq(Object.prototype.hasOwnProperty.call(teamData.data, 'finance'), false, 'RBAC: Finance tidak dikirim kepada Tim');
 eq(Object.prototype.hasOwnProperty.call(teamData.data, 'memory'), false, 'RBAC: Memory tidak dikirim kepada Tim');
 eq(Object.prototype.hasOwnProperty.call(teamData.data, 'marketingSpend'), false, 'RBAC: Marketing tidak dikirim kepada Tim');
+eq(Object.prototype.hasOwnProperty.call(teamData.data, 'legacyCostings'), false, 'RBAC: arsip Costings tidak dikirim kepada Tim');
+eq(Object.prototype.hasOwnProperty.call(teamData.data, 'projectCosts'), false, 'RBAC: arsip Project_Costs tidak dikirim kepada Tim');
 
 const financeBeforeTeam = sheets['Finance'].rows.length;
 const forbiddenSync = callDoPost({ action: 'sync_all', finance: [{ id: 'HACK-FIN', amount: 999999 }] }, TEAM_SESSION);
