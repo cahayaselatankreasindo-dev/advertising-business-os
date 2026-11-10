@@ -22,7 +22,7 @@ assert.ok(html.includes('Pengiriman cold email dinonaktifkan sementara'), 'cold 
 assert.ok(guard.includes('var mismatches = fields.filter'), 'read-back verification compares actual field values');
 assert.ok(guard.includes('function setLegacyReadOnlyCollections(data)'), 'legacy HPP archives are loaded through a dedicated read-only path');
 assert.ok(guard.includes('setLegacyReadOnlyCollections(cloud);'), 'legacy HPP archives refresh from authenticated cloud reads');
-const roleCollections = guard.match(/function collectionsForRole\\(\\)[\\s\\S]*?\\n  }/);
+const roleCollections = guard.match(/function collectionsForRole\(\)[\s\S]*?\n  }/);
 assert.ok(roleCollections && !roleCollections[0].includes('legacyCostings') && !roleCollections[0].includes('projectCosts'), 'legacy archives are excluded from sync payload collections');
 assert.ok(html.includes('Arsip HPP & quotation lama'), 'HPP screen displays legacy costing archive');
 assert.ok(html.includes('Arsip biaya proyek lama'), 'HPP screen displays legacy project cost archive');
