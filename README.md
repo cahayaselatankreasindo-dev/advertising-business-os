@@ -175,3 +175,20 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 - Lead, Klien, dan Proyek dapat dicari serta difilter tanpa menghapus data dari sumber.
 - Perubahan follow-up, kontak terakhir, dan PIC proyek disimpan melalui sinkronisasi terverifikasi.
 - Nilai proyek pada profil Klien adalah nilai kontrak/proyek, bukan kas yang sudah diterima.
+
+
+## Deployment Backend yang Aman (Windows)
+
+Backend dikirim melalui `clasp` dan deployment Web App yang sudah ada diperbarui tanpa mengganti URL. Gunakan folder repo aktif, bukan folder lama.
+
+1. Checkout branch fitur yang sudah lolos CI dan pastikan perubahan lokal sudah disimpan.
+2. Pastikan `clasp login` pernah dijalankan dengan akun Google pemilik Apps Script.
+3. Jalankan dari PowerShell di root repo:
+
+```powershell
+.\deploy-backend.ps1 -DeploymentId "<ID dari URL /exec>"
+```
+
+Script memeriksa login PIN/RBAC, lalu memastikan Deployment ID yang diberikan memang terdaftar pada Script ID di `apps-script/.clasp.json` **sebelum** melakukan push. Jika project atau Deployment ID tidak cocok, proses berhenti tanpa mengirim kode. Setelah push, script meminta konfirmasi `PIN-READY` dan hanya memperbarui deployment yang ditentukan; tidak membuat deployment baru dan tidak menyentuh data Google Sheets.
+
+Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke repository.
