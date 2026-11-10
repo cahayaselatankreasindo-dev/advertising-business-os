@@ -169,6 +169,8 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 - Jenis pembayaran: DP, cicilan, dan pelunasan. Nominal harus sesuai sisa tagihan; pelunasan wajib sama dengan saldo terutang.
 - ID pembayaran menjadi kunci idempotensi. Pengiriman ulang ID yang sama tidak menggandakan jurnal; jika penulisan Finance gagal setelah ledger tersimpan, retry akan memperbaiki jurnal.
 - `Invoice_Payments` dibaca oleh Owner dan tidak dapat ditulis melalui `sync_all` atau endpoint CRUD generik.
+- Jurnal Finance dengan ID `FIN-PAY-*` divalidasi terhadap ledger; sinkronisasi umum tidak boleh mengubah tanggal, kategori, nominal, atau deskripsinya. Pemulihan jurnal yang hilang hanya diizinkan jika cocok dengan ledger.
+- Invoice dan Quotation komersial hanya dibuat melalui jalur sinkronisasi tervalidasi; endpoint insert generik ditolak. Quotation yang sudah menjadi sumber Invoice tidak dapat dihapus.
 
 
 ### Pusat Tindakan CRM

@@ -84,6 +84,11 @@ vm.runInNewContext(
   sandbox
 );
 vm.runInNewContext(
+  extractFunction('mergeFinanceSafely_') +
+  '\nthis.mergeFinanceSafely = mergeFinanceSafely_;',
+  sandbox
+);
+vm.runInNewContext(
   extractFunction('recordInvoicePayment_') +
   '\nthis.recordPayment = recordInvoicePayment_;',
   sandbox
@@ -109,9 +114,35 @@ tables.Invoice_Payments = [];
 assert.equal(sandbox.checkDeletion(ss, 'Invoices', 'INV-EMPTY'), true);
 tables.Invoice_Payments = [{ id: 'PAY-001', invoiceId: 'INV-001', financeId: 'FIN-PAY-PAY-001' }];
 assert.throws(() => sandbox.checkDeletion(ss, 'Invoices', 'INV-001'), /INVOICE_HAS_PAYMENTS/);
+tables.Invoices = [{ id: 'INV-FROM-Q', sourceQuotationId: 'Q-LINKED' }];
+assert.throws(() => sandbox.checkDeletion(ss, 'Commercial_Quotations', 'Q-LINKED'), /QUOTATION_HAS_INVOICE/);
+assert.equal(sandbox.checkDeletion(ss, 'Commercial_Quotations', 'Q-UNLINKED'), true);
 assert.throws(() => sandbox.checkDeletion(ss, 'Finance', 'FIN-PAY-PAY-001'), /PAYMENT_FINANCE_LEDGER_PROTECTED/);
 assert.throws(() => sandbox.checkDeletion(ss, 'Finance', 'FIN-PAY-ORPHAN'), /PAYMENT_FINANCE_LEDGER_PROTECTED/);
 assert.equal(sandbox.checkDeletion(ss, 'Finance', 'FIN-EXP-001'), true);
+
+// Generic sync may preserve or safely restore a Finance row only when it exactly matches the payment ledger.
+const ledgerPayment = {
+  id: 'PAY-SYNC-0001', invoiceId: 'INV-SYNC', invoiceNo: 'INV-CSK-2026-00999',
+  paymentDate: '2026-11-11', paymentType: 'dp', amount: 125000,
+  method: 'transfer', reference: 'SYNC-REF', notes: '', financeId: 'FIN-PAY-PAY-SYNC-0001'
+};
+const expectedFinance = {
+  id: ledgerPayment.financeId, date: ledgerPayment.paymentDate, type: 'income',
+  category: 'Pembayaran Invoice', amount: ledgerPayment.amount,
+  description: 'Pembayaran invoice ' + ledgerPayment.invoiceNo + ' · DP · Ref ' + ledgerPayment.reference
+};
+tables = { Invoice_Payments: [ledgerPayment], Finance: [expectedFinance] };
+assert.equal(sandbox.mergeFinanceSafely(ss, [expectedFinance]), 1, 'an unchanged payment journal can be synchronized');
+assert.throws(() => sandbox.mergeFinanceSafely(ss, [{ ...expectedFinance, amount: 1 }]), /PAYMENT_FINANCE_LEDGER_IMMUTABLE/, 'generic sync cannot change payment income');
+assert.throws(() => sandbox.mergeFinanceSafely(ss, [{ ...expectedFinance, category: 'Pendapatan lain' }]), /PAYMENT_FINANCE_LEDGER_IMMUTABLE/, 'generic sync cannot reclassify payment income');
+tables.Finance = [];
+assert.equal(sandbox.mergeFinanceSafely(ss, [expectedFinance]), 1, 'a missing payment journal can be safely restored from the authoritative ledger');
+assert.equal(tables.Finance.length, 1);
+tables.Invoice_Payments = [];
+tables.Finance = [];
+assert.throws(() => sandbox.mergeFinanceSafely(ss, [expectedFinance]), /PAYMENT_FINANCE_ORPHANED/, 'a forged payment Finance row without a ledger entry is rejected');
+assert.equal(sandbox.mergeFinanceSafely(ss, [{ id: 'FIN-EXP-01', date: '2026-11-11', type: 'expense', category: 'Operasional', amount: 50000, description: 'Biaya umum' }]), 1, 'ordinary Finance rows remain synchronizable');
 
 // A confirmed payment creates exactly one ledger row and one Finance income row.
 tables = {

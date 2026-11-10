@@ -45,6 +45,8 @@ assert.ok(source.includes('function syncProjectCommercialFields(project,sourceDo
 assert.ok(source.includes('projectDeadline'), 'documents keep project deadline separate from payment due date or quotation validity');
 assert.ok(source.includes("dueDate:plus(t,k==='quotation'?14:7)"), 'quotation validity defaults to 14 days and invoice due date to 7 days');
 assert.ok(source.includes("deadline:d.projectDeadline||''"), 'new project deadline comes only from the dedicated project deadline field');
+assert.ok(source.includes("Object.prototype.hasOwnProperty.call(sourceDoc,'projectDeadline')"), 'clearing a document deadline clears the linked project deadline');
+assert.ok(source.includes("Quotation yang sudah menjadi sumber Invoice tidak dapat dihapus."), 'quotation linked to an invoice cannot be deleted from the UI');
 assert.ok(source.includes("v.dueDate=plus(t,7);v.projectDeadline=q.projectDeadline||'';"), 'quotation conversion resets invoice due date and preserves project deadline');
 assert.ok(backend.includes('"DeadlineProyek"'), 'Apps Script persists project deadline on commercial documents');
 assert.ok(source.includes("if(k==='quotation'&&old.sourceInvoiceId)"), 'invoice remains the source of truth after quotation conversion');
