@@ -447,8 +447,9 @@ function doGet(e) {
       marketingSpend: readSheetData(ss, "Marketing_Spend"),
       materials: readSheetData(ss, "Materials"),
       costSheets: readSheetData(ss, "Cost_Sheets").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
-      legacyCostings: readLegacySheetData_(ss, "Costings"),
-      projectCosts: readLegacySheetData_(ss, "Project_Costs"),
+      // Legacy finance archives are not even read for Team sessions.
+      legacyCostings: identity.role === "owner" ? readLegacySheetData_(ss, "Costings") : [],
+      projectCosts: identity.role === "owner" ? readLegacySheetData_(ss, "Project_Costs") : [],
       services: readSheetData(ss, "Services"),
       purchaseOrders: readSheetData(ss, "Purchase_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
       quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
