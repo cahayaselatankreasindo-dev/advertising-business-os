@@ -25,6 +25,7 @@ assert.ok(guard.includes('setLegacyReadOnlyCollections(cloud);'), 'legacy HPP ar
 const roleCollections = guard.match(/function collectionsForRole\(\)[\s\S]*?\n  }/);
 assert.ok(roleCollections && !roleCollections[0].includes('legacyCostings') && !roleCollections[0].includes('projectCosts'), 'legacy archives are excluded from sync payload collections');
 assert.ok(html.includes('Arsip HPP & quotation lama'), 'HPP screen displays legacy costing archive');
+assert.ok(html.includes('Riwayat quotation ('), 'legacy costing archive exposes preserved quotation history');
 assert.ok(html.includes('Arsip biaya proyek lama'), 'HPP screen displays legacy project cost archive');
 assert.ok(html.includes('db.legacyCostings = parsed.legacyCostings || []'), 'local database schema accepts legacy costing archive arrays');
 assert.ok(guard.includes('Nilai berbeda pada:'), 'mismatched cloud values prevent a verified-sync success state');
