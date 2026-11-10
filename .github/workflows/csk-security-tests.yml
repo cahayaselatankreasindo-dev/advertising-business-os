@@ -27,6 +27,7 @@ jobs:
           node --check security/guard.js
           node --check commercial-documents.js
           node --check commercial-documents.test.cjs
+          node --check commercial-workflow.test.cjs
           node --check mapping.test.js
           node --check backend-auth.test.cjs
           node --check crm-upgrade.js
@@ -36,6 +37,8 @@ jobs:
         run: node mapping.test.js
       - name: Commercial Document Center tests
         run: node commercial-documents.test.cjs
+      - name: Commercial workflow simulation
+        run: node commercial-workflow.test.cjs
       - name: Backend security policy tests
         run: node backend-auth.test.cjs
       - name: CRM follow-up and project monitoring tests
