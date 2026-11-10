@@ -5,11 +5,11 @@
  *
  * File ini memuat google_apps_script.js apa adanya ke dalam sandbox Node
  * dengan stub SpreadsheetApp/ContentService/ScriptApp minimal, lalu
- * memverifikasi KONTRAK MAPPING dua arah untuk 6 tab:
+ * memverifikasi KONTRAK MAPPING dua arah untuk seluruh tab:
  *   Sheet header (huruf besar, hasil Tahap 1-2) <-> field HTML (camelCase)
  *
  * Aturan kontrak (single source of truth = FIELD_MAP):
- *   Leads:           ID,Tanggal,Nama,WhatsApp,Sumber,EstimasiNilai,Status,Catatan
+ *   Leads:           ID,Tanggal,Nama,WhatsApp,Sumber,EstimasiNilai,Status,Catatan,NextFollowUp,LastContactAt,FollowUpNote
  *   Clients:         ID,NamaKlien,WhatsApp,TotalProyek,TotalBelanja,Catatan,Rating_Review
  *   Projects:        ID,NamaProyek,Klien,NilaiProyek,Status,Deadline,Catatan,SOP_Checklist,PIC_Tim
  *   Finance:         ID,Tanggal,Tipe,Kategori,Nominal,Keterangan
@@ -95,6 +95,7 @@ const ContentServiceStub = {
   },
 };
 const ScriptAppStub = { getProjectTriggers() { return []; } };
+const LockServiceStub = { getScriptLock() { return { waitLock() {}, releaseLock() {} }; } };
 const LoggerStub = { log() {} };
 // Stub PropertiesService (in-memory) untuk fitur token API
 const _props = {};
@@ -144,6 +145,7 @@ const sandbox = {
   SpreadsheetApp: SpreadsheetAppStub,
   ContentService: ContentServiceStub,
   ScriptApp: ScriptAppStub,
+  LockService: LockServiceStub,
   Logger: LoggerStub,
   PropertiesService: PropertiesServiceStub,
   CacheService: CacheServiceStub,
@@ -188,7 +190,7 @@ seed('Leads', ['ID','Tanggal','Nama','WhatsApp','Sumber','EstimasiNilai','Status
 seed('Clients', ['ID','NamaKlien','WhatsApp','TotalProyek','TotalBelanja','Catatan','Rating_Review'], [
   ['C1','Budi','081',1,8000000,'loyal','5 | Sangat puas'],
 ]);
-seed('Projects', ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim'], [
+seed('Projects', ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim','SuggestedPrice','SourceQuotationID','SourceInvoiceID'], [
   ['P1','Branding','Budi',8000000,'ongoing','2026-09-20','n','Brief:1;Produksi:0;Review:0;Revisi:0;Delivery:0','Andi'],
 ]);
 seed('Finance', ['ID','Tanggal','Tipe','Kategori','Nominal','Keterangan'], [
@@ -201,22 +203,64 @@ seed('Marketing_Spend', ['ID','Tanggal','Platform','Kampanye','Budget','Terpakai
   ['K1','2026-09-04','Meta Ads','Sept',1000000,500000,8,''],
 ]);
 
+// Legacy cost history is seeded separately and must remain read-only.
+const legacyCostItems = JSON.stringify([
+  { id:'LCI-1', name:'PVC 5 mm', category:'material', source:'vendor', qty:1, unitCost:180000 },
+  { id:'LCI-2', name:'Potong dan rakit', category:'labor', source:'internal', qty:1, unitCost:125000 }
+]);
+const legacyQuotationHistory = JSON.stringify([
+  { docNo:'QUO-LEGACY-001', version:1, status:'sent', quotedPrice:420000 }
+]);
+seed('Costings', [
+  'ID','Tanggal','Klien','NamaPekerjaan','ModelProduksi','LeadID','ItemsJSON','BiayaLangsung',
+  'OverheadPersen','OverheadNominal','CadanganPersen','CadanganNominal','HPP','MarginPersen',
+  'HargaPenawaran','Status','ProjectID','Catatan','NomorQuotation','VersiQuotation',
+  'MasaBerlakuHari','WaktuPengerjaanHari','SyaratPembayaran','RuangLingkup','DisetujuiPada',
+  'POConfirmedAt','RiwayatQuotationJSON','DikirimPada'
+], [[
+  'LEGACY-COST-1','2026-11-01','PT Arsip Dummy','Rak Display','hybrid','L1',legacyCostItems,
+  305000,5,15250,3,9608,329858,30,471226,'sent','P1','arsip lama','QUO-LEGACY-001',1,
+  14,10,'DP 50%','Ruang lingkup arsip','','',legacyQuotationHistory,'2026-11-02'
+]]);
+seed('Project_Costs', [
+  'ID','Tanggal','ProjectID','Kategori','Sumber','Deskripsi','Vendor','Qty',
+  'HargaSatuan','Nominal','StatusPembayaran','Referensi','Catatan'
+], [[
+  'LEGACY-PCOST-1','2026-11-03','P1','finishing','vendor','Finishing arsip','Vendor Dummy',
+  1,75000,75000,'unpaid','REF-LEGACY-1','read-only archive'
+]]);
+
 // ---------- 5. Tes KONTRAK: FIELD_MAP harus ada & lengkap ----------
 const FIELD_MAP = sandbox.FIELD_MAP;
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
-    ['Clients','Cost_Sheets','Finance','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Services'].sort(),
-    'FIELD_MAP mencakup 11 tab');
+    ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoice_Payments','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Services'].sort(),
+    'FIELD_MAP mencakup 14 tab');
+  eq(FIELD_MAP.Leads.headers.slice(-3),
+    ['NextFollowUp','LastContactAt','FollowUpNote'],
+    'FIELD_MAP.Leads menambahkan field follow-up di kanan');
+  eq(FIELD_MAP.Leads.fields.slice(-3),
+    ['nextFollowUp','lastContactAt','followUpNote'],
+    'FIELD_MAP.Leads fields follow-up lengkap');
   eq(FIELD_MAP.Projects.headers,
-    ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim'],
+    ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim','SuggestedPrice','SourceQuotationID','SourceInvoiceID'],
     'FIELD_MAP.Projects.headers = hasil Tahap 2 + PIC_Tim');
   eq(FIELD_MAP.Clients.fields,
     ['id','name','phone','projectsCount','totalSpend','notes','rating','review'],
     'FIELD_MAP.Clients.fields memakai rating+review (bukan ratingReview)');
   eq(FIELD_MAP.Projects.fields,
-    ['id','title','client','value','status','deadline','notes','sopChecklist','pic'],
-    'FIELD_MAP.Projects.fields memuat pic');
+    ['id','title','client','value','status','deadline','notes','sopChecklist','pic','suggestedPrice','sourceQuotationId','sourceInvoiceId'],
+    'FIELD_MAP.Projects.fields memuat referensi dokumen');
+  eq(FIELD_MAP.Commercial_Quotations.fields,
+    ['id','projectId','leadId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','terms','paymentTerms','notes','status','convertedInvoiceId','createdAt','updatedAt','projectDeadline'],
+    'FIELD_MAP.Commercial_Quotations.fields lengkap');
+  eq(FIELD_MAP.Invoices.fields,
+    ['id','projectId','leadId','quotationId','sourceQuotationId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','paymentTerms','terms','notes','status','createdAt','updatedAt','projectDeadline'],
+    'FIELD_MAP.Invoices.fields lengkap');
+  eq(FIELD_MAP.Invoice_Payments.fields,
+    ['id','invoiceId','invoiceNo','paymentDate','paymentType','amount','method','reference','notes','financeId','createdAt','createdBy'],
+    'FIELD_MAP.Invoice_Payments.fields lengkap');
 }
 
 // ---------- 6. Tes BACA (doGet): Sheet -> field HTML ----------
@@ -235,6 +279,13 @@ if (got.status === 'success') {
   eq(got.data.finance[0].amount, 4000000, 'doGet Finance Nominal -> amount');
   eq(got.data.marketingSpend[0].spent, 500000, 'doGet Marketing Terpakai -> spent');
   eq(got.data.marketingSpend[0].leadsGenerated, 8, 'doGet Marketing LeadsDihasilkan -> leadsGenerated');
+  eq(got.data.legacyCostings[0].id, 'LEGACY-COST-1', 'doGet reads legacy Costings without adding it to FIELD_MAP');
+  eq(got.data.legacyCostings[0].jobName, 'Rak Display', 'legacy Costings maps NamaPekerjaan -> jobName');
+  eq(got.data.legacyCostings[0].items[1].unitCost, 125000, 'legacy Costings ItemsJSON is decoded');
+  eq(got.data.legacyCostings[0].quotationHistory[0].docNo, 'QUO-LEGACY-001', 'legacy quotation history JSON is decoded');
+  eq(got.data.legacyCostings[0].readOnly, true, 'legacy Costings is marked read-only');
+  eq(got.data.projectCosts[0].amount, 75000, 'legacy Project_Costs maps Nominal -> amount');
+  eq(got.data.projectCosts[0].paymentStatus, 'unpaid', 'legacy Project_Costs maps payment status');
 }
 
 // ---------- 7. Tes TULIS (sync_all): MERGE — tidak menghapus data lama ----------
@@ -368,9 +419,40 @@ sheets['Leads'] = makeSheet([
   'Email','Website','Industri','PIC','JabatanPIC','LinkedIn','SkorPrioritas'
 ]);
 sheets['Leads'].appendRow(['L-OLD','2026-09-01','Budi','081','IG',8000000,'won','ok','','','','','','','']);
+
+// Simulasikan header database aktif yang sudah diverifikasi: Leads 15 kolom,
+// Projects 9 kolom. Migrasi harus menambahkan kolom baru di kanan tanpa
+// menggeser atau menghilangkan data lama.
+const legacyProjectSheet = sheets['Projects'];
+legacyProjectSheet.rows = legacyProjectSheet.rows.map(row => row.slice(0, 9));
+legacyProjectSheet.rows[0] = ['ID','NAMAPROYEK','klien','NILAIPROYEK','STATUS','DEADLINE','CATATAN','SOP_Checklist','PIC_Tim'];
+legacyProjectSheet.headers = legacyProjectSheet.rows[0].slice();
+const legacyProjectRecord = legacyProjectSheet.rows.find(row => String(row[0]) === 'P1').slice();
+
 sandbox.setupSheet();
 
 const h2 = sheets['Leads'].rows[0].map(h => String(h).trim().toLowerCase());
+const migratedLeadHeaders = sheets['Leads'].rows[0].map(h => String(h).trim());
+['NextFollowUp','LastContactAt','FollowUpNote'].forEach(h => {
+  eq(migratedLeadHeaders.indexOf(h) !== -1, true, `migrasi produksi: kolom '${h}' ditambahkan ke kanan Leads`);
+});
+eq(migratedLeadHeaders.slice(0, 15).map(x => x.toLowerCase()), [
+  'id','tanggal','nama','whatsapp','sumber','estimasinilai','status','catatan',
+  'email','website','industri','pic','jabatanpic','linkedin','skorprioritas'
+], 'migrasi produksi: urutan 15 kolom Leads lama tetap');
+const migratedProjectHeaders = sheets['Projects'].rows[0].map(h => String(h).trim());
+eq(migratedProjectHeaders.slice(0, 9).map(x => x.toLowerCase()), [
+  'id','namaproyek','klien','nilaiproyek','status','deadline','catatan','sop_checklist','pic_tim'
+], 'migrasi produksi: urutan 9 kolom Projects lama tetap');
+['SuggestedPrice','SourceQuotationID','SourceInvoiceID'].forEach(h => {
+  eq(migratedProjectHeaders.indexOf(h) !== -1, true, `migrasi produksi: kolom '${h}' ditambahkan ke kanan Projects`);
+});
+const migratedProjectRecord = sheets['Projects'].rows.find(row => String(row[0]) === 'P1');
+eq(migratedProjectRecord.slice(0, 9), legacyProjectRecord, 'migrasi produksi: nilai Projects lama tetap utuh');
+['Commercial_Quotations','Invoices','Invoice_Payments'].forEach(name => {
+  eq(!!sheets[name], true, `migrasi produksi: tab ${name} dibuat`);
+  eq(sheets[name].rows[0].length, FIELD_MAP[name].headers.length, `migrasi produksi: header ${name} lengkap`);
+});
 eq(h2.filter(x => x === 'tanggal').length, 1, 'migrasi aman: header TANGGAL tetap tunggal');
 eq(h2.filter(x => x === 'sumber').length, 1, 'migrasi aman: header SUMBER tetap tunggal');
 eq(h2.filter(x => x === 'whatsapp').length, 1, 'migrasi aman: header Whatsapp tetap tunggal');
@@ -394,6 +476,23 @@ eq(capsRow[idx('skorprioritas')], 90, 'CAPS: SkorPrioritas masuk kolom SkorPrior
 const gotCaps = callDoGet().data.leads.find(l => String(l.id) === 'L-CAPS');
 eq(gotCaps.email, 'pic@testcaps.co.id', 'CAPS doGet: email terbaca benar');
 eq(gotCaps.picTitle, 'Store Dev Manager', 'CAPS doGet: picTitle terbaca benar');
+
+// ---------- 9c2. Kolom custom milik pengguna harus tetap terjaga saat upsert ----------
+const customLeadSheet = sheets['Leads'];
+const customColumnIndex = customLeadSheet.rows[0].length;
+customLeadSheet.rows[0].push('Custom_Operational_Note');
+const customLeadRow = customLeadSheet.rows.find(r => String(r[0]) === 'L-CAPS');
+customLeadRow.push('jangan-hapus-catatan-ini');
+const customUpsert = callDoPost({ action: 'sync_all', leads: [{
+  id: 'L-CAPS', date: '2026-10-09', name: 'PT Test Caps', phone: '0899',
+  source: 'Referral', value: 5000000, status: 'new', notes: 'catatan caps',
+  email: 'pic@testcaps.co.id', website: 'https://testcaps.co.id', industry: 'Retail',
+  pic: 'Siti', picTitle: 'Store Dev Manager', linkedin: 'https://linkedin.com/in/siti', score: 90,
+  nextFollowUp: '2026-11-10', lastContactAt: '2026-11-08', followUpNote: 'Kirim revisi quotation'
+}] });
+eq(customUpsert.status, 'success', 'upsert dengan kolom custom tetap berhasil');
+const customLeadAfter = customLeadSheet.rows.find(r => String(r[0]) === 'L-CAPS');
+eq(customLeadAfter[customColumnIndex], 'jangan-hapus-catatan-ini', 'upsert mempertahankan isi kolom custom di luar FIELD_MAP');
 
 // ---------- 9d. Tes action 'delete' (tombol hapus di app) ----------
 const beforeDel = sheets['Leads'].rows.length;
@@ -423,16 +522,46 @@ eq(noSessionGet.status, 'error', 'auth: GET tanpa sesi ditolak');
 const noSessionPost = callDoPost({ action: 'sync_all', leads: [{ id: 'NOSESSION', name: 'No Session' }] }, null);
 eq(noSessionPost.status, 'error', 'auth: POST tanpa sesi ditolak');
 
+const legacyReadCounts = { Costings: 0, Project_Costs: 0 };
+['Costings','Project_Costs'].forEach(name => {
+  const sheet = sheets[name];
+  const originalGetDataRange = sheet.getDataRange;
+  sheet.getDataRange = function () {
+    legacyReadCounts[name]++;
+    return originalGetDataRange.call(this);
+  };
+});
 const ownerData = callDoGet(OWNER_SESSION);
+eq(legacyReadCounts.Costings, 1, 'Owner GET reads the legacy Costings archive');
+eq(legacyReadCounts.Project_Costs, 1, 'Owner GET reads the legacy Project_Costs archive');
 eq(ownerData.status, 'success', 'auth: Owner dapat membaca data');
 eq(!!ownerData.data.finance, true, 'RBAC: Owner menerima data Finance');
 eq(!!ownerData.data.marketingSpend, true, 'RBAC: Owner menerima data Marketing');
+eq(ownerData.data.legacyCostings.length, 1, 'RBAC: Owner dapat membaca arsip Costings');
+eq(ownerData.data.projectCosts.length, 1, 'RBAC: Owner dapat membaca arsip Project_Costs');
+const legacyCostingsBefore = JSON.stringify(sheets['Costings'].rows);
+const legacyProjectCostsBefore = JSON.stringify(sheets['Project_Costs'].rows);
+const legacyWriteAttempt = callDoPost({ action:'sync_all', legacyCostings:[{ id:'SPOOF-LEGACY', hpp:1 }] }, OWNER_SESSION);
+eq(legacyWriteAttempt.status, 'error', 'legacy Costings cannot be written through sync_all');
+eq(legacyWriteAttempt.code, 'LEGACY_COST_DATA_READ_ONLY', 'legacy write rejection has an explicit reason');
+eq(JSON.stringify(sheets['Costings'].rows), legacyCostingsBefore, 'legacy Costings source rows remain unchanged');
+eq(JSON.stringify(sheets['Project_Costs'].rows), legacyProjectCostsBefore, 'legacy Project_Costs source rows remain unchanged');
+eq(callDoPost({ action:'insert', sheet:'Costings', data:{ id:'SPOOF-COSTING' } }, OWNER_SESSION).status, 'error', 'legacy Costings cannot be inserted through generic endpoint');
+eq(callDoPost({ action:'delete', sheet:'Costings', id:'LEGACY-COST-1' }, OWNER_SESSION).status, 'error', 'legacy Costings cannot be deleted through generic endpoint');
+eq(callDoPost({ action:'insert', sheet:'Project_Costs', data:{ id:'SPOOF-PROJECT-COST' } }, OWNER_SESSION).status, 'error', 'legacy Project_Costs cannot be inserted through generic endpoint');
+eq(callDoPost({ action:'delete', sheet:'Project_Costs', id:'LEGACY-PCOST-1' }, OWNER_SESSION).status, 'error', 'legacy Project_Costs cannot be deleted through generic endpoint');
+eq(JSON.stringify(sheets['Costings'].rows), legacyCostingsBefore, 'legacy Costings remains unchanged after generic write attempts');
+eq(JSON.stringify(sheets['Project_Costs'].rows), legacyProjectCostsBefore, 'legacy Project_Costs remains unchanged after generic write attempts');
 
+const readsAfterOwner = JSON.stringify(legacyReadCounts);
 const teamData = callDoGet(TEAM_SESSION);
+eq(JSON.stringify(legacyReadCounts), readsAfterOwner, 'Team GET does not read Owner-only legacy finance archives');
 eq(teamData.status, 'success', 'auth: Tim dapat membaca data operasional');
 eq(Object.prototype.hasOwnProperty.call(teamData.data, 'finance'), false, 'RBAC: Finance tidak dikirim kepada Tim');
 eq(Object.prototype.hasOwnProperty.call(teamData.data, 'memory'), false, 'RBAC: Memory tidak dikirim kepada Tim');
 eq(Object.prototype.hasOwnProperty.call(teamData.data, 'marketingSpend'), false, 'RBAC: Marketing tidak dikirim kepada Tim');
+eq(Object.prototype.hasOwnProperty.call(teamData.data, 'legacyCostings'), false, 'RBAC: arsip Costings tidak dikirim kepada Tim');
+eq(Object.prototype.hasOwnProperty.call(teamData.data, 'projectCosts'), false, 'RBAC: arsip Project_Costs tidak dikirim kepada Tim');
 
 const financeBeforeTeam = sheets['Finance'].rows.length;
 const forbiddenSync = callDoPost({ action: 'sync_all', finance: [{ id: 'HACK-FIN', amount: 999999 }] }, TEAM_SESSION);
@@ -460,9 +589,116 @@ const ownerWrite = callDoPost({ action: 'sync_all', finance: [{ id: 'OWNER-FIN',
 eq(ownerWrite.status, 'success', 'RBAC: Owner dapat sinkronisasi Finance');
 eq(sheets['Finance'].rows.length, beforeOwnerWrite + 1, 'RBAC: Finance hanya berubah melalui sesi Owner');
 
+// Deal Won membuat antrean proyek, bukan pemasukan Finance.
+const financeBeforeWonLead = sheets['Finance'].rows.length;
+const wonLeadPayload = { action: 'sync_all', leads: [{
+  id: 'L-WON-NO-FIN', date: '2026-11-09', name: 'Lead Belum Bayar', phone: '080',
+  source: 'WA', value: 9000000, status: 'won', notes: ''
+}] };
+const wonLeadWrite = callDoPost(wonLeadPayload, OWNER_SESSION);
+eq(wonLeadWrite.status, 'success', 'Deal Won owner tersimpan');
+eq(sheets['Finance'].rows.length, financeBeforeWonLead, 'Deal Won tidak membuat pemasukan Finance');
+const wonLeadToken = '[LEAD-L-WON-NO-FIN]';
+const wonLeadProjects = () => sheets['Projects'].rows.filter(row => row.map(String).join('|').indexOf(wonLeadToken) !== -1);
+eq(wonLeadProjects().length, 1, 'Deal Won membuat satu antrean proyek');
+callDoPost(wonLeadPayload, OWNER_SESSION);
+eq(sheets['Finance'].rows.length, financeBeforeWonLead, 'Sinkronisasi ulang Deal Won tetap tanpa pemasukan Finance');
+eq(wonLeadProjects().length, 1, 'Antrean proyek Deal Won idempoten');
+
 const logoutRes = callDoPost({ action: 'logout' }, TEAM_SESSION);
 eq(logoutRes.status, 'success', 'auth: logout berhasil');
 eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat digunakan lagi');
+
+
+ // ---------- 9d. Commercial Document Center: storage, relations, and Owner-only access ----------
+ const commercialWrite = callDoPost({
+   action: 'sync_all',
+   quotations: [{ id:'CQ1', projectId:'', leadId:'L1', projectName:'Booth', client:'PT Buyer', clientPhone:'081', clientEmail:'buyer@example.test', clientAddress:'Jakarta', contactPerson:'Ayu', docNo:'QUO-CSK-2026-00001', date:'2026-11-09', dueDate:'2026-11-23', lines:[{id:'QL1',name:'Backdrop',qty:2,unit:'unit',unitPrice:150000}], subtotal:300000, discount:10000, taxRate:11, taxAmount:31900, total:321900, dpPercent:50, terms:'Syarat quote', paymentTerms:'50% DP', notes:'Catatan quote', status:'draft', convertedInvoiceId:'CI1', createdAt:'2026-11-09T01:00:00.000Z', updatedAt:'2026-11-09T01:00:00.000Z' }],
+   invoices: [{ id:'CI1', projectId:'', leadId:'L1', quotationId:'CQ1', sourceQuotationId:'CQ1', projectName:'Booth', client:'PT Buyer', clientPhone:'081', clientEmail:'buyer@example.test', clientAddress:'Jakarta', contactPerson:'Ayu', docNo:'INV-CSK-2026-00001', date:'2026-11-09', dueDate:'2026-11-16', lines:[{id:'IL1',name:'Backdrop',qty:2,unit:'unit',unitPrice:150000}], subtotal:300000, discount:0, taxRate:0, taxAmount:0, total:300000, dpPercent:50, paymentTerms:'Transfer', terms:'Syarat invoice', notes:'Catatan invoice', status:'draft', createdAt:'2026-11-09T01:00:00.000Z', updatedAt:'2026-11-09T01:00:00.000Z' }],
+   projects: [{ id:'PC1', title:'Booth', client:'PT Buyer', value:300000, suggestedPrice:300000, status:'plan', deadline:'2026-11-16', notes:'From invoice', sopChecklist:'Brief:0', pic:'', sourceQuotationId:'CQ1', sourceInvoiceId:'CI1' }]
+ }, OWNER_SESSION);
+ eq(commercialWrite.status, 'success', 'Owner sync quotation, invoice, and project');
+ eq(!!sheets['Commercial_Quotations'], true, 'Commercial_Quotations tab created');
+ eq(!!sheets['Invoices'], true, 'Invoices tab created');
+ const quoteRow = sheets['Commercial_Quotations'].rows.find(r => String(r[0]) === 'CQ1');
+ const invoiceRow = sheets['Invoices'].rows.find(r => String(r[0]) === 'CI1');
+ const projectDocRow = sheets['Projects'].rows.find(r => String(r[0]) === 'PC1');
+ const quoteHeaders = sheets['Commercial_Quotations'].rows[0].map(String);
+ const invoiceHeaders = sheets['Invoices'].rows[0].map(String);
+ const projectHeaders = sheets['Projects'].rows[0].map(String);
+ eq(quoteRow[quoteHeaders.indexOf('NomorDokumen')], 'QUO-CSK-2026-00001', 'Quotation number persisted');
+ eq(JSON.parse(quoteRow[quoteHeaders.indexOf('LinesJSON')])[0].name, 'Backdrop', 'Quotation item JSON persisted');
+ eq(invoiceRow[invoiceHeaders.indexOf('NomorDokumen')], 'INV-CSK-2026-00001', 'Invoice number persisted');
+ eq(invoiceRow[invoiceHeaders.indexOf('SourceQuotationID')], 'CQ1', 'Invoice source quotation persisted');
+ eq(projectDocRow[projectHeaders.indexOf('SourceInvoiceID')], 'CI1', 'Project source invoice persisted');
+ eq(sheets['Quotations'].rows[0][0], 'ID', 'Legacy HPP quotation tab remains separate');
+ const ownerCommercialData = callDoGet(OWNER_SESSION);
+ eq(ownerCommercialData.data.quotations[0].id, 'CQ1', 'Owner reads commercial quotation');
+ eq(ownerCommercialData.data.invoices[0].id, 'CI1', 'Owner reads invoice');
+ eq(Array.isArray(ownerCommercialData.data.invoicePayments), true, 'Owner reads invoice payment ledger');
+ eq(ownerCommercialData.data.quotations[0].lines[0].name, 'Backdrop', 'Quotation line JSON decodes');
+ eq(ownerCommercialData.data.invoices[0].quotationId, 'CQ1', 'Invoice quotation relation reads');
+ eq(ownerCommercialData.data.projects.find(x => x.id === 'PC1').sourceInvoiceId, 'CI1', 'Project invoice relation reads');
+ const TEAM_SESSION_COMMERCIAL = 'C'.repeat(43);
+ const teamCommercialLogin = login('zefdas@gmail.com', '87654321', TEAM_SESSION_COMMERCIAL);
+ eq(teamCommercialLogin.status, 'success', 'Team can start a fresh session for access tests');
+ const teamCommercialData = callDoGet(TEAM_SESSION_COMMERCIAL);
+ eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'quotations'), false, 'Team cannot read quotations');
+ eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'invoices'), false, 'Team cannot read invoices');
+ eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'invoicePayments'), false, 'Team cannot read invoice payment ledger');
+ const beforeTeamCommercial = sheets['Invoices'].rows.length;
+ eq(callDoPost({ action:'sync_all', invoices:[{id:'TEAM-I',docNo:'INV-TEAM'}] }, TEAM_SESSION_COMMERCIAL).status, 'error', 'Team cannot sync invoices');
+ eq(callDoPost({ action:'sync_all', quotations:[{id:'TEAM-Q',docNo:'QUO-TEAM'}] }, TEAM_SESSION_COMMERCIAL).status, 'error', 'Team cannot sync quotations');
+ eq(sheets['Invoices'].rows.length, beforeTeamCommercial, 'Team invoice write denied');
+ eq(callDoPost({ action:'delete', sheet:'Invoices', id:'CI1' }, TEAM_SESSION_COMMERCIAL).status, 'error', 'Team cannot delete invoices');
+
+ // ---------- 9e. Invoice payment ledger -> Finance: DP, cicilan, pelunasan, idempotency ----------
+ const payment1 = { id:'PAY-CI1-DP-001', invoiceId:'CI1', paymentDate:'2026-11-10', paymentType:'dp', amount:100000, method:'transfer', reference:'TRX-DP-001', notes:'DP pertama' };
+ const financeBeforePayment = sheets['Finance'].rows.length;
+ const paymentWrite1 = callDoPost({ action:'record_invoice_payment', payment:payment1 }, OWNER_SESSION);
+ eq(paymentWrite1.status, 'success', 'Owner can record invoice DP');
+ eq(sheets['Invoice_Payments'].rows.length, 2, 'DP creates one ledger row');
+ eq(sheets['Finance'].rows.length, financeBeforePayment + 1, 'DP creates one Finance income row');
+ const paymentHeaders = sheets['Invoice_Payments'].rows[0].map(String);
+ const paymentRow = sheets['Invoice_Payments'].rows.find(r => String(r[0]) === payment1.id);
+ const financePaymentId = 'FIN-PAY-' + payment1.id;
+ const dpFinanceRow = sheets['Finance'].rows.find(r => String(r[0]) === financePaymentId);
+ eq(paymentRow[paymentHeaders.indexOf('InvoiceID')], 'CI1', 'Payment links to invoice');
+ eq(paymentRow[paymentHeaders.indexOf('Nominal')], 100000, 'Payment amount persists');
+ eq(paymentRow[paymentHeaders.indexOf('FinanceID')], financePaymentId, 'Payment stores Finance reference');
+ eq(dpFinanceRow[2], 'income', 'Payment Finance type is income');
+ eq(dpFinanceRow[3], 'Pembayaran Invoice', 'Payment Finance category is invoice payment');
+ eq(dpFinanceRow[4], 100000, 'Payment Finance amount matches received amount');
+ const financeAfterDp = sheets['Finance'].rows.length;
+ const ledgerAfterDp = sheets['Invoice_Payments'].rows.length;
+ eq(callDoPost({ action:'record_invoice_payment', payment:payment1 }, OWNER_SESSION).status, 'success', 'Retry same payment ID is accepted idempotently');
+ eq(sheets['Finance'].rows.length, financeAfterDp, 'Retry does not duplicate Finance');
+ eq(sheets['Invoice_Payments'].rows.length, ledgerAfterDp, 'Retry does not duplicate payment ledger');
+ const conflictingPayment = Object.assign({}, payment1, { amount:110000 });
+ eq(callDoPost({ action:'record_invoice_payment', payment:conflictingPayment }, OWNER_SESSION).status, 'error', 'Reusing payment ID with changed amount is rejected');
+ eq(sheets['Finance'].rows.length, financeAfterDp, 'Conflicting retry does not change Finance');
+ eq(callDoPost({ action:'record_invoice_payment', payment:Object.assign({}, payment1, { id:'PAY-CI1-OVER-001', amount:250001 }) }, OWNER_SESSION).status, 'error', 'Overpayment beyond outstanding balance is rejected');
+ const payment2 = { id:'PAY-CI1-SET-001', invoiceId:'CI1', paymentDate:'2026-11-12', paymentType:'settlement', amount:200000, method:'qris', reference:'QR-SET-001', notes:'Pelunasan' };
+ eq(callDoPost({ action:'record_invoice_payment', payment:payment2 }, OWNER_SESSION).status, 'success', 'Remaining balance can be settled');
+ eq(sheets['Invoice_Payments'].rows.length, ledgerAfterDp + 1, 'Settlement creates one more payment row');
+ eq(sheets['Finance'].rows.length, financeAfterDp + 1, 'Settlement creates one more Finance income row');
+ const paymentReadback = callDoGet(OWNER_SESSION).data.invoicePayments;
+ eq(paymentReadback.length, 2, 'Owner reads both payment rows');
+ eq(paymentReadback.reduce((sum,x)=>sum+Number(x.amount||0),0), 300000, 'Payment ledger total equals invoice total');
+ eq(callDoGet(TEAM_SESSION_COMMERCIAL).data.invoicePayments, undefined, 'Team response omits invoice payment ledger');
+ const settlementFinanceIndex = sheets['Finance'].rows.findIndex(r => String(r[0]) === 'FIN-PAY-' + payment2.id);
+ sheets['Finance'].deleteRow(settlementFinanceIndex + 1);
+ eq(callDoPost({ action:'record_invoice_payment', payment:payment2 }, OWNER_SESSION).status, 'success', 'Retry repairs missing Finance row after partial write');
+ eq(sheets['Finance'].rows.filter(r => String(r[0]) === 'FIN-PAY-' + payment2.id).length, 1, 'Finance repair remains idempotent');
+ const beforeTeamPaymentLedger = sheets['Invoice_Payments'].rows.length;
+ const beforeTeamPaymentFinance = sheets['Finance'].rows.length;
+ const forbiddenPayment = callDoPost({ action:'record_invoice_payment', payment:{ id:'PAY-TEAM-001', invoiceId:'CI1', paymentDate:'2026-11-13', paymentType:'installment', amount:1, method:'cash' } }, TEAM_SESSION_COMMERCIAL);
+ eq(forbiddenPayment.status, 'error', 'Team cannot record invoice payment');
+ eq(sheets['Invoice_Payments'].rows.length, beforeTeamPaymentLedger, 'Team payment attempt does not change ledger');
+ eq(sheets['Finance'].rows.length, beforeTeamPaymentFinance, 'Team payment attempt does not change Finance');
+ eq(callDoPost({ action:'sync_all', invoicePayments:[{ id:'PAY-SPOOF-001' }] }, OWNER_SESSION).status, 'error', 'Invoice payment ledger cannot be client-synced');
+ eq(callDoPost({ action:'delete', sheet:'Invoice_Payments', id:payment1.id }, OWNER_SESSION).status, 'error', 'Invoice payment ledger cannot be deleted through generic endpoint');
+
 
 // ---------- 10. Ringkasan ----------
 console.log(`\nmapping.test.js: ${pass} lolos, ${fail} gagal`);

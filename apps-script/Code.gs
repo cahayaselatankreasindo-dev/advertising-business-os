@@ -16,7 +16,7 @@
  *
  * OTOMATISASI PILLAR (autoTriggerPillars):
  * - Dipicu setelah setiap sync_all atau update_status 'won'/'Deal Menang'
- * - Menulis baris Pendapatan ke Finance (kategori DP Proyek, token [LEAD-{id}])
+ * - Tidak mencatat pemasukan Finance; status Deal Won bukan bukti pembayaran diterima
  * - Menulis baris Antrean ke Projects (status plan, token [LEAD-{id}])
  * - Idempoten: tidak membuat duplikat jika dijalankan berulang
  *
@@ -48,11 +48,10 @@
 var FIELD_MAP = {
   Leads: {
     headers: ["ID", "Tanggal", "Nama", "WhatsApp", "Sumber", "EstimasiNilai", "Status", "Catatan",
-              "Email", "Website", "Industri", "PIC", "JabatanPIC", "LinkedIn", "SkorPrioritas"],
+              "Email", "Website", "Industri", "PIC", "JabatanPIC", "LinkedIn", "SkorPrioritas", "NextFollowUp", "LastContactAt", "FollowUpNote"],
     fields:  ["id", "date", "name", "phone", "source", "value", "status", "notes",
-              "email", "website", "industry", "pic", "picTitle", "linkedin", "score"]
-    // 8 kolom pertama = skema lama (posisi TIDAK berubah agar data lama aman).
-    // 7 kolom baru (Email..SkorPrioritas) khusus data B2B / prospecting.
+              "email", "website", "industry", "pic", "picTitle", "linkedin", "score", "nextFollowUp", "lastContactAt", "followUpNote"]
+    // Kolom follow-up ditambahkan di kanan; delapan kolom lama tidak digeser.
   },
   Clients: {
     headers: ["ID", "NamaKlien", "WhatsApp", "TotalProyek", "TotalBelanja", "Catatan", "Rating_Review"],
@@ -60,8 +59,8 @@ var FIELD_MAP = {
     // NB: fields 8 item vs headers 7 kolom — rating+review digabung ke Rating_Review.
   },
   Projects: {
-    headers: ["ID", "NamaProyek", "Klien", "NilaiProyek", "Status", "Deadline", "Catatan", "SOP_Checklist", "PIC_Tim"],
-    fields:  ["id", "title", "client", "value", "status", "deadline", "notes", "sopChecklist", "pic"]
+    headers: ["ID", "NamaProyek", "Klien", "NilaiProyek", "Status", "Deadline", "Catatan", "SOP_Checklist", "PIC_Tim", "SuggestedPrice", "SourceQuotationID", "SourceInvoiceID"],
+    fields:  ["id", "title", "client", "value", "status", "deadline", "notes", "sopChecklist", "pic", "suggestedPrice", "sourceQuotationId", "sourceInvoiceId"]
   },
   Finance: {
     headers: ["ID", "Tanggal", "Tipe", "Kategori", "Nominal", "Keterangan"],
@@ -94,8 +93,44 @@ var FIELD_MAP = {
   Quotations: {
     headers: ["ID", "ProjectID", "NamaProyek", "Klien", "Deadline", "Catatan", "LinesJSON", "Total", "SourceCostSheetID", "SourceCostSheetUpdatedAt", "DPPersen", "Status", "CreatedAt", "UpdatedAt"],
     fields: ["id", "projectId", "projectName", "client", "deadline", "notes", "linesJson", "total", "sourceCostSheetId", "sourceCostSheetUpdatedAt", "dpPercent", "status", "createdAt", "updatedAt"]
+  },
+  Commercial_Quotations: {
+    headers: ["ID", "ProjectID", "LeadID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "AlamatKlien", "PICKlien", "NomorDokumen", "TanggalDokumen", "JatuhTempo", "LinesJSON", "Subtotal", "Diskon", "PajakPersen", "PajakNominal", "Total", "DPPersen", "SyaratKetentuan", "KetentuanPembayaran", "Catatan", "Status", "ConvertedInvoiceID", "CreatedAt", "UpdatedAt", "DeadlineProyek"],
+    fields: ["id", "projectId", "leadId", "projectName", "client", "clientPhone", "clientEmail", "clientAddress", "contactPerson", "docNo", "date", "dueDate", "linesJson", "subtotal", "discount", "taxRate", "taxAmount", "total", "dpPercent", "terms", "paymentTerms", "notes", "status", "convertedInvoiceId", "createdAt", "updatedAt", "projectDeadline"]
+  },
+  Invoices: {
+    headers: ["ID", "ProjectID", "LeadID", "QuotationID", "SourceQuotationID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "AlamatKlien", "PICKlien", "NomorDokumen", "TanggalDokumen", "JatuhTempo", "LinesJSON", "Subtotal", "Diskon", "PajakPersen", "PajakNominal", "Total", "DPPersen", "KetentuanPembayaran", "SyaratKetentuan", "Catatan", "Status", "CreatedAt", "UpdatedAt", "DeadlineProyek"],
+    fields: ["id", "projectId", "leadId", "quotationId", "sourceQuotationId", "projectName", "client", "clientPhone", "clientEmail", "clientAddress", "contactPerson", "docNo", "date", "dueDate", "linesJson", "subtotal", "discount", "taxRate", "taxAmount", "total", "dpPercent", "paymentTerms", "terms", "notes", "status", "createdAt", "updatedAt", "projectDeadline"]
+  },
+  Invoice_Payments: {
+    headers: ["ID", "InvoiceID", "NomorInvoice", "TanggalPembayaran", "JenisPembayaran", "Nominal", "Metode", "Referensi", "Catatan", "FinanceID", "CreatedAt", "CreatedBy"],
+    fields: ["id", "invoiceId", "invoiceNo", "paymentDate", "paymentType", "amount", "method", "reference", "notes", "financeId", "createdAt", "createdBy"]
   }
 };
+// Legacy finance/cost tabs are read-only. Their schemas are intentionally not part of FIELD_MAP,
+// setupSheet, or sync_all so existing costing history cannot be rewritten by the current HPP module.
+var LEGACY_READ_MAP = {
+  Costings: {
+    id: "id", tanggal: "date", klien: "client", namapekerjaan: "jobName",
+    modelproduksi: "productionModel", leadid: "leadId", itemsjson: "itemsJson",
+    biayalangsung: "directCost", overheadpersen: "overheadPercent",
+    overheadnominal: "overheadAmount", cadanganpersen: "reservePercent",
+    cadangannominal: "reserveAmount", hpp: "hpp", marginpersen: "marginPercent",
+    hargapenawaran: "quotedPrice", status: "status", projectid: "projectId",
+    catatan: "notes", nomorquotation: "quotationNo", versiquotation: "quotationVersion",
+    masaberlakuhari: "validityDays", waktupengerjaanhari: "productionDays",
+    syaratpembayaran: "paymentTerms", ruanglingkup: "scope", disetujuipada: "approvedAt",
+    poconfirmedat: "poConfirmedAt", riwayatquotationjson: "quotationHistoryJson",
+    dikirimpada: "sentAt"
+  },
+  Project_Costs: {
+    id: "id", tanggal: "date", projectid: "projectId", kategori: "category",
+    sumber: "source", deskripsi: "description", vendor: "vendor", qty: "qty",
+    hargasatuan: "unitPrice", nominal: "amount", statuspembayaran: "paymentStatus",
+    referensi: "reference", catatan: "notes"
+  }
+};
+
 var RATING_REVIEW_SEP = " | ";
 
 // Pecah "N | teks" -> {rating, review}. Tahan: kosong, tanpa separator, rating non-angka.
@@ -213,6 +248,9 @@ function setupSheet() {
   ensureSheet(ss, "Services", FIELD_MAP.Services.headers);
   ensureSheet(ss, "Purchase_Orders", FIELD_MAP.Purchase_Orders.headers);
   ensureSheet(ss, "Quotations", FIELD_MAP.Quotations.headers);
+  ensureSheet(ss, "Commercial_Quotations", FIELD_MAP.Commercial_Quotations.headers);
+  ensureSheet(ss, "Invoices", FIELD_MAP.Invoices.headers);
+  ensureSheet(ss, "Invoice_Payments", FIELD_MAP.Invoice_Payments.headers);
 
   // Validasi header tanpa menghapus kolom; kolom kontrak yang belum ada ditambahkan di kanan.
   Object.keys(FIELD_MAP).forEach(function (name) {
@@ -348,6 +386,46 @@ function readSheetData(ss, sheetName) {
   });
 }
 
+// Read legacy Costings and Project_Costs without changing their source tabs.
+function readLegacySheetData_(ss, sheetName) {
+  var fieldMap = LEGACY_READ_MAP[sheetName];
+  if (!fieldMap) return [];
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+  var values = sheet.getDataRange().getValues();
+  var headers = values[0] || [];
+  var indexByName = {};
+  headers.forEach(function(header, index) {
+    var key = String(header == null ? "" : header).trim().toLowerCase();
+    if (key && !Object.prototype.hasOwnProperty.call(indexByName, key)) indexByName[key] = index;
+  });
+  return values.slice(1).filter(function(row) {
+    return row.some(function(value) { return value !== "" && value !== null && value !== undefined; });
+  }).map(function(row) {
+    var record = { legacySource: sheetName, readOnly: true };
+    Object.keys(fieldMap).forEach(function(headerKey) {
+      var index = indexByName[headerKey];
+      record[fieldMap[headerKey]] = index === undefined ? "" : row[index];
+    });
+    if (sheetName === "Costings") {
+      try {
+        var items = JSON.parse(record.itemsJson || "[]");
+        record.items = Array.isArray(items) ? items : [];
+      } catch (error) {
+        record.items = [];
+      }
+      try {
+        var history = JSON.parse(record.quotationHistoryJson || "[]");
+        record.quotationHistory = Array.isArray(history) ? history : [];
+      } catch (error) {
+        record.quotationHistory = [];
+      }
+    }
+    return record;
+  });
+}
+
+
 // ============== KEAMANAN: EMAIL + PIN + SESSION RBAC ==============
 // Semua hak akses divalidasi di server. PIN tidak pernah disimpan sebagai teks biasa.
 // Sesi disimpan di CacheService dan hanya ID sesi yang dikirim browser.
@@ -369,9 +447,15 @@ function doGet(e) {
       marketingSpend: readSheetData(ss, "Marketing_Spend"),
       materials: readSheetData(ss, "Materials"),
       costSheets: readSheetData(ss, "Cost_Sheets").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
+      // Legacy finance archives are not even read for Team sessions.
+      legacyCostings: identity.role === "owner" ? readLegacySheetData_(ss, "Costings") : [],
+      projectCosts: identity.role === "owner" ? readLegacySheetData_(ss, "Project_Costs") : [],
       services: readSheetData(ss, "Services"),
       purchaseOrders: readSheetData(ss, "Purchase_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
       quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
+      quotations: readSheetData(ss, "Commercial_Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
+      invoices: readSheetData(ss, "Invoices").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
+      invoicePayments: readSheetData(ss, "Invoice_Payments"),
       lastSynced: new Date().toISOString()
     };
     return jsonResponse({ status: "success", identity: identity, data: cskFilterDataForRole_(result, identity.role) });
@@ -380,6 +464,141 @@ function doGet(e) {
   }
 }
 
+function assertPaidInvoiceChangesAllowed_(ss, incomingInvoices) {
+  var existingInvoices = readSheetData(ss, "Invoices");
+  var paymentRows = readSheetData(ss, "Invoice_Payments");
+  var paidIds = {};
+  paymentRows.forEach(function(payment) {
+    var invoiceId = String(payment.invoiceId || "").trim();
+    if (invoiceId) paidIds[invoiceId] = true;
+  });
+  (incomingInvoices || []).forEach(function(incoming) {
+    if (!incoming || !incoming.id) return;
+    var id = String(incoming.id).trim();
+    if (!paidIds[id]) return;
+    var existing = existingInvoices.find(function(invoice) { return String(invoice.id) === id; });
+    if (!existing) throw new Error("INVOICE_PAYMENT_ORPHANED");
+    var oldTotal = Number(existing.total);
+    var newTotal = Number(incoming.total);
+    if (!Number.isFinite(oldTotal) || !Number.isFinite(newTotal) || Math.round(oldTotal) !== Math.round(newTotal)) throw new Error("PAID_INVOICE_TOTAL_IMMUTABLE");
+    var oldStatus = String(existing.status || "").trim().toLowerCase();
+    var newStatus = String(incoming.status || "").trim().toLowerCase();
+    if (newStatus === "cancelled" && oldStatus !== "cancelled") throw new Error("PAID_INVOICE_CANNOT_CANCEL");
+  });
+  return true;
+}
+
+function assertCommercialRecordDeletionAllowed_(ss, sheetName, recordId) {
+  var id = String(recordId || "").trim();
+  if (sheetName === "Invoices") {
+    var hasPayments = readSheetData(ss, "Invoice_Payments").some(function(payment) { return String(payment.invoiceId || "") === id; });
+    if (hasPayments) throw new Error("INVOICE_HAS_PAYMENTS");
+  }
+  if (sheetName === "Finance") {
+    var linkedPayment = id.indexOf("FIN-PAY-") === 0 || readSheetData(ss, "Invoice_Payments").some(function(payment) { return String(payment.financeId || "") === id; });
+    if (linkedPayment) throw new Error("PAYMENT_FINANCE_LEDGER_PROTECTED");
+  }
+  return true;
+}
+
+function assertUniqueCommercialDocumentNumbers_(ss, sheetName, incomingRows) {
+  var currentRows = readSheetData(ss, sheetName);
+  var incoming = Array.isArray(incomingRows) ? incomingRows : [];
+  var incomingIds = {};
+  incoming.forEach(function(row) {
+    if (row && row.id !== undefined && row.id !== null) incomingIds[String(row.id)] = true;
+  });
+  var currentByNumber = {};
+  currentRows.forEach(function(row) {
+    var number = String(row.docNo || "").trim().toLowerCase();
+    if (!number) return;
+    if (!currentByNumber[number]) currentByNumber[number] = [];
+    currentByNumber[number].push(String(row.id));
+  });
+  var incomingByNumber = {};
+  incoming.forEach(function(row) {
+    if (!row || !String(row.id || "").trim()) throw new Error("DOCUMENT_ID_REQUIRED");
+    var number = String(row.docNo || "").trim();
+    if (!number) throw new Error("DOCUMENT_NUMBER_REQUIRED");
+    var key = number.toLowerCase();
+    var id = String(row.id);
+    if (incomingByNumber[key] && incomingByNumber[key] !== id) throw new Error("DUPLICATE_DOCUMENT_NUMBER");
+    incomingByNumber[key] = id;
+    var conflicts = (currentByNumber[key] || []).filter(function(existingId) {
+      return existingId !== id && !incomingIds[existingId];
+    });
+    if (conflicts.length) throw new Error("DUPLICATE_DOCUMENT_NUMBER");
+  });
+  return true;
+}
+
+function mergeCommercialQuotationsSafely_(ss, incomingQuotations) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    assertUniqueCommercialDocumentNumbers_(ss, "Commercial_Quotations", incomingQuotations);
+    var normalized = (incomingQuotations || []).map(function(item) {
+      var copy = Object.assign({}, item);
+      copy.linesJson = JSON.stringify(item.lines || []);
+      return copy;
+    });
+    return mergeSheet(ss, "Commercial_Quotations", normalized);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+
+function assertUniqueInvoiceQuotationSources_(ss, incomingInvoices) {
+  var currentRows = readSheetData(ss, "Invoices");
+  var incoming = Array.isArray(incomingInvoices) ? incomingInvoices : [];
+  var incomingIds = {};
+  incoming.forEach(function(row) {
+    if (row && row.id !== undefined && row.id !== null) incomingIds[String(row.id)] = true;
+  });
+  var currentBySource = {};
+  currentRows.forEach(function(row) {
+    var sourceId = String(row.sourceQuotationId || row.quotationId || "").trim();
+    if (!sourceId) return;
+    if (!currentBySource[sourceId]) currentBySource[sourceId] = [];
+    currentBySource[sourceId].push(String(row.id));
+  });
+  var incomingBySource = {};
+  incoming.forEach(function(row) {
+    if (!row) return;
+    var sourceId = String(row.sourceQuotationId || row.quotationId || "").trim();
+    if (!sourceId) return;
+    var id = String(row.id || "").trim();
+    if (!id) throw new Error("DOCUMENT_ID_REQUIRED");
+    if (incomingBySource[sourceId] && incomingBySource[sourceId] !== id) {
+      throw new Error("DUPLICATE_QUOTATION_CONVERSION");
+    }
+    incomingBySource[sourceId] = id;
+    var conflicts = (currentBySource[sourceId] || []).filter(function(existingId) {
+      return existingId !== id && !incomingIds[existingId];
+    });
+    if (conflicts.length) throw new Error("DUPLICATE_QUOTATION_CONVERSION");
+  });
+  return true;
+}
+
+function mergeInvoicesSafely_(ss, incomingInvoices) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    assertUniqueCommercialDocumentNumbers_(ss, "Invoices", incomingInvoices);
+    assertUniqueInvoiceQuotationSources_(ss, incomingInvoices);
+    assertPaidInvoiceChangesAllowed_(ss, incomingInvoices);
+    var normalized = (incomingInvoices || []).map(function(item) {
+      var copy = Object.assign({}, item);
+      copy.linesJson = JSON.stringify(item.lines || []);
+      return copy;
+    });
+    return mergeSheet(ss, "Invoices", normalized);
+  } finally {
+    lock.releaseLock();
+  }
+}
 function doPost(e) {
   try {
     var payload = JSON.parse((e && e.postData && e.postData.contents) || "{}");
@@ -414,20 +633,37 @@ function doPost(e) {
         if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
         if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
         if (payload.quotationSnapshots) mergeSummary.Quotations = mergeSheet(ss, "Quotations", payload.quotationSnapshots.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
+        if (payload.quotations) mergeSummary.Commercial_Quotations = mergeCommercialQuotationsSafely_(ss, payload.quotations);
+        if (payload.invoices) mergeSummary.Invoices = mergeInvoicesSafely_(ss, payload.invoices);
         if (identity.role === "owner") autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge; data lama yang tidak dikirim tetap dipertahankan.", summary: mergeSummary });
+      }
+
+      case "record_invoice_payment": {
+        var paymentResult = recordInvoicePayment_(ss, payload.payment, identity);
+        return jsonResponse({ status: "success", result: paymentResult });
       }
 
       case "delete": {
         var sheetName = String(payload.sheet || "Leads");
         var delId = payload.id;
         if (!delId) throw new Error("ID_REQUIRED");
-        var delSheet = ss.getSheetByName(sheetName);
-        if (!delSheet) throw new Error("SHEET_NOT_FOUND");
-        var rowNum = findRowById(delSheet, delId);
-        if (rowNum === -1) return jsonResponse({ status: "success", message: "Data sudah tidak ada." });
-        delSheet.deleteRow(rowNum);
-        return jsonResponse({ status: "success", message: "Data dihapus.", sheet: sheetName, id: delId });
+        var deletionLock = null;
+        if (sheetName === "Invoices" || sheetName === "Finance") {
+          deletionLock = LockService.getScriptLock();
+          deletionLock.waitLock(30000);
+        }
+        try {
+          var delSheet = ss.getSheetByName(sheetName);
+          if (!delSheet) throw new Error("SHEET_NOT_FOUND");
+          var rowNum = findRowById(delSheet, delId);
+          if (rowNum === -1) return jsonResponse({ status: "success", message: "Data sudah tidak ada." });
+          assertCommercialRecordDeletionAllowed_(ss, sheetName, delId);
+          delSheet.deleteRow(rowNum);
+          return jsonResponse({ status: "success", message: "Data dihapus.", sheet: sheetName, id: delId });
+        } finally {
+          if (deletionLock) deletionLock.releaseLock();
+        }
       }
 
       case "insert": {
@@ -465,6 +701,91 @@ function doPost(e) {
     }
   } catch (err) {
     return jsonResponse({ status: "error", code: String(err && err.message || err), message: "Permintaan ditolak atau gagal diproses." });
+  }
+}
+
+// Catat pembayaran secara idempoten: satu baris ledger dan satu jurnal Finance.
+function recordInvoicePayment_(ss, rawPayment, identity) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var p = rawPayment || {};
+    var id = String(p.id || "").trim();
+    var invoiceId = String(p.invoiceId || "").trim();
+    var paymentDate = String(p.paymentDate || "").trim();
+    var paymentType = String(p.paymentType || "").trim().toLowerCase();
+    var method = String(p.method || "").trim().toLowerCase();
+    var amount = Number(p.amount);
+    var reference = String(p.reference || "").trim();
+    var notes = String(p.notes || "").trim();
+    if (!/^[A-Za-z0-9_-]{8,100}$/.test(id)) throw new Error("INVALID_PAYMENT_ID");
+    if (!invoiceId) throw new Error("INVOICE_ID_REQUIRED");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) throw new Error("INVALID_PAYMENT_DATE");
+    var parsedDate = new Date(paymentDate + "T00:00:00Z");
+    if (isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== paymentDate) throw new Error("INVALID_PAYMENT_DATE");
+    if (["dp", "installment", "settlement"].indexOf(paymentType) < 0) throw new Error("INVALID_PAYMENT_TYPE");
+    if (["transfer", "cash", "qris", "ewallet", "other"].indexOf(method) < 0) throw new Error("INVALID_PAYMENT_METHOD");
+    if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("INVALID_PAYMENT_AMOUNT");
+    if (reference.length > 120 || notes.length > 500) throw new Error("PAYMENT_TEXT_TOO_LONG");
+    ensureSheet(ss, "Invoices", FIELD_MAP.Invoices.headers);
+    ensureSheet(ss, "Invoice_Payments", FIELD_MAP.Invoice_Payments.headers);
+    ensureSheet(ss, "Finance", FIELD_MAP.Finance.headers);
+    var invoice = readSheetData(ss, "Invoices").find(function(x) { return String(x.id) === invoiceId; });
+    if (!invoice) throw new Error("INVOICE_NOT_FOUND");
+    if (String(invoice.status || "").toLowerCase() === "cancelled") throw new Error("INVOICE_CANCELLED");
+    var paymentRows = readSheetData(ss, "Invoice_Payments");
+    var existing = paymentRows.find(function(x) { return String(x.id) === id; });
+    var invoiceNo = String(existing && existing.invoiceNo || invoice.docNo || invoice.id);
+    var typeLabel = paymentType === "dp" ? "DP" : paymentType === "settlement" ? "Pelunasan" : "Cicilan";
+    var financeId = "FIN-PAY-" + id;
+    var financeDescription = "Pembayaran invoice " + invoiceNo + " · " + typeLabel + (reference ? " · Ref " + reference : "");
+    var financeRows = readSheetData(ss, "Finance");
+    var existingFinance = financeRows.find(function(x) { return String(x.id) === financeId; });
+    if (existing) {
+      var same = String(existing.invoiceId) === invoiceId &&
+        String(existing.paymentDate) === paymentDate &&
+        String(existing.paymentType).toLowerCase() === paymentType &&
+        Number(existing.amount) === amount &&
+        String(existing.method).toLowerCase() === method &&
+        String(existing.reference || "") === reference &&
+        String(existing.notes || "") === notes;
+      if (!same) throw new Error("PAYMENT_ID_CONFLICT");
+      if (existing.financeId && String(existing.financeId) !== financeId) throw new Error("PAYMENT_FINANCE_LINK_CONFLICT");
+      existing.financeId = financeId;
+      mergeSheet(ss, "Invoice_Payments", [existing]);
+      if (existingFinance) {
+        if (String(existingFinance.date) !== paymentDate ||
+            String(existingFinance.type).toLowerCase() !== "income" ||
+            String(existingFinance.category) !== "Pembayaran Invoice" ||
+            Number(existingFinance.amount) !== amount ||
+            String(existingFinance.description) !== financeDescription) throw new Error("PAYMENT_FINANCE_CONFLICT");
+      } else {
+        insertRecord(ss, "Finance", { id: financeId, date: paymentDate, type: "income", category: "Pembayaran Invoice", amount: amount, description: financeDescription });
+      }
+      return { duplicate: true, payment: existing, financeId: financeId };
+    }
+    if (existingFinance) throw new Error("PAYMENT_FINANCE_ORPHANED");
+    var total = Math.round(Number(invoice.total) || 0);
+    if (!Number.isSafeInteger(total) || total <= 0) throw new Error("INVALID_INVOICE_TOTAL");
+    var paidBefore = paymentRows.filter(function(x) { return String(x.invoiceId) === invoiceId; }).reduce(function(sum, x) { return sum + Math.max(0, Number(x.amount) || 0); }, 0);
+    var balance = total - paidBefore;
+    if (balance <= 0) throw new Error("INVOICE_ALREADY_PAID");
+    if (amount > balance) throw new Error("PAYMENT_EXCEEDS_BALANCE");
+    if (paymentType === "dp" && paidBefore > 0) throw new Error("DP_ALREADY_RECORDED");
+    if (paymentType === "dp" && amount >= balance) throw new Error("DP_CANNOT_SETTLE_INVOICE");
+    if (paymentType === "settlement" && amount !== balance) throw new Error("SETTLEMENT_MUST_MATCH_BALANCE");
+    var payment = {
+      id: id, invoiceId: invoiceId, invoiceNo: invoiceNo, paymentDate: paymentDate,
+      paymentType: paymentType, amount: amount, method: method, reference: reference,
+      notes: notes, financeId: financeId, createdAt: new Date().toISOString(),
+      createdBy: String(identity && identity.email || "")
+    };
+    insertRecord(ss, "Invoice_Payments", payment);
+    // Jika Finance gagal setelah ledger tersimpan, retry ID yang sama memperbaiki jurnal.
+    insertRecord(ss, "Finance", { id: financeId, date: paymentDate, type: "income", category: "Pembayaran Invoice", amount: amount, description: financeDescription });
+    return { duplicate: false, payment: payment, financeId: financeId };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -653,9 +974,20 @@ function cskAssertPayloadAllowed_(identity, payload) {
   // Team members may create and update shared operational records, but deletion is Owner-only.
   // Enforce this on the server so hiding a button cannot be bypassed from the browser.
   if (action === "delete" && role !== "owner") throw new Error("FORBIDDEN_DELETE");
+  if ((action === "insert" || action === "delete") && String(payload.sheet || "") === "Invoice_Payments") throw new Error("PAYMENT_LEDGER_SERVER_ONLY");
+  if (action === "record_invoice_payment") {
+    if (role !== "owner") throw new Error("FORBIDDEN_PAYMENT_WRITE");
+    if (!payload.payment || typeof payload.payment !== "object") throw new Error("PAYMENT_REQUIRED");
+    return true;
+  }
 
   if (action === "sync_all") {
-    var ownerCollections = ["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots"];
+    if (Object.prototype.hasOwnProperty.call(payload, "invoicePayments")) throw new Error("PAYMENT_LEDGER_SERVER_ONLY");
+    if (Object.prototype.hasOwnProperty.call(payload, "legacyCostings") ||
+        Object.prototype.hasOwnProperty.call(payload, "projectCosts")) {
+      throw new Error("LEGACY_COST_DATA_READ_ONLY");
+    }
+    var ownerCollections = ["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots","quotations","invoices"];
     var teamCollections = ["leads","clients","projects"];
     var allowed = role === "owner" ? ownerCollections : teamCollections;
     Object.keys(payload).forEach(function(key) {
@@ -686,64 +1018,86 @@ function cskAssertPayloadAllowed_(identity, payload) {
 /**
  * autoTriggerPillars()
  * Menelusuri tab Leads untuk baris dengan status 'won' / 'Deal Menang' yang
- * belum pernah ditandai dengan token [LEAD-{id}]. Baris tersebut akan:
- *   1. Ditulis sebagai Pendapatan di tab Finance (kategori "DP Proyek")
- *   2. Ditulis sebagai antrean proyek baru di tab Projects (status "plan")
- * Fungsi ini IDEMPOTEN: baris yang sudah punya token tidak akan diduplikasi.
+ * belum memiliki antrean proyek bertanda token [LEAD-{id}].
+ * Deal Won hanya membuat antrean proyek. Fungsi ini TIDAK menulis pemasukan
+ * Finance; pemasukan hanya dicatat setelah pembayaran benar-benar dikonfirmasi.
+ * Fungsi ini IDEMPOTEN: antrean yang sudah punya token tidak akan diduplikasi.
+ */
+function stableLeadEntityId_(prefix, leadId) {
+  const safeId = String(leadId == null ? "" : leadId).trim()
+    .replace(/[^A-Za-z0-9._:-]/g, "-")
+    .slice(0, Math.max(1, 80 - prefix.length));
+  return safeId ? prefix + safeId : "";
+}
+function leadReferenceToken_(leadId) {
+  return "[LEAD-" + String(leadId == null ? "" : leadId).trim() + "]";
+}
+function normalizedClientName_(value) {
+  return String(value == null ? "" : value).trim().toLowerCase().replace(/\s+/g, " ");
+}
+function ensureLeadClient_(ss, lead, refToken) {
+  const clientName = String(lead.name == null ? "" : lead.name).trim();
+  const normalizedName = normalizedClientName_(clientName);
+  if (!normalizedName) return false;
+  const clients = readSheetData(ss, "Clients");
+  const existingClient = clients.find(client => normalizedClientName_(client.name) === normalizedName);
+  const clientProjects = readSheetData(ss, "Projects").filter(project => normalizedClientName_(project.client) === normalizedName);
+  const totalSpend = clientProjects.reduce((sum, project) => sum + (Number(project.value) || 0), 0);
+  if (existingClient) {
+    const updatedClient = Object.assign({}, existingClient, {
+      phone: existingClient.phone || lead.phone || "",
+      projectsCount: clientProjects.length,
+      totalSpend: totalSpend
+    });
+    // Header-aware upsert preserves custom columns and non-standard column order.
+    mergeSheet(ss, "Clients", [updatedClient]);
+    return false;
+  }
+  insertRecord(ss, "Clients", {
+    id: stableLeadEntityId_("AUTO-CLI-LEAD-", lead.id),
+    name: clientName, phone: lead.phone || "", projectsCount: clientProjects.length,
+    totalSpend: totalSpend, notes: "Dikonversi dari Lead " + refToken, rating: 0, review: ""
+  });
+  return true;
+}
+/**
+ * Deal Won creates one linked project and ensures one client record.
+ * It deliberately does NOT create Finance income: a won contract is not cash received.
  */
 function autoTriggerPillars(ss, forceLeadId) {
-  const leadsSheet = ss.getSheetByName("Leads");
-  if (!leadsSheet || leadsSheet.getLastRow() <= 1) return { financeCreated: 0, projectCreated: 0 };
-
-  const leads = readSheetData(ss, "Leads");
-  let financeCreated = 0;
-  let projectCreated = 0;
-
-  leads.forEach(lead => {
-    if (!isDealMenang(lead.status)) return;
-    // Lewati jika ini bukan baris yang difokuskan (kalau forceLeadId diberikan)
-    if (forceLeadId && String(lead.id).trim() !== String(forceLeadId).trim()) return;
-
-    const refToken = "[LEAD-" + lead.id + "]";
-
-    // Cek duplikat di Finance
-    const financeAlreadyExists = hasTokenInSheet(ss, "Finance", refToken);
-    // Cek duplikat di Projects
-    const projectAlreadyExists = hasTokenInSheet(ss, "Projects", refToken);
-
-    // Tulis ke Finance jika belum ada
-    if (!financeAlreadyExists) {
-      const financeRow = {
-        id: "AUTO-FIN-" + Date.now(),
-        date: new Date().toISOString().slice(0, 10),
-        type: "income",
-        category: "DP Proyek",
-        amount: Number(lead.value) || 0,
-        description: "Auto (Deal Menang) " + (lead.name || "") + " " + refToken
-      };
-      insertRecord(ss, "Finance", financeRow, ["id","date","type","category","amount","description"]);
-      financeCreated++;
-    }
-
-    // Tulis ke Projects jika belum ada
-    if (!projectAlreadyExists) {
-      const deadlineDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
-      const projectRow = {
-        id: "AUTO-PRJ-" + Date.now(),
-        title: "Proyek " + (lead.name || ""),
-        client: lead.name || "",
-        value: Number(lead.value) || 0,
-        status: "plan",
-        deadline: deadlineDate,
-        notes: "Antrean otomatis dari Lead [LEAD-" + lead.id + "]",
-        sopChecklist: "Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0"
-      };
-      insertRecord(ss, "Projects", projectRow, ["id","title","client","value","status","deadline","notes","sopChecklist"]);
-      projectCreated++;
-    }
-  });
-
-  return { financeCreated: financeCreated, projectCreated: projectCreated };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const leadsSheet = ss.getSheetByName("Leads");
+    if (!leadsSheet || leadsSheet.getLastRow() <= 1) return { financeCreated: 0, projectCreated: 0, clientCreated: 0 };
+    const leads = readSheetData(ss, "Leads");
+    const projectsSheet = ss.getSheetByName("Projects");
+    let projectCreated = 0, clientCreated = 0;
+    leads.forEach(lead => {
+      if (!isDealMenang(lead.status)) return;
+      if (forceLeadId && String(lead.id).trim() !== String(forceLeadId).trim()) return;
+      const leadId = String(lead.id == null ? "" : lead.id).trim();
+      if (!leadId) return;
+      const refToken = leadReferenceToken_(leadId);
+      const projectId = stableLeadEntityId_("AUTO-PRJ-LEAD-", leadId);
+      const projectAlreadyExists = hasTokenInSheet(ss, "Projects", refToken) ||
+        (projectsSheet && findRowById(projectsSheet, projectId) !== -1);
+      if (!projectAlreadyExists) {
+        const deadlineDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+        insertRecord(ss, "Projects", {
+          id: projectId, title: "Proyek " + (lead.name || ""), client: lead.name || "",
+          value: Number(lead.value) || 0, status: "plan", deadline: deadlineDate,
+          notes: "Konversi otomatis dari Lead " + refToken,
+          sopChecklist: "Brief:0;Produksi:0;Review:0;Revisi:0;Delivery:0"
+        });
+        projectCreated++;
+      }
+      if (ensureLeadClient_(ss, lead, refToken)) clientCreated++;
+    });
+    return { financeCreated: 0, projectCreated: projectCreated, clientCreated: clientCreated };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function hasTokenInSheet(ss, sheetName, token) {
@@ -941,6 +1295,11 @@ function mergeSheet(ss, sheetName, items) {
       // Baris sudah ada di sheet -> update HANYA kolom yang berubah
       var rowIdx = idToRow[id] - 2; // index di dataRange
       var oldRow = dataRange[rowIdx] || [];
+      // Preserve user-owned columns outside FIELD_MAP during header-aware upserts.
+      for (var c = 0; c < newRow.length; c++) {
+        var headerKey = String(headerRow[c] || "").trim().toLowerCase();
+        if (!Object.prototype.hasOwnProperty.call(contractPos, headerKey)) newRow[c] = oldRow[c];
+      }
       var changed = false;
       for (var c = 0; c < newRow.length; c++) {
         // Normalisasi angka vs string agar tidak update palsu

@@ -1,12 +1,22 @@
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const vm = require('node:vm');
 
 for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
   const source = fs.readFileSync(path, 'utf8');
   assert.match(source, /function cskLoginWithPin_\(/, path + ': PIN login handler exists');
   assert.match(source, /function cskRequireSession_\(/, path + ': session is required for protected requests');
   assert.match(source, /function cskAssertPayloadAllowed_\(/, path + ': server-side role authorization exists');
+  assert.ok(source.includes('record_invoice_payment'), path + ': payment endpoint is registered');
+  assert.match(source, /function recordInvoicePayment_\(/, path + ': payment writes use server-side ledger handler');
+  assert.ok(source.includes('FORBIDDEN_PAYMENT_WRITE'), path + ': payment recording is Owner-only');
+  assert.ok(source.includes('PAYMENT_LEDGER_SERVER_ONLY'), path + ': payment ledger cannot use generic CRUD');
+  assert.match(source, /function assertPaidInvoiceChangesAllowed_\(/, path + ': paid invoice totals are protected server-side');
+  assert.match(source, /function mergeInvoicesSafely_\(/, path + ': invoice updates are serialized with payment writes');
+  assert.match(source, /function assertCommercialRecordDeletionAllowed_\(/, path + ': payment-linked records cannot be deleted generically');
+  assert.match(source, /assertCommercialRecordDeletionAllowed_\(ss, sheetName, delId\)/, path + ': delete endpoint enforces payment-ledger integrity');
+  assert.ok(source.includes('LockService.getScriptLock()'), path + ': payment writes use a script lock');
   assert.match(source, /if \(action === "delete" && role !== "owner"\) throw new Error\("FORBIDDEN_DELETE"\)/, path + ': Team cannot delete shared records through the API');
   assert.match(source, /function cskFilterDataForRole_\(/, path + ': GET data is filtered by role');
   assert.match(source, /CacheService\.getScriptCache\(\)/, path + ': sessions and login throttling use server cache');
@@ -17,7 +27,11 @@ for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
   assert.doesNotMatch(source, /setProperties\([\s\S]*?,\s*true\)/, path + ': PIN setup never clears all Script Properties');
   assert.doesNotMatch(source, /function getApiToken|function isAuthorized|API_TOKEN/, path + ': shared API token is not used');
   assert.match(source, /if \(identity\.role === "team"\) cskAssertTeamLeadTransitions_/, path + ': team cannot promote a lead to won');
-  assert.match(source, /if \(identity\.role === "owner"\) autoTriggerPillars\(ss\)/, path + ': automated finance/project trigger is owner-controlled');
+  assert.match(source, /if \(identity\.role === "owner"\) autoTriggerPillars\(ss\)/, path + ': automated project-queue trigger is owner-controlled');
+  const autoTrigger = source.match(/function autoTriggerPillars\(ss, forceLeadId\)[\s\S]*?\n\}/);
+  assert.ok(autoTrigger, path + ': Deal Won automation exists');
+  assert.doesNotMatch(autoTrigger[0], /insertRecord\(ss,\s*"Finance"/, path + ': Deal Won never records Finance income');
+  assert.match(autoTrigger[0], /insertRecord\(ss,\s*"Projects"/, path + ': Deal Won only creates a project queue');
 
   const dedupe = source.match(/function dedupeHeaders[\s\S]*?\n\}/);
   assert.ok(dedupe, path + ': header validation function exists');
@@ -77,5 +91,64 @@ assert.match(guard, /normalizeSyncValue/, 'frontend: cloud sync verification com
 assert.match(guard, /mismatches\.join/, 'frontend: sync reports field-level mismatches');
 assert.match(html, /security\/guard\.js/, 'frontend: authentication guard is loaded');
 assert.doesNotMatch(html, /getApiToken|setting-api-token|API token|\?token=/i, 'frontend: no shared API token flow remains');
+
+
+const backendForRoleTests = fs.readFileSync('apps-script/Code.gs', 'utf8');
+function extractBackendFunction(name) {
+  const match = backendForRoleTests.match(new RegExp('function ' + name + '\\([\\s\\S]*?\\n\\}'));
+  assert.ok(match, 'backend role helper exists: ' + name);
+  return match[0];
+}
+const roleSandbox = {
+  FIELD_MAP: {
+    Leads: {}, Clients: {}, Projects: {}, Invoices: {},
+    Commercial_Quotations: {}, Finance: {}, Invoice_Payments: {}
+  }
+};
+vm.runInNewContext(
+  extractBackendFunction('cskAssertPayloadAllowed_') +
+  '\nthis.authorizePayload = cskAssertPayloadAllowed_;',
+  roleSandbox
+);
+vm.runInNewContext(
+  extractBackendFunction('cskFilterDataForRole_') +
+  '\nthis.filterData = cskFilterDataForRole_;',
+  roleSandbox
+);
+
+assert.equal(roleSandbox.authorizePayload({ role: 'owner' }, {
+  action: 'sync_all', quotations: [], invoices: []
+}), true, 'Owner may sync commercial quotations and invoices');
+assert.equal(roleSandbox.authorizePayload({ role: 'team' }, {
+  action: 'sync_all', leads: [], clients: [], projects: []
+}), true, 'Team retains operational CRM sync access');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
+  action: 'sync_all', invoices: []
+}), /FORBIDDEN_COLLECTION:invoices/, 'Team cannot write invoices through generic sync');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
+  action: 'sync_all', quotations: []
+}), /FORBIDDEN_COLLECTION:quotations/, 'Team cannot write quotations through generic sync');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
+  action: 'record_invoice_payment', payment: { id: 'PAY-TEST-0001' }
+}), /FORBIDDEN_PAYMENT_WRITE/, 'Team cannot record invoice payments');
+assert.equal(roleSandbox.authorizePayload({ role: 'owner' }, {
+  action: 'record_invoice_payment', payment: { id: 'PAY-TEST-0001' }
+}), true, 'Owner may record invoice payments');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
+  action: 'insert', sheet: 'Invoices'
+}), /FORBIDDEN_SHEET/, 'Team cannot bypass RBAC with direct invoice insert');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
+  action: 'sync_all', invoicePayments: []
+}), /PAYMENT_LEDGER_SERVER_ONLY/, 'payment ledger cannot be overwritten by generic sync');
+const roleData = {
+  leads: [1], clients: [2], projects: [3],
+  quotations: [4], invoices: [5], invoicePayments: [6], finance: [7]
+};
+const teamData = roleSandbox.filterData(roleData, 'team');
+assert.deepEqual(Object.keys(teamData).sort(), ['clients', 'lastSynced', 'leads', 'projects']);
+assert.equal(teamData.invoices, undefined, 'Team does not receive commercial invoices');
+assert.equal(teamData.quotations, undefined, 'Team does not receive commercial quotations');
+assert.equal(teamData.invoicePayments, undefined, 'Team does not receive payment ledger');
+assert.equal(roleSandbox.filterData(roleData, 'owner'), roleData, 'Owner receives the full authorized dataset');
 
 console.log('CSK PIN authentication, server-side RBAC, safe migration, and outbound-email safety checks passed.');

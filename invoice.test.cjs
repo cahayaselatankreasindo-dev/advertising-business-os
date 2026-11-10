@@ -91,6 +91,11 @@ assert.ok(html.includes('price=total===0?0:Math.ceil(total/(1-margin/100))'), 'm
 assert.match(guard, /'purchaseOrders'/, 'Owner sync scope includes purchase orders');
 
 const backend = fs.readFileSync('google_apps_script.js', 'utf8');
+const claspBackend = fs.readFileSync('apps-script/Code.gs', 'utf8');
+assert.equal(claspBackend, backend, 'Apps Script deploy source and clasp Code.gs stay byte-for-byte identical');
+const inlineScripts = [...html.matchAll(/<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi)].map(match => match[1]).filter(script => script.trim());
+assert.ok(inlineScripts.length > 0, 'main HTML includes executable inline application code');
+inlineScripts.forEach((script, index) => new vm.Script(script, { filename: 'index.inline.' + index + '.js' }));
 assert.ok(backend.includes('if (payload.services) mergeSummary.Services'), 'Apps Script sync_all upserts services');
 assert.ok(backend.includes('if (payload.purchaseOrders) mergeSummary.Purchase_Orders'), 'Apps Script sync_all upserts purchase orders');
 assert.ok(backend.includes('purchaseOrders: readSheetData(ss, "Purchase_Orders")'), 'Apps Script reads purchase orders from Sheets');
@@ -110,6 +115,12 @@ assert.ok(html.includes('id="hpp-margin" type="number"'), 'profit margin is edit
 assert.ok(html.includes('--csk-paper:#F8F7F4'), 'professional off-white design tokens exist');
 assert.ok(html.includes('--csk-orange:#FF8A3D'), 'CSK orange accent token exists');
 assert.ok(html.includes("family=Inter"), 'Inter typography is loaded');
+const viewportMeta = html.match(/<meta name="viewport"[^>]*>/i);
+assert.ok(viewportMeta, 'responsive viewport metadata exists');
+assert.ok(!/user-scalable\s*=\s*no|maximum-scale\s*=\s*1(?:\.0)?/i.test(viewportMeta[0]), 'mobile users can zoom for accessibility');
+assert.ok(viewportMeta[0].includes('viewport-fit=cover'), 'mobile viewport supports safe-area insets');
+assert.ok(html.includes('body > aside { display:none !important; }'), 'desktop sidebar is hidden below the mobile/tablet breakpoint');
+assert.ok(html.includes('nav.pillar-mobile-nav {'), 'mobile navigation is present in the responsive shell');
 assert.ok(html.includes('id="csk-mobile-more"'), 'mobile More navigation panel exists');
 assert.ok(html.includes("function toggleMobileMore(open)"), 'mobile More navigation is functional');
 assert.ok(html.includes("function mobileGo(page)"), 'mobile module navigation handler exists');

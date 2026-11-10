@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - security/csk-pin-rbac-hardening
+      - feature/commercial-documents-standalone-20261109
   pull_request:
     branches:
       - main
@@ -24,9 +25,31 @@ jobs:
           node --check google_apps_script.js
           node -e "new Function(require('fs').readFileSync('apps-script/Code.gs','utf8'))"
           node --check security/guard.js
+          node --check commercial-documents.js
+          node --check commercial-documents.test.cjs
+          node --check commercial-workflow.test.cjs
           node --check mapping.test.js
           node --check backend-auth.test.cjs
+          node --check crm-upgrade.js
+          node --check crm-upgrade.test.cjs
+          node --check deal-conversion.test.cjs
       - name: Mapping and RBAC integration tests
         run: node mapping.test.js
+      - name: Commercial Document Center tests
+        run: node commercial-documents.test.cjs
+      - name: Commercial workflow simulation
+        run: node commercial-workflow.test.cjs
       - name: Backend security policy tests
         run: node backend-auth.test.cjs
+      - name: CRM follow-up and project monitoring tests
+        run: node crm-upgrade.test.cjs
+      - name: Deal Won idempotency and cash accounting tests
+        run: node deal-conversion.test.cjs
+      - name: Invoice calculations and sync transport tests
+        run: |
+          node invoice.test.cjs
+          node sync.test.cjs
+      - name: Invoice payment ledger integrity tests
+        run: node invoice-integrity.test.cjs
+      - name: Photo LAB private-access regression tests
+        run: node photo-lab.test.cjs
