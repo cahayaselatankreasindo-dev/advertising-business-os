@@ -28,7 +28,7 @@ assert.ok(html.includes('Arsip HPP & quotation lama'), 'HPP screen displays lega
 assert.ok(html.includes('Riwayat quotation ('), 'legacy costing archive exposes preserved quotation history');
 assert.ok(html.includes('Arsip biaya proyek lama'), 'HPP screen displays legacy project cost archive');
 assert.ok(html.includes('db.legacyCostings = parsed.legacyCostings || []'), 'local database schema accepts legacy costing archive arrays');
-const inlineScripts = [...html.matchAll(/<script\\b(?![^>]*\\bsrc=)[^>]*>([\\s\\S]*?)<\\/script>/gi)].map(match => match[1]).filter(code => code.trim());
+const inlineScripts = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(match => match[1]).filter(code => code.trim());
 assert.ok(inlineScripts.length > 0, 'application contains an inline script to syntax-check');
 inlineScripts.forEach((code, index) => {
   try { new Function(code); }
