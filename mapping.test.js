@@ -385,9 +385,40 @@ sheets['Leads'] = makeSheet([
   'Email','Website','Industri','PIC','JabatanPIC','LinkedIn','SkorPrioritas'
 ]);
 sheets['Leads'].appendRow(['L-OLD','2026-09-01','Budi','081','IG',8000000,'won','ok','','','','','','','']);
+
+// Simulasikan header database aktif yang sudah diverifikasi: Leads 15 kolom,
+// Projects 9 kolom. Migrasi harus menambahkan kolom baru di kanan tanpa
+// menggeser atau menghilangkan data lama.
+const legacyProjectSheet = sheets['Projects'];
+legacyProjectSheet.rows = legacyProjectSheet.rows.map(row => row.slice(0, 9));
+legacyProjectSheet.rows[0] = ['ID','NAMAPROYEK','klien','NILAIPROYEK','STATUS','DEADLINE','CATATAN','SOP_Checklist','PIC_Tim'];
+legacyProjectSheet.headers = legacyProjectSheet.rows[0].slice();
+const legacyProjectRecord = legacyProjectSheet.rows.find(row => String(row[0]) === 'P1').slice();
+
 sandbox.setupSheet();
 
 const h2 = sheets['Leads'].rows[0].map(h => String(h).trim().toLowerCase());
+const migratedLeadHeaders = sheets['Leads'].rows[0].map(h => String(h).trim());
+['NextFollowUp','LastContactAt','FollowUpNote'].forEach(h => {
+  eq(migratedLeadHeaders.indexOf(h) !== -1, true, `migrasi produksi: kolom '${h}' ditambahkan ke kanan Leads`);
+});
+eq(migratedLeadHeaders.slice(0, 15).map(x => x.toLowerCase()), [
+  'id','tanggal','nama','whatsapp','sumber','estimasinilai','status','catatan',
+  'email','website','industri','pic','jabatanpic','linkedin','skorprioritas'
+], 'migrasi produksi: urutan 15 kolom Leads lama tetap');
+const migratedProjectHeaders = sheets['Projects'].rows[0].map(h => String(h).trim());
+eq(migratedProjectHeaders.slice(0, 9).map(x => x.toLowerCase()), [
+  'id','namaproyek','klien','nilaiproyek','status','deadline','catatan','sop_checklist','pic_tim'
+], 'migrasi produksi: urutan 9 kolom Projects lama tetap');
+['SuggestedPrice','SourceQuotationID','SourceInvoiceID'].forEach(h => {
+  eq(migratedProjectHeaders.indexOf(h) !== -1, true, `migrasi produksi: kolom '${h}' ditambahkan ke kanan Projects`);
+});
+const migratedProjectRecord = sheets['Projects'].rows.find(row => String(row[0]) === 'P1');
+eq(migratedProjectRecord.slice(0, 9), legacyProjectRecord, 'migrasi produksi: nilai Projects lama tetap utuh');
+['Commercial_Quotations','Invoices','Invoice_Payments'].forEach(name => {
+  eq(!!sheets[name], true, `migrasi produksi: tab ${name} dibuat`);
+  eq(sheets[name].rows[0].length, FIELD_MAP[name].headers.length, `migrasi produksi: header ${name} lengkap`);
+});
 eq(h2.filter(x => x === 'tanggal').length, 1, 'migrasi aman: header TANGGAL tetap tunggal');
 eq(h2.filter(x => x === 'sumber').length, 1, 'migrasi aman: header SUMBER tetap tunggal');
 eq(h2.filter(x => x === 'whatsapp').length, 1, 'migrasi aman: header Whatsapp tetap tunggal');
