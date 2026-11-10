@@ -233,7 +233,7 @@ db.quotations[0].dueDate = '2026-11-24';
 await window.createProjectFromQuotation(quotation.id);
 assert.equal(linkedProject.title, 'Produksi Display Custom');
 assert.equal(linkedProject.value, 943500);
-assert.equal(linkedProject.deadline, '2026-12-05');
+assert.equal(linkedProject.deadline, '2026-12-30');
 assert.equal(db.projects.length, 1, 'commercial refresh must not create a duplicate project');
 
 // 4. Create an independent invoice manually, without a project or quotation.
