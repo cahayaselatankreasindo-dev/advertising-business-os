@@ -146,6 +146,7 @@ async function saveCurrentDocument() {
 // 1. Create a standalone quotation, select a Lead, and add material and service master items.
 window.openCommercialDocumentEditor('quotation');
 window.selectCommercialLead('LEAD-01');
+field('cd-lead', 'LEAD-01'); // emulate the select element value set by the browser change event
 field('cd-number', 'QUO-CSK-2026-00001');
 field('cd-date', '2026-11-10');
 field('cd-due', '2026-11-24');
