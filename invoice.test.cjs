@@ -93,7 +93,7 @@ assert.match(guard, /'purchaseOrders'/, 'Owner sync scope includes purchase orde
 const backend = fs.readFileSync('google_apps_script.js', 'utf8');
 const claspBackend = fs.readFileSync('apps-script/Code.gs', 'utf8');
 assert.equal(claspBackend, backend, 'Apps Script deploy source and clasp Code.gs stay byte-for-byte identical');
-const inlineScripts = [...html.matchAll(/<script\\b(?![^>]*\\bsrc\\s*=)[^>]*>([\\s\\S]*?)<\\/script>/gi)].map(match => match[1]).filter(script => script.trim());
+const inlineScripts = [...html.matchAll(/<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi)].map(match => match[1]).filter(script => script.trim());
 assert.ok(inlineScripts.length > 0, 'main HTML includes executable inline application code');
 inlineScripts.forEach((script, index) => new vm.Script(script, { filename: 'index.inline.' + index + '.js' }));
 assert.ok(backend.includes('if (payload.services) mergeSummary.Services'), 'Apps Script sync_all upserts services');
