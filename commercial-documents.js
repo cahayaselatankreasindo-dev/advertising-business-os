@@ -211,7 +211,7 @@ async function saveCommercialDocument(){
  if(!doc.client)return say('Nama pelanggan wajib diisi.',true);
  if(!doc.docNo)return say('Nomor dokumen wajib diisi.',true);
  if(!doc.date||!doc.dueDate)return say('Tanggal dan jatuh tempo wajib diisi.',true);
-  if(doc.projectDeadline&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(doc.projectDeadline)))return say('Deadline proyek tidak valid.',true);
+  if(doc.projectDeadline&&!/^\d{4}-\d{2}-\d{2}$/.test(String(doc.projectDeadline)))return say('Deadline proyek tidak valid.',true);
  if(!doc.lines.length)return say('Tambahkan minimal satu item.',true);
  if(doc.lines.some(function(x){return !String(x.name||'').trim()||n(x.qty)<=0||n(x.unitPrice)<0;}))return say('Periksa nama item, kuantitas, dan harga.',true);
  if(arr(kind).some(function(x){return String(x.id)!==String(doc.id)&&String(x.docNo||'').toLowerCase()===doc.docNo.toLowerCase();}))return say('Nomor dokumen sudah digunakan.',true);
