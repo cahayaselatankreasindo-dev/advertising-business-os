@@ -481,11 +481,46 @@ function mergeCommercialQuotationsSafely_(ss, incomingQuotations) {
   }
 }
 
+
+function assertUniqueInvoiceQuotationSources_(ss, incomingInvoices) {
+  var currentRows = readSheetData(ss, "Invoices");
+  var incoming = Array.isArray(incomingInvoices) ? incomingInvoices : [];
+  var incomingIds = {};
+  incoming.forEach(function(row) {
+    if (row && row.id !== undefined && row.id !== null) incomingIds[String(row.id)] = true;
+  });
+  var currentBySource = {};
+  currentRows.forEach(function(row) {
+    var sourceId = String(row.sourceQuotationId || row.quotationId || "").trim();
+    if (!sourceId) return;
+    if (!currentBySource[sourceId]) currentBySource[sourceId] = [];
+    currentBySource[sourceId].push(String(row.id));
+  });
+  var incomingBySource = {};
+  incoming.forEach(function(row) {
+    if (!row) return;
+    var sourceId = String(row.sourceQuotationId || row.quotationId || "").trim();
+    if (!sourceId) return;
+    var id = String(row.id || "").trim();
+    if (!id) throw new Error("DOCUMENT_ID_REQUIRED");
+    if (incomingBySource[sourceId] && incomingBySource[sourceId] !== id) {
+      throw new Error("DUPLICATE_QUOTATION_CONVERSION");
+    }
+    incomingBySource[sourceId] = id;
+    var conflicts = (currentBySource[sourceId] || []).filter(function(existingId) {
+      return existingId !== id && !incomingIds[existingId];
+    });
+    if (conflicts.length) throw new Error("DUPLICATE_QUOTATION_CONVERSION");
+  });
+  return true;
+}
+
 function mergeInvoicesSafely_(ss, incomingInvoices) {
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     assertUniqueCommercialDocumentNumbers_(ss, "Invoices", incomingInvoices);
+    assertUniqueInvoiceQuotationSources_(ss, incomingInvoices);
     assertPaidInvoiceChangesAllowed_(ss, incomingInvoices);
     var normalized = (incomingInvoices || []).map(function(item) {
       var copy = Object.assign({}, item);
