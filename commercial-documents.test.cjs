@@ -41,6 +41,8 @@ for (const name of [
   'saveCommercialDocument', 'printCommercialDocument', 'copyCommercialDocumentWA'
 ]) assert.ok(source.includes('function ' + name + '(') || source.includes('w.' + name + '='));
 assert.ok(source.includes('sourceInvoiceId:sourceI'));
+assert.ok(source.includes("x.sourceQuotationId||x.quotationId||''"), 'quotation conversion recovers an existing invoice before creating another');
+assert.ok(source.includes("id:'PRJ-'+Date.now()+'-'+Math.random()"), 'project IDs include a random suffix to avoid same-millisecond collisions');
 assert.ok(source.includes('function openPaymentEditor(invoiceId)'));
 assert.ok(source.includes('function saveInvoicePayment()'));
 assert.ok(source.includes('data-action="payment"'));
