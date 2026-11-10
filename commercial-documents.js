@@ -14,6 +14,19 @@ function findExistingProjectForDocument(projects,d,sourceQ,sourceI){
    (leadToken&&String(p.notes||'').indexOf(leadToken)!==-1);
  })||null;
 }
+function syncProjectCommercialFields(project,sourceDoc){
+ if(!project||!sourceDoc)return false;
+ var projectName=String(sourceDoc.projectName||'').trim();
+ var clientName=String(sourceDoc.client||'').trim();
+ if(projectName)project.title=projectName;
+ else if(!project.title&&clientName)project.title='Pekerjaan '+clientName;
+ if(clientName)project.client=clientName;
+ var total=n(sourceDoc.total);
+ project.value=total;
+ project.suggestedPrice=total;
+ if(sourceDoc.dueDate)project.deadline=String(sourceDoc.dueDate);
+ return true;
+}
 function summarizeInvoicePayments(invoice,payments){
  var total=Math.max(0,Math.round(n(invoice&&invoice.total)));
  var rows=(payments||[]).filter(function(p){return String(p.invoiceId)===String(invoice&&invoice.id);});
@@ -231,14 +244,13 @@ async function createProjectFromDocument(k,id){
  if(old){
   var leadToken=d.leadId?'[LEAD-'+d.leadId+']':'';
   var isLeadQueue=!!(leadToken&&String(old.notes||'').indexOf(leadToken)!==-1&&!old.sourceQuotationId&&!old.sourceInvoiceId);
-  if(isLeadQueue){
-   old.title=d.projectName||old.title;
-   old.client=d.client||old.client;
-   old.value=n(d.total);
-   old.suggestedPrice=n(d.total);
-   old.deadline=d.dueDate||old.deadline;
-   old.notes='Dokumen '+(d.docNo||d.id)+' · '+String(old.notes||'');
+  var projectSource=d;
+  if(k==='quotation'&&old.sourceInvoiceId){
+   var linkedInvoice=arr('invoice').find(function(x){return String(x.id)===String(old.sourceInvoiceId)&&String(x.status||'').toLowerCase()!=='cancelled';});
+   if(linkedInvoice)projectSource=linkedInvoice;
   }
+  syncProjectCommercialFields(old,projectSource);
+  if(isLeadQueue)old.notes='Dokumen '+(d.docNo||d.id)+' · '+String(old.notes||'');
   if(sourceQ)old.sourceQuotationId=sourceQ;
   if(sourceI)old.sourceInvoiceId=sourceI;
   d.projectId=String(old.id);
