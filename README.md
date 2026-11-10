@@ -45,6 +45,7 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - Tanggal, jatuh tempo, diskon, pajak, DP, ketentuan pembayaran, syarat, dan catatan dapat diubah.
 - Quotation berstatus Disetujui dapat dikonversi menjadi Invoice. Quotation yang belum disetujui tidak dapat menjadi sumber Invoice atau proyek. Quotation maupun Invoice dapat membuat atau menghubungkan proyek tanpa duplikasi.
 - Saat aksi **Buat / Hubungkan Proyek** dijalankan ulang, judul, klien, nilai kontrak, dan tenggat proyek diperbarui dari dokumen sumber tanpa mengubah status pengerjaan atau progres SOP. Jika Quotation dan Invoice terhubung pada proyek yang sama, Invoice aktif menjadi sumber nilai komersial utama.
+- Masa berlaku Quotation, jatuh tempo Invoice, dan deadline penyelesaian proyek disimpan terpisah. Default masa berlaku penawaran 14 hari dan jatuh tempo Invoice 7 hari; keduanya dapat diedit. Deadline proyek bersifat opsional dan hanya diperbarui dari kolom khusus tersebut.
 - Nomor Quotation dan Invoice divalidasi unik di backend, bukan hanya di browser.
 - Percobaan pembayaran yang belum terverifikasi mempertahankan ID dan payload sementara pada sesi tab agar retry memakai transaksi yang sama; data sementara dihapus setelah verifikasi berhasil.
 - Invoice tidak otomatis dicatat sebagai kas masuk; Finance hanya mencatat pembayaran yang benar-benar diterima.
