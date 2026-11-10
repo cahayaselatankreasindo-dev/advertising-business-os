@@ -247,7 +247,7 @@ async function createProjectFromDocument(k,id){
   return await persistCommercialChanges('Dokumen dihubungkan ke proyek yang sudah ada tanpa duplikasi');
  }
  var p={
-  id:'PRJ-'+Date.now(),
+  id:'PRJ-'+Date.now()+'-'+Math.random().toString(36).slice(2,7).toUpperCase(),
   title:d.projectName||('Pekerjaan '+d.client),
   client:d.client||'',
   value:n(d.total),
@@ -273,9 +273,15 @@ async function createInvoiceFromQuotation(id){
  if(typeof isOwnerSession!=='function'||!isOwnerSession())return say('Dokumen komersial hanya dapat dikelola Owner.',true);
  var q=arr('quotation').find(function(x){return String(x.id)===String(id);});
  if(!q)return say('Quotation tidak ditemukan.',true);
- if(q.convertedInvoiceId){
-  var old=arr('invoice').find(function(x){return String(x.id)===String(q.convertedInvoiceId);});
-  if(old)return openCommercialDocumentEditor('invoice',old.id);
+ var old=q.convertedInvoiceId?arr('invoice').find(function(x){return String(x.id)===String(q.convertedInvoiceId);}):null;
+ if(!old)old=arr('invoice').find(function(x){return String(x.sourceQuotationId||x.quotationId||'')===String(q.id);});
+ if(old){
+  if(String(q.convertedInvoiceId||'')!==String(old.id)){
+   q.convertedInvoiceId=String(old.id);
+   q.updatedAt=new Date().toISOString();
+   await persistCommercialChanges('Relasi invoice dari quotation dipulihkan');
+  }
+  return openCommercialDocumentEditor('invoice',old.id);
  }
  if(String(q.status||'').toLowerCase()!=='approved')return say('Quotation harus berstatus Disetujui sebelum dikonversi menjadi Invoice.',true);
  var t=localDate(),v=JSON.parse(JSON.stringify(q));
