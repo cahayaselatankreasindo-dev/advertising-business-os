@@ -1,6 +1,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const vm = require('node:vm');
 
 for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
   const source = fs.readFileSync(path, 'utf8');
@@ -90,5 +91,64 @@ assert.match(guard, /normalizeSyncValue/, 'frontend: cloud sync verification com
 assert.match(guard, /mismatches\.join/, 'frontend: sync reports field-level mismatches');
 assert.match(html, /security\/guard\.js/, 'frontend: authentication guard is loaded');
 assert.doesNotMatch(html, /getApiToken|setting-api-token|API token|\?token=/i, 'frontend: no shared API token flow remains');
+
+
+const backendForRoleTests = fs.readFileSync('apps-script/Code.gs', 'utf8');
+function extractBackendFunction(name) {
+  const match = backendForRoleTests.match(new RegExp('function ' + name + '\\([\\s\\S]*?\\n\\}'));
+  assert.ok(match, 'backend role helper exists: ' + name);
+  return match[0];
+}
+const roleSandbox = {
+  FIELD_MAP: {
+    Leads: {}, Clients: {}, Projects: {}, Invoices: {},
+    Commercial_Quotations: {}, Finance: {}, Invoice_Payments: {}
+  }
+};
+vm.runInNewContext(
+  extractBackendFunction('cskAssertPayloadAllowed_') +
+  '\\nthis.authorizePayload = cskAssertPayloadAllowed_;',
+  roleSandbox
+);
+vm.runInNewContext(
+  extractBackendFunction('cskFilterDataForRole_') +
+  '\\nthis.filterData = cskFilterDataForRole_;',
+  roleSandbox
+);
+
+assert.equal(roleSandbox.authorizePayload({ role: 'owner' }, {
+  action: 'sync_all', quotations: [], invoices: []
+}), true, 'Owner may sync commercial quotations and invoices');
+assert.equal(roleSandbox.authorizePayload({ role: 'team' }, {
+  action: 'sync_all', leads: [], clients: [], projects: []
+}), true, 'Team retains operational CRM sync access');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
+  action: 'sync_all', invoices: []
+}), /FORBIDDEN_COLLECTION:invoices/, 'Team cannot write invoices through generic sync');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
+  action: 'sync_all', quotations: []
+}), /FORBIDDEN_COLLECTION:quotations/, 'Team cannot write quotations through generic sync');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
+  action: 'record_invoice_payment', payment: { id: 'PAY-TEST-0001' }
+}), /FORBIDDEN_PAYMENT_WRITE/, 'Team cannot record invoice payments');
+assert.equal(roleSandbox.authorizePayload({ role: 'owner' }, {
+  action: 'record_invoice_payment', payment: { id: 'PAY-TEST-0001' }
+}), true, 'Owner may record invoice payments');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
+  action: 'insert', sheet: 'Invoices'
+}), /FORBIDDEN_SHEET/, 'Team cannot bypass RBAC with direct invoice insert');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
+  action: 'sync_all', invoicePayments: []
+}), /PAYMENT_LEDGER_SERVER_ONLY/, 'payment ledger cannot be overwritten by generic sync');
+const roleData = {
+  leads: [1], clients: [2], projects: [3],
+  quotations: [4], invoices: [5], invoicePayments: [6], finance: [7]
+};
+const teamData = roleSandbox.filterData(roleData, 'team');
+assert.deepEqual(Object.keys(teamData).sort(), ['clients', 'lastSynced', 'leads', 'projects']);
+assert.equal(teamData.invoices, undefined, 'Team does not receive commercial invoices');
+assert.equal(teamData.quotations, undefined, 'Team does not receive commercial quotations');
+assert.equal(teamData.invoicePayments, undefined, 'Team does not receive payment ledger');
+assert.equal(roleSandbox.filterData(roleData, 'owner'), roleData, 'Owner receives the full authorized dataset');
 
 console.log('CSK PIN authentication, server-side RBAC, safe migration, and outbound-email safety checks passed.');
