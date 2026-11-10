@@ -107,12 +107,12 @@ const roleSandbox = {
 };
 vm.runInNewContext(
   extractBackendFunction('cskAssertPayloadAllowed_') +
-  '\\nthis.authorizePayload = cskAssertPayloadAllowed_;',
+  '\nthis.authorizePayload = cskAssertPayloadAllowed_;',
   roleSandbox
 );
 vm.runInNewContext(
   extractBackendFunction('cskFilterDataForRole_') +
-  '\\nthis.filterData = cskFilterDataForRole_;',
+  '\nthis.filterData = cskFilterDataForRole_;',
   roleSandbox
 );
 
