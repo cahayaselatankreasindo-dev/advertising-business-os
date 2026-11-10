@@ -107,6 +107,30 @@ var FIELD_MAP = {
     fields: ["id", "invoiceId", "invoiceNo", "paymentDate", "paymentType", "amount", "method", "reference", "notes", "financeId", "createdAt", "createdBy"]
   }
 };
+// Legacy finance/cost tabs are read-only. Their schemas are intentionally not part of FIELD_MAP,
+// setupSheet, or sync_all so existing costing history cannot be rewritten by the current HPP module.
+var LEGACY_READ_MAP = {
+  Costings: {
+    id: "id", tanggal: "date", klien: "client", namapekerjaan: "jobName",
+    modelproduksi: "productionModel", leadid: "leadId", itemsjson: "itemsJson",
+    biayalangsung: "directCost", overheadpersen: "overheadPercent",
+    overheadnominal: "overheadAmount", cadanganpersen: "reservePercent",
+    cadangannominal: "reserveAmount", hpp: "hpp", marginpersen: "marginPercent",
+    hargapenawaran: "quotedPrice", status: "status", projectid: "projectId",
+    catatan: "notes", nomorquotation: "quotationNo", versiquotation: "quotationVersion",
+    masaberlakuhari: "validityDays", waktupengerjaanhari: "productionDays",
+    syaratpembayaran: "paymentTerms", ruanglingkup: "scope", disetujuipada: "approvedAt",
+    poconfirmedat: "poConfirmedAt", riwayatquotationjson: "quotationHistoryJson",
+    dikirimpada: "sentAt"
+  },
+  Project_Costs: {
+    id: "id", tanggal: "date", projectid: "projectId", kategori: "category",
+    sumber: "source", deskripsi: "description", vendor: "vendor", qty: "qty",
+    hargasatuan: "unitPrice", nominal: "amount", statuspembayaran: "paymentStatus",
+    referensi: "reference", catatan: "notes"
+  }
+};
+
 var RATING_REVIEW_SEP = " | ";
 
 // Pecah "N | teks" -> {rating, review}. Tahan: kosong, tanpa separator, rating non-angka.
@@ -362,6 +386,46 @@ function readSheetData(ss, sheetName) {
   });
 }
 
+// Read legacy Costings and Project_Costs without changing their source tabs.
+function readLegacySheetData_(ss, sheetName) {
+  var fieldMap = LEGACY_READ_MAP[sheetName];
+  if (!fieldMap) return [];
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+  var values = sheet.getDataRange().getValues();
+  var headers = values[0] || [];
+  var indexByName = {};
+  headers.forEach(function(header, index) {
+    var key = String(header == null ? "" : header).trim().toLowerCase();
+    if (key && !Object.prototype.hasOwnProperty.call(indexByName, key)) indexByName[key] = index;
+  });
+  return values.slice(1).filter(function(row) {
+    return row.some(function(value) { return value !== "" && value !== null && value !== undefined; });
+  }).map(function(row) {
+    var record = { legacySource: sheetName, readOnly: true };
+    Object.keys(fieldMap).forEach(function(headerKey) {
+      var index = indexByName[headerKey];
+      record[fieldMap[headerKey]] = index === undefined ? "" : row[index];
+    });
+    if (sheetName === "Costings") {
+      try {
+        var items = JSON.parse(record.itemsJson || "[]");
+        record.items = Array.isArray(items) ? items : [];
+      } catch (error) {
+        record.items = [];
+      }
+      try {
+        var history = JSON.parse(record.quotationHistoryJson || "[]");
+        record.quotationHistory = Array.isArray(history) ? history : [];
+      } catch (error) {
+        record.quotationHistory = [];
+      }
+    }
+    return record;
+  });
+}
+
+
 // ============== KEAMANAN: EMAIL + PIN + SESSION RBAC ==============
 // Semua hak akses divalidasi di server. PIN tidak pernah disimpan sebagai teks biasa.
 // Sesi disimpan di CacheService dan hanya ID sesi yang dikirim browser.
@@ -383,6 +447,8 @@ function doGet(e) {
       marketingSpend: readSheetData(ss, "Marketing_Spend"),
       materials: readSheetData(ss, "Materials"),
       costSheets: readSheetData(ss, "Cost_Sheets").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
+      legacyCostings: readLegacySheetData_(ss, "Costings"),
+      projectCosts: readLegacySheetData_(ss, "Project_Costs"),
       services: readSheetData(ss, "Services"),
       purchaseOrders: readSheetData(ss, "Purchase_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
       quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
@@ -916,6 +982,10 @@ function cskAssertPayloadAllowed_(identity, payload) {
 
   if (action === "sync_all") {
     if (Object.prototype.hasOwnProperty.call(payload, "invoicePayments")) throw new Error("PAYMENT_LEDGER_SERVER_ONLY");
+    if (Object.prototype.hasOwnProperty.call(payload, "legacyCostings") ||
+        Object.prototype.hasOwnProperty.call(payload, "projectCosts")) {
+      throw new Error("LEGACY_COST_DATA_READ_ONLY");
+    }
     var ownerCollections = ["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots","quotations","invoices"];
     var teamCollections = ["leads","clients","projects"];
     var allowed = role === "owner" ? ownerCollections : teamCollections;
