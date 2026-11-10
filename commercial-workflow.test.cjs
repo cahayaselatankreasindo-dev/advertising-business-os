@@ -142,6 +142,7 @@ async function saveCurrentDocument() {
   assert.ok(last && !last.isError, last ? last.message : 'Expected successful document save');
 }
 
+(async function main() {
 // 1. Create a standalone quotation, select a Lead, and add material and service master items.
 window.openCommercialDocumentEditor('quotation');
 window.selectCommercialLead('LEAD-01');
@@ -275,3 +276,4 @@ assert.equal(sandbox.module.exports.summarizeInvoicePayments(standaloneInvoice, 
 const finalMessages = messages.filter(x => x.isError);
 assert.deepEqual(finalMessages.map(x => x.message), [], 'no simulated workflow step should raise a UI error');
 console.log('CSK commercial workflow simulation passed: Lead → Quotation → Invoice → Project → DP → Installment → Settlement → Finance.');
+})().catch(error => { console.error(error); process.exitCode = 1; });
