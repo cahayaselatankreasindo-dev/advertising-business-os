@@ -204,6 +204,34 @@ assert.equal(db.quotations[0].projectId, linkedProject.id);
 await window.createProjectFromQuotation(quotation.id);
 assert.equal(db.projects.length, 1, 'quotation and invoice must not create duplicate projects');
 
+// 3a. Editing a linked invoice refreshes commercial project fields without resetting operations.
+linkedProject.status = 'active';
+linkedProject.sopChecklist = 'Brief:1;Produksi:0;Review:0;Revisi:0;Delivery:0';
+window.openCommercialDocumentEditor('invoice', convertedInvoice.id);
+field('cd-project', 'Produksi Display Custom');
+field('cd-due', '2026-12-05');
+window.updateCommercialLine(0, 'unitPrice', 300000);
+await saveCurrentDocument();
+const updatedInvoice = db.invoices.find(x => String(x.id) === String(convertedInvoice.id));
+assert.equal(updatedInvoice.total, 943500);
+await window.createProjectFromInvoice(updatedInvoice.id);
+assert.equal(linkedProject.title, 'Produksi Display Custom');
+assert.equal(linkedProject.value, 943500);
+assert.equal(linkedProject.suggestedPrice, 943500);
+assert.equal(linkedProject.deadline, '2026-12-05');
+assert.equal(linkedProject.status, 'active', 'commercial refresh must preserve project status');
+assert.equal(linkedProject.sopChecklist, 'Brief:1;Produksi:0;Review:0;Revisi:0;Delivery:0', 'commercial refresh must preserve SOP progress');
+
+// A later quotation action must not overwrite project values sourced from its invoice.
+db.quotations[0].projectName = 'Stale quotation title';
+db.quotations[0].total = 1;
+db.quotations[0].dueDate = '2026-11-24';
+await window.createProjectFromQuotation(quotation.id);
+assert.equal(linkedProject.title, 'Produksi Display Custom');
+assert.equal(linkedProject.value, 943500);
+assert.equal(linkedProject.deadline, '2026-12-05');
+assert.equal(db.projects.length, 1, 'commercial refresh must not create a duplicate project');
+
 // 4. Create an independent invoice manually, without a project or quotation.
 window.openCommercialDocumentEditor('invoice');
 field('cd-client', 'CV Invoice Mandiri');
