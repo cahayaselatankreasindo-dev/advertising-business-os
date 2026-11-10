@@ -47,6 +47,7 @@ assert.ok(source.includes("x.sourceQuotationId||x.quotationId||''"), 'quotation 
 assert.ok(source.includes("id:'PRJ-'+Date.now()+'-'+Math.random()"), 'project IDs include a random suffix to avoid same-millisecond collisions');
 assert.ok(source.includes('function openPaymentEditor(invoiceId)'));
 assert.ok(source.includes('function saveInvoicePayment()'));
+assert.ok(source.includes('class="text-[10px] text-slate-400 mt-3">Konfirmasi hanya dilakukan'), 'payment confirmation note has a valid class attribute');
 assert.ok(source.includes('data-action="payment"'));
 assert.ok(source.includes('recordInvoicePayment(payment)'));
 assert.ok(source.includes('Catat Pembayaran'));
