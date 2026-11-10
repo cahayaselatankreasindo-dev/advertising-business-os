@@ -59,7 +59,7 @@ assert.ok(source.includes('class="text-[10px] text-slate-400 mt-3">Konfirmasi ha
 assert.ok(source.includes('data-action="payment"'));
 assert.ok(source.includes('recordInvoicePayment(payment)'));
 assert.ok(source.includes('Catat Pembayaran'));
-assert.ok(source.includes('Total invoice tidak boleh diubah setelah ada pembayaran'));
+assert.ok(source.includes('Invoice yang sudah menerima pembayaran tidak dapat mengubah identitas'));
 assert.ok(source.includes('riwayat pembayaran tidak dapat dihapus'));
 assert.ok(guard.includes('recordInvoicePayment: recordInvoicePayment'));
 assert.ok(backend.includes('Invoice_Payments'));
