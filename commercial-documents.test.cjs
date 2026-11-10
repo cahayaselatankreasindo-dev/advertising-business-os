@@ -41,6 +41,8 @@ for (const name of [
   'saveCommercialDocument', 'printCommercialDocument', 'copyCommercialDocumentWA'
 ]) assert.ok(source.includes('function ' + name + '(') || source.includes('w.' + name + '='));
 assert.ok(source.includes('sourceInvoiceId:sourceI'));
+assert.ok(source.includes('function syncProjectCommercialFields(project,sourceDoc)'), 'linked project commercial fields have a dedicated sync helper');
+assert.ok(source.includes("if(k==='quotation'&&old.sourceInvoiceId)"), 'invoice remains the source of truth after quotation conversion');
 assert.ok(source.includes("x.sourceQuotationId||x.quotationId||''"), 'quotation conversion recovers an existing invoice before creating another');
 assert.ok(source.includes("id:'PRJ-'+Date.now()+'-'+Math.random()"), 'project IDs include a random suffix to avoid same-millisecond collisions');
 assert.ok(source.includes('function openPaymentEditor(invoiceId)'));
