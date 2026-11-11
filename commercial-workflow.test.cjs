@@ -223,6 +223,11 @@ assert.equal(linkedProject.title, 'Produksi Display Custom');
 assert.equal(linkedProject.value, 943500);
 assert.equal(linkedProject.suggestedPrice, 943500);
 assert.equal(linkedProject.deadline, '2026-12-30');
+window.openCommercialDocumentEditor('invoice', updatedInvoice.id);
+field('cd-project-deadline', '');
+await saveCurrentDocument();
+await window.createProjectFromInvoice(updatedInvoice.id);
+assert.equal(linkedProject.deadline, '', 'clearing the document deadline must clear the linked project deadline');
 assert.equal(linkedProject.status, 'active', 'commercial refresh must preserve project status');
 assert.equal(linkedProject.sopChecklist, 'Brief:1;Produksi:0;Review:0;Revisi:0;Delivery:0', 'commercial refresh must preserve SOP progress');
 
@@ -233,7 +238,7 @@ db.quotations[0].dueDate = '2026-11-24';
 await window.createProjectFromQuotation(quotation.id);
 assert.equal(linkedProject.title, 'Produksi Display Custom');
 assert.equal(linkedProject.value, 943500);
-assert.equal(linkedProject.deadline, '2026-12-30');
+assert.equal(linkedProject.deadline, '', 'a stale quotation must not restore a cleared project deadline');
 assert.equal(db.projects.length, 1, 'commercial refresh must not create a duplicate project');
 
 // 4. Create an independent invoice manually, without a project or quotation.
@@ -307,6 +312,18 @@ assert.equal(db.invoicePayments.length, 3);
 assert.equal(db.finance.length, 3);
 assert.equal(db.finance.reduce((sum, row) => sum + Number(row.amount), 0), 400000);
 assert.equal(sandbox.module.exports.summarizeInvoicePayments(standaloneInvoice, db.invoicePayments).status, 'paid');
+
+const paidInvoiceClient = standaloneInvoice.client;
+window.openCommercialDocumentEditor('invoice', standaloneInvoice.id);
+field('cd-client', 'Nama Pelanggan yang Tidak Boleh Diubah');
+await window.saveCommercialDocument();
+assert.equal(db.invoices.find(x => x.id === standaloneInvoice.id).client, paidInvoiceClient, 'paid invoice identity remains unchanged after rejected edit');
+assert.equal(messages[messages.length - 1].isError, true, 'UI explains why a paid invoice cannot be altered');
+messages.pop();
+window.openCommercialDocumentEditor('invoice', standaloneInvoice.id);
+field('cd-due', '2026-11-20');
+await saveCurrentDocument();
+assert.equal(db.invoices.find(x => x.id === standaloneInvoice.id).dueDate, '2026-11-20', 'due date remains editable independently from immutable invoice identity and value');
 
 const finalMessages = messages.filter(x => x.isError);
 assert.deepEqual(finalMessages.map(x => x.message), [], 'no simulated workflow step should raise a UI error');

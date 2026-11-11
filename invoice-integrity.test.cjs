@@ -84,6 +84,11 @@ vm.runInNewContext(
   sandbox
 );
 vm.runInNewContext(
+  extractFunction('mergeFinanceSafely_') +
+  '\nthis.mergeFinanceSafely = mergeFinanceSafely_;',
+  sandbox
+);
+vm.runInNewContext(
   extractFunction('recordInvoicePayment_') +
   '\nthis.recordPayment = recordInvoicePayment_;',
   sandbox
@@ -99,6 +104,31 @@ tables = {
 assert.equal(sandbox.checkPaidInvoice(ss, [{ id: 'INV-001', total: 1000000, status: 'partial' }]), true);
 assert.throws(() => sandbox.checkPaidInvoice(ss, [{ id: 'INV-001', total: 900000, status: 'partial' }]), /PAID_INVOICE_TOTAL_IMMUTABLE/);
 assert.throws(() => sandbox.checkPaidInvoice(ss, [{ id: 'INV-001', total: 1000000, status: 'cancelled' }]), /PAID_INVOICE_CANNOT_CANCEL/);
+tables = {
+  Invoices: [{
+    id: 'INV-LOCK', docNo: 'INV-CSK-2026-00110', date: '2026-11-10', leadId: 'LEAD-LOCK',
+    client: 'PT Contoh', clientPhone: '081234567890', clientEmail: 'finance@contoh.id',
+    clientAddress: 'Jakarta', contactPerson: 'PIC', projectName: 'Display',
+    linesJson: '[{"id":"L1","name":"Display","qty":1,"unitPrice":1000000}]',
+    subtotal: 1000000, discount: 0, taxRate: 0, taxAmount: 0, total: 1000000,
+    dpPercent: 50, quotationId: '', sourceQuotationId: '', terms: 'Terms A',
+    paymentTerms: 'DP 50%', status: 'partial'
+  }],
+  Invoice_Payments: [{ id: 'PAY-LOCK-01', invoiceId: 'INV-LOCK', amount: 100000 }]
+};
+const unchangedPaidInvoice = {
+  id: 'INV-LOCK', docNo: 'INV-CSK-2026-00110', date: '2026-11-10', leadId: 'LEAD-LOCK',
+  client: 'PT Contoh', clientPhone: '081234567890', clientEmail: 'finance@contoh.id',
+  clientAddress: 'Jakarta', contactPerson: 'PIC', projectName: 'Display',
+  lines: [{ id: 'L1', name: 'Display', qty: 1, unitPrice: 1000000 }],
+  subtotal: 1000000, discount: 0, taxRate: 0, taxAmount: 0, total: 1000000,
+  dpPercent: 50, quotationId: '', sourceQuotationId: '', terms: 'Terms A',
+  paymentTerms: 'DP 50%', dueDate: '2026-11-17', projectDeadline: '2026-12-01'
+};
+assert.equal(sandbox.checkPaidInvoice(ss, [unchangedPaidInvoice]), true, 'paid invoice can still update separate project deadline and due date');
+assert.throws(() => sandbox.checkPaidInvoice(ss, [{ ...unchangedPaidInvoice, docNo: 'INV-CHANGED' }]), /PAID_INVOICE_DOCUMENT_IMMUTABLE/, 'paid invoice document number is immutable');
+assert.throws(() => sandbox.checkPaidInvoice(ss, [{ ...unchangedPaidInvoice, lines: [{ id: 'L1', name: 'Changed', qty: 1, unitPrice: 1000000 }] }]), /PAID_INVOICE_DOCUMENT_IMMUTABLE/, 'paid invoice lines are immutable');
+assert.throws(() => sandbox.checkPaidInvoice(ss, [{ ...unchangedPaidInvoice, paymentTerms: 'Net 90' }]), /PAID_INVOICE_DOCUMENT_IMMUTABLE/, 'paid invoice payment terms are immutable');
 
 tables.Invoices = [];
 tables.Invoice_Payments = [{ id: 'PAY-ORPHAN', invoiceId: 'INV-ORPHAN', amount: 100000 }];
@@ -109,9 +139,35 @@ tables.Invoice_Payments = [];
 assert.equal(sandbox.checkDeletion(ss, 'Invoices', 'INV-EMPTY'), true);
 tables.Invoice_Payments = [{ id: 'PAY-001', invoiceId: 'INV-001', financeId: 'FIN-PAY-PAY-001' }];
 assert.throws(() => sandbox.checkDeletion(ss, 'Invoices', 'INV-001'), /INVOICE_HAS_PAYMENTS/);
+tables.Invoices = [{ id: 'INV-FROM-Q', sourceQuotationId: 'Q-LINKED' }];
+assert.throws(() => sandbox.checkDeletion(ss, 'Commercial_Quotations', 'Q-LINKED'), /QUOTATION_HAS_INVOICE/);
+assert.equal(sandbox.checkDeletion(ss, 'Commercial_Quotations', 'Q-UNLINKED'), true);
 assert.throws(() => sandbox.checkDeletion(ss, 'Finance', 'FIN-PAY-PAY-001'), /PAYMENT_FINANCE_LEDGER_PROTECTED/);
 assert.throws(() => sandbox.checkDeletion(ss, 'Finance', 'FIN-PAY-ORPHAN'), /PAYMENT_FINANCE_LEDGER_PROTECTED/);
 assert.equal(sandbox.checkDeletion(ss, 'Finance', 'FIN-EXP-001'), true);
+
+// Generic sync may preserve or safely restore a Finance row only when it exactly matches the payment ledger.
+const ledgerPayment = {
+  id: 'PAY-SYNC-0001', invoiceId: 'INV-SYNC', invoiceNo: 'INV-CSK-2026-00999',
+  paymentDate: '2026-11-11', paymentType: 'dp', amount: 125000,
+  method: 'transfer', reference: 'SYNC-REF', notes: '', financeId: 'FIN-PAY-PAY-SYNC-0001'
+};
+const expectedFinance = {
+  id: ledgerPayment.financeId, date: ledgerPayment.paymentDate, type: 'income',
+  category: 'Pembayaran Invoice', amount: ledgerPayment.amount,
+  description: 'Pembayaran invoice ' + ledgerPayment.invoiceNo + ' · DP · Ref ' + ledgerPayment.reference
+};
+tables = { Invoice_Payments: [ledgerPayment], Finance: [expectedFinance] };
+assert.equal(sandbox.mergeFinanceSafely(ss, [expectedFinance]), 1, 'an unchanged payment journal can be synchronized');
+assert.throws(() => sandbox.mergeFinanceSafely(ss, [{ ...expectedFinance, amount: 1 }]), /PAYMENT_FINANCE_LEDGER_IMMUTABLE/, 'generic sync cannot change payment income');
+assert.throws(() => sandbox.mergeFinanceSafely(ss, [{ ...expectedFinance, category: 'Pendapatan lain' }]), /PAYMENT_FINANCE_LEDGER_IMMUTABLE/, 'generic sync cannot reclassify payment income');
+tables.Finance = [];
+assert.equal(sandbox.mergeFinanceSafely(ss, [expectedFinance]), 1, 'a missing payment journal can be safely restored from the authoritative ledger');
+assert.equal(tables.Finance.length, 1);
+tables.Invoice_Payments = [];
+tables.Finance = [];
+assert.throws(() => sandbox.mergeFinanceSafely(ss, [expectedFinance]), /PAYMENT_FINANCE_ORPHANED/, 'a forged payment Finance row without a ledger entry is rejected');
+assert.equal(sandbox.mergeFinanceSafely(ss, [{ id: 'FIN-EXP-01', date: '2026-11-11', type: 'expense', category: 'Operasional', amount: 50000, description: 'Biaya umum' }]), 1, 'ordinary Finance rows remain synchronizable');
 
 // A confirmed payment creates exactly one ledger row and one Finance income row.
 tables = {

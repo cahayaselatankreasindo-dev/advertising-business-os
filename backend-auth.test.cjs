@@ -13,7 +13,10 @@ for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
   assert.ok(source.includes('FORBIDDEN_PAYMENT_WRITE'), path + ': payment recording is Owner-only');
   assert.ok(source.includes('PAYMENT_LEDGER_SERVER_ONLY'), path + ': payment ledger cannot use generic CRUD');
   assert.match(source, /function assertPaidInvoiceChangesAllowed_\(/, path + ': paid invoice totals are protected server-side');
+  assert.ok(source.includes('PAID_INVOICE_DOCUMENT_IMMUTABLE'), path + ': paid invoice identity, line items, and terms are immutable');
   assert.match(source, /function mergeInvoicesSafely_\(/, path + ': invoice updates are serialized with payment writes');
+  assert.match(source, /function mergeFinanceSafely_\(/, path + ': payment-linked Finance rows are validated against the ledger');
+  assert.match(source, /mergeFinanceSafely_\(ss, payload\.finance\)/, path + ': generic sync uses protected Finance merging');
   assert.match(source, /function assertCommercialRecordDeletionAllowed_\(/, path + ': payment-linked records cannot be deleted generically');
   assert.match(source, /assertCommercialRecordDeletionAllowed_\(ss, sheetName, delId\)/, path + ': delete endpoint enforces payment-ledger integrity');
   assert.ok(source.includes('LockService.getScriptLock()'), path + ': payment writes use a script lock');
@@ -137,6 +140,18 @@ assert.equal(roleSandbox.authorizePayload({ role: 'owner' }, {
 assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
   action: 'insert', sheet: 'Invoices'
 }), /FORBIDDEN_SHEET/, 'Team cannot bypass RBAC with direct invoice insert');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
+  action: 'insert', sheet: 'Invoices', data: { id: 'INV-DIRECT' }
+}), /COMMERCIAL_DOCUMENT_REQUIRES_SYNC/, 'Owner must use guarded sync for invoice creation');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
+  action: 'insert', sheet: 'Commercial_Quotations', data: { id: 'QUO-DIRECT' }
+}), /COMMERCIAL_DOCUMENT_REQUIRES_SYNC/, 'Owner must use guarded sync for quotation creation');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
+  action: 'insert', sheet: 'Finance', data: { id: 'FIN-PAY-FORGED' }
+}), /PAYMENT_FINANCE_SERVER_ONLY/, 'payment Finance rows cannot be forged through generic insert');
+assert.equal(roleSandbox.authorizePayload({ role: 'owner' }, {
+  action: 'insert', sheet: 'Finance', data: { id: 'FIN-EXP-001' }
+}), true, 'Owner may still add ordinary Finance records');
 assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
   action: 'sync_all', invoicePayments: []
 }), /PAYMENT_LEDGER_SERVER_ONLY/, 'payment ledger cannot be overwritten by generic sync');

@@ -45,6 +45,9 @@ assert.ok(source.includes('function syncProjectCommercialFields(project,sourceDo
 assert.ok(source.includes('projectDeadline'), 'documents keep project deadline separate from payment due date or quotation validity');
 assert.ok(source.includes("dueDate:plus(t,k==='quotation'?14:7)"), 'quotation validity defaults to 14 days and invoice due date to 7 days');
 assert.ok(source.includes("deadline:d.projectDeadline||''"), 'new project deadline comes only from the dedicated project deadline field');
+assert.ok(source.includes("Object.prototype.hasOwnProperty.call(sourceDoc,'projectDeadline')"), 'clearing a document deadline clears the linked project deadline');
+assert.ok(source.includes("Quotation yang sudah menjadi sumber Invoice tidak dapat dihapus."), 'quotation linked to an invoice cannot be deleted from the UI');
+assert.ok(source.includes('Invoice yang sudah menerima pembayaran tidak dapat mengubah identitas'), 'paid invoice identity and line items are protected in the editor');
 assert.ok(source.includes("v.dueDate=plus(t,7);v.projectDeadline=q.projectDeadline||'';"), 'quotation conversion resets invoice due date and preserves project deadline');
 assert.ok(backend.includes('"DeadlineProyek"'), 'Apps Script persists project deadline on commercial documents');
 assert.ok(source.includes("if(k==='quotation'&&old.sourceInvoiceId)"), 'invoice remains the source of truth after quotation conversion');
@@ -56,7 +59,7 @@ assert.ok(source.includes('class="text-[10px] text-slate-400 mt-3">Konfirmasi ha
 assert.ok(source.includes('data-action="payment"'));
 assert.ok(source.includes('recordInvoicePayment(payment)'));
 assert.ok(source.includes('Catat Pembayaran'));
-assert.ok(source.includes('Total invoice tidak boleh diubah setelah ada pembayaran'));
+assert.ok(source.includes('Invoice yang sudah menerima pembayaran tidak dapat mengubah identitas'));
 assert.ok(source.includes('riwayat pembayaran tidak dapat dihapus'));
 assert.ok(guard.includes('recordInvoicePayment: recordInvoicePayment'));
 assert.ok(backend.includes('Invoice_Payments'));

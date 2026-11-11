@@ -24,7 +24,7 @@ function syncProjectCommercialFields(project,sourceDoc){
  var total=n(sourceDoc.total);
  project.value=total;
  project.suggestedPrice=total;
- if(sourceDoc.projectDeadline)project.deadline=String(sourceDoc.projectDeadline);
+ if(Object.prototype.hasOwnProperty.call(sourceDoc,'projectDeadline'))project.deadline=String(sourceDoc.projectDeadline||'');
  return true;
 }
 function summarizeInvoicePayments(invoice,payments){
@@ -219,8 +219,13 @@ async function saveCommercialDocument(){
  var totals=calculateCommercialTotals(doc.lines,doc.discount,doc.taxRate);
  var prior=kind==='invoice'?arr('invoice').find(function(x){return String(x.id)===String(doc.id);}):null;
  var paid=prior?summarizeInvoicePayments(prior,db.invoicePayments||[]):null;
- if(paid&&paid.paid>0&&totals.total!==Math.round(n(prior.total)))return say('Total invoice tidak boleh diubah setelah ada pembayaran. Buat dokumen penyesuaian terpisah.',true);
- if(paid&&paid.paid>0&&doc.status==='cancelled')return say('Invoice dengan pembayaran tidak dapat dibatalkan langsung. Selesaikan rekonsiliasi terlebih dahulu.',true);
+ if(paid&&paid.paid>0){
+  var immutableFields=['docNo','date','leadId','client','clientPhone','clientEmail','clientAddress','contactPerson','projectName','subtotal','discount','taxRate','taxAmount','dpPercent','quotationId','sourceQuotationId','terms','paymentTerms'];
+  var immutableChanged=immutableFields.some(function(field){return String(doc[field]==null?'':doc[field])!==String(prior[field]==null?'':prior[field]);});
+  var linesChanged=JSON.stringify(doc.lines||[])!==JSON.stringify(prior.lines||[]);
+  if(totals.total!==Math.round(n(prior.total))||immutableChanged||linesChanged)return say('Invoice yang sudah menerima pembayaran tidak dapat mengubah identitas, rincian, syarat, atau nilai dokumen. Perubahan tagihan harus dibuat sebagai dokumen penyesuaian terpisah.',true);
+  if(doc.status==='cancelled')return say('Invoice dengan pembayaran tidak dapat dibatalkan langsung. Selesaikan rekonsiliasi terlebih dahulu.',true);
+ }
  Object.assign(doc,totals);
  delete doc.kind;
  doc.updatedAt=new Date().toISOString();
@@ -317,7 +322,7 @@ async function createInvoiceFromQuotation(id){
  await persistCommercialChanges('Invoice dibuat dari quotation');
  openCommercialDocumentEditor('invoice',v.id);
 }
-async function deleteCommercialDocument(k,id){if(typeof requireOwnerForDelete!=='function'||!requireOwnerForDelete())return;if(k==='invoice'&&paymentRows(id).length)return say('Invoice yang sudah memiliki riwayat pembayaran tidak dapat dihapus.',true);if(!w.confirm('Hapus dokumen ini?'))return;var sheet=k==='quotation'?'Commercial_Quotations':'Invoices';if(db.settings&&db.settings.googleSheetUrl&&typeof deleteOnCloud==='function'&&!await deleteOnCloud(sheet,id))return;if(k==='quotation')db.quotations=arr(k).filter(function(x){return String(x.id)!==String(id);});else db.invoices=arr(k).filter(function(x){return String(x.id)!==String(id);});saveDB(true);renderDocuments();say('Dokumen dihapus.');}
+async function deleteCommercialDocument(k,id){if(typeof requireOwnerForDelete!=='function'||!requireOwnerForDelete())return;if(k==='invoice'&&paymentRows(id).length)return say('Invoice yang sudah memiliki riwayat pembayaran tidak dapat dihapus.',true);if(k==='quotation'&&arr('invoice').some(function(x){return String(x.sourceQuotationId||x.quotationId||'')===String(id);}))return say('Quotation yang sudah menjadi sumber Invoice tidak dapat dihapus.',true);if(!w.confirm('Hapus dokumen ini?'))return;var sheet=k==='quotation'?'Commercial_Quotations':'Invoices';if(db.settings&&db.settings.googleSheetUrl&&typeof deleteOnCloud==='function'&&!await deleteOnCloud(sheet,id))return;if(k==='quotation')db.quotations=arr(k).filter(function(x){return String(x.id)!==String(id);});else db.invoices=arr(k).filter(function(x){return String(x.id)!==String(id);});saveDB(true);renderDocuments();say('Dokumen dihapus.');}
 function renderDocuments(){
  var box=el('documents-projects-container');if(!box)return;
  var q=arr('quotation'),v=arr('invoice'),rows=all().sort(function(a,b){return String(b.updatedAt||'').localeCompare(String(a.updatedAt||''));});
