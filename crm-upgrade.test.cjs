@@ -3,6 +3,13 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const crm=require('./crm-upgrade.js');
 const today='2026-11-08';
+assert.equal(crm.todayISO(today),today,'todayISO must honor an explicit ISO date');
+assert.equal(crm.toISODate('08/11/2026'),'2026-11-08','Indonesian day-first dates are normalized');
+assert.equal(crm.toISODate('31/02/2026'),'','invalid day-first dates are rejected');
+assert.equal(crm.normalizeLeadStatus('Deal Menang'),'won');
+assert.equal(crm.normalizeLeadStatus('Batal'),'lost');
+assert.equal(crm.normalizeProjectStatus('Pengerjaan'),'ongoing');
+assert.equal(crm.normalizeProjectStatus('Selesai'),'done');
 const leads=[
 {id:'L1',name:'PT Alfa',status:'new',nextFollowUp:'2026-11-07'},
 {id:'L2',name:'PT Beta',status:'contacted',nextFollowUp:'2026-11-08'},
@@ -19,6 +26,12 @@ assert.deepEqual(crm.filterLeadRecords(leads,{query:'beta'},today).map(x=>x.id),
 assert.deepEqual(crm.filterLeadRecords(leads,{status:'new',followUp:'overdue'},today).map(x=>x.id),['L1']);
 assert.deepEqual(crm.filterLeadRecords(leads,{followUp:'unscheduled'},today).map(x=>x.id),['L4']);
 assert.deepEqual(crm.filterLeadRecords(leads,{query:'epsilon',followUp:'overdue'},today).map(x=>x.id),['L5']);
+const legacyLeads=leads.concat([
+{id:'L6',name:'PT Won Legacy',status:'Deal Menang',nextFollowUp:'2026-11-01'},
+{id:'L7',name:'CV Lost Legacy',status:'Batal',nextFollowUp:'2026-11-01'}
+]);
+assert.deepEqual(crm.filterLeadRecords(legacyLeads,{status:'won'},today).map(x=>x.id),['L5','L6']);
+assert.equal(crm.summarizeCRM(legacyLeads,projects,today).activeLeads,4,'legacy Indonesian closed statuses are excluded from active leads');
 const clients=[{id:'C1',name:'PT Alfa',phone:'081234'},{id:'C2',name:'CV Beta',phone:'089999'}];
 assert.deepEqual(crm.filterClientRecords(clients,{query:'0899'}).map(x=>x.id),['C2']);
 const projects=[
@@ -31,6 +44,13 @@ assert.equal(crm.getProjectDeadlineState(projects[0],today),'overdue');
 assert.equal(crm.getProjectDeadlineState(projects[1],today),'today');
 assert.equal(crm.getProjectDeadlineState(projects[2],today),'upcoming');
 assert.equal(crm.getProjectDeadlineState(projects[3],today),'completed');
+const legacyProjects=projects.concat([
+{id:'P5',title:'Project Selesai',client:'PT Epsilon',status:'Selesai',deadline:'2026-11-01'},
+{id:'P6',title:'Project Aktif',client:'PT Zeta',status:'Pengerjaan',deadline:'2026-11-07'}
+]);
+assert.equal(crm.getProjectDeadlineState(legacyProjects[4],today),'completed','legacy Selesai projects are not reported overdue');
+assert.deepEqual(crm.filterProjectRecords(legacyProjects,{status:'done'},today).map(x=>x.id),['P4','P5']);
+assert.equal(crm.getProjectDeadlineState(legacyProjects[5],today),'overdue');
 assert.deepEqual(crm.filterProjectRecords(projects,{query:'sari'},today).map(x=>x.id),['P2']);
 assert.deepEqual(crm.filterProjectRecords(projects,{deadline:'overdue'},today).map(x=>x.id),['P1']);
 assert.deepEqual(crm.getProjectProgress(projects[0]),{completed:2,total:5,percent:40});
@@ -59,6 +79,6 @@ assert.match(html,/isOwnerSession\(\)\?'<button onclick="convertLeadToWon/);
 assert.match(html,/leadWonOption\.disabled = isTeam/);
 assert.match(html,/src="\.\/crm-upgrade\.js"/);
 assert.doesNotMatch(html,/Deal Menang → Pendapatan \+ Antrean Proyek/);
-assert.match(sw,/csk-business-os-v3\.2\.3/);
+assert.match(sw,/csk-business-os-v3\.2\.4/);
 assert.match(sw,/'\.\/crm-upgrade\.js'/);
 console.log('CSK CRM upgrade unit and integration checks passed.');
