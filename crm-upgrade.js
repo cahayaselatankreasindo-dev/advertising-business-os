@@ -9,23 +9,57 @@
   function normalizeText(value) {
     return String(value == null ? "" : value).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
   }
+  function normalizeLeadStatus(value) {
+    const status=normalizeText(value).replace(/[_-]+/g," ").replace(/\s+/g," ");
+    const aliases={
+      "baru":"new","new":"new","new lead":"new",
+      "dihubungi":"contacted","contact":"contacted","contacted":"contacted","follow up":"contacted","followup":"contacted",
+      "nego":"nego","negosiasi":"nego","negotiation":"nego","negotiating":"nego",
+      "deal":"won","deal menang":"won","deal won":"won","menang":"won","closed won":"won","won":"won",
+      "batal":"lost","cancel":"lost","cancelled":"lost","canceled":"lost","closed lost":"lost","lost":"lost"
+    };
+    return aliases[status]||status;
+  }
+  function normalizeProjectStatus(value) {
+    const status=normalizeText(value).replace(/[_-]+/g," ").replace(/\s+/g," ");
+    const aliases={
+      "plan":"plan","planned":"plan","planning":"plan","perencanaan":"plan","rencana":"plan",
+      "ongoing":"ongoing","active":"ongoing","aktif":"ongoing","in progress":"ongoing","pengerjaan":"ongoing","produksi":"ongoing",
+      "review":"review","review klien":"review","client review":"review",
+      "done":"done","complete":"done","completed":"done","finish":"done","finished":"done","selesai":"done"
+    };
+    return aliases[status]||status;
+  }
   function toISODate(value) {
     if (value instanceof Date && !Number.isNaN(value.getTime())) {
       return value.getFullYear() + "-" + String(value.getMonth()+1).padStart(2,"0") + "-" + String(value.getDate()).padStart(2,"0");
     }
     const raw=String(value == null ? "" : value).trim();
-    const match=raw.match(/^(\d{4}-\d{2}-\d{2})/);
-    if(!match)return "";
-    const parts=match[1].split("-").map(Number), check=new Date(parts[0],parts[1]-1,parts[2]);
-    return check.getFullYear()===parts[0]&&check.getMonth()===parts[1]-1&&check.getDate()===parts[2]?match[1]:"";
+    const iso=raw.match(/^(\d{4}-\d{2}-\d{2})/);
+    if(iso){
+      const parts=iso[1].split("-").map(Number),check=new Date(parts[0],parts[1]-1,parts[2]);
+      return check.getFullYear()===parts[0]&&check.getMonth()===parts[1]-1&&check.getDate()===parts[2]?iso[1]:"";
+    }
+    // Legacy Sheets may contain Indonesian day-first dates such as 08/11/2026.
+    const local=raw.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})(?:$|[ T])/);
+    if(!local)return "";
+    const day=Number(local[1]),month=Number(local[2]),year=Number(local[3]);
+    const check=new Date(year,month-1,day);
+    if(check.getFullYear()!==year||check.getMonth()!==month-1||check.getDate()!==day)return "";
+    return year+"-"+String(month).padStart(2,"0")+"-"+String(day).padStart(2,"0");
   }
-  function todayISO(now){return toISODate(now instanceof Date?now:new Date());}
+  function todayISO(now){
+    if(now===undefined||now===null||now==="")return toISODate(new Date());
+    if(now instanceof Date)return toISODate(now);
+    if(typeof now==="number")return toISODate(new Date(now));
+    return toISODate(now);
+  }
   function getLeadFollowUpState(lead,today){
     const date=toISODate(lead&&lead.nextFollowUp);if(!date)return "unscheduled";
     const current=toISODate(today)||todayISO();return date<current?"overdue":date===current?"today":"scheduled";
   }
   function getProjectDeadlineState(project,today){
-    if(normalizeText(project&&project.status)==="done")return "completed";
+    if(normalizeProjectStatus(project&&project.status)==="done")return "completed";
     const date=toISODate(project&&project.deadline);if(!date)return "no-date";
     const current=toISODate(today)||todayISO();return date<current?"overdue":date===current?"today":"upcoming";
   }
@@ -37,7 +71,7 @@
   function filterLeadRecords(leads,options,today){
     const opts=options||{};
     return (Array.isArray(leads)?leads:[]).filter(lead=>{
-      if(opts.status&&opts.status!=="all"&&normalizeText(lead.status)!==normalizeText(opts.status))return false;
+      if(opts.status&&opts.status!=="all"&&normalizeLeadStatus(lead.status)!==normalizeLeadStatus(opts.status))return false;
       if(!leadMatchesQuery(lead,opts.query))return false;
       if(opts.followUp&&opts.followUp!=="all"&&getLeadFollowUpState(lead,today)!==opts.followUp)return false;
       return true;
@@ -50,7 +84,7 @@
   function filterProjectRecords(projects,options,today){
     const opts=options||{},q=normalizeText(opts.query);
     return (Array.isArray(projects)?projects:[]).filter(project=>{
-      if(opts.status&&opts.status!=="all"&&normalizeText(project.status)!==normalizeText(opts.status))return false;
+      if(opts.status&&opts.status!=="all"&&normalizeProjectStatus(project.status)!==normalizeProjectStatus(opts.status))return false;
       if(opts.deadline&&opts.deadline!=="all"&&getProjectDeadlineState(project,today)!==opts.deadline)return false;
       return !q||[project&&project.title,project&&project.client,project&&project.pic,project&&project.notes].some(value=>normalizeText(value).includes(q));
     });
@@ -62,14 +96,14 @@
     return {completed:completed,total:total,percent:Math.round(completed/total*100)};
   }
   function summarizeCRM(leads,projects,today){
-    const active=(Array.isArray(leads)?leads:[]).filter(lead=>!["won","lost"].includes(normalizeText(lead.status)));
+    const active=(Array.isArray(leads)?leads:[]).filter(lead=>!["won","lost"].includes(normalizeLeadStatus(lead.status)));
     const overdueLeads=active.filter(lead=>getLeadFollowUpState(lead,today)==="overdue").sort((a,b)=>toISODate(a.nextFollowUp).localeCompare(toISODate(b.nextFollowUp)));
     const dueTodayLeads=active.filter(lead=>getLeadFollowUpState(lead,today)==="today");
     const unscheduledLeads=active.filter(lead=>getLeadFollowUpState(lead,today)==="unscheduled");
     const overdueProjects=(Array.isArray(projects)?projects:[]).filter(project=>getProjectDeadlineState(project,today)==="overdue").sort((a,b)=>toISODate(a.deadline).localeCompare(toISODate(b.deadline)));
     return {activeLeads:active.length,overdueLeads:overdueLeads,dueTodayLeads:dueTodayLeads,unscheduledLeads:unscheduledLeads,overdueProjects:overdueProjects};
   }
-  return {LEAD_STATUSES,PROJECT_STATUSES,normalizeText,toISODate,todayISO,getLeadFollowUpState,getProjectDeadlineState,filterLeadRecords,filterClientRecords,filterProjectRecords,getProjectProgress,summarizeCRM};
+  return {LEAD_STATUSES,PROJECT_STATUSES,normalizeText,normalizeLeadStatus,normalizeProjectStatus,toISODate,todayISO,getLeadFollowUpState,getProjectDeadlineState,filterLeadRecords,filterClientRecords,filterProjectRecords,getProjectProgress,summarizeCRM};
 });
 
 /* Browser integration for the existing CSK Business OS. */
@@ -200,7 +234,8 @@
     wrapRenderer("renderLeads",function(original,args){
       const data=appDB();if(!data)return original.apply(this,args);
       const source=data.leads||[],query=doc.getElementById("csk-lead-search")?.value||"",follow=doc.getElementById("csk-lead-follow-filter")?.value||"all";
-      data.leads=api.filterLeadRecords(source,{query:query,followUp:follow});
+      const normalized=source.map(lead=>{const status=api.normalizeLeadStatus(lead&&lead.status);return status!==lead.status?Object.assign({},lead,{status:status}):lead;});
+      data.leads=api.filterLeadRecords(normalized,{query:query,followUp:follow});
       try{original.apply(this,args);}finally{data.leads=source;}
       decorateLeadCards(api.filterLeadRecords(source,{query:query,status:activeLeadStatus(),followUp:follow}));
     });
@@ -211,10 +246,19 @@
     });
     wrapRenderer("renderProjects",function(original,args){
       const data=appDB();if(!data)return original.apply(this,args);
-      const source=data.projects||[],filtered=api.filterProjectRecords(source,{query:doc.getElementById("csk-project-search")?.value||"",status:doc.getElementById("csk-project-status-filter")?.value||"all",deadline:doc.getElementById("csk-project-deadline-filter")?.value||"all"});
-      data.projects=filtered;try{original.apply(this,args);}finally{data.projects=source;}decorateProjectCards(filtered);
+      const source=data.projects||[],options={query:doc.getElementById("csk-project-search")?.value||"",status:doc.getElementById("csk-project-status-filter")?.value||"all",deadline:doc.getElementById("csk-project-deadline-filter")?.value||"all"};
+      const normalized=source.map(project=>{const status=api.normalizeProjectStatus(project&&project.status);return status!==project.status?Object.assign({},project,{status:status}):project;});
+      const filtered=api.filterProjectRecords(normalized,options);
+      data.projects=filtered;try{original.apply(this,args);}finally{data.projects=source;}
+      decorateProjectCards(api.filterProjectRecords(source,options));
     });
-    wrapRenderer("renderDashboard",function(original,args){const result=original.apply(this,args);renderActionCenter();return result;});
+    wrapRenderer("renderDashboard",function(original,args){
+      const data=appDB();if(!data){const result=original.apply(this,args);renderActionCenter();return result;}
+      const source=data.leads||[];
+      data.leads=source.map(lead=>{const status=api.normalizeLeadStatus(lead&&lead.status);return status!==lead.status?Object.assign({},lead,{status:status}):lead;});
+      try{return original.apply(this,args);}
+      finally{data.leads=source;renderActionCenter();}
+    });
   }
   function install(){
     if(installed)return;installed=true;injectFormFields();injectControls();installRenderers();
