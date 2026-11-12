@@ -31,7 +31,7 @@ const legacyLeads=leads.concat([
 {id:'L7',name:'CV Lost Legacy',status:'Batal',nextFollowUp:'2026-11-01'}
 ]);
 assert.deepEqual(crm.filterLeadRecords(legacyLeads,{status:'won'},today).map(x=>x.id),['L5','L6']);
-assert.equal(crm.summarizeCRM(legacyLeads,projects,today).activeLeads,4,'legacy Indonesian closed statuses are excluded from active leads');
+assert.equal(crm.summarizeCRM(legacyLeads,[],today).activeLeads,4,'legacy Indonesian closed statuses are excluded from active leads');
 const clients=[{id:'C1',name:'PT Alfa',phone:'081234'},{id:'C2',name:'CV Beta',phone:'089999'}];
 assert.deepEqual(crm.filterClientRecords(clients,{query:'0899'}).map(x=>x.id),['C2']);
 const projects=[
@@ -64,6 +64,9 @@ const backend=fs.readFileSync('apps-script/Code.gs','utf8');
 const backendCopy=fs.readFileSync('google_apps_script.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
 const sw=fs.readFileSync('sw.js','utf8');
+const crmSource=fs.readFileSync('crm-upgrade.js','utf8');
+assert.match(crmSource,/api\.normalizeLeadStatus/,'legacy lead statuses are normalized before rendering');
+assert.match(crmSource,/api\.normalizeProjectStatus/,'legacy project statuses are normalized before rendering');
 assert.equal(backend.trimEnd(),backendCopy.trimEnd(),'Apps Script source copies must remain identical');
 assert.match(backend,/"NextFollowUp"/);
 assert.match(backend,/"LastContactAt"/);
