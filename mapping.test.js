@@ -237,12 +237,18 @@ if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
     ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoice_Payments','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Services'].sort(),
     'FIELD_MAP mencakup 14 tab');
-  eq(FIELD_MAP.Leads.headers.slice(-3),
+  eq(FIELD_MAP.Leads.headers.slice(15, 18),
     ['NextFollowUp','LastContactAt','FollowUpNote'],
-    'FIELD_MAP.Leads menambahkan field follow-up di kanan');
-  eq(FIELD_MAP.Leads.fields.slice(-3),
+    'FIELD_MAP.Leads mempertahankan kolom follow-up pada posisi lama');
+  eq(FIELD_MAP.Leads.fields.slice(15, 18),
     ['nextFollowUp','lastContactAt','followUpNote'],
-    'FIELD_MAP.Leads fields follow-up lengkap');
+    'FIELD_MAP.Leads mempertahankan field follow-up pada posisi lama');
+  eq(FIELD_MAP.Leads.headers.slice(18),
+    ['IntakeType','ProjectType','Dimensions','Quantity','Location','Deadline','DesignFiles','DesignLinks','SubmissionID','CreatedAt'],
+    'FIELD_MAP.Leads menambahkan field intake hanya di ujung kontrak');
+  eq(FIELD_MAP.Leads.fields.slice(18),
+    ['intakeType','projectType','dimensions','quantity','location','deadline','designFiles','designLinks','submissionId','createdAt'],
+    'FIELD_MAP.Leads fields intake ditambahkan setelah seluruh field lama');
   eq(FIELD_MAP.Projects.headers,
     ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim','SuggestedPrice','SourceQuotationID','SourceInvoiceID'],
     'FIELD_MAP.Projects.headers = hasil Tahap 2 + PIC_Tim');
