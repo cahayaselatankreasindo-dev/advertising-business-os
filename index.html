@@ -1793,6 +1793,19 @@
         const parsed = Array.isArray(lead.designLinks) ? lead.designLinks : JSON.parse(String(lead.designLinks || '[]'));
         if (Array.isArray(parsed)) links = parsed;
       } catch (_) {}
+      let files = [];
+      try {
+        const parsed = Array.isArray(lead.designFiles) ? lead.designFiles : JSON.parse(String(lead.designFiles || '[]'));
+        if (Array.isArray(parsed)) files = parsed;
+      } catch (_) {}
+      const fileHtml = files.map((file) => {
+        if (!file || typeof file.key !== 'string' || typeof file.name !== 'string') return '';
+        return '<button type="button" data-csk-design-download="1" data-lead-id="' +
+          escapeInvoiceHtml(lead.id) + '" data-file-key="' + escapeInvoiceHtml(file.key) +
+          '" data-file-name="' + escapeInvoiceHtml(file.name) +
+          '" class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-50">' +
+          '<i class="fa fa-download"></i> Unduh ' + escapeInvoiceHtml(file.name) + '</button>';
+      }).filter(Boolean);
       const linkHtml = links.map((value) => {
         try {
           const url = new URL(String(value));
@@ -1809,9 +1822,38 @@
         (fields.length ? '<dl class="mt-3 grid gap-2 sm:grid-cols-2">' + fields.map(([label, value]) =>
           '<div class="min-w-0"><dt class="text-[10px] text-stone-500">' + label + '</dt><dd class="mt-0.5 break-words text-xs font-medium text-stone-800">' +
           escapeInvoiceHtml(value) + '</dd></div>').join('') + '</dl>' : '') +
+        (fileHtml.length ? '<div class="mt-3 border-t border-amber-100 pt-2"><div class="text-[10px] text-stone-500">File desain privat</div><div class="mt-2 flex flex-wrap gap-2">' + fileHtml.join('') + '</div></div>' : '') +
         (linkHtml.length ? '<div class="mt-3 border-t border-amber-100 pt-2"><div class="text-[10px] text-stone-500">Link desain / referensi</div><div class="mt-1 flex flex-col gap-1 text-xs">' + linkHtml.join('') + '</div></div>' : '') +
         '</section>';
     }
+
+    document.addEventListener('click', async (event) => {
+      const button = event.target && event.target.closest ? event.target.closest('[data-csk-design-download]') : null;
+      if (!button || button.disabled) return;
+      if (!window.CSKAuth || typeof window.CSKAuth.downloadDesignFile !== 'function') {
+        showToast('Sesi autentikasi belum siap. Muat ulang aplikasi.', true);
+        return;
+      }
+      button.disabled = true;
+      const originalText = button.textContent;
+      button.textContent = 'Menyiapkan unduhan...';
+      try {
+        const blob = await window.CSKAuth.downloadDesignFile(button.dataset.leadId, button.dataset.fileKey);
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = button.dataset.fileName || 'referensi';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        showToast('Unduhan file ditolak: ' + String(error && error.message || error), true);
+      } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    });
 
     function renderLeads() {
       const container = document.getElementById('leads-container');
