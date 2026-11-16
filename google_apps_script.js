@@ -693,6 +693,9 @@ function doPost(e) {
     }
 
     var identity = cskRequireSession_(payload.sessionId);
+    if (action === "authorize_design_download") {
+      return jsonResponse(authorizeDesignDownload_(payload, identity));
+    }
     if (action === "logout") {
       cskRevokeSession_(payload.sessionId);
       return jsonResponse({ status: "success", message: "Sesi ditutup." });
@@ -889,6 +892,26 @@ function publicLeadIntake_(payload) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function authorizeDesignDownload_(payload, identity) {
+  if (!identity || ["owner", "team"].indexOf(identity.role) < 0) throw new Error("FORBIDDEN");
+  var leadId = String(payload && payload.leadId || "").trim();
+  var key = String(payload && payload.key || "").trim();
+  if (!/^WEB-[A-Z0-9]{10,30}$/.test(leadId)) throw new Error("INVALID_LEAD_ID");
+  if (!/^incoming\/[A-Za-z0-9_-]{16,100}\/[0-9a-f-]{36}\.(pdf|jpg|png)$/i.test(key)) throw new Error("INVALID_DESIGN_FILE_KEY");
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var lead = readSheetData(ss, "Leads").find(function(item) {
+    return String(item.id || "") === leadId;
+  });
+  if (!lead) throw new Error("LEAD_NOT_FOUND");
+  var files = [];
+  try { files = JSON.parse(String(lead.designFiles || "[]")); } catch (e) { files = []; }
+  var allowed = files.some(function(file) {
+    return file && String(file.key || "") === key;
+  });
+  if (!allowed) throw new Error("DESIGN_FILE_NOT_LINKED_TO_LEAD");
+  return { status: "success", authorized: true, role: identity.role };
 }
 
 function setupPublicLeadIntakeSecretFromPrompt() {
