@@ -74,6 +74,10 @@ assert.match(appScript, /isOwnerSession\(\) \? '<button onclick="deleteLead/, 'f
 assert.match(appScript, /isOwnerSession\(\)\?'<button onclick="deleteClient/, 'frontend: Team does not see the Clients delete button');
 assert.match(appScript, /isOwnerSession\(\) \? '<button onclick="deleteProject/, 'frontend: Team does not see the Projects delete button');
 
+assert.match(guard, /async function downloadDesignFile\(leadId, key\)/, 'frontend: private file download uses active authenticated session');
+assert.match(guard, /action: 'authorize_design_download'/, 'frontend: design download is authorized by backend session');
+assert.match(guard, /downloadDesignFile: downloadDesignFile/, 'frontend: authenticated download is exposed to CRM');
+assert.match(appScript, /data-csk-design-download/, 'frontend: CRM renders controlled private file download controls');
 assert.match(guard, /legacyOwnerCache/, 'frontend: legacy Owner migration uses a temporary recovery cache');
 assert.doesNotMatch(guard, /safeLocalSet\(OWNER_KEY/, 'frontend: Owner database is not written to a persistent Owner cache');
 const ownerSave = guard.match(/function saveScoped\(\)[\s\S]*?\n  }/);
@@ -165,6 +169,9 @@ assert.equal(teamData.invoices, undefined, 'Team does not receive commercial inv
 assert.equal(teamData.quotations, undefined, 'Team does not receive commercial quotations');
 assert.equal(teamData.invoicePayments, undefined, 'Team does not receive payment ledger');
 assert.equal(roleSandbox.filterData(roleData, 'owner'), roleData, 'Owner receives the full authorized dataset');
+assert.ok(canonicalBackend.includes('function authorizeDesignDownload_('), 'private design download authorization handler exists');
+assert.match(canonicalBackend, /var identity = cskRequireSession_\(payload\.sessionId\);[\s\S]*?if \(action === "authorize_design_download"\)[\s\S]*?authorizeDesignDownload_\(payload, identity\)/, 'private design download is authorized only after session validation');
+assert.match(canonicalBackend, /function authorizeDesignDownload_\([\s\S]*?files\.some\(function\(file\)[\s\S]*?file\.key[\s\S]*?DESIGN_FILE_NOT_LINKED_TO_LEAD/, 'private design download requires file key to be linked to the requested Lead');
 assert.ok(canonicalBackend.includes('function publicLeadIntake_('), 'public website intake handler exists');
 assert.ok(canonicalBackend.includes('action === "public_lead_intake"'), 'public intake is routed before session authentication');
 assert.ok(canonicalBackend.includes('CSK_PUBLIC_INTAKE_SECRET'), 'public intake requires a server-side secret');
