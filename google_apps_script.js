@@ -905,6 +905,8 @@ function authorizeDesignDownload_(payload, identity) {
     return String(item.id || "") === leadId;
   });
   if (!lead) throw new Error("LEAD_NOT_FOUND");
+  var submissionId = String(lead.submissionId || "");
+  if (!submissionId || key.indexOf("incoming/" + submissionId + "/") !== 0) throw new Error("DESIGN_FILE_SUBMISSION_MISMATCH");
   var files = [];
   try { files = JSON.parse(String(lead.designFiles || "[]")); } catch (e) { files = []; }
   var allowed = files.some(function(file) {
