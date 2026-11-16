@@ -165,17 +165,30 @@ assert.equal(teamData.invoices, undefined, 'Team does not receive commercial inv
 assert.equal(teamData.quotations, undefined, 'Team does not receive commercial quotations');
 assert.equal(teamData.invoicePayments, undefined, 'Team does not receive payment ledger');
 assert.equal(roleSandbox.filterData(roleData, 'owner'), roleData, 'Owner receives the full authorized dataset');
-assert.match(canonicalBackend, /function publicLeadIntake_\\(/, 'public website intake handler exists');
-assert.match(canonicalBackend, /action === "public_lead_intake"/, 'public intake is routed before session authentication');
-assert.match(canonicalBackend, /CSK_PUBLIC_INTAKE_SECRET/, 'public intake requires a server-side secret');
-assert.match(canonicalBackend, /source: "Website"/, 'public intake source is server-controlled');
-assert.match(canonicalBackend, /status: "new"/, 'public intake status is server-controlled');
-assert.match(canonicalBackend, /submissionId: submissionId/, 'public intake stores idempotency key');
-assert.match(canonicalBackend, /LockService\\.getScriptLock\\(\\)/, 'public intake writes are serialized');
-assert.match(canonicalBackend, /"DesignFiles"/, 'Lead contract includes design file references');
-assert.match(canonicalBackend, /"DesignLinks"/, 'Lead contract includes design link references');
-assert.match(canonicalBackend, /"SubmissionID"/, 'Lead contract includes submission id');
-assert.match(canonicalBackend, /Setup Secret Website Intake/, 'secret setup is available from the security menu');
+assert.ok(canonicalBackend.includes('function publicLeadIntake_('), 'public website intake handler exists');
+assert.ok(canonicalBackend.includes('action === "public_lead_intake"'), 'public intake is routed before session authentication');
+assert.ok(canonicalBackend.includes('CSK_PUBLIC_INTAKE_SECRET'), 'public intake requires a server-side secret');
+assert.ok(canonicalBackend.includes('source: "Website"'), 'public intake source is server-controlled');
+assert.ok(canonicalBackend.includes('status: "new"'), 'public intake status is server-controlled');
+assert.ok(canonicalBackend.includes('submissionId: submissionId'), 'public intake stores idempotency key');
+assert.ok(canonicalBackend.includes('LockService.getScriptLock()'), 'public intake writes are serialized');
+assert.ok(canonicalBackend.includes('"DesignFiles"'), 'Lead contract includes design file references');
+assert.ok(canonicalBackend.includes('"DesignLinks"'), 'Lead contract includes design link references');
+assert.ok(canonicalBackend.includes('"SubmissionID"'), 'Lead contract includes submission id');
+assert.ok(canonicalBackend.includes('Setup Secret Website Intake'), 'secret setup is available from the security menu');
+
+const intakeSandbox = {
+  PropertiesService: { getScriptProperties: () => ({ getProperty: key => key === 'CSK_PUBLIC_INTAKE_SECRET' ? 'x'.repeat(40) : '' }) },
+  cskConstantTimeEquals_: (a, b) => a === b
+};
+vm.runInNewContext(extractBackendFunction('publicLeadIntake_') + '\nthis.publicLeadIntake = publicLeadIntake_;', intakeSandbox);
+assert.throws(() => intakeSandbox.publicLeadIntake({ secret: 'wrong', lead: {} }), /PUBLIC_INTAKE_UNAUTHORIZED/);
+assert.throws(() => intakeSandbox.publicLeadIntake({ secret: 'x'.repeat(40), lead: {
+  submissionId: 'submission-id-123456', name: 'PT Contoh', phone: 'abc', intakeType: 'quick_contact'
+} }), /INVALID_LEAD_PHONE/);
+assert.throws(() => intakeSandbox.publicLeadIntake({ secret: 'x'.repeat(40), lead: {
+  submissionId: 'submission-id-123456', name: 'PT Contoh', phone: '08123456789', intakeType: 'invalid'
+} }), /INVALID_INTAKE_TYPE/);
 
 
 console.log('CSK PIN authentication, server-side RBAC, safe migration, and outbound-email safety checks passed.');
