@@ -806,7 +806,7 @@ function publicLeadIntake_(payload) {
   var phone = String(input.phone || "").trim();
   var intakeType = String(input.intakeType || "").trim();
   if (name.length < 2 || name.length > 160) throw new Error("INVALID_LEAD_NAME");
-  if (!/^\\+?[0-9][0-9 ()-]{7,19}$/.test(phone)) throw new Error("INVALID_LEAD_PHONE");
+  if (!/^\+?[0-9][0-9 ()-]{7,19}$/.test(phone)) throw new Error("INVALID_LEAD_PHONE");
   if (["quick_contact", "project_brief"].indexOf(intakeType) < 0) throw new Error("INVALID_INTAKE_TYPE");
 
   function cleanText(value, max, field) {
@@ -820,15 +820,15 @@ function publicLeadIntake_(payload) {
   var deadline = cleanText(input.deadline, 10, "deadline");
   var notes = cleanText(input.notes, 1500, "notes");
   var email = cleanText(input.email, 180, "email");
-  if (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) throw new Error("INVALID_EMAIL");
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("INVALID_EMAIL");
   var quantity = input.quantity === "" || input.quantity == null ? "" : Number(input.quantity);
   if (quantity !== "" && (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 1000000)) throw new Error("INVALID_QUANTITY");
-  if (intakeType === "project_brief" && (!projectType || !dimensions || quantity === "" || !location || !/^\\d{4}-\\d{2}-\\d{2}$/.test(deadline))) {
+  if (intakeType === "project_brief" && (!projectType || !dimensions || quantity === "" || !location || !/^\d{4}-\d{2}-\d{2}$/.test(deadline))) {
     throw new Error("INCOMPLETE_PROJECT_BRIEF");
   }
   if (deadline) {
     var parsedDeadline = new Date(deadline + "T00:00:00Z");
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(deadline) || isNaN(parsedDeadline.getTime()) || parsedDeadline.toISOString().slice(0, 10) !== deadline) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline) || isNaN(parsedDeadline.getTime()) || parsedDeadline.toISOString().slice(0, 10) !== deadline) {
       throw new Error("INVALID_DEADLINE");
     }
   }
@@ -848,7 +848,7 @@ function publicLeadIntake_(payload) {
   });
   designLinks = designLinks.map(function(url) {
     var value = cleanText(url, 1000, "designLink");
-    if (!/^https:\\/\\//i.test(value)) throw new Error("INVALID_DESIGN_LINK");
+    if (!/^https:\/\//i.test(value)) throw new Error("INVALID_DESIGN_LINK");
     return value;
   });
 
