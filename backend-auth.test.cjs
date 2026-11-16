@@ -200,7 +200,7 @@ assert.throws(() => intakeSandbox.publicLeadIntake({ secret: 'x'.repeat(40), lea
 const downloadKey = 'incoming/submission-id-123456/12345678-1234-1234-1234-123456789abc.pdf';
 const downloadSandbox = {
   SpreadsheetApp: { getActiveSpreadsheet: () => ({}) },
-  readSheetData: () => [{ id: 'WEB-1234567890ABCDEF1234', designFiles: JSON.stringify([{ key: downloadKey }]) }]
+  readSheetData: () => [{ id: 'WEB-1234567890ABCDEF1234', submissionId: 'submission-id-123456', designFiles: JSON.stringify([{ key: downloadKey }]) }]
 };
 vm.runInNewContext(extractBackendFunction('authorizeDesignDownload_') + '\nthis.authorize = authorizeDesignDownload_;', downloadSandbox);
 const authorizedDownload = downloadSandbox.authorize({
@@ -210,5 +210,8 @@ assert.equal(authorizedDownload.authorized, true, 'active Team session may downl
 assert.throws(() => downloadSandbox.authorize({
   leadId: 'WEB-1234567890ABCDEF1234', key: 'incoming/submission-id-123456/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.pdf'
 }, { role: 'team' }), /DESIGN_FILE_NOT_LINKED_TO_LEAD/, 'file key cannot be downloaded from an unrelated Lead');
+assert.throws(() => downloadSandbox.authorize({
+  leadId: 'WEB-1234567890ABCDEF1234', key: 'incoming/other-submission-123456/12345678-1234-1234-1234-123456789abc.pdf'
+}, { role: 'team' }), /DESIGN_FILE_SUBMISSION_MISMATCH/, 'file key must match the Lead submission ID');
 
 console.log('CSK PIN authentication, server-side RBAC, safe migration, private design access, and outbound-email safety checks passed.');
