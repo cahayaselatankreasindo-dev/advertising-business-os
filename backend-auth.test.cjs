@@ -165,5 +165,17 @@ assert.equal(teamData.invoices, undefined, 'Team does not receive commercial inv
 assert.equal(teamData.quotations, undefined, 'Team does not receive commercial quotations');
 assert.equal(teamData.invoicePayments, undefined, 'Team does not receive payment ledger');
 assert.equal(roleSandbox.filterData(roleData, 'owner'), roleData, 'Owner receives the full authorized dataset');
+assert.match(canonicalBackend, /function publicLeadIntake_\\(/, 'public website intake handler exists');
+assert.match(canonicalBackend, /action === "public_lead_intake"/, 'public intake is routed before session authentication');
+assert.match(canonicalBackend, /CSK_PUBLIC_INTAKE_SECRET/, 'public intake requires a server-side secret');
+assert.match(canonicalBackend, /source: "Website"/, 'public intake source is server-controlled');
+assert.match(canonicalBackend, /status: "new"/, 'public intake status is server-controlled');
+assert.match(canonicalBackend, /submissionId: submissionId/, 'public intake stores idempotency key');
+assert.match(canonicalBackend, /LockService\\.getScriptLock\\(\\)/, 'public intake writes are serialized');
+assert.match(canonicalBackend, /"DesignFiles"/, 'Lead contract includes design file references');
+assert.match(canonicalBackend, /"DesignLinks"/, 'Lead contract includes design link references');
+assert.match(canonicalBackend, /"SubmissionID"/, 'Lead contract includes submission id');
+assert.match(canonicalBackend, /Setup Secret Website Intake/, 'secret setup is available from the security menu');
+
 
 console.log('CSK PIN authentication, server-side RBAC, safe migration, and outbound-email safety checks passed.');
