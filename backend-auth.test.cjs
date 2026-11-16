@@ -197,5 +197,18 @@ assert.throws(() => intakeSandbox.publicLeadIntake({ secret: 'x'.repeat(40), lea
   submissionId: 'submission-id-123456', name: 'PT Contoh', phone: '08123456789', intakeType: 'invalid'
 } }), /INVALID_INTAKE_TYPE/);
 
+const downloadKey = 'incoming/submission-id-123456/12345678-1234-1234-1234-123456789abc.pdf';
+const downloadSandbox = {
+  SpreadsheetApp: { getActiveSpreadsheet: () => ({}) },
+  readSheetData: () => [{ id: 'WEB-1234567890ABCDEF1234', designFiles: JSON.stringify([{ key: downloadKey }]) }]
+};
+vm.runInNewContext(extractBackendFunction('authorizeDesignDownload_') + '\\nthis.authorize = authorizeDesignDownload_;', downloadSandbox);
+const authorizedDownload = downloadSandbox.authorize({
+  leadId: 'WEB-1234567890ABCDEF1234', key: downloadKey
+}, { role: 'team' });
+assert.equal(authorizedDownload.authorized, true, 'active Team session may download a file attached to its Lead');
+assert.throws(() => downloadSandbox.authorize({
+  leadId: 'WEB-1234567890ABCDEF1234', key: 'incoming/submission-id-123456/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.pdf'
+}, { role: 'team' }), /DESIGN_FILE_NOT_LINKED_TO_LEAD/, 'file key cannot be downloaded from an unrelated Lead');
 
-console.log('CSK PIN authentication, server-side RBAC, safe migration, and outbound-email safety checks passed.');
+console.log('CSK PIN authentication, server-side RBAC, safe migration, private design access, and outbound-email safety checks passed.');
