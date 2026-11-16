@@ -75,7 +75,7 @@ assert.match(appScript, /isOwnerSession\(\)\?'<button onclick="deleteClient/, 'f
 assert.match(appScript, /isOwnerSession\(\) \? '<button onclick="deleteProject/, 'frontend: Team does not see the Projects delete button');
 
 assert.match(guard, /async function downloadDesignFile\(leadId, key\)/, 'frontend: private file download uses active authenticated session');
-assert.match(guard, /action: 'authorize_design_download'/, 'frontend: design download is authorized by backend session');
+assert.match(guard, /api\/design-download[\s\S]*?sessionId: sessionId, leadId: leadId, key: key/, 'frontend: design download sends active session and Lead-linked file reference to private endpoint');
 assert.match(guard, /downloadDesignFile: downloadDesignFile/, 'frontend: authenticated download is exposed to CRM');
 assert.match(appScript, /data-csk-design-download/, 'frontend: CRM renders controlled private file download controls');
 assert.match(guard, /legacyOwnerCache/, 'frontend: legacy Owner migration uses a temporary recovery cache');
