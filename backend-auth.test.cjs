@@ -202,7 +202,7 @@ const downloadSandbox = {
   SpreadsheetApp: { getActiveSpreadsheet: () => ({}) },
   readSheetData: () => [{ id: 'WEB-1234567890ABCDEF1234', designFiles: JSON.stringify([{ key: downloadKey }]) }]
 };
-vm.runInNewContext(extractBackendFunction('authorizeDesignDownload_') + '\\nthis.authorize = authorizeDesignDownload_;', downloadSandbox);
+vm.runInNewContext(extractBackendFunction('authorizeDesignDownload_') + '\nthis.authorize = authorizeDesignDownload_;', downloadSandbox);
 const authorizedDownload = downloadSandbox.authorize({
   leadId: 'WEB-1234567890ABCDEF1234', key: downloadKey
 }, { role: 'team' });
