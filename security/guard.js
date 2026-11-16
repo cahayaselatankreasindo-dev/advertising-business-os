@@ -487,6 +487,26 @@
     };
   }
 
+  async function downloadDesignFile(leadId, key) {
+    if (!ready || !identity || !sessionId) throw new Error('AUTH_REQUIRED');
+    if (!/^WEB-[A-Z0-9]{10,30}$/.test(String(leadId || '')) ||
+        !/^incoming\/[A-Za-z0-9_-]{16,100}\/[0-9a-f-]{36}\.(pdf|jpg|png)$/i.test(String(key || ''))) {
+      throw new Error('INVALID_DESIGN_FILE_REFERENCE');
+    }
+    var response = await fetch('https://cahayaselatankreasindo.my.id/api/design-download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      body: JSON.stringify({ sessionId: sessionId, leadId: leadId, key: key })
+    });
+    if (!response.ok) {
+      var detail = {};
+      try { detail = await response.json(); } catch (e) {}
+      throw new Error(detail.message || 'DESIGN_DOWNLOAD_DENIED');
+    }
+    return response.blob();
+  }
+
   async function recordInvoicePayment(payment) {
     if (!ready || !identity) throw new Error('AUTH_REQUIRED');
     if (identity.role !== 'owner') throw new Error('FORBIDDEN_PAYMENT_WRITE');
@@ -529,6 +549,7 @@
     pull: function () { return window.pullAndMerge(); },
     deleteRecord: function (sheet, id) { return window.deleteOnCloud(sheet, id); },
     getData: function () { return get('get_data'); },
+    downloadDesignFile: downloadDesignFile,
     recordInvoicePayment: recordInvoicePayment
   };
 
