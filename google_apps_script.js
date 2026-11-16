@@ -823,6 +823,7 @@ function publicLeadIntake_(payload) {
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("INVALID_EMAIL");
   var quantity = input.quantity === "" || input.quantity == null ? "" : Number(input.quantity);
   if (quantity !== "" && (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 1000000)) throw new Error("INVALID_QUANTITY");
+  if (intakeType === "quick_contact" && !projectType) throw new Error("PROJECT_TYPE_REQUIRED");
   if (intakeType === "project_brief" && (!projectType || !dimensions || quantity === "" || !location || !/^\d{4}-\d{2}-\d{2}$/.test(deadline))) {
     throw new Error("INCOMPLETE_PROJECT_BRIEF");
   }
