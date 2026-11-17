@@ -807,10 +807,10 @@ function publicLeadIntake_(payload) {
   var submissionId = String(input.submissionId || "").trim();
   if (!/^[A-Za-z0-9_-]{16,100}$/.test(submissionId)) throw new Error("INVALID_SUBMISSION_ID");
 
-  var name = String(input.name || "").trim();
-  var phone = String(input.phone || "").trim();
+  var name = cleanText(input.name, 160, "name");
+  var phone = cleanText(input.phone, 24, "phone");
   var intakeType = String(input.intakeType || "").trim();
-  if (name.length < 2 || name.length > 160) throw new Error("INVALID_LEAD_NAME");
+  if (name.length < 2) throw new Error("INVALID_LEAD_NAME");
   if (!/^\+?[0-9][0-9 ()-]{7,19}$/.test(phone)) throw new Error("INVALID_LEAD_PHONE");
   if (["quick_contact", "project_brief"].indexOf(intakeType) < 0) throw new Error("INVALID_INTAKE_TYPE");
   if (input.privacyConsent !== true) throw new Error("PRIVACY_CONSENT_REQUIRED");
@@ -820,6 +820,7 @@ function publicLeadIntake_(payload) {
   function cleanText(value, max, field) {
     var text = String(value == null ? "" : value).trim();
     if (text.length > max) throw new Error("FIELD_TOO_LONG:" + field);
+    if (text.charAt(0) === "=") throw new Error("UNSAFE_SPREADSHEET_VALUE:" + field);
     return text;
   }
   var projectType = cleanText(input.projectType, 120, "projectType");
