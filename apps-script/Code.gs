@@ -49,10 +49,12 @@ var FIELD_MAP = {
   Leads: {
     headers: ["ID", "Tanggal", "Nama", "WhatsApp", "Sumber", "EstimasiNilai", "Status", "Catatan",
               "Email", "Website", "Industri", "PIC", "JabatanPIC", "LinkedIn", "SkorPrioritas", "NextFollowUp", "LastContactAt", "FollowUpNote",
-              "IntakeType", "ProjectType", "Dimensions", "Quantity", "Location", "Deadline", "DesignFiles", "DesignLinks", "SubmissionID", "CreatedAt"],
+              "IntakeType", "ProjectType", "Dimensions", "Quantity", "Location", "Deadline", "DesignFiles", "DesignLinks", "SubmissionID", "CreatedAt",
+              "UtmSource", "UtmMedium", "UtmCampaign", "UtmTerm", "UtmContent", "LandingPage", "ReferrerHost", "Gclid", "Gbraid", "Wbraid", "Fbclid", "Ttclid", "Msclkid"],
     fields:  ["id", "date", "name", "phone", "source", "value", "status", "notes",
               "email", "website", "industry", "pic", "picTitle", "linkedin", "score", "nextFollowUp", "lastContactAt", "followUpNote",
-              "intakeType", "projectType", "dimensions", "quantity", "location", "deadline", "designFiles", "designLinks", "submissionId", "createdAt"]
+              "intakeType", "projectType", "dimensions", "quantity", "location", "deadline", "designFiles", "designLinks", "submissionId", "createdAt",
+              "utmSource", "utmMedium", "utmCampaign", "utmTerm", "utmContent", "landingPage", "referrerHost", "gclid", "gbraid", "wbraid", "fbclid", "ttclid", "msclkid"]
     // Kolom follow-up ditambahkan di kanan; delapan kolom lama tidak digeser.
   },
   Clients: {
@@ -824,6 +826,26 @@ function publicLeadIntake_(payload) {
   var notes = cleanText(input.notes, 1500, "notes");
   var email = cleanText(input.email, 180, "email");
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("INVALID_EMAIL");
+  var utmSource = cleanText(input.utmSource, 120, "utmSource");
+  var utmMedium = cleanText(input.utmMedium, 120, "utmMedium");
+  var utmCampaign = cleanText(input.utmCampaign, 180, "utmCampaign");
+  var utmTerm = cleanText(input.utmTerm, 180, "utmTerm");
+  var utmContent = cleanText(input.utmContent, 180, "utmContent");
+  var landingPage = cleanText(input.landingPage, 300, "landingPage");
+  var referrerHost = cleanText(input.referrerHost, 180, "referrerHost").toLowerCase();
+  if (landingPage && (landingPage.charAt(0) !== "/" || landingPage.indexOf("?") >= 0 || landingPage.indexOf("#") >= 0)) throw new Error("INVALID_LANDING_PAGE");
+  if (referrerHost && !/^[a-z0-9.-]+$/.test(referrerHost)) throw new Error("INVALID_REFERRER_HOST");
+  function cleanClickId(value, field) {
+    var id = cleanText(value, 200, field);
+    if (id && !/^[A-Za-z0-9._~-]+$/.test(id)) throw new Error("INVALID_" + field.toUpperCase());
+    return id;
+  }
+  var gclid = cleanClickId(input.gclid, "gclid");
+  var gbraid = cleanClickId(input.gbraid, "gbraid");
+  var wbraid = cleanClickId(input.wbraid, "wbraid");
+  var fbclid = cleanClickId(input.fbclid, "fbclid");
+  var ttclid = cleanClickId(input.ttclid, "ttclid");
+  var msclkid = cleanClickId(input.msclkid, "msclkid");
   var quantity = input.quantity === "" || input.quantity == null ? "" : Number(input.quantity);
   if (quantity !== "" && (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 1000000)) throw new Error("INVALID_QUANTITY");
   if (intakeType === "quick_contact" && !projectType) throw new Error("PROJECT_TYPE_REQUIRED");
@@ -885,7 +907,20 @@ function publicLeadIntake_(payload) {
       designFiles: JSON.stringify(designFiles),
       designLinks: JSON.stringify(designLinks),
       submissionId: submissionId,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      utmSource: utmSource,
+      utmMedium: utmMedium,
+      utmCampaign: utmCampaign,
+      utmTerm: utmTerm,
+      utmContent: utmContent,
+      landingPage: landingPage,
+      referrerHost: referrerHost,
+      gclid: gclid,
+      gbraid: gbraid,
+      wbraid: wbraid,
+      ttclid: ttclid,
+      fbclid: fbclid,
+      msclkid: msclkid
     };
     mergeSheet(ss, "Leads", [lead]);
     return { status: "success", duplicate: false, id: leadId };
