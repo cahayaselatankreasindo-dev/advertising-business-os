@@ -264,5 +264,14 @@ assert.match(authClient, /function designDownloadApiUrl\([\s\S]*?validDesignDown
 assert.match(authClient, /fetch\(designDownloadApiUrl\(\),\s*\{/, 'private download uses the validated endpoint selector');
 assert.ok(authClient.includes('id="csk-design-download-url"'), 'login gate exposes the optional staging endpoint field');
 assert.ok(authClient.includes('id="csk-auth-save-download-url"'), 'login gate exposes an explicit save action for the staging endpoint');
+const endpointValidator = authClient.match(/function validDesignDownloadApiUrl\(value\) \{[\s\S]*?\n  \}/);
+assert.ok(endpointValidator, 'download endpoint validator is defined');
+const endpointSandbox = { URL };
+vm.runInNewContext(endpointValidator[0] + '\nthis.validateEndpoint = validDesignDownloadApiUrl;', endpointSandbox);
+assert.equal(endpointSandbox.validateEndpoint('https://cahayaselatankreasindo.my.id/api/design-download'), true, 'production download endpoint is accepted');
+assert.equal(endpointSandbox.validateEndpoint('https://feature-website-inquiry-crm.cahaya-selatan-kreasindo.pages.dev/api/design-download'), true, 'CSK branch Preview endpoint is accepted');
+assert.equal(endpointSandbox.validateEndpoint('https://example.com/api/design-download'), false, 'unrelated download host is rejected');
+assert.equal(endpointSandbox.validateEndpoint('https://cahayaselatankreasindo.my.id/other-route'), false, 'unexpected API route is rejected');
+assert.equal(endpointSandbox.validateEndpoint('http://cahayaselatankreasindo.my.id/api/design-download'), false, 'non-HTTPS download endpoint is rejected');
 
 console.log('CSK PIN authentication, server-side RBAC, safe migration, private design access, and outbound-email safety checks passed.');
