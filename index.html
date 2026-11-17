@@ -1814,6 +1814,15 @@
             escapeInvoiceHtml(url.href) + '">' + escapeInvoiceHtml(url.hostname + url.pathname) + '</a>';
         } catch (_) { return ''; }
       }).filter(Boolean);
+      const attribution = [
+        ['Sumber kampanye', lead.utmSource],
+        ['Medium', lead.utmMedium],
+        ['Nama kampanye', lead.utmCampaign],
+        ['Konten iklan', lead.utmContent],
+        ['Kata kunci', lead.utmTerm],
+        ['Halaman masuk', lead.landingPage],
+        ['Domain perujuk', lead.referrerHost]
+      ].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '');
       return '<section class="rounded-xl border border-amber-100 bg-amber-50/60 p-3">' +
         '<div class="flex flex-wrap items-center justify-between gap-2">' +
           '<span class="text-[10px] font-bold uppercase tracking-wide text-amber-800">Permintaan Website</span>' +
@@ -1824,6 +1833,7 @@
           escapeInvoiceHtml(value) + '</dd></div>').join('') + '</dl>' : '') +
         (fileHtml.length ? '<div class="mt-3 border-t border-amber-100 pt-2"><div class="text-[10px] text-stone-500">File desain privat</div><div class="mt-2 flex flex-wrap gap-2">' + fileHtml.join('') + '</div></div>' : '') +
         (linkHtml.length ? '<div class="mt-3 border-t border-amber-100 pt-2"><div class="text-[10px] text-stone-500">Link desain / referensi</div><div class="mt-1 flex flex-col gap-1 text-xs">' + linkHtml.join('') + '</div></div>' : '') +
+        (attribution.length ? '<div class="mt-3 border-t border-amber-100 pt-2"><div class="text-[10px] text-stone-500">Atribusi kampanye (internal)</div><dl class="mt-1 grid gap-1 sm:grid-cols-2">' + attribution.map(([label, value]) => '<div class="min-w-0"><dt class="text-[10px] text-stone-400">' + label + '</dt><dd class="break-all text-xs text-stone-700">' + escapeInvoiceHtml(value) + '</dd></div>').join('') + '</dl></div>' : '') +
         '</section>';
     }
 
