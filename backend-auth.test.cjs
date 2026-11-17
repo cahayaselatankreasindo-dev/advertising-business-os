@@ -258,7 +258,7 @@ const authClient = fs.readFileSync('security/guard.js', 'utf8');
 assert.ok(authClient.includes("var DESIGN_DOWNLOAD_URL_KEY = 'csk_design_download_api_url'"), 'download endpoint override uses a dedicated local setting');
 assert.ok(authClient.includes("var DEFAULT_DESIGN_DOWNLOAD_API_URL = 'https://cahayaselatankreasindo.my.id/api/design-download'"), 'production download endpoint remains the safe default');
 assert.ok(authClient.includes("u.hostname === 'cahayaselatankreasindo.my.id'"), 'download endpoint allowlists the production host');
-assert.ok(authClient.includes("cahaya-selatan-kreasindo\\.pages\\.dev"), 'download endpoint allowlists this project's Cloudflare Pages preview hosts');
+assert.ok(authClient.includes("cahaya-selatan-kreasindo\\.pages\\.dev"), 'download endpoint allowlists this project Cloudflare Pages preview hosts');
 assert.ok(authClient.includes("u.pathname === '/api/design-download'"), 'download endpoint only permits the design-download route');
 assert.match(authClient, /function designDownloadApiUrl\([\s\S]*?validDesignDownloadApiUrl\(saved\)[\s\S]*?DEFAULT_DESIGN_DOWNLOAD_API_URL/, 'invalid stored endpoints fall back to production');
 assert.match(authClient, /fetch\(designDownloadApiUrl\(\),\s*\{/, 'private download uses the validated endpoint selector');
