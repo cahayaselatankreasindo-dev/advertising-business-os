@@ -188,6 +188,7 @@ assert.ok(canonicalBackend.includes('"PrivacyConsentAt"') && canonicalBackend.in
 assert.ok(canonicalBackend.includes('if (input.privacyConsent !== true) throw new Error("PRIVACY_CONSENT_REQUIRED")'), 'public intake requires explicit privacy consent');
 assert.ok(canonicalBackend.includes('privacyConsentAt: privacyConsentAt'), 'public intake records server-side consent timestamp');
 assert.ok(canonicalBackend.includes('privacyPolicyVersion: privacyPolicyVersion'), 'public intake records the policy version');
+assert.ok(canonicalBackend.includes('UNSAFE_SPREADSHEET_VALUE'), 'public intake blocks spreadsheet formula injection');
 assert.ok(canonicalBackend.includes('utmCampaign: utmCampaign'), 'public intake persists campaign attribution');
 assert.ok(canonicalBackend.includes('INVALID_LANDING_PAGE'), 'public intake validates landing page path');
 assert.ok(canonicalBackend.includes('function cleanClickId(value, field)'), 'public intake validates click IDs using a strict allowlist');
@@ -207,6 +208,32 @@ assert.throws(() => intakeSandbox.publicLeadIntake({ secret: 'x'.repeat(40), lea
 assert.throws(() => intakeSandbox.publicLeadIntake({ secret: 'x'.repeat(40), lead: {
   submissionId: 'submission-id-123456', name: 'PT Contoh', phone: '08123456789', intakeType: 'quick_contact', projectType: 'Booth', privacyConsent: false
 } }), /PRIVACY_CONSENT_REQUIRED/);
+assert.throws(() => intakeSandbox.publicLeadIntake({ secret: 'x'.repeat(40), lead: {
+  submissionId: 'submission-id-123456', name: '=HYPERLINK("https://evil.example","click")', phone: '08123456789', intakeType: 'quick_contact', projectType: 'Booth', privacyConsent: true
+} }), /UNSAFE_SPREADSHEET_VALUE:name/);
+
+const writeState = {};
+const writeSandbox = {
+  PropertiesService: { getScriptProperties: () => ({ getProperty: key => key === 'CSK_PUBLIC_INTAKE_SECRET' ? 'x'.repeat(40) : '' }) },
+  cskConstantTimeEquals_: (a, b) => a === b,
+  LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
+  SpreadsheetApp: { getActiveSpreadsheet: () => ({}) },
+  Utilities: { getUuid: () => '12345678-1234-1234-1234-123456789abc' },
+  readSheetData: () => [],
+  mergeSheet: (ss, sheetName, leads) => { writeState.sheetName = sheetName; writeState.lead = leads[0]; }
+};
+vm.runInNewContext(extractBackendFunction('publicLeadIntake_') + '\nthis.publicLeadIntake = publicLeadIntake_;', writeSandbox);
+const writeResult = writeSandbox.publicLeadIntake({ secret: 'x'.repeat(40), lead: {
+  submissionId: 'submission-id-123456', name: 'PT Contoh', phone: '08123456789',
+  intakeType: 'quick_contact', projectType: 'Booth', pic: 'Budi Santoso',
+  privacyConsent: true, privacyConsentAt: '1999-01-01T00:00:00.000Z', privacyPolicyVersion: 'spoofed'
+} });
+assert.equal(writeResult.status, 'success');
+assert.equal(writeState.sheetName, 'Leads');
+assert.equal(writeState.lead.privacyConsent, true);
+assert.ok(!Number.isNaN(Date.parse(writeState.lead.privacyConsentAt)), 'consent timestamp is generated server-side');
+assert.notEqual(writeState.lead.privacyConsentAt, '1999-01-01T00:00:00.000Z', 'client timestamp is ignored');
+assert.equal(writeState.lead.privacyPolicyVersion, '2026-11-18', 'server controls the policy version');
 
 const downloadKey = 'incoming/submission-id-123456/12345678-1234-1234-1234-123456789abc.pdf';
 const downloadSandbox = {
