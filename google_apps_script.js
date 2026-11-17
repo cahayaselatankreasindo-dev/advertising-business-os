@@ -839,7 +839,7 @@ function publicLeadIntake_(payload) {
   var utmContent = cleanText(input.utmContent, 180, "utmContent");
   var landingPage = cleanText(input.landingPage, 300, "landingPage");
   var referrerHost = cleanText(input.referrerHost, 180, "referrerHost").toLowerCase();
-  if (landingPage && (landingPage.charAt(0) !== "/" || landingPage.indexOf("?") >= 0 || landingPage.indexOf("#") >= 0)) throw new Error("INVALID_LANDING_PAGE");
+  if (landingPage && (landingPage.charAt(0) !== "/" || landingPage.indexOf("//") === 0 || landingPage.indexOf("\\") >= 0 || landingPage.indexOf("?") >= 0 || landingPage.indexOf("#") >= 0)) throw new Error("INVALID_LANDING_PAGE");
   if (referrerHost && !/^[a-z0-9.-]+$/.test(referrerHost)) throw new Error("INVALID_REFERRER_HOST");
   function cleanClickId(value, field) {
     var id = cleanText(value, 200, field);
