@@ -50,11 +50,11 @@ var FIELD_MAP = {
     headers: ["ID", "Tanggal", "Nama", "WhatsApp", "Sumber", "EstimasiNilai", "Status", "Catatan",
               "Email", "Website", "Industri", "PIC", "JabatanPIC", "LinkedIn", "SkorPrioritas", "NextFollowUp", "LastContactAt", "FollowUpNote",
               "IntakeType", "ProjectType", "Dimensions", "Quantity", "Location", "Deadline", "DesignFiles", "DesignLinks", "SubmissionID", "CreatedAt",
-              "UtmSource", "UtmMedium", "UtmCampaign", "UtmTerm", "UtmContent", "LandingPage", "ReferrerHost", "Gclid", "Gbraid", "Wbraid", "Fbclid", "Ttclid", "Msclkid"],
+              "UtmSource", "UtmMedium", "UtmCampaign", "UtmTerm", "UtmContent", "LandingPage", "ReferrerHost", "Gclid", "Gbraid", "Wbraid", "Fbclid", "Ttclid", "Msclkid", "PrivacyConsent", "PrivacyConsentAt", "PrivacyPolicyVersion"],
     fields:  ["id", "date", "name", "phone", "source", "value", "status", "notes",
               "email", "website", "industry", "pic", "picTitle", "linkedin", "score", "nextFollowUp", "lastContactAt", "followUpNote",
               "intakeType", "projectType", "dimensions", "quantity", "location", "deadline", "designFiles", "designLinks", "submissionId", "createdAt",
-              "utmSource", "utmMedium", "utmCampaign", "utmTerm", "utmContent", "landingPage", "referrerHost", "gclid", "gbraid", "wbraid", "fbclid", "ttclid", "msclkid"]
+              "utmSource", "utmMedium", "utmCampaign", "utmTerm", "utmContent", "landingPage", "referrerHost", "gclid", "gbraid", "wbraid", "fbclid", "ttclid", "msclkid", "privacyConsent", "privacyConsentAt", "privacyPolicyVersion"]
     // Kolom follow-up ditambahkan di kanan; delapan kolom lama tidak digeser.
   },
   Clients: {
@@ -813,6 +813,9 @@ function publicLeadIntake_(payload) {
   if (name.length < 2 || name.length > 160) throw new Error("INVALID_LEAD_NAME");
   if (!/^\+?[0-9][0-9 ()-]{7,19}$/.test(phone)) throw new Error("INVALID_LEAD_PHONE");
   if (["quick_contact", "project_brief"].indexOf(intakeType) < 0) throw new Error("INVALID_INTAKE_TYPE");
+  if (input.privacyConsent !== true) throw new Error("PRIVACY_CONSENT_REQUIRED");
+  var privacyConsentAt = new Date().toISOString();
+  var privacyPolicyVersion = "2026-11-18";
 
   function cleanText(value, max, field) {
     var text = String(value == null ? "" : value).trim();
@@ -930,7 +933,10 @@ function publicLeadIntake_(payload) {
       wbraid: wbraid,
       fbclid: fbclid,
       ttclid: ttclid,
-      msclkid: msclkid
+      msclkid: msclkid,
+      privacyConsent: true,
+      privacyConsentAt: privacyConsentAt,
+      privacyPolicyVersion: privacyPolicyVersion
     };
     mergeSheet(ss, "Leads", [lead]);
     return { status: "success", duplicate: false, id: leadId };
