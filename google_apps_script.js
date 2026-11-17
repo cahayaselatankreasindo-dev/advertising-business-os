@@ -826,6 +826,12 @@ function publicLeadIntake_(payload) {
   var notes = cleanText(input.notes, 1500, "notes");
   var email = cleanText(input.email, 180, "email");
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("INVALID_EMAIL");
+  var pic = cleanText(input.pic, 160, "pic");
+  var picTitle = cleanText(input.picTitle, 120, "picTitle");
+  var industry = cleanText(input.industry, 120, "industry");
+  var website = cleanText(input.website, 1000, "website");
+  if (pic.length < 2) throw new Error("INVALID_PIC");
+  if (website && !/^https:\/\/[a-z0-9.-]+(?::[0-9]{1,5})?(?:\/[^\s]*)?$/i.test(website)) throw new Error("INVALID_WEBSITE");
   var utmSource = cleanText(input.utmSource, 120, "utmSource");
   var utmMedium = cleanText(input.utmMedium, 120, "utmMedium");
   var utmCampaign = cleanText(input.utmCampaign, 180, "utmCampaign");
@@ -898,6 +904,10 @@ function publicLeadIntake_(payload) {
       status: "new",
       notes: notes,
       email: email,
+      website: website,
+      industry: industry,
+      pic: pic,
+      picTitle: picTitle,
       intakeType: intakeType,
       projectType: projectType,
       dimensions: dimensions,
