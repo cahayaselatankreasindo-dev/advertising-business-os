@@ -9,6 +9,8 @@
   var OWNER_KEY = 'csk_business_os_db_owner';
   var TEAM_KEY = 'csk_business_os_db_team';
   var URL_KEY = 'csk_gas_url';
+  var DESIGN_DOWNLOAD_URL_KEY = 'csk_design_download_api_url';
+  var DEFAULT_DESIGN_DOWNLOAD_API_URL = 'https://cahayaselatankreasindo.my.id/api/design-download';
   var SESSION_TTL_LABEL = 'Sesi aktif · berakhir setelah 30 menit tidak ada aktivitas';
   var sessionId = '';
   var identity = null;
@@ -38,6 +40,20 @@
         /^\/macros\/s\/[^/]+\/exec\/?$/.test(u.pathname);
     } catch (e) { return false; }
   }
+  function validDesignDownloadApiUrl(value) {
+    try {
+      var u = new URL(String(value || '').trim());
+      var allowedHost = u.hostname === 'cahayaselatankreasindo.my.id' ||
+        /^[a-z0-9-]+\.cahaya-selatan-kreasindo\.pages\.dev$/i.test(u.hostname);
+      return u.protocol === 'https:' && allowedHost &&
+        u.pathname === '/api/design-download' && !u.search && !u.hash &&
+        !u.username && !u.password;
+    } catch (e) { return false; }
+  }
+  function designDownloadApiUrl() {
+    var saved = safeLocalGet(DESIGN_DOWNLOAD_URL_KEY);
+    return validDesignDownloadApiUrl(saved) ? saved : DEFAULT_DESIGN_DOWNLOAD_API_URL;
+  }
   function randomSessionId() {
     if (!window.crypto || !window.crypto.getRandomValues) throw new Error('Browser tidak mendukung secure random. Gunakan Chrome/Edge versi terbaru.');
     var bytes = new Uint8Array(32);
@@ -62,7 +78,7 @@
     document.head.appendChild(style);
     gate = document.createElement('div');
     gate.id = 'csk-auth-gate';
-    gate.innerHTML = '<div id="csk-auth-card"><div style="font-size:20px;font-weight:800;color:#0f172a;letter-spacing:.02em">CSK BUSINESS OS</div><p style="font-size:13px;color:#64748b;margin:7px 0 20px">Masuk dengan email terdaftar dan PIN pribadi.</p><label for="csk-login-email" style="display:block;font-size:12px;font-weight:700;color:#334155;margin:0 0 5px">Email akun</label><input id="csk-login-email" type="email" autocomplete="username" placeholder="nama@email.com"><label for="csk-login-pin" style="display:block;font-size:12px;font-weight:700;color:#334155;margin:14px 0 5px">PIN (8-12 digit)</label><input id="csk-login-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12" autocomplete="current-password" placeholder="Masukkan PIN"><label for="csk-backend-url" style="display:block;font-size:12px;font-weight:700;color:#334155;margin:14px 0 5px">Google Apps Script Web App URL</label><input id="csk-backend-url" type="url" autocomplete="url" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:11px"><button id="csk-auth-save-url" type="button" style="margin-top:8px">Simpan URL Backend</button><button id="csk-auth-login" type="button" style="margin-top:12px">Masuk</button><p id="csk-auth-status" style="margin:12px 0 0">Siapkan URL backend dan masukkan email serta PIN.</p><p style="font-size:10px;line-height:1.5;color:#94a3b8;margin:10px 0 0">Akses Tim hanya untuk Leads, Klien, dan Proyek. Data keuangan dan pengaturan Owner dibatasi di server.</p></div>';
+    gate.innerHTML = '<div id="csk-auth-card"><div style="font-size:20px;font-weight:800;color:#0f172a;letter-spacing:.02em">CSK BUSINESS OS</div><p style="font-size:13px;color:#64748b;margin:7px 0 20px">Masuk dengan email terdaftar dan PIN pribadi.</p><label for="csk-login-email" style="display:block;font-size:12px;font-weight:700;color:#334155;margin:0 0 5px">Email akun</label><input id="csk-login-email" type="email" autocomplete="username" placeholder="nama@email.com"><label for="csk-login-pin" style="display:block;font-size:12px;font-weight:700;color:#334155;margin:14px 0 5px">PIN (8-12 digit)</label><input id="csk-login-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12" autocomplete="current-password" placeholder="Masukkan PIN"><label for="csk-backend-url" style="display:block;font-size:12px;font-weight:700;color:#334155;margin:14px 0 5px">Google Apps Script Web App URL</label><input id="csk-backend-url" type="url" autocomplete="url" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:11px"><button id="csk-auth-save-url" type="button" style="margin-top:8px">Simpan URL Backend</button><label for="csk-design-download-url" style="display:block;font-size:12px;font-weight:700;color:#334155;margin:14px 0 5px">Endpoint unduhan lampiran (opsional)</label><input id="csk-design-download-url" type="url" autocomplete="url" style="font-size:11px"><button id="csk-auth-save-download-url" type="button" style="margin-top:8px">Simpan Endpoint Unduhan</button><p style="font-size:10px;line-height:1.45;color:#64748b;margin:6px 0 0">Produksi memakai endpoint website utama. Untuk staging, gunakan URL Preview Cloudflare Pages.</p><button id="csk-auth-login" type="button" style="margin-top:12px">Masuk</button><p id="csk-auth-status" style="margin:12px 0 0">Siapkan URL backend dan masukkan email serta PIN.</p><p style="font-size:10px;line-height:1.5;color:#94a3b8;margin:10px 0 0">Akses Tim hanya untuk Leads, Klien, dan Proyek. Data keuangan dan pengaturan Owner dibatasi di server.</p></div>';
     document.body.appendChild(gate);
     var save = document.getElementById('csk-auth-save-url');
     if (save) save.addEventListener('click', function () {
@@ -74,6 +90,17 @@
         db.settings.googleSheetUrl = value;
       }
       status('URL backend tersimpan di perangkat ini.');
+    });
+    var downloadInput = document.getElementById('csk-design-download-url');
+    if (downloadInput) downloadInput.value = designDownloadApiUrl();
+    var saveDownload = document.getElementById('csk-auth-save-download-url');
+    if (saveDownload) saveDownload.addEventListener('click', function () {
+      var value = document.getElementById('csk-design-download-url').value.trim();
+      if (!validDesignDownloadApiUrl(value)) {
+        return status('Endpoint unduhan harus memakai domain resmi CSK atau Preview Cloudflare Pages dan path /api/design-download.', true);
+      }
+      safeLocalSet(DESIGN_DOWNLOAD_URL_KEY, value);
+      status('Endpoint unduhan lampiran tersimpan di perangkat ini.');
     });
     var login = document.getElementById('csk-auth-login');
     if (login) login.addEventListener('click', loginWithPin);
@@ -493,7 +520,7 @@
         !/^incoming\/[A-Za-z0-9_-]{16,100}\/[0-9a-f-]{36}\.(pdf|jpg|png)$/i.test(String(key || ''))) {
       throw new Error('INVALID_DESIGN_FILE_REFERENCE');
     }
-    var response = await fetch('https://cahayaselatankreasindo.my.id/api/design-download', {
+    var response = await fetch(designDownloadApiUrl(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
@@ -566,6 +593,8 @@
   var initialUrl = apiUrl() || safeLocalGet(URL_KEY);
   var urlField = document.getElementById('csk-backend-url');
   if (urlField) urlField.value = initialUrl;
+  var downloadUrlField = document.getElementById('csk-design-download-url');
+  if (downloadUrlField) downloadUrlField.value = designDownloadApiUrl();
   var emailField = document.getElementById('csk-login-email');
   if (emailField) emailField.value = OWNER_EMAIL;
   document.addEventListener('DOMContentLoaded', function () {
