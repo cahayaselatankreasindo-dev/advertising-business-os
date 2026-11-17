@@ -252,4 +252,15 @@ assert.throws(() => downloadSandbox.authorize({
   leadId: 'WEB-1234567890ABCDEF1234', key: 'incoming/other-submission-123456/12345678-1234-1234-1234-123456789abc.pdf'
 }, { role: 'team' }), /DESIGN_FILE_SUBMISSION_MISMATCH/, 'file key must match the Lead submission ID');
 
+// Attachment downloads can be switched to a Cloudflare Preview endpoint for staging.
+// Only the official production host and this project's Pages subdomains are accepted.
+const authClient = fs.readFileSync('security/guard.js', 'utf8');
+assert.ok(authClient.includes("var DESIGN_DOWNLOAD_URL_KEY = 'csk_design_download_api_url'"), 'download endpoint override uses a dedicated local setting');
+assert.ok(authClient.includes("var DEFAULT_DESIGN_DOWNLOAD_API_URL = 'https://cahayaselatankreasindo.my.id/api/design-download'"), 'production download endpoint remains the safe default');
+assert.match(authClient, /function validDesignDownloadApiUrl\([\s\S]*?u\.hostname === 'cahayaselatankreasindo\.my\.id'[\s\S]*?pages\.dev[\s\S]*?u\.pathname === '\/api\/design-download'/, 'download endpoint is restricted to CSK production and Pages preview hosts');
+assert.match(authClient, /function designDownloadApiUrl\([\s\S]*?validDesignDownloadApiUrl\(saved\)[\s\S]*?DEFAULT_DESIGN_DOWNLOAD_API_URL/, 'invalid stored endpoints fall back to production');
+assert.match(authClient, /fetch\(designDownloadApiUrl\(\),\s*\{/, 'private download uses the validated endpoint selector');
+assert.ok(authClient.includes('id="csk-design-download-url"'), 'login gate exposes the optional staging endpoint field');
+assert.ok(authClient.includes('id="csk-auth-save-download-url"'), 'login gate exposes an explicit save action for the staging endpoint');
+
 console.log('CSK PIN authentication, server-side RBAC, safe migration, private design access, and outbound-email safety checks passed.');
