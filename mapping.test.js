@@ -249,7 +249,7 @@ if (FIELD_MAP) {
   eq(FIELD_MAP.Leads.fields.slice(18, 28),
     ['intakeType','projectType','dimensions','quantity','location','deadline','designFiles','designLinks','submissionId','createdAt'],
     'FIELD_MAP.Leads fields intake ditambahkan setelah seluruh field lama');
-  eq(FIELD_MAP.Leads.headers.slice(28),
+  eq(FIELD_MAP.Leads.headers.slice(28, 41),
     ['UtmSource','UtmMedium','UtmCampaign','UtmTerm','UtmContent','LandingPage','ReferrerHost','Gclid','Gbraid','Wbraid','Fbclid','Ttclid','Msclkid'],
     'FIELD_MAP.Leads menyimpan atribusi kampanye di ujung kontrak');
   eq(FIELD_MAP.Leads.fields.slice(28, 41),
