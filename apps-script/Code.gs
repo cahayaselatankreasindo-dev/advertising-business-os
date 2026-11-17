@@ -928,8 +928,8 @@ function publicLeadIntake_(payload) {
       gclid: gclid,
       gbraid: gbraid,
       wbraid: wbraid,
-      ttclid: ttclid,
       fbclid: fbclid,
+      ttclid: ttclid,
       msclkid: msclkid
     };
     mergeSheet(ss, "Leads", [lead]);
