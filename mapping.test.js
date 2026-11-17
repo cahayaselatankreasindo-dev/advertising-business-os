@@ -243,12 +243,18 @@ if (FIELD_MAP) {
   eq(FIELD_MAP.Leads.fields.slice(15, 18),
     ['nextFollowUp','lastContactAt','followUpNote'],
     'FIELD_MAP.Leads mempertahankan field follow-up pada posisi lama');
-  eq(FIELD_MAP.Leads.headers.slice(18),
+  eq(FIELD_MAP.Leads.headers.slice(18, 28),
     ['IntakeType','ProjectType','Dimensions','Quantity','Location','Deadline','DesignFiles','DesignLinks','SubmissionID','CreatedAt'],
-    'FIELD_MAP.Leads menambahkan field intake hanya di ujung kontrak');
-  eq(FIELD_MAP.Leads.fields.slice(18),
+    'FIELD_MAP.Leads menambahkan field intake setelah seluruh field lama');
+  eq(FIELD_MAP.Leads.fields.slice(18, 28),
     ['intakeType','projectType','dimensions','quantity','location','deadline','designFiles','designLinks','submissionId','createdAt'],
     'FIELD_MAP.Leads fields intake ditambahkan setelah seluruh field lama');
+  eq(FIELD_MAP.Leads.headers.slice(28),
+    ['UtmSource','UtmMedium','UtmCampaign','UtmTerm','UtmContent','LandingPage','ReferrerHost','Gclid','Gbraid','Wbraid','Fbclid','Ttclid','Msclkid'],
+    'FIELD_MAP.Leads menyimpan atribusi kampanye di ujung kontrak');
+  eq(FIELD_MAP.Leads.fields.slice(28),
+    ['utmSource','utmMedium','utmCampaign','utmTerm','utmContent','landingPage','referrerHost','gclid','gbraid','wbraid','fbclid','ttclid','msclkid'],
+    'FIELD_MAP.Leads memetakan field atribusi kampanye');
   eq(FIELD_MAP.Projects.headers,
     ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim','SuggestedPrice','SourceQuotationID','SourceInvoiceID'],
     'FIELD_MAP.Projects.headers = hasil Tahap 2 + PIC_Tim');
