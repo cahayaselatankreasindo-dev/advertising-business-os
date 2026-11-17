@@ -252,9 +252,15 @@ if (FIELD_MAP) {
   eq(FIELD_MAP.Leads.headers.slice(28),
     ['UtmSource','UtmMedium','UtmCampaign','UtmTerm','UtmContent','LandingPage','ReferrerHost','Gclid','Gbraid','Wbraid','Fbclid','Ttclid','Msclkid'],
     'FIELD_MAP.Leads menyimpan atribusi kampanye di ujung kontrak');
-  eq(FIELD_MAP.Leads.fields.slice(28),
+  eq(FIELD_MAP.Leads.fields.slice(28, 41),
     ['utmSource','utmMedium','utmCampaign','utmTerm','utmContent','landingPage','referrerHost','gclid','gbraid','wbraid','fbclid','ttclid','msclkid'],
     'FIELD_MAP.Leads memetakan field atribusi kampanye');
+  eq(FIELD_MAP.Leads.headers.slice(41),
+    ['PrivacyConsent','PrivacyConsentAt','PrivacyPolicyVersion'],
+    'FIELD_MAP.Leads menyimpan bukti persetujuan privasi');
+  eq(FIELD_MAP.Leads.fields.slice(41),
+    ['privacyConsent','privacyConsentAt','privacyPolicyVersion'],
+    'FIELD_MAP.Leads memetakan metadata persetujuan privasi');
   eq(FIELD_MAP.Projects.headers,
     ['ID','NamaProyek','Klien','NilaiProyek','Status','Deadline','Catatan','SOP_Checklist','PIC_Tim','SuggestedPrice','SourceQuotationID','SourceInvoiceID'],
     'FIELD_MAP.Projects.headers = hasil Tahap 2 + PIC_Tim');
