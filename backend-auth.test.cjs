@@ -183,6 +183,10 @@ assert.ok(canonicalBackend.includes('"DesignFiles"'), 'Lead contract includes de
 assert.ok(canonicalBackend.includes('"DesignLinks"'), 'Lead contract includes design link references');
 assert.ok(canonicalBackend.includes('"SubmissionID"'), 'Lead contract includes submission id');
 assert.ok(canonicalBackend.includes('Setup Secret Website Intake'), 'secret setup is available from the security menu');
+assert.ok(canonicalBackend.includes('"UtmSource"') && canonicalBackend.includes('"Msclkid"'), 'Lead contract stores UTM and paid-click attribution fields');
+assert.ok(canonicalBackend.includes('utmCampaign: utmCampaign'), 'public intake persists campaign attribution');
+assert.ok(canonicalBackend.includes('INVALID_LANDING_PAGE'), 'public intake validates landing page path');
+assert.ok(canonicalBackend.includes('INVALID_GCLID'), 'public intake validates click IDs');
 
 const intakeSandbox = {
   PropertiesService: { getScriptProperties: () => ({ getProperty: key => key === 'CSK_PUBLIC_INTAKE_SECRET' ? 'x'.repeat(40) : '' }) },
