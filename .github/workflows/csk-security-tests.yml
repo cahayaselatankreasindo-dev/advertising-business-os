@@ -6,6 +6,7 @@ on:
       - main
       - security/csk-pin-rbac-hardening
       - feature/commercial-documents-standalone-20261109
+      - feature/hpp-material-conversion-20261120
   pull_request:
     branches:
       - main
