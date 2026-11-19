@@ -48,9 +48,13 @@
 var FIELD_MAP = {
   Leads: {
     headers: ["ID", "Tanggal", "Nama", "WhatsApp", "Sumber", "EstimasiNilai", "Status", "Catatan",
-              "Email", "Website", "Industri", "PIC", "JabatanPIC", "LinkedIn", "SkorPrioritas", "NextFollowUp", "LastContactAt", "FollowUpNote"],
+              "Email", "Website", "Industri", "PIC", "JabatanPIC", "LinkedIn", "SkorPrioritas", "NextFollowUp", "LastContactAt", "FollowUpNote",
+              "IntakeType", "ProjectType", "Dimensions", "Quantity", "Location", "Deadline", "DesignFiles", "DesignLinks", "SubmissionID", "CreatedAt",
+              "UtmSource", "UtmMedium", "UtmCampaign", "UtmTerm", "UtmContent", "LandingPage", "ReferrerHost", "Gclid", "Gbraid", "Wbraid", "Fbclid", "Ttclid", "Msclkid", "PrivacyConsent", "PrivacyConsentAt", "PrivacyPolicyVersion"],
     fields:  ["id", "date", "name", "phone", "source", "value", "status", "notes",
-              "email", "website", "industry", "pic", "picTitle", "linkedin", "score", "nextFollowUp", "lastContactAt", "followUpNote"]
+              "email", "website", "industry", "pic", "picTitle", "linkedin", "score", "nextFollowUp", "lastContactAt", "followUpNote",
+              "intakeType", "projectType", "dimensions", "quantity", "location", "deadline", "designFiles", "designLinks", "submissionId", "createdAt",
+              "utmSource", "utmMedium", "utmCampaign", "utmTerm", "utmContent", "landingPage", "referrerHost", "gclid", "gbraid", "wbraid", "fbclid", "ttclid", "msclkid", "privacyConsent", "privacyConsentAt", "privacyPolicyVersion"]
     // Kolom follow-up ditambahkan di kanan; delapan kolom lama tidak digeser.
   },
   Clients: {
@@ -680,12 +684,20 @@ function doPost(e) {
     var payload = JSON.parse((e && e.postData && e.postData.contents) || "{}");
     var action = String(payload.action || "").toLowerCase();
 
+    // Public website intake is isolated from all authenticated Business OS actions.
+    if (action === "public_lead_intake") {
+      return jsonResponse(publicLeadIntake_(payload));
+    }
+
     // Login adalah satu-satunya aksi yang tidak memerlukan sesi aktif.
     if (action === "login") {
       return jsonResponse(cskLoginWithPin_(payload.email, payload.pin, payload.sessionId));
     }
 
     var identity = cskRequireSession_(payload.sessionId);
+    if (action === "authorize_design_download") {
+      return jsonResponse(authorizeDesignDownload_(payload, identity));
+    }
     if (action === "logout") {
       cskRevokeSession_(payload.sessionId);
       return jsonResponse({ status: "success", message: "Sesi ditutup." });
@@ -778,6 +790,192 @@ function doPost(e) {
   } catch (err) {
     return jsonResponse({ status: "error", code: String(err && err.message || err), message: "Permintaan ditolak atau gagal diproses." });
   }
+}
+
+// ============== PUBLIC WEBSITE LEAD INTAKE ==============
+// Endpoint ini hanya boleh membuat Lead baru. Tidak menerima status, nilai,
+// akses baca, update, delete, atau aksi Business OS lainnya.
+function publicLeadIntake_(payload) {
+  var props = PropertiesService.getScriptProperties();
+  var expectedSecret = String(props.getProperty("CSK_PUBLIC_INTAKE_SECRET") || "");
+  var suppliedSecret = String(payload && payload.secret || "");
+  if (expectedSecret.length < 32 || !cskConstantTimeEquals_(expectedSecret, suppliedSecret)) {
+    throw new Error("PUBLIC_INTAKE_UNAUTHORIZED");
+  }
+
+  var input = payload && payload.lead && typeof payload.lead === "object" ? payload.lead : {};
+  var submissionId = String(input.submissionId || "").trim();
+  if (!/^[A-Za-z0-9_-]{16,100}$/.test(submissionId)) throw new Error("INVALID_SUBMISSION_ID");
+
+  var name = cleanText(input.name, 160, "name");
+  var phone = cleanText(input.phone, 24, "phone");
+  var intakeType = String(input.intakeType || "").trim();
+  if (name.length < 2) throw new Error("INVALID_LEAD_NAME");
+  if (!/^\+?[0-9][0-9 ()-]{7,19}$/.test(phone)) throw new Error("INVALID_LEAD_PHONE");
+  if (["quick_contact", "project_brief"].indexOf(intakeType) < 0) throw new Error("INVALID_INTAKE_TYPE");
+  if (input.privacyConsent !== true) throw new Error("PRIVACY_CONSENT_REQUIRED");
+  var privacyConsentAt = new Date().toISOString();
+  var privacyPolicyVersion = "2026-11-18";
+
+  function cleanText(value, max, field) {
+    var text = String(value == null ? "" : value).trim();
+    if (text.length > max) throw new Error("FIELD_TOO_LONG:" + field);
+    if (text.charAt(0) === "=") throw new Error("UNSAFE_SPREADSHEET_VALUE:" + field);
+    return text;
+  }
+  var projectType = cleanText(input.projectType, 120, "projectType");
+  var dimensions = cleanText(input.dimensions, 300, "dimensions");
+  var location = cleanText(input.location, 180, "location");
+  var deadline = cleanText(input.deadline, 10, "deadline");
+  var notes = cleanText(input.notes, 1500, "notes");
+  var email = cleanText(input.email, 180, "email");
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("INVALID_EMAIL");
+  var pic = cleanText(input.pic, 160, "pic");
+  var picTitle = cleanText(input.picTitle, 120, "picTitle");
+  var industry = cleanText(input.industry, 120, "industry");
+  var website = cleanText(input.website, 1000, "website");
+  if (pic.length < 2) throw new Error("INVALID_PIC");
+  if (website && !/^https:\/\/[a-z0-9.-]+(?::[0-9]{1,5})?(?:\/[^\s]*)?$/i.test(website)) throw new Error("INVALID_WEBSITE");
+  var utmSource = cleanText(input.utmSource, 120, "utmSource");
+  var utmMedium = cleanText(input.utmMedium, 120, "utmMedium");
+  var utmCampaign = cleanText(input.utmCampaign, 180, "utmCampaign");
+  var utmTerm = cleanText(input.utmTerm, 180, "utmTerm");
+  var utmContent = cleanText(input.utmContent, 180, "utmContent");
+  var landingPage = cleanText(input.landingPage, 300, "landingPage");
+  var referrerHost = cleanText(input.referrerHost, 180, "referrerHost").toLowerCase();
+  if (landingPage && (landingPage.charAt(0) !== "/" || landingPage.indexOf("//") === 0 || landingPage.indexOf("\\") >= 0 || landingPage.indexOf("?") >= 0 || landingPage.indexOf("#") >= 0)) throw new Error("INVALID_LANDING_PAGE");
+  if (referrerHost && !/^[a-z0-9.-]+$/.test(referrerHost)) throw new Error("INVALID_REFERRER_HOST");
+  function cleanClickId(value, field) {
+    var id = cleanText(value, 200, field);
+    if (id && !/^[A-Za-z0-9._~-]+$/.test(id)) throw new Error("INVALID_" + field.toUpperCase());
+    return id;
+  }
+  var gclid = cleanClickId(input.gclid, "gclid");
+  var gbraid = cleanClickId(input.gbraid, "gbraid");
+  var wbraid = cleanClickId(input.wbraid, "wbraid");
+  var fbclid = cleanClickId(input.fbclid, "fbclid");
+  var ttclid = cleanClickId(input.ttclid, "ttclid");
+  var msclkid = cleanClickId(input.msclkid, "msclkid");
+  var quantity = input.quantity === "" || input.quantity == null ? "" : Number(input.quantity);
+  if (quantity !== "" && (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 1000000)) throw new Error("INVALID_QUANTITY");
+  if (intakeType === "quick_contact" && !projectType) throw new Error("PROJECT_TYPE_REQUIRED");
+  if (intakeType === "project_brief" && (!projectType || !dimensions || quantity === "" || !location || !/^\d{4}-\d{2}-\d{2}$/.test(deadline))) {
+    throw new Error("INCOMPLETE_PROJECT_BRIEF");
+  }
+  if (deadline) {
+    var parsedDeadline = new Date(deadline + "T00:00:00Z");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline) || isNaN(parsedDeadline.getTime()) || parsedDeadline.toISOString().slice(0, 10) !== deadline) {
+      throw new Error("INVALID_DEADLINE");
+    }
+  }
+
+  var designFiles = Array.isArray(input.designFiles) ? input.designFiles : [];
+  var designLinks = Array.isArray(input.designLinks) ? input.designLinks : [];
+  if (designFiles.length > 5 || designLinks.length > 5) throw new Error("TOO_MANY_DESIGN_REFERENCES");
+  designFiles = designFiles.map(function(file) {
+    if (!file || typeof file !== "object") throw new Error("INVALID_DESIGN_FILE");
+    var key = cleanText(file.key, 220, "designFile.key");
+    var fileName = cleanText(file.name, 180, "designFile.name");
+    var contentType = cleanText(file.contentType, 80, "designFile.contentType");
+    var size = Number(file.size);
+    if (!key || !fileName || !Number.isSafeInteger(size) || size < 1 || size > 15728640) throw new Error("INVALID_DESIGN_FILE");
+    if (["application/pdf", "image/jpeg", "image/png"].indexOf(contentType) < 0) throw new Error("INVALID_DESIGN_FILE_TYPE");
+    return { key: key, name: fileName, contentType: contentType, size: size };
+  });
+  designLinks = designLinks.map(function(url) {
+    var value = cleanText(url, 1000, "designLink");
+    if (!/^https:\/\//i.test(value)) throw new Error("INVALID_DESIGN_LINK");
+    return value;
+  });
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var existing = readSheetData(ss, "Leads").find(function(lead) {
+      return String(lead.submissionId || "") === submissionId;
+    });
+    if (existing) return { status: "success", duplicate: true, id: existing.id };
+
+    var leadId = "WEB-" + Utilities.getUuid().replace(/-/g, "").slice(0, 20).toUpperCase();
+    var lead = {
+      id: leadId,
+      date: new Date().toISOString().slice(0, 10),
+      name: name,
+      phone: phone,
+      source: "Website",
+      value: "",
+      status: "new",
+      notes: notes,
+      email: email,
+      website: website,
+      industry: industry,
+      pic: pic,
+      picTitle: picTitle,
+      intakeType: intakeType,
+      projectType: projectType,
+      dimensions: dimensions,
+      quantity: quantity,
+      location: location,
+      deadline: deadline,
+      designFiles: JSON.stringify(designFiles),
+      designLinks: JSON.stringify(designLinks),
+      submissionId: submissionId,
+      createdAt: new Date().toISOString(),
+      utmSource: utmSource,
+      utmMedium: utmMedium,
+      utmCampaign: utmCampaign,
+      utmTerm: utmTerm,
+      utmContent: utmContent,
+      landingPage: landingPage,
+      referrerHost: referrerHost,
+      gclid: gclid,
+      gbraid: gbraid,
+      wbraid: wbraid,
+      fbclid: fbclid,
+      ttclid: ttclid,
+      msclkid: msclkid,
+      privacyConsent: true,
+      privacyConsentAt: privacyConsentAt,
+      privacyPolicyVersion: privacyPolicyVersion
+    };
+    mergeSheet(ss, "Leads", [lead]);
+    return { status: "success", duplicate: false, id: leadId };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function authorizeDesignDownload_(payload, identity) {
+  if (!identity || ["owner", "team"].indexOf(identity.role) < 0) throw new Error("FORBIDDEN");
+  var leadId = String(payload && payload.leadId || "").trim();
+  var key = String(payload && payload.key || "").trim();
+  if (!/^WEB-[A-Z0-9]{10,30}$/.test(leadId)) throw new Error("INVALID_LEAD_ID");
+  if (!/^incoming\/[A-Za-z0-9_-]{16,100}\/[0-9a-f-]{36}\.(pdf|jpg|png)$/i.test(key)) throw new Error("INVALID_DESIGN_FILE_KEY");
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var lead = readSheetData(ss, "Leads").find(function(item) {
+    return String(item.id || "") === leadId;
+  });
+  if (!lead) throw new Error("LEAD_NOT_FOUND");
+  var submissionId = String(lead.submissionId || "");
+  if (!submissionId || key.indexOf("incoming/" + submissionId + "/") !== 0) throw new Error("DESIGN_FILE_SUBMISSION_MISMATCH");
+  var files = [];
+  try { files = JSON.parse(String(lead.designFiles || "[]")); } catch (e) { files = []; }
+  var allowed = files.some(function(file) {
+    return file && String(file.key || "") === key;
+  });
+  if (!allowed) throw new Error("DESIGN_FILE_NOT_LINKED_TO_LEAD");
+  return { status: "success", authorized: true, role: identity.role };
+}
+
+function setupPublicLeadIntakeSecretFromPrompt() {
+  var ui = SpreadsheetApp.getUi();
+  var response = ui.prompt("Website Lead Intake", "Masukkan secret acak minimal 32 karakter. Simpan nilai yang sama sebagai Cloudflare secret CSK_PUBLIC_INTAKE_SECRET.", ui.ButtonSet.OK_CANCEL);
+  if (response.getSelectedButton() !== ui.Button.OK) return "Setup dibatalkan.";
+  var secret = String(response.getResponseText() || "").trim();
+  if (secret.length < 32 || secret.length > 200) throw new Error("Secret harus 32-200 karakter.");
+  PropertiesService.getScriptProperties().setProperty("CSK_PUBLIC_INTAKE_SECRET", secret);
+  return "Secret intake tersimpan di Script Properties.";
 }
 
 // Catat pembayaran secara idempoten: satu baris ledger dan satu jurnal Finance.
@@ -1421,5 +1619,6 @@ function onOpen(e) {
     .createMenu("CSK Security")
     .addItem("Setup PIN Owner & Tim", "setupCSKPinCredentialsFromPrompt")
     .addItem("Rotasi PIN Owner & Tim", "rotateCSKPinCredentialsFromPrompt")
+    .addItem("Setup Secret Website Intake", "setupPublicLeadIntakeSecretFromPrompt")
     .addToUi();
 }

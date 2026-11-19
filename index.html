@@ -1778,6 +1778,98 @@
       renderLeads();
     }
 
+    function renderLeadIntakeDetails(lead) {
+      if (!lead || !lead.intakeType) return '';
+      const typeLabel = lead.intakeType === 'project_brief' ? 'Brief proyek lengkap' : 'Kontak singkat';
+      const fields = [
+        ['Jenis pekerjaan', lead.projectType],
+        ['Ukuran / spesifikasi', lead.dimensions],
+        ['Jumlah', lead.quantity],
+        ['Lokasi', lead.location],
+        ['Deadline', lead.deadline]
+      ].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '');
+      let links = [];
+      try {
+        const parsed = Array.isArray(lead.designLinks) ? lead.designLinks : JSON.parse(String(lead.designLinks || '[]'));
+        if (Array.isArray(parsed)) links = parsed;
+      } catch (_) {}
+      let files = [];
+      try {
+        const parsed = Array.isArray(lead.designFiles) ? lead.designFiles : JSON.parse(String(lead.designFiles || '[]'));
+        if (Array.isArray(parsed)) files = parsed;
+      } catch (_) {}
+      const fileHtml = files.map((file) => {
+        if (!file || typeof file.key !== 'string' || typeof file.name !== 'string') return '';
+        return '<button type="button" data-csk-design-download="1" data-lead-id="' +
+          escapeInvoiceHtml(lead.id) + '" data-file-key="' + escapeInvoiceHtml(file.key) +
+          '" data-file-name="' + escapeInvoiceHtml(file.name) +
+          '" class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-50">' +
+          '<i class="fa fa-download"></i> Unduh ' + escapeInvoiceHtml(file.name) + '</button>';
+      }).filter(Boolean);
+      const linkHtml = links.map((value) => {
+        try {
+          const url = new URL(String(value));
+          if (url.protocol !== 'https:') return '';
+          return '<a rel="noopener noreferrer" target="_blank" class="text-blue-700 underline break-all" href="' +
+            escapeInvoiceHtml(url.href) + '">' + escapeInvoiceHtml(url.hostname + url.pathname) + '</a>';
+        } catch (_) { return ''; }
+      }).filter(Boolean);
+      const attribution = [
+        ['Sumber kampanye', lead.utmSource],
+        ['Medium', lead.utmMedium],
+        ['Nama kampanye', lead.utmCampaign],
+        ['Konten iklan', lead.utmContent],
+        ['Kata kunci', lead.utmTerm],
+        ['Halaman masuk', lead.landingPage],
+        ['Domain perujuk', lead.referrerHost]
+      ].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '');
+      if (lead.privacyConsent === true) {
+        attribution.push(['Persetujuan privasi', 'Disetujui']);
+        if (lead.privacyConsentAt) attribution.push(['Waktu persetujuan', lead.privacyConsentAt]);
+        if (lead.privacyPolicyVersion) attribution.push(['Versi kebijakan', lead.privacyPolicyVersion]);
+      }
+      return '<section class="rounded-xl border border-amber-100 bg-amber-50/60 p-3">' +
+        '<div class="flex flex-wrap items-center justify-between gap-2">' +
+          '<span class="text-[10px] font-bold uppercase tracking-wide text-amber-800">Permintaan Website</span>' +
+          '<span class="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-stone-600">' + typeLabel + '</span>' +
+        '</div>' +
+        (fields.length ? '<dl class="mt-3 grid gap-2 sm:grid-cols-2">' + fields.map(([label, value]) =>
+          '<div class="min-w-0"><dt class="text-[10px] text-stone-500">' + label + '</dt><dd class="mt-0.5 break-words text-xs font-medium text-stone-800">' +
+          escapeInvoiceHtml(value) + '</dd></div>').join('') + '</dl>' : '') +
+        (fileHtml.length ? '<div class="mt-3 border-t border-amber-100 pt-2"><div class="text-[10px] text-stone-500">File desain privat</div><div class="mt-2 flex flex-wrap gap-2">' + fileHtml.join('') + '</div></div>' : '') +
+        (linkHtml.length ? '<div class="mt-3 border-t border-amber-100 pt-2"><div class="text-[10px] text-stone-500">Link desain / referensi</div><div class="mt-1 flex flex-col gap-1 text-xs">' + linkHtml.join('') + '</div></div>' : '') +
+        (attribution.length ? '<div class="mt-3 border-t border-amber-100 pt-2"><div class="text-[10px] text-stone-500">Atribusi kampanye (internal)</div><dl class="mt-1 grid gap-1 sm:grid-cols-2">' + attribution.map(([label, value]) => '<div class="min-w-0"><dt class="text-[10px] text-stone-400">' + label + '</dt><dd class="break-all text-xs text-stone-700">' + escapeInvoiceHtml(value) + '</dd></div>').join('') + '</dl></div>' : '') +
+        '</section>';
+    }
+
+    document.addEventListener('click', async (event) => {
+      const button = event.target && event.target.closest ? event.target.closest('[data-csk-design-download]') : null;
+      if (!button || button.disabled) return;
+      if (!window.CSKAuth || typeof window.CSKAuth.downloadDesignFile !== 'function') {
+        showToast('Sesi autentikasi belum siap. Muat ulang aplikasi.', true);
+        return;
+      }
+      button.disabled = true;
+      const originalText = button.textContent;
+      button.textContent = 'Menyiapkan unduhan...';
+      try {
+        const blob = await window.CSKAuth.downloadDesignFile(button.dataset.leadId, button.dataset.fileKey);
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = button.dataset.fileName || 'referensi';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        showToast('Unduhan file ditolak: ' + String(error && error.message || error), true);
+      } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    });
+
     function renderLeads() {
       const container = document.getElementById('leads-container');
       if (!container) return;
@@ -1810,6 +1902,7 @@
               (l.date?'<span><i class="fa fa-calendar mr-1"></i>'+escapeInvoiceHtml(l.date)+'</span>':'') +
             '</div></div>' + (isOwnerSession() ? '<button onclick="deleteLead(\''+id+'\')" aria-label="Hapus lead" class="shrink-0 w-9 h-9 rounded-xl border border-stone-200 text-stone-400 hover:text-red-600 hover:bg-red-50"><i class="fa fa-trash"></i></button>' : '') + '</div>' +
           (l.notes?'<p class="text-xs leading-relaxed text-stone-600 bg-stone-50 border border-stone-100 rounded-xl p-3 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(l.notes)+'</p>':'') +
+          renderLeadIntakeDetails(l) +
           ((l.industry||l.pic||l.picTitle||websiteUrl||l.score||l.email)?'<div class="flex flex-wrap gap-2 text-[11px] text-stone-500 border-t border-stone-100 pt-3">'+
             (l.industry?'<span><i class="fa fa-industry mr-1"></i>'+escapeInvoiceHtml(l.industry)+'</span>':'')+
             (l.pic?'<span><i class="fa fa-user mr-1"></i>'+escapeInvoiceHtml(l.pic)+(l.picTitle?' · '+escapeInvoiceHtml(l.picTitle):'')+'</span>':'')+

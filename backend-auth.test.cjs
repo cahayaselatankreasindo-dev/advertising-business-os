@@ -74,6 +74,10 @@ assert.match(appScript, /isOwnerSession\(\) \? '<button onclick="deleteLead/, 'f
 assert.match(appScript, /isOwnerSession\(\)\?'<button onclick="deleteClient/, 'frontend: Team does not see the Clients delete button');
 assert.match(appScript, /isOwnerSession\(\) \? '<button onclick="deleteProject/, 'frontend: Team does not see the Projects delete button');
 
+assert.match(guard, /async function downloadDesignFile\(leadId, key\)/, 'frontend: private file download uses active authenticated session');
+assert.match(guard, /api\/design-download[\s\S]*?sessionId: sessionId, leadId: leadId, key: key/, 'frontend: design download sends active session and Lead-linked file reference to private endpoint');
+assert.match(guard, /downloadDesignFile: downloadDesignFile/, 'frontend: authenticated download is exposed to CRM');
+assert.match(appScript, /data-csk-design-download/, 'frontend: CRM renders controlled private file download controls');
 assert.match(guard, /legacyOwnerCache/, 'frontend: legacy Owner migration uses a temporary recovery cache');
 assert.doesNotMatch(guard, /safeLocalSet\(OWNER_KEY/, 'frontend: Owner database is not written to a persistent Owner cache');
 const ownerSave = guard.match(/function saveScoped\(\)[\s\S]*?\n  }/);
@@ -165,5 +169,109 @@ assert.equal(teamData.invoices, undefined, 'Team does not receive commercial inv
 assert.equal(teamData.quotations, undefined, 'Team does not receive commercial quotations');
 assert.equal(teamData.invoicePayments, undefined, 'Team does not receive payment ledger');
 assert.equal(roleSandbox.filterData(roleData, 'owner'), roleData, 'Owner receives the full authorized dataset');
+assert.ok(canonicalBackend.includes('function authorizeDesignDownload_('), 'private design download authorization handler exists');
+assert.match(canonicalBackend, /var identity = cskRequireSession_\(payload\.sessionId\);[\s\S]*?if \(action === "authorize_design_download"\)[\s\S]*?authorizeDesignDownload_\(payload, identity\)/, 'private design download is authorized only after session validation');
+assert.match(canonicalBackend, /function authorizeDesignDownload_\([\s\S]*?files\.some\(function\(file\)[\s\S]*?file\.key[\s\S]*?DESIGN_FILE_NOT_LINKED_TO_LEAD/, 'private design download requires file key to be linked to the requested Lead');
+assert.ok(canonicalBackend.includes('function publicLeadIntake_('), 'public website intake handler exists');
+assert.ok(canonicalBackend.includes('action === "public_lead_intake"'), 'public intake is routed before session authentication');
+assert.ok(canonicalBackend.includes('CSK_PUBLIC_INTAKE_SECRET'), 'public intake requires a server-side secret');
+assert.ok(canonicalBackend.includes('source: "Website"'), 'public intake source is server-controlled');
+assert.ok(canonicalBackend.includes('status: "new"'), 'public intake status is server-controlled');
+assert.ok(canonicalBackend.includes('submissionId: submissionId'), 'public intake stores idempotency key');
+assert.ok(canonicalBackend.includes('LockService.getScriptLock()'), 'public intake writes are serialized');
+assert.ok(canonicalBackend.includes('"DesignFiles"'), 'Lead contract includes design file references');
+assert.ok(canonicalBackend.includes('"DesignLinks"'), 'Lead contract includes design link references');
+assert.ok(canonicalBackend.includes('"SubmissionID"'), 'Lead contract includes submission id');
+assert.ok(canonicalBackend.includes('Setup Secret Website Intake'), 'secret setup is available from the security menu');
+assert.ok(canonicalBackend.includes('"UtmSource"') && canonicalBackend.includes('"Msclkid"'), 'Lead contract stores UTM and paid-click attribution fields');
+assert.ok(canonicalBackend.includes('"PrivacyConsentAt"') && canonicalBackend.includes('"PrivacyPolicyVersion"'), 'Lead contract stores privacy consent audit fields');
+assert.ok(canonicalBackend.includes('if (input.privacyConsent !== true) throw new Error("PRIVACY_CONSENT_REQUIRED")'), 'public intake requires explicit privacy consent');
+assert.ok(canonicalBackend.includes('privacyConsentAt: privacyConsentAt'), 'public intake records server-side consent timestamp');
+assert.ok(canonicalBackend.includes('privacyPolicyVersion: privacyPolicyVersion'), 'public intake records the policy version');
+assert.ok(canonicalBackend.includes('UNSAFE_SPREADSHEET_VALUE'), 'public intake blocks spreadsheet formula injection');
+assert.ok(canonicalBackend.includes('utmCampaign: utmCampaign'), 'public intake persists campaign attribution');
+assert.ok(canonicalBackend.includes('INVALID_LANDING_PAGE'), 'public intake validates landing page path');
+assert.ok(canonicalBackend.includes('function cleanClickId(value, field)'), 'public intake validates click IDs using a strict allowlist');
 
-console.log('CSK PIN authentication, server-side RBAC, safe migration, and outbound-email safety checks passed.');
+const intakeSandbox = {
+  PropertiesService: { getScriptProperties: () => ({ getProperty: key => key === 'CSK_PUBLIC_INTAKE_SECRET' ? 'x'.repeat(40) : '' }) },
+  cskConstantTimeEquals_: (a, b) => a === b
+};
+vm.runInNewContext(extractBackendFunction('publicLeadIntake_') + '\nthis.publicLeadIntake = publicLeadIntake_;', intakeSandbox);
+assert.throws(() => intakeSandbox.publicLeadIntake({ secret: 'wrong', lead: {} }), /PUBLIC_INTAKE_UNAUTHORIZED/);
+assert.throws(() => intakeSandbox.publicLeadIntake({ secret: 'x'.repeat(40), lead: {
+  submissionId: 'submission-id-123456', name: 'PT Contoh', phone: 'abc', intakeType: 'quick_contact'
+} }), /INVALID_LEAD_PHONE/);
+assert.throws(() => intakeSandbox.publicLeadIntake({ secret: 'x'.repeat(40), lead: {
+  submissionId: 'submission-id-123456', name: 'PT Contoh', phone: '08123456789', intakeType: 'invalid'
+} }), /INVALID_INTAKE_TYPE/);
+assert.throws(() => intakeSandbox.publicLeadIntake({ secret: 'x'.repeat(40), lead: {
+  submissionId: 'submission-id-123456', name: 'PT Contoh', phone: '08123456789', intakeType: 'quick_contact', projectType: 'Booth', privacyConsent: false
+} }), /PRIVACY_CONSENT_REQUIRED/);
+assert.throws(() => intakeSandbox.publicLeadIntake({ secret: 'x'.repeat(40), lead: {
+  submissionId: 'submission-id-123456', name: '=HYPERLINK("https://evil.example","click")', phone: '08123456789', intakeType: 'quick_contact', projectType: 'Booth', privacyConsent: true
+} }), /UNSAFE_SPREADSHEET_VALUE:name/);
+
+const writeState = {};
+const writeSandbox = {
+  PropertiesService: { getScriptProperties: () => ({ getProperty: key => key === 'CSK_PUBLIC_INTAKE_SECRET' ? 'x'.repeat(40) : '' }) },
+  cskConstantTimeEquals_: (a, b) => a === b,
+  LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
+  SpreadsheetApp: { getActiveSpreadsheet: () => ({}) },
+  Utilities: { getUuid: () => '12345678-1234-1234-1234-123456789abc' },
+  readSheetData: () => [],
+  mergeSheet: (ss, sheetName, leads) => { writeState.sheetName = sheetName; writeState.lead = leads[0]; }
+};
+vm.runInNewContext(extractBackendFunction('publicLeadIntake_') + '\nthis.publicLeadIntake = publicLeadIntake_;', writeSandbox);
+const writeResult = writeSandbox.publicLeadIntake({ secret: 'x'.repeat(40), lead: {
+  submissionId: 'submission-id-123456', name: 'PT Contoh', phone: '08123456789',
+  intakeType: 'quick_contact', projectType: 'Booth', pic: 'Budi Santoso',
+  privacyConsent: true, privacyConsentAt: '1999-01-01T00:00:00.000Z', privacyPolicyVersion: 'spoofed'
+} });
+assert.equal(writeResult.status, 'success');
+assert.equal(writeState.sheetName, 'Leads');
+assert.equal(writeState.lead.privacyConsent, true);
+assert.ok(!Number.isNaN(Date.parse(writeState.lead.privacyConsentAt)), 'consent timestamp is generated server-side');
+assert.notEqual(writeState.lead.privacyConsentAt, '1999-01-01T00:00:00.000Z', 'client timestamp is ignored');
+assert.equal(writeState.lead.privacyPolicyVersion, '2026-11-18', 'server controls the policy version');
+
+const downloadKey = 'incoming/submission-id-123456/12345678-1234-1234-1234-123456789abc.pdf';
+const downloadSandbox = {
+  SpreadsheetApp: { getActiveSpreadsheet: () => ({}) },
+  readSheetData: () => [{ id: 'WEB-1234567890ABCDEF1234', submissionId: 'submission-id-123456', designFiles: JSON.stringify([{ key: downloadKey }]) }]
+};
+vm.runInNewContext(extractBackendFunction('authorizeDesignDownload_') + '\nthis.authorize = authorizeDesignDownload_;', downloadSandbox);
+const authorizedDownload = downloadSandbox.authorize({
+  leadId: 'WEB-1234567890ABCDEF1234', key: downloadKey
+}, { role: 'team' });
+assert.equal(authorizedDownload.authorized, true, 'active Team session may download a file attached to its Lead');
+assert.throws(() => downloadSandbox.authorize({
+  leadId: 'WEB-1234567890ABCDEF1234', key: 'incoming/submission-id-123456/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.pdf'
+}, { role: 'team' }), /DESIGN_FILE_NOT_LINKED_TO_LEAD/, 'file key cannot be downloaded from an unrelated Lead');
+assert.throws(() => downloadSandbox.authorize({
+  leadId: 'WEB-1234567890ABCDEF1234', key: 'incoming/other-submission-123456/12345678-1234-1234-1234-123456789abc.pdf'
+}, { role: 'team' }), /DESIGN_FILE_SUBMISSION_MISMATCH/, 'file key must match the Lead submission ID');
+
+// Attachment downloads can be switched to a Cloudflare Preview endpoint for staging.
+// Only the official production host and this project's Pages subdomains are accepted.
+const authClient = fs.readFileSync('security/guard.js', 'utf8');
+assert.ok(authClient.includes("var DESIGN_DOWNLOAD_URL_KEY = 'csk_design_download_api_url'"), 'download endpoint override uses a dedicated local setting');
+assert.ok(authClient.includes("var DEFAULT_DESIGN_DOWNLOAD_API_URL = 'https://cahayaselatankreasindo.my.id/api/design-download'"), 'production download endpoint remains the safe default');
+assert.ok(authClient.includes("u.hostname === 'cahayaselatankreasindo.my.id'"), 'download endpoint allowlists the production host');
+assert.ok(authClient.includes("cahaya-selatan-kreasindo\\.pages\\.dev"), 'download endpoint allowlists this project Cloudflare Pages preview hosts');
+assert.ok(authClient.includes("u.pathname === '/api/design-download'"), 'download endpoint only permits the design-download route');
+assert.match(authClient, /function designDownloadApiUrl\([\s\S]*?validDesignDownloadApiUrl\(saved\)[\s\S]*?DEFAULT_DESIGN_DOWNLOAD_API_URL/, 'invalid stored endpoints fall back to production');
+assert.match(authClient, /fetch\(designDownloadApiUrl\(\),\s*\{/, 'private download uses the validated endpoint selector');
+assert.ok(authClient.includes('id="csk-design-download-url"'), 'login gate exposes the optional staging endpoint field');
+assert.ok(authClient.includes('id="csk-auth-save-download-url"'), 'login gate exposes an explicit save action for the staging endpoint');
+const endpointValidator = authClient.match(/function validDesignDownloadApiUrl\(value\) \{[\s\S]*?\n  \}/);
+assert.ok(endpointValidator, 'download endpoint validator is defined');
+const endpointSandbox = { URL };
+vm.runInNewContext(endpointValidator[0] + '\nthis.validateEndpoint = validDesignDownloadApiUrl;', endpointSandbox);
+assert.equal(endpointSandbox.validateEndpoint('https://cahayaselatankreasindo.my.id/api/design-download'), true, 'production download endpoint is accepted');
+assert.equal(endpointSandbox.validateEndpoint('https://feature-website-inquiry-crm.cahaya-selatan-kreasindo.pages.dev/api/design-download'), true, 'CSK branch Preview endpoint is accepted');
+assert.equal(endpointSandbox.validateEndpoint('https://example.com/api/design-download'), false, 'unrelated download host is rejected');
+assert.equal(endpointSandbox.validateEndpoint('https://cahayaselatankreasindo.my.id/other-route'), false, 'unexpected API route is rejected');
+assert.equal(endpointSandbox.validateEndpoint('http://cahayaselatankreasindo.my.id/api/design-download'), false, 'non-HTTPS download endpoint is rejected');
+
+console.log('CSK PIN authentication, server-side RBAC, safe migration, private design access, and outbound-email safety checks passed.');

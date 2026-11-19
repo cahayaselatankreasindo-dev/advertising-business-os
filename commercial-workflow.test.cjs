@@ -149,7 +149,7 @@ window.selectCommercialLead('LEAD-01');
 field('cd-lead', 'LEAD-01'); // emulate the select element value set by the browser change event
 field('cd-number', 'QUO-CSK-2026-00001');
 field('cd-date', '2026-11-10');
-field('cd-due', '2026-11-24');
+field('cd-due', '2026-11-30');
 field('cd-project-deadline', '2026-12-20');
 field('cd-status', 'draft');
 field('cd-discount', 50000);
