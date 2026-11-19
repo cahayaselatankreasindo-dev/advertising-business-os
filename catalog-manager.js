@@ -12,6 +12,7 @@ function esc(value){
 }
 function say(message,isError){if(typeof w.showToast==='function')w.showToast(message,!!isError);}
 function ownerOnly(){if(typeof w.isOwnerSession==='function'&&w.isOwnerSession())return true;say('Katalog dan master data hanya dapat dikelola Owner.',true);return false;}
+function getDb(){return typeof db!=='undefined'?db:(w.db||null);}
 function todayISO(){var d=new Date();return[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
 function rupiah(value){return typeof w.formatRp==='function'?w.formatRp(value):'Rp '+Math.round(Number(value)||0).toLocaleString('id-ID');}
 function loadCatalog(){
@@ -153,7 +154,8 @@ function saveMaterialFromCatalog(){
   var family=getSelectedFamily();if(!family)return;
   var sku=el('cm-sku').value.trim().toUpperCase(),name=el('cm-name').value.trim(),supplier=el('cm-supplier').value.trim(),source=el('cm-price-source').value.trim(),price=Number(el('cm-purchase-price').value),factor=Number(el('cm-conversion-factor').value),unit=el('cm-usage-unit').value.trim(),purchaseUnit=el('cm-purchase-unit').value.trim(),date=el('cm-price-date').value,waste=Number(el('cm-waste-rate').value);
   if(!sku||!name||!supplier||!source||!date||!unit||!purchaseUnit||!Number.isFinite(price)||price<=0||!Number.isFinite(factor)||factor<=0||!Number.isFinite(waste)||waste<0||waste>100){say('Lengkapi SKU, nama, supplier, sumber dan tanggal harga, satuan, harga beli, faktor konversi, serta waste yang valid.',true);return;}
-  var materials=Array.isArray(w.db.materials)?w.db.materials:(w.db.materials=[]);
+  var database=getDb();if(!database){say('Database aplikasi belum siap.',true);return;}
+  var materials=Array.isArray(database.materials)?database.materials:(database.materials=[]);
   if(materials.some(function(item){return String(item.sku||'').toUpperCase()===sku;})){say('SKU sudah terdaftar. Gunakan SKU yang berbeda atau edit material yang ada.',true);return;}
   var familyAttributes=parseSelectedAttributes(),variant=buildVariant(family),purchasePrice=Math.round(price),unitPrice=purchasePrice/factor,now=new Date().toISOString();
   var record={
@@ -177,7 +179,8 @@ function saveServiceFromCatalog(){
   var family=getSelectedFamily();if(!family)return;
   var name=el('cm-service-name').value.trim(),sku=el('cm-service-sku').value.trim().toUpperCase(),unit=el('cm-service-unit').value,basePrice=Number(el('cm-service-price').value),costPrice=Number(el('cm-service-cost').value),supplier=el('cm-service-supplier').value.trim(),spec=el('cm-service-spec').value.trim();
   if(!name||!sku||!unit||!Number.isFinite(basePrice)||basePrice<=0||!Number.isFinite(costPrice)||costPrice<0){say('Isi nama, SKU, satuan, harga jual, dan biaya dasar jasa dengan benar.',true);return;}
-  var services=Array.isArray(w.db.services)?w.db.services:(w.db.services=[]);
+  var database=getDb();if(!database){say('Database aplikasi belum siap.',true);return;}
+  var services=Array.isArray(database.services)?database.services:(database.services=[]);
   if(services.some(function(item){return String(item.sku||'').toUpperCase()===sku;})){say('SKU jasa sudah terdaftar.',true);return;}
   services.push({id:'SVC-'+Date.now()+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),sku:sku,name:name,category:family.category,spec:spec,unit:unit,basePrice:Math.round(basePrice),costPrice:Math.round(costPrice),costingMethod:family.serviceCode,supplierName:supplier,status:'active',updatedAt:new Date().toISOString()});
   if(typeof w.saveDB==='function')w.saveDB();
