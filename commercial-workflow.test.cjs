@@ -6,6 +6,8 @@ const vm = require('node:vm');
 const source = fs.readFileSync('commercial-documents.js', 'utf8');
 const elements = Object.create(null);
 const messages = [];
+const styles = [];
+const printState = { calls: 0 };
 const storage = Object.create(null);
 
 function element(id) {
@@ -32,7 +34,7 @@ function element(id) {
 }
 
 const document = {
-  head: { appendChild() {} },
+  head: { appendChild(node) { if (node && node.textContent) styles.push(node.textContent); } },
   body: {
     appendChild(node) {
       if (node && node.id) elements[node.id] = node;
@@ -96,7 +98,7 @@ const window = {
     removeItem(key) { delete storage[key]; }
   },
   showToast(message, isError) { messages.push({ message, isError: !!isError }); },
-  print() {},
+  print() { printState.calls += 1; },
   CSKAuth: {
     isReady() { return true; },
     async sync() { return true; },
@@ -161,7 +163,20 @@ window.updateCommercialLine(0, 'qty', 2);
 field('cd-master', 's:SRV-01');
 window.addCommercialMasterItem();
 window.updateCommercialLine(1, 'qty', 1);
-assert.equal(db.quotations.length, 0, 'unsaved quotation must not be persisted');
+window.printCommercialDocument();
+assert.equal(printState.calls, 1, 'quotation print action opens the browser PDF/print dialog');
+const quotationMarkup = document.getElementById('commercial-printable').innerHTML;
+assert.match(quotationMarkup, /QUOTATION \/ SURAT PENAWARAN/);
+assert.match(quotationMarkup, /QUO-CSK-2026-00001/);
+assert.match(quotationMarkup, /PT Simulasi Retail/);
+assert.match(quotationMarkup, /class="cd-print-header cd-print-keep"/);
+assert.match(quotationMarkup, /class="cd-print-table"/);
+const printCss = styles.join('\n');
+assert.match(printCss, /@page\{size:A4 portrait;margin:12mm\}/, 'quotation PDF uses A4 portrait with controlled margins');
+assert.match(printCss, /box-sizing:border-box/, 'print content width includes its padding');
+assert.match(printCss, /display:table-header-group/, 'table headings repeat across printed pages');
+assert.match(printCss, /break-inside:avoid/, 'quotation sections and table rows avoid unwanted page splits');
+assert.equal(db.quotations.length, 0, 'printing an unsaved quotation must not persist it');
 await saveCurrentDocument();
 
 assert.equal(db.quotations.length, 1);
