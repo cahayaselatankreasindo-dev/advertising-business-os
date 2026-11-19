@@ -2008,7 +2008,7 @@
       if (select) {
         const materialOptions = db.materials.filter(m => m.status !== 'inactive').map(m => '<option value="material:' + escapeInvoiceHtml(m.id) + '">Material · ' + escapeInvoiceHtml(m.name) + ' (' + formatRp(m.unitPrice) + '/' + escapeInvoiceHtml(m.unit) + ')</option>').join('');
         const serviceOptions = (db.services || []).filter(s => s.status !== 'inactive').map(s => '<option value="service:' + escapeInvoiceHtml(s.id) + '">' + (s.recordType==='product'?'Produk · ':'Jasa · ') + escapeInvoiceHtml(s.name) + ' (biaya ' + formatRp(s.costPrice || 0) + '/' + escapeInvoiceHtml(s.unit || 'job') + ')</option>').join('');
-        select.innerHTML = '<option value="">Pilih material atau jasa</option>' + materialOptions + serviceOptions;
+        select.innerHTML = '<option value="">Pilih material, produk, atau jasa</option>' + materialOptions + serviceOptions;
       }
       renderHppEstimate(); renderHppSaved();
     }
