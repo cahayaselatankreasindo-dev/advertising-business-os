@@ -608,7 +608,7 @@
 
       <!-- SERVICES CATALOG -->
       <section id="page-services" class="page-content hidden space-y-6">
-        <div><span class="inline-flex px-2 py-1 rounded bg-violet-100 text-violet-800 text-[10px] font-bold uppercase">Master Data</span><h1 class="text-2xl font-bold text-slate-900 mt-2">Database Layanan CSK</h1><p class="text-sm text-slate-500">Kelola kategori, spesifikasi, dan harga dasar layanan untuk digunakan pada quotation.</p></div>
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3"><div><span class="inline-flex px-2 py-1 rounded bg-violet-100 text-violet-800 text-[10px] font-bold uppercase">Master Data</span><h1 class="text-2xl font-bold text-slate-900 mt-2">Database Layanan CSK</h1><p class="text-sm text-slate-500">Kelola jasa desain, printing, finishing, fabrikasi, instalasi, dan logistik.</p></div><button onclick="openCskCatalogManager('service')" class="px-4 py-2 rounded-lg bg-violet-700 text-white text-sm font-semibold self-start">Katalog Jasa</button></div>
         <div class="bg-white border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-4 gap-2">
           <input id="svc-name" class="p-2 border rounded-lg text-sm" placeholder="Nama layanan">
           <input id="svc-category" class="p-2 border rounded-lg text-sm" placeholder="Kategori">
@@ -638,10 +638,11 @@
           <p class="text-sm text-slate-500">Kelola harga bahan, hitung kebutuhan material, biaya produksi, dan rekomendasi harga penawaran.</p></div>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div class="lg:col-span-1 bg-white border border-slate-200 rounded-xl p-4 space-y-3">
-            <h2 class="font-bold">Database Material</h2>
-            <input id="hpp-mat-name" class="w-full p-2 border rounded-lg text-sm" placeholder="Nama material">
-            <div class="grid grid-cols-2 gap-2"><input id="hpp-mat-unit" class="w-full p-2 border rounded-lg text-sm" placeholder="Satuan (m2, pcs)"><input id="hpp-mat-price" type="number" min="0" class="w-full p-2 border rounded-lg text-sm" placeholder="Harga satuan"></div>
-            <button onclick="addHppMaterial()" class="w-full bg-cyan-700 text-white rounded-lg py-2 text-sm font-semibold">Tambah Material</button>
+            <div class="flex items-center justify-between gap-2"><h2 class="font-bold">Database Material</h2><button onclick="openCskCatalogManager('material')" class="px-3 py-2 rounded-lg bg-orange-600 text-white text-xs font-bold whitespace-nowrap">Katalog Referensi</button></div>
+            <p class="text-[11px] text-slate-500">Aktifkan bahan dari katalog lengkap setelah supplier dan harga beli diverifikasi. Harga pemakaian dihitung otomatis dari konversi.</p>
+            <input id="hpp-mat-name" class="w-full p-2 border rounded-lg text-sm" placeholder="Nama material (tambah cepat)">
+            <div class="grid grid-cols-2 gap-2"><input id="hpp-mat-unit" class="w-full p-2 border rounded-lg text-sm" placeholder="Satuan pakai (m2, pcs)"><input id="hpp-mat-price" type="number" min="1" class="w-full p-2 border rounded-lg text-sm" placeholder="Harga per satuan pakai"></div>
+            <button onclick="addHppMaterial()" class="w-full bg-cyan-700 text-white rounded-lg py-2 text-sm font-semibold">Tambah Cepat Material</button>
             <div id="hpp-material-list" class="space-y-2 max-h-72 overflow-auto"></div>
           </div>
           <div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-4 space-y-3">
@@ -3194,6 +3195,7 @@
     });
   </script>
   <script src="./csk-pdf.js"></script>
+  <script src="./catalog-manager.js"></script>
   <script src="./commercial-documents.js"></script>
   <script src="./crm-upgrade.js"></script>
 </body>
