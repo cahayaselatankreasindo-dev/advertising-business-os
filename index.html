@@ -1233,8 +1233,11 @@
             <option value="penawaran">Surat Penawaran (Quotation)</option>
           </select>
           <button id="inv-save-quotation" onclick="saveQuotationSnapshot()" class="hidden bg-violet-600 hover:bg-violet-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs"><i class="fa fa-save"></i> Simpan Quotation</button>
+          <button onclick="downloadLegacyInvoicePdf()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition">
+            <i class="fa fa-download"></i> Unduh PDF
+          </button>
           <button onclick="window.print()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition">
-            <i class="fa fa-print"></i> Cetak / PDF
+            <i class="fa fa-print"></i> Cetak
           </button>
           <button onclick="copyInvoiceWA()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition">
             <i class="fa fa-whatsapp"></i> Salin Teks WA
@@ -2646,6 +2649,76 @@
       document.getElementById('inv-calc-grand').innerText = formatRp(billAmount);
     }
 
+    function downloadLegacyInvoicePdf() {
+      if (!currentActiveProject) return;
+      if (!window.CSKPDF || typeof window.CSKPDF.downloadDocument !== 'function') {
+        return showToast('Mesin PDF belum tersedia. Muat ulang aplikasi dan coba lagi.', true);
+      }
+      const p = currentActiveProject;
+      const quotationSnapshot = currentInvoiceType === 'penawaran' ? getActiveQuotationSnapshot() : null;
+      const costSheet = getProjectCostSheet(p.id);
+      const contractTotal = Number(quotationSnapshot ? quotationSnapshot.total : (costSheet ? costSheet.price : (p.value || 0)));
+      const amounts = calculateInvoiceAmounts(contractTotal, currentInvoiceType, currentInvoiceDpPercent);
+      const isQuotation = currentInvoiceType === 'penawaran';
+      const today = new Date();
+      const date = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
+      const due = p.deadline ? String(p.deadline).slice(0, 10) : (() => {
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
+        return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+      })();
+      const cleanId = String(p.id).replace(/[^a-zA-Z0-9]/g, '').slice(-10) || 'PROJECT';
+      const year = today.getFullYear();
+      const docNo = isQuotation
+        ? 'QUO-CSK-' + year + '-' + cleanId
+        : 'INV-CSK-' + year + '-' + cleanId + '-' + (currentInvoiceType === 'dp' ? 'DP' : 'PEL');
+      let lines = [{ name: p.title || 'Pekerjaan produksi', description: p.notes || '', qty: 1, unit: 'Lot', unitPrice: amounts.amount }];
+      if (isQuotation) {
+        if (quotationSnapshot && Array.isArray(quotationSnapshot.lines)) lines = quotationSnapshot.lines;
+        else if (costSheet) {
+          try { lines = buildQuotationSnapshot(p).lines; } catch (error) { showToast(error.message, true); }
+        }
+      } else {
+        lines = [{
+          name: p.title || 'Pekerjaan produksi',
+          description: currentInvoiceType === 'dp'
+            ? 'Tagihan uang muka ' + currentInvoiceDpPercent + '% dari nilai kontrak.'
+            : 'Tagihan pelunasan sisa ' + (100 - currentInvoiceDpPercent) + '% dari nilai kontrak.',
+          qty: 1,
+          unit: 'Lot',
+          unitPrice: amounts.amount
+        }];
+      }
+      const matchedClient = (db.clients || []).find(c => String(c.name || '').toLowerCase() === String(p.client || '').toLowerCase());
+      const paymentSummary = isQuotation ? '' : (
+        'Nilai kontrak: Rp ' + Math.round(contractTotal).toLocaleString('id-ID') +
+        ' | DP ' + currentInvoiceDpPercent + '%: Rp ' + Math.round(amounts.dpAmount).toLocaleString('id-ID') +
+        (currentInvoiceType === 'dp'
+          ? ' | Sisa setelah DP: Rp ' + Math.round(amounts.balance).toLocaleString('id-ID')
+          : ' | Tagihan pelunasan: Rp ' + Math.round(amounts.amount).toLocaleString('id-ID'))
+      );
+      return window.CSKPDF.downloadDocument({
+        kind: isQuotation ? 'quotation' : 'invoice',
+        title: isQuotation ? 'SURAT PENAWARAN' : (currentInvoiceType === 'dp' ? 'INVOICE UANG MUKA' : 'INVOICE PELUNASAN'),
+        docNo,
+        date,
+        dueDate: due,
+        projectDeadline: p.deadline || '',
+        client: p.client || 'Klien CSK',
+        clientPhone: matchedClient ? matchedClient.phone || '' : '',
+        projectName: p.title || 'Pekerjaan Produksi',
+        projectId: p.id,
+        lines,
+        total: amounts.amount,
+        contractTotal: isQuotation ? null : contractTotal,
+        paymentSummary,
+        paymentTerms: isQuotation
+          ? 'Penawaran berlaku sesuai tanggal yang tercantum. Pekerjaan dimulai setelah persetujuan dan pembayaran uang muka sesuai kesepakatan.'
+          : 'Pembayaran dilakukan melalui rekening resmi Cahaya Selatan Kreasindo. Konfirmasi pembayaran melalui WhatsApp 0888-8533-488.',
+        terms: 'Ruang lingkup pekerjaan mengikuti spesifikasi dan rincian pada dokumen ini. Perubahan spesifikasi atau pekerjaan tambahan akan dikonfirmasi dan dihitung terpisah.',
+        notes: p.notes || ''
+      });
+    }
+
     function copyInvoiceWA() {
       if (!currentActiveProject) return;
       const p = currentActiveProject;
@@ -3120,6 +3193,7 @@
       pullAndMerge();
     });
   </script>
+  <script src="./csk-pdf.js"></script>
   <script src="./commercial-documents.js"></script>
   <script src="./crm-upgrade.js"></script>
 </body>
