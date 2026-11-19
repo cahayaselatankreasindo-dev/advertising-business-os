@@ -7,6 +7,7 @@ assert.equal(catalog.status, 'REFERENCE_TEMPLATE_NOT_YET_PRICED');
 assert.ok(catalog.activationPolicy.includes('harga aktual'));
 assert.ok(catalog.materialFamilies.length >= 35, 'reference catalog contains broad advertising material coverage');
 assert.ok(catalog.serviceFamilies.length >= 15, 'reference catalog contains production and installation services');
+assert.ok(catalog.serviceFamilies.filter(x => x.recordType === 'product_template').length >= 20, 'catalog includes finished advertising product templates');
 
 const familyCodes = catalog.materialFamilies.map(x => x.familyCode);
 assert.equal(new Set(familyCodes).size, familyCodes.length, 'material family codes are unique');
