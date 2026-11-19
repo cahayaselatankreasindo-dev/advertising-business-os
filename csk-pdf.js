@@ -337,8 +337,11 @@ function generatePdf(input, jsPDF) {
     var bankHeight = drawText(pdf, d.bankDetails, 14, y + 9, 7, 'normal', COLORS.ink, leftWidth);
     y += bankHeight + 13;
   }
-  var signY = Math.max(y, pageHeight - 58);
-  if (signY > pageHeight - 25) { pdf.addPage(); signY = 45; }
+  var signY = Math.max(y, pageHeight - 62);
+  if (signY + 42 > pageHeight - 18) {
+    pdf.addPage();
+    signY = drawHeader(pdf, d, true) + 10;
+  }
   drawText(pdf, 'Hormat kami,', rightX, signY, 7.5, 'normal', COLORS.ink);
   drawText(pdf, COMPANY.name, rightX, signY + 6, 7, 'bold', COLORS.ink, 66);
   pdf.setDrawColor.apply(pdf, COLORS.line);
