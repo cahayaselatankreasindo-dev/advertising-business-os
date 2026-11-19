@@ -161,11 +161,11 @@ function saveMaterialFromCatalog(){
   var record={
     id:'MAT-'+Date.now()+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),
     sku:sku,name:name,category:family.category,subcategory:family.familyName,
-    spec:el('cm-spec').value.trim(),unit:unit,unitPrice:unitPrice,
+    spec:el('cm-spec').value.trim(),brand:familyAttributes.brand||'',grade:familyAttributes.grade||'',unit:unit,unitPrice:unitPrice,
     purchaseUnit:purchaseUnit,purchasePrice:purchasePrice,conversionFactor:factor,
     costingMethod:family.costingMethod,supplierName:supplier,supplierId:'',
     thicknessMm:familyAttributes.thicknessMm||'',widthMm:familyAttributes.sheetSizes&&familyAttributes.sheetSizes.widthMm||familyAttributes.rollWidthsMm||'',
-    lengthMm:familyAttributes.sheetSizes&&familyAttributes.sheetSizes.lengthMm||'',color:familyAttributes.colors||familyAttributes.color||'',
+    lengthMm:familyAttributes.sheetSizes&&familyAttributes.sheetSizes.lengthMm||familyAttributes.rollLengthsM||familyAttributes.standardLengthMm||'',diameterMm:familyAttributes.diameterMm||'',color:familyAttributes.colors||familyAttributes.color||'',
     minimumOrder:1,wasteRate:waste,priceSource:source,priceDate:date,status:'active',notes:'Diaktifkan dari katalog referensi CSK.',updatedAt:now
   };
   materials.push(record);
