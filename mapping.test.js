@@ -262,7 +262,7 @@ if (FIELD_MAP) {
     ['sku','category','subcategory','brand','grade','spec','color','thicknessMm','widthMm','lengthMm','diameterMm','purchaseUnit','purchasePrice','conversionFactor','costingMethod','supplierId','supplierName','minimumOrder','wasteRate','priceSource','priceDate','status','notes'],
     'FIELD_MAP.Materials memuat atribut pembelian, spesifikasi, dan costing');
   eq(FIELD_MAP.Services.fields.slice(6),
-    ['sku','unit','costingMethod','costPrice','supplierId','supplierName','status','notes'],
+    ['sku','unit','costingMethod','costPrice','supplierId','supplierName','status','notes','recordType'],
     'FIELD_MAP.Services memuat satuan, biaya dasar, dan supplier');
   eq(FIELD_MAP.Commercial_Quotations.fields,
     ['id','projectId','leadId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','terms','paymentTerms','notes','status','convertedInvoiceId','createdAt','updatedAt','projectDeadline'],
