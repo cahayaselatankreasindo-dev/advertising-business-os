@@ -271,6 +271,7 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - Added an Owner-only catalog activation manager. A material cannot be activated until supplier, price source, price date, purchase price, purchase unit, usage unit, and conversion factor are provided.
 - Extended Materials and Services sheet contracts by appending columns to the right. The original five Materials columns and original Services columns remain in their existing order.
 - Added service unit and internal cost fields.
+- Integrated service internal costs into project HPP: HPP line selection now supports both materials and services, and zero-cost services are blocked from costing until a base cost is entered.
 - Added automated tests for PDF generation logic, pagination, catalog coverage, catalog activation, and data-contract compatibility.
 
 ### Validation
