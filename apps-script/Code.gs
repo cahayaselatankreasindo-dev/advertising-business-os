@@ -85,8 +85,8 @@ var FIELD_MAP = {
     fields: ["id", "projectId", "projectName", "itemsJson", "materialTotal", "labor", "other", "margin", "total", "price", "profit", "updatedAt"]
   },
   Services: {
-    headers: ["ID", "NamaLayanan", "Kategori", "Spesifikasi", "HargaDasar", "UpdatedAt", "SKU", "Satuan", "MetodeCosting", "BiayaDasar", "SupplierID", "SupplierNama", "Status", "Catatan"],
-    fields: ["id", "name", "category", "spec", "basePrice", "updatedAt", "sku", "unit", "costingMethod", "costPrice", "supplierId", "supplierName", "status", "notes"]
+    headers: ["ID", "NamaLayanan", "Kategori", "Spesifikasi", "HargaDasar", "UpdatedAt", "SKU", "Satuan", "MetodeCosting", "BiayaDasar", "SupplierID", "SupplierNama", "Status", "Catatan", "Jenis"],
+    fields: ["id", "name", "category", "spec", "basePrice", "updatedAt", "sku", "unit", "costingMethod", "costPrice", "supplierId", "supplierName", "status", "notes", "recordType"]
   },
   Purchase_Orders: {
     headers: ["ID", "ProjectID", "NamaProyek", "Supplier", "Tanggal", "ItemsJSON", "Total", "Status", "CreatedAt", "UpdatedAt"],
