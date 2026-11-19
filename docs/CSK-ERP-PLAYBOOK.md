@@ -258,3 +258,30 @@ Data tersebut dikumpulkan dari price list supplier, invoice pembelian, daftar ta
 
 ---
 Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan arsitektur atau proses bisnis berubah.
+
+
+## 13. Implementation status — 20 November 2026
+
+### Delivered on the feature branch
+- Added a standalone vector PDF engine for A4 commercial documents. It creates a downloadable PDF file rather than relying only on the browser print dialog.
+- Added direct PDF download actions to standalone quotation/invoice documents, saved document history, and the legacy project invoice/quotation screen.
+- Kept browser printing as a separate fallback.
+- Added multi-page line-item handling, page numbering, totals, payment instructions, terms, and signature block.
+- Added a reference catalog covering 41 material families and 20 service families across paper, stickers, wood/panels, acrylic, plastic/composite panels, roll media, metal profiles, electrical, consumables, and production services.
+- Added an Owner-only catalog activation manager. A material cannot be activated until supplier, price source, price date, purchase price, purchase unit, usage unit, and conversion factor are provided.
+- Extended Materials and Services sheet contracts by appending columns to the right. The original five Materials columns and original Services columns remain in their existing order.
+- Added service unit and internal cost fields.
+- Added automated tests for PDF generation logic, pagination, catalog coverage, catalog activation, and data-contract compatibility.
+
+### Validation
+- CSK Security Tests: passed on the feature branch.
+- CSK business source regression checks: passed on the feature branch.
+- Apps Script deployment source and canonical backend copy are byte-for-byte identical.
+- Existing Materials columns are preserved; new columns are appended by the existing safe schema migration mechanism.
+
+### Not yet production-ready
+- Manual download/open verification on iPhone Safari and desktop browsers is still required.
+- The reference catalog is not a live supplier price list. No supplier prices are invented or preloaded.
+- Catalog families and variant dimensions must be reconciled with the actual brands, sizes, grades, and stock units used by CSK suppliers.
+- The live Google Apps Script deployment and production Google Sheet have not been migrated by this feature branch.
+- Advanced nesting/cut-list optimization for sheet goods, stock/offcut handling, service-cost integration into HPP, and full Sales Order workflow remain subsequent implementation phases.
