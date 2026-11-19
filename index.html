@@ -1926,10 +1926,13 @@
       const item=(db.services||[]).find(x=>x.id===id);if(!item)return;
       const name=prompt('Nama layanan:',item.name);if(name===null)return;
       const category=prompt('Kategori:',item.category);if(category===null)return;
-      const spec=prompt('Spesifikasi:',item.spec||'');if(spec===null)return;
-      const raw=prompt('Harga dasar (Rp):',String(item.basePrice||0));if(raw===null)return;
-      const price=Number(raw);if(!name.trim()||!category.trim()||!Number.isFinite(price)||price<0)return showToast('Data layanan tidak valid.',true);
-      Object.assign(item,{name:name.trim(),category:category.trim(),spec:spec.trim(),basePrice:price,updatedAt:new Date().toISOString()});saveDB();renderServices();showToast('Layanan diperbarui.');
+      const spec=prompt('Spesifikasi / basis biaya:',item.spec||'');if(spec===null)return;
+      const unit=prompt('Satuan layanan:',item.unit||'job');if(unit===null)return;
+      const raw=prompt('Harga jual dasar (Rp):',String(item.basePrice||0));if(raw===null)return;
+      const costRaw=prompt('Biaya dasar / HPP jasa (Rp):',String(item.costPrice||0));if(costRaw===null)return;
+      const price=Number(raw),cost=Number(costRaw);
+      if(!name.trim()||!category.trim()||!unit.trim()||!Number.isFinite(price)||price<=0||!Number.isFinite(cost)||cost<0)return showToast('Data layanan tidak valid.',true);
+      Object.assign(item,{name:name.trim(),category:category.trim(),spec:spec.trim(),unit:unit.trim(),basePrice:price,costPrice:cost,updatedAt:new Date().toISOString()});saveDB();renderServices();showToast('Layanan diperbarui.');
     }
 
     function addService() {
