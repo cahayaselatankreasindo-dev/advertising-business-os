@@ -21,6 +21,7 @@ assert.ok(manager.includes('unitPrice= purchasePrice/factor') || manager.include
 assert.ok(backend.includes('"HargaBeli"') && backend.includes('"FaktorKonversi"'), 'Materials schema stores purchase price and conversion factor');
 assert.ok(backend.includes('"SatuanBeli"') && backend.includes('"MetodeCosting"'), 'Materials schema stores purchase unit and costing method');
 assert.ok(backend.includes('"BiayaDasar"') && backend.includes('"Satuan"'), 'Services schema stores cost basis and unit');
+assert.ok(backend.includes('"Jenis"') && backend.includes('"recordType"'), 'Services schema distinguishes finished products from services');
 assert.ok(sw.includes("'./catalog-manager.js'"), 'service worker caches catalog manager');
 assert.ok(sw.includes("'./data/advertising-catalog-seed.json'"), 'service worker caches catalog seed');
 console.log('CSK catalog manager integration tests passed.');
