@@ -129,7 +129,8 @@ function renderFamilyDetail(){
     var buy=String(family.purchaseUnit||'lembar').split(' atau ')[0];
     var use=String(family.usageUnit||'pcs').split(' atau ')[0];
     el('cm-purchase-unit').value=buy;el('cm-usage-unit').value=use;
-    updateVariantPreview();
+    el('cm-conversion-factor').value=buy.toLowerCase()===use.toLowerCase()?'1':'';
+    updateVariantPreview();updatePurchasePricePreview();
   }else{
     box.innerHTML='<div class="space-y-4"><div><div class="text-[10px] uppercase font-bold tracking-wider text-violet-600">'+esc(family.category)+'</div><h3 class="text-lg font-bold text-slate-900">'+esc(family.name)+'</h3><p class="text-xs text-slate-500 mt-1">Basis biaya: '+esc(family.costBasis)+'</p></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><label class="cm-label">Nama layanan<input id="cm-service-name" class="cm-input" value="'+esc(family.name)+'"></label><label class="cm-label">Satuan<select id="cm-service-unit" class="cm-input">'+family.unitOptions.map(function(unit){return'<option value="'+esc(unit)+'">'+esc(unit)+'</option>';}).join('')+'</select></label><label class="cm-label">Harga jual dasar (Rp)<input id="cm-service-price" type="number" min="1" class="cm-input"></label><label class="cm-label">Biaya dasar / HPP jasa (Rp)<input id="cm-service-cost" type="number" min="0" class="cm-input"></label><label class="cm-label">Supplier / pelaksana (opsional)<input id="cm-service-supplier" class="cm-input"></label><label class="cm-label">SKU layanan<input id="cm-service-sku" class="cm-input" value="'+esc(family.serviceCode)+'"></label><label class="cm-label sm:col-span-2">Spesifikasi dan basis perhitungan<textarea id="cm-service-spec" rows="3" class="cm-input">'+esc(family.costBasis)+'</textarea></label></div><div class="flex justify-end mt-3"><button class="cm-btn bg-violet-700 text-white" data-cm-action="save-service">Aktifkan dan Simpan Jasa</button></div></div>';
   }
