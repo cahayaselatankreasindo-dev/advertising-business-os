@@ -2005,7 +2005,7 @@
       const raw=prompt('Harga satuan (Rp):',String(m.unitPrice)); if(raw===null)return;
       const price=Number(raw);
       if(!name.trim()||!unit.trim()||!Number.isFinite(price)||price<0)return showToast('Data material tidak valid.',true);
-      m.name=name.trim(); m.unit=unit.trim(); m.unitPrice=price; m.updatedAt=new Date().toISOString();
+      m.name=name.trim(); m.unit=unit.trim(); m.unitPrice=price; m.conversionFactor=Number(m.conversionFactor)||1; m.purchaseUnit=m.purchaseUnit||m.unit; m.purchasePrice=price*m.conversionFactor; m.priceSource='Edit manual - wajib diverifikasi'; m.priceDate=new Date().toISOString().slice(0,10); m.updatedAt=new Date().toISOString();
       saveDB(); renderHpp(); showToast('Master material diperbarui. Harga pada HPP lama tetap menggunakan snapshot.');
     }
     function deleteHppMaterial(id) {
@@ -2028,10 +2028,12 @@
 
     function addHppMaterial() {
       const name = document.getElementById('hpp-mat-name').value.trim(), unit = document.getElementById('hpp-mat-unit').value.trim(), unitPrice = Number(document.getElementById('hpp-mat-price').value);
-      if (!name || !unit || !Number.isFinite(unitPrice) || unitPrice < 0) return showToast('Isi nama, satuan, dan harga material dengan benar.', true);
-      db.materials.push({id:'MAT-'+Date.now(),name,unit,unitPrice,updatedAt:new Date().toISOString()});
+      if (!name || !unit || !Number.isFinite(unitPrice) || unitPrice <= 0) return showToast('Isi nama, satuan, dan harga material lebih dari nol.', true);
+      const now = new Date().toISOString();
+      db.materials = db.materials || [];
+      db.materials.push({id:'MAT-'+Date.now(),sku:'MAT-MANUAL-'+Date.now(),name,category:'Belum dikategorikan',unit,unitPrice,purchaseUnit:unit,purchasePrice:unitPrice,conversionFactor:1,costingMethod:'direct_unit',priceSource:'Input manual - wajib diverifikasi',priceDate:now.slice(0,10),status:'active',updatedAt:now});
       document.getElementById('hpp-mat-name').value=''; document.getElementById('hpp-mat-unit').value=''; document.getElementById('hpp-mat-price').value='';
-      saveDB(); renderHpp(); showToast('Material ditambahkan.');
+      saveDB(); renderHpp(); showToast('Material ditambahkan. Lengkapi supplier dan bukti harga melalui master material.');
     }
     function addHppLine() {
       const id=document.getElementById('hpp-material').value, qty=Number(document.getElementById('hpp-qty').value), m=db.materials.find(x=>x.id===id);
