@@ -27,7 +27,7 @@ No supplier price is fabricated in this seed. Material sizes and thicknesses are
 - Metals and profiles: aluminum profiles, steel hollow, sheet metal, and stainless.
 - Electrical and lighting: LED modules/strips, power supplies, cable, and connectors.
 - Consumables: fasteners, adhesives, tapes, paint/finishing, abrasives, and machine consumables.
-- Service templates: design, prepress, printing, finishing, cutting, fabrication, installation, survey, delivery, rental, and maintenance.
+- Finished product and service templates: design, prepress, printing, finishing, cutting, fabrication, installation, survey, delivery, rental, and maintenance.
 
 ## Next implementation step
 
