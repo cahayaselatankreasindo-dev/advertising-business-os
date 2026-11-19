@@ -267,7 +267,7 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - Added direct PDF download actions to standalone quotation/invoice documents, saved document history, and the legacy project invoice/quotation screen.
 - Kept browser printing as a separate fallback.
 - Added multi-page line-item handling, page numbering, totals, payment instructions, terms, and signature block.
-- Added a reference catalog covering 41 material families and 20 service families across paper, stickers, wood/panels, acrylic, plastic/composite panels, roll media, metal profiles, electrical, consumables, and production services.
+- Added a reference catalog covering 41 material families and 41 product and service families across paper, stickers, wood/panels, acrylic, plastic/composite panels, roll media, metal profiles, electrical, consumables, and production services.
 - Added an Owner-only catalog activation manager. A material cannot be activated until supplier, price source, price date, purchase price, purchase unit, usage unit, and conversion factor are provided.
 - Extended Materials and Services sheet contracts by appending columns to the right. The original five Materials columns and original Services columns remain in their existing order.
 - Added service unit and internal cost fields.
