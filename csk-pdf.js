@@ -164,7 +164,7 @@ function drawHeader(pdf, d, continuation) {
 }
 function drawInfoCard(pdf, x, y, width, title, rows) {
   setColor(pdf, 'setFillColor', COLORS.paper);
-  pdf.roundedRect(x, y, width, 30, 2, 2, 'F');
+  pdf.roundedRect(x, y, width, 42, 2, 2, 'F');
   drawText(pdf, title, x + 4, y + 6, 6.5, 'bold', COLORS.orange);
   var cursor = y + 12;
   rows.forEach(function(row, index) {
@@ -257,7 +257,7 @@ function generatePdf(input, jsPDF) {
     { value: d.projectDeadline ? formatDate(d.projectDeadline) : '', label: 'Deadline proyek' },
     { value: d.status ? d.status.toUpperCase() : '', label: 'Status' }
   ]);
-  y += 39;
+  y += 51;
   drawText(pdf, 'RINCIAN PRODUK DAN JASA', 14, y, 8, 'bold', COLORS.ink);
   y += 8;
   var x = drawTableHeader(pdf, y);
@@ -293,7 +293,6 @@ function generatePdf(input, jsPDF) {
   ];
   totals.forEach(function(item, i) {
     drawText(pdf, item[0], tx + 4, y + 7 + i * 6, 7, 'normal', COLORS.muted);
-    drawText(pdf, item[1], tx + tw - 4, y + 7 + i * 6, 7, 'bold', COLORS.ink);
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(7);
     pdf.text(item[1], tx + tw - 4, y + 7 + i * 6, { align: 'right' });
