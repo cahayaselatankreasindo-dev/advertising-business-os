@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - 'main'
+      - 'feature/hpp-material-conversion-20261120'
   pull_request:
     paths:
       - 'index.html'
