@@ -75,16 +75,18 @@ var FIELD_MAP = {
     fields:  ["id", "date", "platform", "campaign", "budget", "spent", "leadsGenerated", "notes"]
   },
   Materials: {
-    headers: ["ID", "Nama", "Satuan", "HargaSatuan", "UpdatedAt"],
-    fields: ["id", "name", "unit", "unitPrice", "updatedAt"]
+    // Kolom lama dipertahankan di posisi awal; atribut costing ditambahkan di kanan.
+    // unit = satuan pemakaian; unitPrice = harga per satuan pemakaian (kompatibel dengan HPP lama).
+    headers: ["ID", "Nama", "Satuan", "HargaSatuan", "UpdatedAt", "SKU", "Kategori", "Subkategori", "Merek", "Grade", "Spesifikasi", "Warna", "KetebalanMm", "LebarMm", "PanjangMm", "DiameterMm", "SatuanBeli", "HargaBeli", "FaktorKonversi", "MetodeCosting", "SupplierID", "SupplierNama", "MinimumOrder", "WasteRate", "SumberHarga", "TanggalHarga", "Status", "Catatan"],
+    fields: ["id", "name", "unit", "unitPrice", "updatedAt", "sku", "category", "subcategory", "brand", "grade", "spec", "color", "thicknessMm", "widthMm", "lengthMm", "diameterMm", "purchaseUnit", "purchasePrice", "conversionFactor", "costingMethod", "supplierId", "supplierName", "minimumOrder", "wasteRate", "priceSource", "priceDate", "status", "notes"]
   },
   Cost_Sheets: {
     headers: ["ID", "ProjectID", "NamaProyek", "ItemsJSON", "MaterialTotal", "TenagaKerja", "BiayaLain", "Margin", "TotalHPP", "HargaPenawaran", "EstimasiLaba", "UpdatedAt"],
     fields: ["id", "projectId", "projectName", "itemsJson", "materialTotal", "labor", "other", "margin", "total", "price", "profit", "updatedAt"]
   },
   Services: {
-    headers: ["ID", "NamaLayanan", "Kategori", "Spesifikasi", "HargaDasar", "UpdatedAt"],
-    fields: ["id", "name", "category", "spec", "basePrice", "updatedAt"]
+    headers: ["ID", "NamaLayanan", "Kategori", "Spesifikasi", "HargaDasar", "UpdatedAt", "SKU", "Satuan", "MetodeCosting", "BiayaDasar", "SupplierID", "SupplierNama", "Status", "Catatan"],
+    fields: ["id", "name", "category", "spec", "basePrice", "updatedAt", "sku", "unit", "costingMethod", "costPrice", "supplierId", "supplierName", "status", "notes"]
   },
   Purchase_Orders: {
     headers: ["ID", "ProjectID", "NamaProyek", "Supplier", "Tanggal", "ItemsJSON", "Total", "Status", "CreatedAt", "UpdatedAt"],
