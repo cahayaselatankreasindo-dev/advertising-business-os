@@ -20,12 +20,68 @@ assert.equal(normalized.taxAmount, 69300);
 assert.equal(normalized.total, 699300);
 assert.equal(normalized.lines.length, 2);
 assert.equal(normalized.lines[0].lineTotal, 500000);
-assert.equal(pdf.makeFilename(normalized), 'QUOTATION-CSK-QUO-CSK-2026-00001-PT-Maju-Bersama.pdf');
+assert.equal(pdf.makeFilename(normalized), 'QUO-CSK-2026-00001-PT-Maju-Bersama.pdf');
 assert.equal(
   pdf.makeFilename({ kind: 'invoice', docNo: 'INV-CSK-2026-00009', client: 'CV Sumber Karya' }),
-  'INVOICE-CSK-INV-CSK-2026-00009-CV-Sumber-Karya.pdf'
+  'INV-CSK-2026-00009-CV-Sumber-Karya.pdf'
 );
 assert.equal(pdf.formatRupiah(1250000), 'Rp 1.250.000');
+function MockPdf() {
+  this.pages = 1;
+  this.saved = '';
+  this.internal = {
+    pageSize: { getWidth: () => 210, getHeight: () => 297 },
+    getNumberOfPages: () => this.pages
+  };
+}
+MockPdf.prototype.setProperties = function() {};
+MockPdf.prototype.setFont = function() {};
+MockPdf.prototype.setFontSize = function() {};
+MockPdf.prototype.setTextColor = function() {};
+MockPdf.prototype.setFillColor = function() {};
+MockPdf.prototype.setDrawColor = function() {};
+MockPdf.prototype.rect = function() {};
+MockPdf.prototype.roundedRect = function() {};
+MockPdf.prototype.line = function() {};
+MockPdf.prototype.text = function() {};
+MockPdf.prototype.splitTextToSize = function(text, width) {
+  const charsPerLine = Math.max(8, Math.floor(width * 1.45));
+  const words = String(text).split(/\\s+/);
+  const lines = [];
+  let line = '';
+  words.forEach(word => {
+    const next = line ? line + ' ' + word : word;
+    if (next.length > charsPerLine && line) { lines.push(line); line = word; }
+    else line = next;
+  });
+  if (line) lines.push(line);
+  return lines;
+};
+MockPdf.prototype.addPage = function() { this.pages += 1; };
+MockPdf.prototype.setPage = function() {};
+MockPdf.prototype.save = function(name) { this.saved = name; };
+const longDoc = {
+  kind: 'quotation',
+  docNo: 'QUO-CSK-2026-00099',
+  client: 'PT Contoh Industri',
+  projectName: 'Rak display custom multi lokasi',
+  date: '2026-11-20',
+  dueDate: '2026-12-04',
+  paymentTerms: 'Pembayaran DP 50 persen setelah quotation disetujui.',
+  terms: 'Spesifikasi dan ruang lingkup mengikuti persetujuan tertulis.',
+  bankDetails: 'Bank Jago Syariah | 508705048143 | a.n. Zefry Dany Adi Syahputra',
+  lines: Array.from({ length: 55 }, (_, i) => ({
+    name: 'Komponen fabrikasi display nomor ' + (i + 1),
+    description: 'Material dan proses produksi sesuai spesifikasi pekerjaan yang telah disetujui oleh pelanggan.',
+    qty: 2,
+    unit: 'pcs',
+    unitPrice: 125000
+  }))
+};
+const generated = pdf.generatePdf(longDoc, MockPdf);
+assert.ok(generated.pages > 1, 'long item tables paginate across A4 pages');
+assert.equal(generated.internal.getNumberOfPages(), generated.pages);
+
 
 const html = fs.readFileSync('index.html', 'utf8');
 const commercial = fs.readFileSync('commercial-documents.js', 'utf8');
