@@ -95,11 +95,10 @@ function normalizeDocument(input) {
 }
 function makeFilename(input) {
   var d = normalizeDocument(input);
-  var type = /invoice|tagihan|dp|pelunasan/i.test(d.kind + ' ' + d.title) ? 'INVOICE' : 'QUOTATION';
   var client = d.client.normalize ? d.client.normalize('NFKD') : d.client;
   client = client.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32) || 'PELANGGAN';
   var numberPart = (d.docNo || 'DRAFT').replace(/[^a-zA-Z0-9_-]+/g, '-');
-  return type + '-CSK-' + numberPart + '-' + client + '.pdf';
+  return numberPart + '-' + client + '.pdf';
 }
 function notify(message, isError) {
   if (typeof w.showToast === 'function') w.showToast(message, !!isError);
@@ -332,6 +331,12 @@ function generatePdf(input, jsPDF) {
     var h = drawText(pdf, item.text, 14, y + 9, 7, 'normal', COLORS.ink, leftWidth);
     y += h + 13;
   });
+  if (d.bankDetails) {
+    if (y + 14 > pageHeight - 25) { pdf.addPage(); y = drawHeader(pdf, d, true) + 5; }
+    drawText(pdf, 'INFORMASI PEMBAYARAN', 14, y + 4, 6.5, 'bold', COLORS.orange);
+    var bankHeight = drawText(pdf, d.bankDetails, 14, y + 9, 7, 'normal', COLORS.ink, leftWidth);
+    y += bankHeight + 13;
+  }
   var signY = Math.max(y, pageHeight - 58);
   if (signY > pageHeight - 25) { pdf.addPage(); signY = 45; }
   drawText(pdf, 'Hormat kami,', rightX, signY, 7.5, 'normal', COLORS.ink);
