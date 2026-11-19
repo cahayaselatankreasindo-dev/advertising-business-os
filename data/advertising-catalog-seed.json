@@ -1,0 +1,1636 @@
+{
+  "catalogVersion": 1,
+  "catalogName": "CSK Advertising & Fabrication Reference Catalog",
+  "currency": "IDR",
+  "status": "REFERENCE_TEMPLATE_NOT_YET_PRICED",
+  "purpose": "Template katalog bahan baku dan jasa untuk diaktifkan setelah spesifikasi, supplier, satuan beli, dan harga aktual diverifikasi oleh CSK.",
+  "pricingPolicy": "Harga tidak diisi dengan angka perkiraan. Setiap SKU hasil aktivasi wajib memiliki sumber harga, supplier atau bukti pembelian, tanggal berlaku, satuan beli, satuan pakai, dan faktor konversi yang benar.",
+  "activationPolicy": "Template tidak boleh langsung masuk ke quotation sebagai item berharga nol. Owner harus melengkapi harga aktual dan mengaktifkan SKU terlebih dahulu.",
+  "specificationNote": "Ukuran, ketebalan, gramatur, warna, dan panjang standar di bawah adalah opsi referensi umum. Ketersediaan aktual wajib dikonfirmasi ke supplier CSK sebelum SKU diaktifkan.",
+  "materialFamilies": [
+    {
+      "familyCode": "PAP-HVS",
+      "category": "Kertas dan bahan cetak",
+      "familyName": "Kertas HVS",
+      "description": "Kertas tulis/cetak untuk dokumen, kop surat, form, dan administrasi.",
+      "purchaseUnit": "ream atau lembar (ikuti invoice supplier)",
+      "usageUnit": "lembar",
+      "costingMethod": "sheet_count",
+      "attributes": {
+        "grammageGsm": [
+          70,
+          75,
+          80,
+          100
+        ],
+        "sheetSizes": [
+          {
+            "code": "A4",
+            "widthMm": 210,
+            "lengthMm": 297
+          },
+          {
+            "code": "A3",
+            "widthMm": 297,
+            "lengthMm": 420
+          },
+          {
+            "code": "F4",
+            "widthMm": 215,
+            "lengthMm": 330
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "PAP-ARTP",
+      "category": "Kertas dan bahan cetak",
+      "familyName": "Art Paper",
+      "description": "Kertas coated untuk brosur, flyer, poster, insert, dan promosi.",
+      "purchaseUnit": "lembar atau rim (ikuti invoice supplier)",
+      "usageUnit": "lembar",
+      "costingMethod": "sheet_count",
+      "attributes": {
+        "grammageGsm": [
+          100,
+          120,
+          150,
+          170,
+          190,
+          210,
+          230,
+          260
+        ],
+        "sheetSizes": [
+          {
+            "code": "A3+",
+            "widthMm": 320,
+            "lengthMm": 480
+          },
+          {
+            "code": "48x64",
+            "widthMm": 480,
+            "lengthMm": 640
+          },
+          {
+            "code": "65x100",
+            "widthMm": 650,
+            "lengthMm": 1000
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "PAP-ARTC",
+      "category": "Kertas dan bahan cetak",
+      "familyName": "Art Carton",
+      "description": "Karton coated untuk kartu nama, hang tag, cover, packaging ringan, dan kartu promosi.",
+      "purchaseUnit": "lembar atau rim (ikuti invoice supplier)",
+      "usageUnit": "lembar",
+      "costingMethod": "sheet_count",
+      "attributes": {
+        "grammageGsm": [
+          190,
+          210,
+          230,
+          260,
+          310,
+          350
+        ],
+        "sheetSizes": [
+          {
+            "code": "A3+",
+            "widthMm": 320,
+            "lengthMm": 480
+          },
+          {
+            "code": "48x64",
+            "widthMm": 480,
+            "lengthMm": 640
+          },
+          {
+            "code": "65x100",
+            "widthMm": 650,
+            "lengthMm": 1000
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "PAP-IVORY",
+      "category": "Kertas dan bahan cetak",
+      "familyName": "Ivory",
+      "description": "Karton satu sisi coated untuk kemasan, kartu, dan packaging.",
+      "purchaseUnit": "lembar atau rim (ikuti invoice supplier)",
+      "usageUnit": "lembar",
+      "costingMethod": "sheet_count",
+      "attributes": {
+        "grammageGsm": [
+          210,
+          230,
+          250,
+          260,
+          300,
+          350
+        ],
+        "sheetSizes": [
+          {
+            "code": "A3+",
+            "widthMm": 320,
+            "lengthMm": 480
+          },
+          {
+            "code": "48x64",
+            "widthMm": 480,
+            "lengthMm": 640
+          },
+          {
+            "code": "65x100",
+            "widthMm": 650,
+            "lengthMm": 1000
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "PAP-DUPLEX",
+      "category": "Kertas dan bahan cetak",
+      "familyName": "Duplex",
+      "description": "Karton duplex untuk dus, packaging, backing display, dan kemasan.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar",
+      "costingMethod": "sheet_count",
+      "attributes": {
+        "grammageGsm": [
+          250,
+          270,
+          310,
+          350,
+          400
+        ],
+        "sheetSizes": [
+          {
+            "code": "65x100",
+            "widthMm": 650,
+            "lengthMm": 1000
+          },
+          {
+            "code": "79x109",
+            "widthMm": 790,
+            "lengthMm": 1090
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "PAP-KRAFT",
+      "category": "Kertas dan bahan cetak",
+      "familyName": "Kraft Paper",
+      "description": "Kertas kraft untuk paper bag, sleeve, pembungkus, dan kemasan.",
+      "purchaseUnit": "lembar atau roll (ikuti supplier)",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_or_roll",
+      "attributes": {
+        "grammageGsm": [
+          125,
+          150,
+          180,
+          200,
+          250,
+          275
+        ],
+        "sheetSizes": [
+          {
+            "code": "65x100",
+            "widthMm": 650,
+            "lengthMm": 1000
+          }
+        ],
+        "rollWidthsMm": [
+          600,
+          900,
+          1000,
+          1200
+        ]
+      }
+    },
+    {
+      "familyCode": "PAP-NCR",
+      "category": "Kertas dan bahan cetak",
+      "familyName": "NCR / Continuous Form",
+      "description": "Kertas rangkap tanpa karbon untuk nota dan form.",
+      "purchaseUnit": "rim atau box (ikuti supplier)",
+      "usageUnit": "lembar",
+      "costingMethod": "sheet_count",
+      "attributes": {
+        "grammageGsm": [
+          50,
+          55,
+          60,
+          70
+        ],
+        "colors": [
+          "Putih",
+          "Merah muda",
+          "Kuning",
+          "Hijau",
+          "Biru"
+        ],
+        "plies": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "sizes": [
+          "A4",
+          "F4",
+          "Continuous Form"
+        ]
+      }
+    },
+    {
+      "familyCode": "PAP-LINEN",
+      "category": "Kertas dan bahan cetak",
+      "familyName": "Linen dan Fancy Paper",
+      "description": "Kertas bertekstur untuk sertifikat, undangan, kartu, dan stationery premium.",
+      "purchaseUnit": "lembar atau pack (ikuti supplier)",
+      "usageUnit": "lembar",
+      "costingMethod": "sheet_count",
+      "attributes": {
+        "grammageGsm": [
+          180,
+          220,
+          250,
+          260,
+          280,
+          300
+        ],
+        "textures": [
+          "Linen",
+          "Concorde",
+          "Emboss",
+          "Laid",
+          "Metallic"
+        ],
+        "colors": [
+          "Putih",
+          "Broken White",
+          "Cream",
+          "Hitam",
+          "Warna lain"
+        ],
+        "sheetSizes": [
+          "A4",
+          "A3",
+          "A3+"
+        ]
+      }
+    },
+    {
+      "familyCode": "PAP-GREY",
+      "category": "Kertas dan bahan cetak",
+      "familyName": "Grey Board / Karton Abu",
+      "description": "Board untuk hard cover, packaging, display, dan backing.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_or_area",
+      "attributes": {
+        "thicknessMm": [
+          0.8,
+          1,
+          1.2,
+          1.5,
+          2,
+          2.5,
+          3
+        ],
+        "sheetSizes": [
+          {
+            "code": "70x100",
+            "widthMm": 700,
+            "lengthMm": 1000
+          },
+          {
+            "code": "80x120",
+            "widthMm": 800,
+            "lengthMm": 1200
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "STK-VINYL",
+      "category": "Sticker dan bahan perekat",
+      "familyName": "Sticker Vinyl",
+      "description": "Media sticker untuk branding, label, signage, dan grafis kendaraan.",
+      "purchaseUnit": "roll",
+      "usageUnit": "m2 atau meter lari",
+      "costingMethod": "roll_width_length",
+      "attributes": {
+        "finish": [
+          "Glossy",
+          "Matte"
+        ],
+        "adhesive": [
+          "Permanent",
+          "Removable"
+        ],
+        "rollWidthsMm": [
+          610,
+          1000,
+          1220,
+          1370,
+          1520
+        ],
+        "rollLengthsM": [
+          25,
+          50
+        ]
+      }
+    },
+    {
+      "familyCode": "STK-CHROMO",
+      "category": "Sticker dan bahan perekat",
+      "familyName": "Sticker Chromo",
+      "description": "Sticker berbahan kertas untuk label dan kebutuhan indoor.",
+      "purchaseUnit": "roll atau lembar",
+      "usageUnit": "m2 atau lembar",
+      "costingMethod": "roll_or_sheet",
+      "attributes": {
+        "finish": [
+          "Glossy"
+        ],
+        "rollWidthsMm": [
+          610,
+          1000,
+          1220
+        ],
+        "sheetSizes": [
+          "A4",
+          "A3",
+          "A3+"
+        ]
+      }
+    },
+    {
+      "familyCode": "STK-OTHER",
+      "category": "Sticker dan bahan perekat",
+      "familyName": "Sticker Khusus",
+      "description": "Sticker transparan, one-way vision, reflective, floor graphic, dan hologram.",
+      "purchaseUnit": "roll",
+      "usageUnit": "m2 atau meter lari",
+      "costingMethod": "roll_width_length",
+      "attributes": {
+        "types": [
+          "Transparan",
+          "One Way Vision",
+          "Reflective",
+          "Floor Sticker",
+          "Hologram",
+          "Static Cling"
+        ],
+        "rollWidthsMm": [
+          610,
+          1000,
+          1220,
+          1370,
+          1520
+        ],
+        "rollLengthsM": [
+          10,
+          25,
+          50
+        ]
+      }
+    },
+    {
+      "familyCode": "LAM-FILM",
+      "category": "Sticker dan bahan perekat",
+      "familyName": "Laminasi Film",
+      "description": "Cold laminate glossy/matte dan pelindung grafis.",
+      "purchaseUnit": "roll",
+      "usageUnit": "m2 atau meter lari",
+      "costingMethod": "roll_width_length",
+      "attributes": {
+        "finish": [
+          "Glossy",
+          "Matte",
+          "Texture"
+        ],
+        "rollWidthsMm": [
+          610,
+          1000,
+          1220,
+          1370,
+          1520
+        ],
+        "rollLengthsM": [
+          25,
+          50
+        ]
+      }
+    },
+    {
+      "familyCode": "WOOD-PLY",
+      "category": "Kayu dan panel",
+      "familyName": "Multiplek / Plywood",
+      "description": "Panel kayu lapis untuk rak display, booth, furniture promosi, dan fabrikasi.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "thicknessMm": [
+          3,
+          4,
+          6,
+          9,
+          12,
+          15,
+          18
+        ],
+        "customThicknessAllowed": true,
+        "sheetSizes": [
+          {
+            "code": "1220x2440",
+            "widthMm": 1220,
+            "lengthMm": 2440
+          },
+          {
+            "code": "1220x1830",
+            "widthMm": 1220,
+            "lengthMm": 1830
+          }
+        ],
+        "grades": [
+          "Local",
+          "UTY",
+          "BB/CC",
+          "Film Faced",
+          "Marine (verifikasi supplier)"
+        ]
+      }
+    },
+    {
+      "familyCode": "WOOD-MDF",
+      "category": "Kayu dan panel",
+      "familyName": "MDF",
+      "description": "Medium Density Fibreboard untuk panel display, signage, dan komponen interior.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "thicknessMm": [
+          3,
+          6,
+          9,
+          12,
+          15,
+          18,
+          25
+        ],
+        "sheetSizes": [
+          {
+            "code": "1220x2440",
+            "widthMm": 1220,
+            "lengthMm": 2440
+          }
+        ],
+        "grades": [
+          "Standard",
+          "Moisture Resistant (jika tersedia)"
+        ]
+      }
+    },
+    {
+      "familyCode": "WOOD-HDF",
+      "category": "Kayu dan panel",
+      "familyName": "HDF",
+      "description": "High Density Fibreboard untuk backing dan panel tipis.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "thicknessMm": [
+          2.5,
+          3,
+          4.5,
+          6
+        ],
+        "sheetSizes": [
+          {
+            "code": "1220x2440",
+            "widthMm": 1220,
+            "lengthMm": 2440
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "WOOD-BLOCK",
+      "category": "Kayu dan panel",
+      "familyName": "Blockboard",
+      "description": "Panel blockboard untuk komponen display dan furniture.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "thicknessMm": [
+          15,
+          18,
+          25
+        ],
+        "sheetSizes": [
+          {
+            "code": "1220x2440",
+            "widthMm": 1220,
+            "lengthMm": 2440
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "WOOD-PARTICLE",
+      "category": "Kayu dan panel",
+      "familyName": "Particle Board",
+      "description": "Panel partikel untuk komponen furniture/display.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "thicknessMm": [
+          9,
+          12,
+          15,
+          18,
+          25
+        ],
+        "sheetSizes": [
+          {
+            "code": "1220x2440",
+            "widthMm": 1220,
+            "lengthMm": 2440
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "WOOD-SOLID",
+      "category": "Kayu dan panel",
+      "familyName": "Kayu Solid",
+      "description": "Kayu solid untuk rangka, kaki, list, dan komponen custom. Harga bergantung grade, kadar air, dan dimensi.",
+      "purchaseUnit": "m3, batang, atau meter (sesuai supplier)",
+      "usageUnit": "m3 atau meter",
+      "costingMethod": "dimension_or_volume",
+      "attributes": {
+        "species": [
+          "Jati",
+          "Mahoni",
+          "Meranti",
+          "Pinus",
+          "Sungkai",
+          "Kamper",
+          "Mindi",
+          "Albasia",
+          "Merbau"
+        ],
+        "grade": [
+          "A",
+          "B",
+          "C",
+          "FJ/Joint",
+          "Custom"
+        ],
+        "moistureContent": [
+          "Kiln Dried",
+          "Air Dried",
+          "Belum diverifikasi"
+        ],
+        "dimensions": "custom"
+      }
+    },
+    {
+      "familyCode": "ACR-CLEAR",
+      "category": "Akrilik",
+      "familyName": "Akrilik Clear / Bening",
+      "description": "Akrilik bening untuk display, box, signage, pelindung, dan fabrikasi.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "type": [
+          "Cast",
+          "Extruded (verifikasi supplier)"
+        ],
+        "thicknessMm": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          8,
+          10,
+          12,
+          15,
+          20,
+          25
+        ],
+        "sheetSizes": [
+          {
+            "code": "1220x1830",
+            "widthMm": 1220,
+            "lengthMm": 1830
+          },
+          {
+            "code": "1220x2440",
+            "widthMm": 1220,
+            "lengthMm": 2440
+          },
+          {
+            "code": "1000x2000",
+            "widthMm": 1000,
+            "lengthMm": 2000
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "ACR-MILKY",
+      "category": "Akrilik",
+      "familyName": "Akrilik Milky / Opal",
+      "description": "Akrilik putih susu/translucent untuk lightbox dan signage bercahaya.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "type": [
+          "Cast",
+          "Extruded (verifikasi supplier)"
+        ],
+        "thicknessMm": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          8,
+          10
+        ],
+        "sheetSizes": [
+          {
+            "code": "1220x1830",
+            "widthMm": 1220,
+            "lengthMm": 1830
+          },
+          {
+            "code": "1220x2440",
+            "widthMm": 1220,
+            "lengthMm": 2440
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "ACR-COLOR",
+      "category": "Akrilik",
+      "familyName": "Akrilik Warna",
+      "description": "Akrilik solid warna untuk huruf timbul, logo, display, dan dekorasi.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "colors": [
+          "Putih",
+          "Hitam",
+          "Merah",
+          "Biru",
+          "Kuning",
+          "Hijau",
+          "Orange",
+          "Abu-abu",
+          "Warna khusus"
+        ],
+        "thicknessMm": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          8,
+          10
+        ],
+        "sheetSizes": [
+          {
+            "code": "1220x1830",
+            "widthMm": 1220,
+            "lengthMm": 1830
+          },
+          {
+            "code": "1220x2440",
+            "widthMm": 1220,
+            "lengthMm": 2440
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "ACR-MIRROR",
+      "category": "Akrilik",
+      "familyName": "Akrilik Mirror",
+      "description": "Akrilik efek cermin untuk dekorasi, logo, dan display.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "colors": [
+          "Silver",
+          "Gold",
+          "Rose Gold",
+          "Warna lain"
+        ],
+        "thicknessMm": [
+          1,
+          1.5,
+          2,
+          3
+        ],
+        "sheetSizes": [
+          {
+            "code": "1220x1830",
+            "widthMm": 1220,
+            "lengthMm": 1830
+          },
+          {
+            "code": "1220x2440",
+            "widthMm": 1220,
+            "lengthMm": 2440
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "ACR-FROST",
+      "category": "Akrilik",
+      "familyName": "Akrilik Frosted / Texture",
+      "description": "Akrilik buram atau bertekstur untuk panel dan elemen visual.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "colors": [
+          "Frosted Clear",
+          "Frosted White",
+          "Frosted Color"
+        ],
+        "thicknessMm": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          8
+        ],
+        "sheetSizes": [
+          {
+            "code": "1220x1830",
+            "widthMm": 1220,
+            "lengthMm": 1830
+          },
+          {
+            "code": "1220x2440",
+            "widthMm": 1220,
+            "lengthMm": 2440
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "PVC-FOAM",
+      "category": "Panel plastik dan komposit",
+      "familyName": "PVC Foam Board",
+      "description": "PVC foam board untuk signage, display, panel, dan kebutuhan indoor/outdoor sesuai grade.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "thicknessMm": [
+          3,
+          5,
+          8,
+          10,
+          12,
+          15,
+          18,
+          20
+        ],
+        "colors": [
+          "Putih",
+          "Hitam",
+          "Warna lain"
+        ],
+        "sheetSizes": [
+          {
+            "code": "1220x2440",
+            "widthMm": 1220,
+            "lengthMm": 2440
+          },
+          {
+            "code": "1560x3050",
+            "widthMm": 1560,
+            "lengthMm": 3050
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "ACP",
+      "category": "Panel plastik dan komposit",
+      "familyName": "Aluminium Composite Panel (ACP)",
+      "description": "Panel komposit aluminium untuk fasad, signage, dan cladding.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "thicknessMm": [
+          3,
+          4
+        ],
+        "aluminiumSkinMm": [
+          0.21,
+          0.3,
+          0.4,
+          0.5
+        ],
+        "finish": [
+          "PE",
+          "PVDF",
+          "Mirror",
+          "Brushed",
+          "Woodgrain"
+        ],
+        "sheetSizes": [
+          {
+            "code": "1220x2440",
+            "widthMm": 1220,
+            "lengthMm": 2440
+          },
+          {
+            "code": "1500x3000",
+            "widthMm": 1500,
+            "lengthMm": 3000
+          }
+        ]
+      }
+    },
+    {
+      "familyCode": "PC-SHEET",
+      "category": "Panel plastik dan komposit",
+      "familyName": "Polycarbonate Sheet",
+      "description": "Polycarbonate solid atau twinwall untuk kanopi, pelindung, dan panel.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "type": [
+          "Solid",
+          "Twinwall",
+          "Multiwall"
+        ],
+        "thicknessMm": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          8,
+          10
+        ],
+        "colors": [
+          "Clear",
+          "Bronze",
+          "Opal"
+        ],
+        "sheetSizes": [
+          "ikuti tipe dan supplier"
+        ]
+      }
+    },
+    {
+      "familyCode": "FLEXI",
+      "category": "Media printing roll",
+      "familyName": "Flexi Banner",
+      "description": "Media banner frontlit/backlit untuk indoor dan outdoor.",
+      "purchaseUnit": "roll",
+      "usageUnit": "m2 atau meter lari",
+      "costingMethod": "roll_width_length",
+      "attributes": {
+        "type": [
+          "Frontlit",
+          "Backlit",
+          "Blockout"
+        ],
+        "weightGsm": [
+          280,
+          300,
+          340,
+          380,
+          440,
+          510
+        ],
+        "rollWidthsMm": [
+          2200,
+          2500,
+          3200,
+          5000
+        ],
+        "rollLengthsM": [
+          30,
+          50,
+          70
+        ]
+      }
+    },
+    {
+      "familyCode": "MESH",
+      "category": "Media printing roll",
+      "familyName": "Mesh Banner",
+      "description": "Media mesh untuk area berangin dan aplikasi outdoor.",
+      "purchaseUnit": "roll",
+      "usageUnit": "m2 atau meter lari",
+      "costingMethod": "roll_width_length",
+      "attributes": {
+        "weightGsm": [
+          250,
+          270,
+          300,
+          330
+        ],
+        "rollWidthsMm": [
+          2200,
+          3200,
+          5000
+        ],
+        "rollLengthsM": [
+          30,
+          50
+        ]
+      }
+    },
+    {
+      "familyCode": "CANVAS",
+      "category": "Media printing roll",
+      "familyName": "Canvas Printing",
+      "description": "Media canvas untuk wall art, dekorasi, dan display.",
+      "purchaseUnit": "roll",
+      "usageUnit": "m2 atau meter lari",
+      "costingMethod": "roll_width_length",
+      "attributes": {
+        "finish": [
+          "Matte",
+          "Glossy"
+        ],
+        "rollWidthsMm": [
+          610,
+          914,
+          1270,
+          1520
+        ],
+        "rollLengthsM": [
+          18,
+          25,
+          30
+        ]
+      }
+    },
+    {
+      "familyCode": "BACKLIT-FILM",
+      "category": "Media printing roll",
+      "familyName": "Backlit Film",
+      "description": "Film translusen untuk lightbox dan media bercahaya.",
+      "purchaseUnit": "roll",
+      "usageUnit": "m2 atau meter lari",
+      "costingMethod": "roll_width_length",
+      "attributes": {
+        "finish": [
+          "Matte",
+          "Glossy"
+        ],
+        "rollWidthsMm": [
+          610,
+          914,
+          1270,
+          1520
+        ],
+        "rollLengthsM": [
+          20,
+          30
+        ]
+      }
+    },
+    {
+      "familyCode": "ALU-PROFILE",
+      "category": "Logam dan profil",
+      "familyName": "Profil Aluminium",
+      "description": "Hollow, siku, U, T, dan profil khusus untuk frame, signage, dan display.",
+      "purchaseUnit": "batang",
+      "usageUnit": "meter",
+      "costingMethod": "bar_length_cutlist",
+      "attributes": {
+        "profile": [
+          "Hollow 20x20",
+          "Hollow 25x25",
+          "Hollow 30x30",
+          "Hollow 40x40",
+          "Hollow 50x50",
+          "Siku 20x20",
+          "Siku 25x25",
+          "U Profile",
+          "T Profile",
+          "Frame Profile"
+        ],
+        "wallThicknessMm": [
+          0.8,
+          1,
+          1.2,
+          1.5,
+          2,
+          3
+        ],
+        "standardLengthMm": [
+          3000,
+          6000
+        ],
+        "alloy": "ikuti supplier"
+      }
+    },
+    {
+      "familyCode": "STEEL-HOLLOW",
+      "category": "Logam dan profil",
+      "familyName": "Besi Hollow",
+      "description": "Besi hollow untuk rangka display, booth, signage, dan struktur ringan.",
+      "purchaseUnit": "batang",
+      "usageUnit": "meter",
+      "costingMethod": "bar_length_cutlist",
+      "attributes": {
+        "profile": [
+          "Hollow 20x20",
+          "Hollow 20x40",
+          "Hollow 25x25",
+          "Hollow 30x30",
+          "Hollow 40x40",
+          "Hollow 40x60",
+          "Hollow 50x50"
+        ],
+        "wallThicknessMm": [
+          0.7,
+          0.8,
+          1,
+          1.2,
+          1.4,
+          1.6,
+          2
+        ],
+        "standardLengthMm": [
+          6000
+        ]
+      }
+    },
+    {
+      "familyCode": "STEEL-SHEET",
+      "category": "Logam dan profil",
+      "familyName": "Plat Besi / Stainless",
+      "description": "Plat besi, galvanis, dan stainless untuk bracket, base plate, dan fabrikasi.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "lembar atau m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "material": [
+          "Mild Steel",
+          "Galvanis",
+          "Stainless 201",
+          "Stainless 304"
+        ],
+        "thicknessMm": [
+          0.8,
+          1,
+          1.2,
+          1.5,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "sheetSizes": [
+          "ikuti supplier"
+        ]
+      }
+    },
+    {
+      "familyCode": "LED",
+      "category": "Elektrikal dan pencahayaan",
+      "familyName": "LED Module dan Strip",
+      "description": "LED untuk signage, huruf timbul, lightbox, dan display.",
+      "purchaseUnit": "pcs, roll, atau set (ikuti SKU)",
+      "usageUnit": "pcs atau meter",
+      "costingMethod": "piece_or_length",
+      "attributes": {
+        "type": [
+          "LED Module 1 mata",
+          "LED Module 2 mata",
+          "LED Module 3 mata",
+          "LED Strip 12V",
+          "LED Strip 24V",
+          "COB Strip"
+        ],
+        "color": [
+          "6500K",
+          "4000K",
+          "3000K",
+          "Red",
+          "Green",
+          "Blue",
+          "RGB"
+        ],
+        "powerW": [
+          1.5,
+          2,
+          3,
+          4,
+          5,
+          9,
+          12,
+          14
+        ],
+        "voltage": [
+          12,
+          24
+        ]
+      }
+    },
+    {
+      "familyCode": "PSU",
+      "category": "Elektrikal dan pencahayaan",
+      "familyName": "Power Supply LED",
+      "description": "Catu daya LED untuk signage dan lightbox.",
+      "purchaseUnit": "pcs",
+      "usageUnit": "pcs",
+      "costingMethod": "piece_count",
+      "attributes": {
+        "inputVoltage": [
+          "220V AC"
+        ],
+        "outputVoltage": [
+          12,
+          24
+        ],
+        "capacityW": [
+          30,
+          60,
+          100,
+          150,
+          200,
+          250,
+          300,
+          350,
+          400,
+          500
+        ],
+        "protection": [
+          "Indoor",
+          "Outdoor/IP-rated"
+        ]
+      }
+    },
+    {
+      "familyCode": "CABLE",
+      "category": "Elektrikal dan pencahayaan",
+      "familyName": "Kabel dan konektor",
+      "description": "Kabel listrik, kabel DC, konektor, terminal, dan aksesoris instalasi.",
+      "purchaseUnit": "roll atau meter",
+      "usageUnit": "meter atau pcs",
+      "costingMethod": "length_or_piece",
+      "attributes": {
+        "types": [
+          "NYA",
+          "NYM",
+          "NYAF",
+          "Kabel DC",
+          "Kabel serabut",
+          "Connector DC",
+          "Terminal Block"
+        ],
+        "sizesMm2": [
+          0.5,
+          0.75,
+          1,
+          1.5,
+          2.5,
+          4,
+          6
+        ],
+        "rollLengthM": [
+          10,
+          25,
+          50,
+          100
+        ]
+      }
+    },
+    {
+      "familyCode": "FASTENER",
+      "category": "Aksesoris dan consumables",
+      "familyName": "Baut, Sekrup, Rivet, dan Fastener",
+      "description": "Pengikat untuk assembly, pemasangan panel, rangka, dan signage.",
+      "purchaseUnit": "pack, box, atau pcs",
+      "usageUnit": "pcs",
+      "costingMethod": "pack_to_piece",
+      "attributes": {
+        "types": [
+          "Baut Hex",
+          "Sekrup Gypsum",
+          "Sekrup Self Drilling",
+          "Baut + Mur",
+          "Rivet",
+          "Dynabolt",
+          "Fischer",
+          "Washer"
+        ],
+        "diameterMm": [
+          3,
+          4,
+          5,
+          6,
+          8,
+          10,
+          12
+        ],
+        "lengthMm": [
+          10,
+          12,
+          16,
+          20,
+          25,
+          30,
+          40,
+          50,
+          60,
+          75,
+          100
+        ],
+        "material": [
+          "Baja",
+          "Galvanis",
+          "Stainless"
+        ]
+      }
+    },
+    {
+      "familyCode": "ADHESIVE",
+      "category": "Aksesoris dan consumables",
+      "familyName": "Lem, Sealant, dan Tape",
+      "description": "Bahan perekat dan sealant untuk acrylic, panel, signage, dan pemasangan.",
+      "purchaseUnit": "pcs, tube, cartridge, roll, atau liter",
+      "usageUnit": "pcs, ml, m, atau m2",
+      "costingMethod": "package_to_usage",
+      "attributes": {
+        "types": [
+          "Lem Akrilik",
+          "Lem Kuning",
+          "Lem PVC",
+          "Silicone Sealant",
+          "PU Sealant",
+          "Double Tape Foam",
+          "Double Tape Acrylic",
+          "VHB Tape",
+          "Masking Tape"
+        ],
+        "packageSizes": [
+          "ikuti kemasan supplier"
+        ]
+      }
+    },
+    {
+      "familyCode": "PAINT",
+      "category": "Aksesoris dan consumables",
+      "familyName": "Cat dan Finishing",
+      "description": "Cat, primer, clear coat, thinner, dan bahan finishing untuk produk fabrikasi.",
+      "purchaseUnit": "kaleng, liter, kg, atau set",
+      "usageUnit": "ml, liter, atau m2",
+      "costingMethod": "package_to_usage",
+      "attributes": {
+        "types": [
+          "Cat Duco",
+          "Cat Acrylic",
+          "Cat Besi",
+          "Primer",
+          "Epoxy",
+          "Clear Coat",
+          "Thinner",
+          "Wood Stain"
+        ],
+        "finish": [
+          "Glossy",
+          "Satin",
+          "Matte"
+        ],
+        "packageSizes": [
+          "ikuti kemasan supplier"
+        ]
+      }
+    },
+    {
+      "familyCode": "ABRASIVE",
+      "category": "Aksesoris dan consumables",
+      "familyName": "Amplas dan Consumable Mesin",
+      "description": "Amplas, cutting disc, grinding disc, mata bor, mata router, dan consumable produksi.",
+      "purchaseUnit": "pcs, pack, atau box",
+      "usageUnit": "pcs",
+      "costingMethod": "piece_count",
+      "attributes": {
+        "types": [
+          "Amplas Sheet",
+          "Amplas Roll",
+          "Cutting Disc",
+          "Grinding Disc",
+          "Mata Bor",
+          "Mata Router"
+        ],
+        "grit": [
+          "40",
+          "60",
+          "80",
+          "100",
+          "120",
+          "180",
+          "240",
+          "320",
+          "400",
+          "600",
+          "800",
+          "1000"
+        ],
+        "diameterMm": [
+          100,
+          115,
+          125,
+          180,
+          230
+        ]
+      }
+    }
+  ],
+  "serviceFamilies": [
+    {
+      "serviceCode": "SRV-DESIGN",
+      "name": "Desain grafis / artwork",
+      "category": "Desain",
+      "unitOptions": [
+        "desain",
+        "jam",
+        "proyek"
+      ],
+      "costBasis": "jam kerja atau tarif per desain",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-DTP",
+      "name": "Layout / prepress / setting file",
+      "category": "Desain",
+      "unitOptions": [
+        "file",
+        "halaman",
+        "jam"
+      ],
+      "costBasis": "kompleksitas dan waktu kerja",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-DIGITAL",
+      "name": "Digital printing",
+      "category": "Printing",
+      "unitOptions": [
+        "m2",
+        "meter lari",
+        "lembar"
+      ],
+      "costBasis": "luas cetak, media, tinta, dan minimum charge",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-LARGE",
+      "name": "Large format printing",
+      "category": "Printing",
+      "unitOptions": [
+        "m2",
+        "meter lari"
+      ],
+      "costBasis": "lebar roll, panjang cetak, tinta, dan finishing",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-UV",
+      "name": "UV printing",
+      "category": "Printing",
+      "unitOptions": [
+        "m2",
+        "lembar",
+        "pcs",
+        "jam"
+      ],
+      "costBasis": "luas/area cetak, setup, dan jumlah warna",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-OFFSET",
+      "name": "Offset printing",
+      "category": "Printing",
+      "unitOptions": [
+        "rim",
+        "lembar",
+        "box",
+        "job"
+      ],
+      "costBasis": "setup plate, running, kertas, dan finishing",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-LAM",
+      "name": "Laminasi",
+      "category": "Finishing",
+      "unitOptions": [
+        "m2",
+        "lembar",
+        "meter lari"
+      ],
+      "costBasis": "luas dan jenis laminasi",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-CUT",
+      "name": "Cutting plotter",
+      "category": "Cutting",
+      "unitOptions": [
+        "meter lari",
+        "m2",
+        "job"
+      ],
+      "costBasis": "panjang potong, kompleksitas, dan setup",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-LASER",
+      "name": "Laser cutting / engraving",
+      "category": "Cutting",
+      "unitOptions": [
+        "menit",
+        "jam",
+        "meter lari",
+        "job"
+      ],
+      "costBasis": "waktu mesin, material, ketebalan, dan setup",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-CNC",
+      "name": "CNC routing",
+      "category": "Cutting",
+      "unitOptions": [
+        "menit",
+        "jam",
+        "m2",
+        "job"
+      ],
+      "costBasis": "waktu mesin, toolpath, material, dan setup",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-BENDING",
+      "name": "Acrylic / metal bending",
+      "category": "Fabrication",
+      "unitOptions": [
+        "titik",
+        "meter lari",
+        "pcs",
+        "job"
+      ],
+      "costBasis": "jumlah tekukan, panjang, ketebalan, dan setup",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-WELD",
+      "name": "Welding / pengelasan",
+      "category": "Fabrication",
+      "unitOptions": [
+        "titik",
+        "meter lari",
+        "jam",
+        "job"
+      ],
+      "costBasis": "panjang las, material, posisi, dan waktu kerja",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-ASSEMBLY",
+      "name": "Assembly / perakitan",
+      "category": "Fabrication",
+      "unitOptions": [
+        "pcs",
+        "set",
+        "jam",
+        "job"
+      ],
+      "costBasis": "waktu kerja dan tingkat kesulitan",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-PAINT",
+      "name": "Painting / finishing",
+      "category": "Finishing",
+      "unitOptions": [
+        "m2",
+        "pcs",
+        "set",
+        "job"
+      ],
+      "costBasis": "luas, lapisan, warna, dan persiapan permukaan",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-LETTER",
+      "name": "Pembuatan huruf timbul / signage",
+      "category": "Fabrication",
+      "unitOptions": [
+        "cm tinggi huruf",
+        "pcs",
+        "set",
+        "job"
+      ],
+      "costBasis": "tinggi huruf, kedalaman, material, LED, dan assembly",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-INSTALL",
+      "name": "Instalasi / pemasangan lapangan",
+      "category": "Instalasi",
+      "unitOptions": [
+        "titik",
+        "hari",
+        "jam",
+        "job"
+      ],
+      "costBasis": "jumlah personel, durasi, akses, dan risiko lokasi",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-SURVEY",
+      "name": "Survey dan pengukuran lokasi",
+      "category": "Instalasi",
+      "unitOptions": [
+        "lokasi",
+        "jam",
+        "job"
+      ],
+      "costBasis": "jarak, durasi, dan kebutuhan teknis",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-DELIVERY",
+      "name": "Pengiriman / logistik",
+      "category": "Logistik",
+      "unitOptions": [
+        "trip",
+        "km",
+        "rit",
+        "job"
+      ],
+      "costBasis": "jarak, volume, kendaraan, dan akses",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-RENTAL",
+      "name": "Sewa alat / akses kerja",
+      "category": "Logistik",
+      "unitOptions": [
+        "jam",
+        "hari",
+        "unit"
+      ],
+      "costBasis": "durasi, jenis alat, operator, dan mobilisasi",
+      "requiresScope": true
+    },
+    {
+      "serviceCode": "SRV-MAINT",
+      "name": "Maintenance / perbaikan",
+      "category": "After Sales",
+      "unitOptions": [
+        "jam",
+        "kunjungan",
+        "job"
+      ],
+      "costBasis": "diagnosis, spare part, dan waktu teknisi",
+      "requiresScope": true
+    }
+  ]
+}
