@@ -364,6 +364,6 @@ var api = {
   downloadDocument: downloadDocument,
   generatePdf: generatePdf
 };
-w.CSKPDF = api;
+if (w) w.CSKPDF = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : null);
