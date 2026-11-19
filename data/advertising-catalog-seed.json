@@ -1631,6 +1631,311 @@
       ],
       "costBasis": "diagnosis, spare part, dan waktu teknisi",
       "requiresScope": true
+    },
+    {
+      "serviceCode": "PRD-CARD",
+      "name": "Kartu nama",
+      "category": "Produk Cetak",
+      "unitOptions": [
+        "box",
+        "pcs",
+        "job"
+      ],
+      "costBasis": "ukuran, bahan kertas, jumlah cetak, finishing, dan kemasan",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-FLYER",
+      "name": "Flyer / leaflet",
+      "category": "Produk Cetak",
+      "unitOptions": [
+        "pcs",
+        "rim",
+        "job"
+      ],
+      "costBasis": "ukuran, gramatur, jumlah cetak, warna, dan finishing",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-BROCHURE",
+      "name": "Brosur lipat",
+      "category": "Produk Cetak",
+      "unitOptions": [
+        "pcs",
+        "rim",
+        "job"
+      ],
+      "costBasis": "ukuran terbuka/tertutup, jenis lipatan, bahan, dan jumlah cetak",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-POSTER",
+      "name": "Poster",
+      "category": "Produk Cetak",
+      "unitOptions": [
+        "pcs",
+        "m2",
+        "job"
+      ],
+      "costBasis": "ukuran, media, finishing, dan jumlah",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-BOOKLET",
+      "name": "Booklet / katalog",
+      "category": "Produk Cetak",
+      "unitOptions": [
+        "pcs",
+        "buku",
+        "job"
+      ],
+      "costBasis": "jumlah halaman, ukuran, bahan isi, cover, binding, dan finishing",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-PAPERBAG",
+      "name": "Paper bag custom",
+      "category": "Produk Packaging",
+      "unitOptions": [
+        "pcs",
+        "box",
+        "job"
+      ],
+      "costBasis": "ukuran, bahan, handle, cetak, laminasi, dan jumlah",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-PACKAGING",
+      "name": "Dus / packaging custom",
+      "category": "Produk Packaging",
+      "unitOptions": [
+        "pcs",
+        "box",
+        "job"
+      ],
+      "costBasis": "dimensi, jenis karton, diecut, cetak, laminasi, dan finishing",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-STICKER",
+      "name": "Sticker print & cut",
+      "category": "Produk Sticker",
+      "unitOptions": [
+        "m2",
+        "meter lari",
+        "pcs",
+        "job"
+      ],
+      "costBasis": "jenis media, ukuran, contour cut, laminasi, dan jumlah",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-BANNER",
+      "name": "Banner / spanduk",
+      "category": "Produk Media Promosi",
+      "unitOptions": [
+        "m2",
+        "pcs",
+        "job"
+      ],
+      "costBasis": "ukuran, jenis flexi, gramatur, finishing tepi, dan mata ayam",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-BACKDROP",
+      "name": "Backdrop event",
+      "category": "Produk Display",
+      "unitOptions": [
+        "m2",
+        "set",
+        "job"
+      ],
+      "costBasis": "ukuran, rangka, media cetak, finishing, dan instalasi",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-SIGNBOARD",
+      "name": "Signboard / papan nama",
+      "category": "Produk Signage",
+      "unitOptions": [
+        "m2",
+        "unit",
+        "set",
+        "job"
+      ],
+      "costBasis": "dimensi, panel, rangka, finishing, pencahayaan, dan instalasi",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-NEONBOX",
+      "name": "Neon box / lightbox",
+      "category": "Produk Signage",
+      "unitOptions": [
+        "unit",
+        "m2",
+        "set",
+        "job"
+      ],
+      "costBasis": "dimensi, frame, acrylic, LED, power supply, dan instalasi",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-LETTER",
+      "name": "Huruf timbul",
+      "category": "Produk Signage",
+      "unitOptions": [
+        "cm tinggi huruf",
+        "pcs",
+        "set",
+        "job"
+      ],
+      "costBasis": "tinggi huruf, kedalaman, material muka/samping, LED, dan pemasangan",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-ACRYLIC-DISPLAY",
+      "name": "Acrylic display custom",
+      "category": "Produk Display",
+      "unitOptions": [
+        "pcs",
+        "set",
+        "job"
+      ],
+      "costBasis": "dimensi, ketebalan acrylic, warna, sambungan, polishing, dan jumlah",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-ACRYLIC-BOX",
+      "name": "Acrylic box / showcase",
+      "category": "Produk Display",
+      "unitOptions": [
+        "pcs",
+        "unit",
+        "set",
+        "job"
+      ],
+      "costBasis": "dimensi, ketebalan acrylic, engsel, lock, polishing, dan finishing",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-RACK",
+      "name": "Rak display custom",
+      "category": "Produk Display",
+      "unitOptions": [
+        "unit",
+        "set",
+        "job"
+      ],
+      "costBasis": "dimensi, BOM material, rangka, panel, finishing, assembly, dan instalasi",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-BOOTH",
+      "name": "Booth pameran",
+      "category": "Produk Display",
+      "unitOptions": [
+        "unit",
+        "m2",
+        "set",
+        "job"
+      ],
+      "costBasis": "luas, struktur, panel, branding, listrik, assembly, dan dismantle",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-WALLBRAND",
+      "name": "Wall branding / wall graphic",
+      "category": "Produk Branding",
+      "unitOptions": [
+        "m2",
+        "meter lari",
+        "job"
+      ],
+      "costBasis": "luas bidang, media, laminasi, persiapan permukaan, dan instalasi",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-WAYFINDING",
+      "name": "Wayfinding / directional sign",
+      "category": "Produk Signage",
+      "unitOptions": [
+        "pcs",
+        "unit",
+        "set",
+        "job"
+      ],
+      "costBasis": "dimensi, material, jumlah sisi, mounting, dan lokasi",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-VEHICLE",
+      "name": "Vehicle branding",
+      "category": "Produk Branding",
+      "unitOptions": [
+        "m2",
+        "kendaraan",
+        "job"
+      ],
+      "costBasis": "jenis kendaraan, luas panel, media, laminasi, dan instalasi",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
+    },
+    {
+      "serviceCode": "PRD-EVENT-PROP",
+      "name": "Event prop / 3D display",
+      "category": "Produk Display",
+      "unitOptions": [
+        "pcs",
+        "set",
+        "job"
+      ],
+      "costBasis": "dimensi, struktur, material, finishing, transportasi, dan instalasi",
+      "requiresScope": true,
+      "recordType": "product_template",
+      "note": "Template produk jual. Harga jual dan HPP harus diisi sesuai BOM, spesifikasi, proses, dan supplier aktual."
     }
-  ]
+  ],
+  "catalogCounts": {
+    "materialFamilies": 41,
+    "productAndServiceFamilies": 41
+  }
 }
