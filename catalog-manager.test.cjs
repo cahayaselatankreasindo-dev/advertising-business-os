@@ -12,6 +12,7 @@ assert.equal(backend, clasp, 'Apps Script canonical and deployment copies remain
 assert.ok(html.includes('<script src="./catalog-manager.js"></script>'), 'catalog manager is loaded by the application');
 assert.ok(html.includes("openCskCatalogManager('material')"), 'material reference catalog can be opened');
 assert.ok(html.includes("openCskCatalogManager('service')"), 'service reference catalog can be opened');
+assert.ok(manager.includes("typeof db!=='undefined'"), 'catalog manager accesses the shared global lexical database safely');
 assert.ok(manager.includes('function saveMaterialFromCatalog()'), 'material activation handler exists');
 assert.ok(manager.includes('function saveServiceFromCatalog()'), 'service activation handler exists');
 assert.ok(manager.includes("price<=0"), 'zero-priced materials cannot be activated');
