@@ -252,6 +252,18 @@ if (FIELD_MAP) {
   eq(FIELD_MAP.Projects.fields,
     ['id','title','client','value','status','deadline','notes','sopChecklist','pic','suggestedPrice','sourceQuotationId','sourceInvoiceId'],
     'FIELD_MAP.Projects.fields memuat referensi dokumen');
+  eq(FIELD_MAP.Materials.headers.slice(0,5),
+    ['ID','Nama','Satuan','HargaSatuan','UpdatedAt'],
+    'FIELD_MAP.Materials mempertahankan lima kolom lama di posisi awal');
+  eq(FIELD_MAP.Materials.fields.slice(0,5),
+    ['id','name','unit','unitPrice','updatedAt'],
+    'FIELD_MAP.Materials mempertahankan mapping lama');
+  eq(FIELD_MAP.Materials.fields.slice(5),
+    ['sku','category','subcategory','brand','grade','spec','color','thicknessMm','widthMm','lengthMm','diameterMm','purchaseUnit','purchasePrice','conversionFactor','costingMethod','supplierId','supplierName','minimumOrder','wasteRate','priceSource','priceDate','status','notes'],
+    'FIELD_MAP.Materials memuat atribut pembelian, spesifikasi, dan costing');
+  eq(FIELD_MAP.Services.fields.slice(6),
+    ['sku','unit','costingMethod','costPrice','supplierId','supplierName','status','notes'],
+    'FIELD_MAP.Services memuat satuan, biaya dasar, dan supplier');
   eq(FIELD_MAP.Commercial_Quotations.fields,
     ['id','projectId','leadId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','terms','paymentTerms','notes','status','convertedInvoiceId','createdAt','updatedAt','projectDeadline'],
     'FIELD_MAP.Commercial_Quotations.fields lengkap');
