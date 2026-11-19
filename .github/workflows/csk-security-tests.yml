@@ -26,6 +26,8 @@ jobs:
           node -e "new Function(require('fs').readFileSync('apps-script/Code.gs','utf8'))"
           node --check security/guard.js
           node --check commercial-documents.js
+          node --check csk-pdf.js
+          node --check csk-pdf.test.cjs
           node --check commercial-documents.test.cjs
           node --check commercial-workflow.test.cjs
           node --check mapping.test.js
@@ -36,7 +38,9 @@ jobs:
       - name: Mapping and RBAC integration tests
         run: node mapping.test.js
       - name: Commercial Document Center tests
-        run: node commercial-documents.test.cjs
+        run: |
+          node commercial-documents.test.cjs
+          node csk-pdf.test.cjs
       - name: Commercial workflow simulation
         run: node commercial-workflow.test.cjs
       - name: Backend security policy tests
