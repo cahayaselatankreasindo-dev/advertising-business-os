@@ -1,6 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const engine=require('./custom-costing-engine');
+const approx=(actual,expected,label)=>assert.ok(Math.abs(actual-expected)<1e-9,label+': expected '+expected+', got '+actual);
 
 const sheet=engine.calculateSheetCutList({
   sheetWidthMm:1220,sheetHeightMm:2440,kerfMm:3,wasteRate:0,allowRotation:true,
@@ -48,8 +49,8 @@ assert.equal(wholePack.lineQty,2);
 assert.equal(wholePack.totalCost,120000);
 
 const area=engine.calculateAreaCost({widthMm:500,heightMm:400,qty:2,wasteRate:10,unitPrice:100000,priceUnit:'m2'});
-assert.equal(area.lineQty,0.44);
-assert.equal(area.totalCost,44000);
+approx(area.lineQty,0.44,'area conversion to square meters');
+approx(area.totalCost,44000,'area cost');
 
 const areaCm=engine.calculateAreaCost({widthMm:100,heightMm:100,qty:1,unitPrice:2,priceUnit:'cm2'});
 assert.equal(areaCm.lineQty,100);
@@ -64,7 +65,7 @@ assert.equal(linearCm.lineQty,50);
 assert.equal(linearCm.totalCost,5000);
 
 const volume=engine.calculateVolumeCost({widthMm:100,heightMm:100,depthMm:10,qty:2,unitPrice:1000000});
-assert.equal(volume.volumeM3,0.0002);
-assert.equal(volume.totalCost,200);
+approx(volume.volumeM3,0.0002,'volume conversion to cubic meters');
+approx(volume.totalCost,200,'volume cost');
 
 console.log('CSK custom costing engine tests passed.');
