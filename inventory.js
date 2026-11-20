@@ -25,7 +25,7 @@ function ensureBound(){
   if(event.target&&event.target.id==='inventory-entry-form'){event.preventDefault();saveInventoryTransaction();}
  });
  page.addEventListener('input',function(event){
-  if(event.target&&event.target.id==='inv-search'){var value=event.target.value,position=value.length;filterText=value;renderInventory();var input=el('inv-search');if(input){input.focus();if(input.setSelectionRange)input.setSelectionRange(position,position);}}
+  if(event.target&&event.target.id==='inv-search'){var value=event.target.value,position=value.length;filterText=value;if(!formOpen){renderInventory();var input=el('inv-search');if(input){input.focus();if(input.setSelectionRange)input.setSelectionRange(position,position);}}}
  });
  page.addEventListener('change',function(event){
   if(event.target&&event.target.id==='inv-material'){updateUnitHint();}
@@ -56,10 +56,10 @@ function formHtml(d,defaultMovement){
  return'<section class="bg-white border border-slate-200 rounded-2xl p-4 mb-5"><div class="flex justify-between items-start gap-3"><div><h2 class="font-bold text-sm">Catat Pergerakan Stok</h2><p class="text-xs text-slate-500 mt-1">Setiap transaksi tersimpan sebagai ledger permanen dan tidak dapat diedit atau dihapus.</p></div><button type="button" data-inv-action="close" class="px-3 py-2 border rounded-lg text-xs">Tutup</button></div><form id="inventory-entry-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4"><label class="block text-[11px] font-bold text-slate-600">Jenis transaksi<select id="inv-movement" class="mt-1 w-full border rounded-lg p-2.5 text-xs">'+options+'</select></label><label class="block text-[11px] font-bold text-slate-600">Material<select id="inv-material" required class="mt-1 w-full border rounded-lg p-2.5 text-xs"><option value="">Pilih material</option>'+materials.map(function(m){return'<option value="'+esc(m.id)+'">'+esc(m.name)+' · '+esc(m.unit||'-')+'</option>';}).join('')+'</select></label><label class="block text-[11px] font-bold text-slate-600">Kuantitas<input id="inv-qty" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="Contoh: 25"></label><div id="inv-unit-hint" class="sm:col-span-2 lg:col-span-3 rounded-lg bg-blue-50 p-2.5 text-[11px] text-blue-800">Pilih material untuk melihat satuan stok.</div><label class="block text-[11px] font-bold text-slate-600">Tanggal transaksi<input id="inv-date" type="date" required value="'+E().localDate()+'" class="mt-1 w-full border rounded-lg p-2.5 text-xs"></label><label id="inv-project-wrap" class="block text-[11px] font-bold text-slate-600">Proyek<select id="inv-project" class="mt-1 w-full border rounded-lg p-2.5 text-xs"><option value="">Pilih proyek</option>'+projects.map(function(p){return'<option value="'+esc(p.id)+'">'+esc(p.title||p.client||p.id)+'</option>';}).join('')+'</select></label><label id="inv-supplier-wrap" class="block text-[11px] font-bold text-slate-600">Supplier<input id="inv-supplier" class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="Nama supplier"></label><label id="inv-po-wrap" class="block text-[11px] font-bold text-slate-600">Purchase Order<select id="inv-po" class="mt-1 w-full border rounded-lg p-2.5 text-xs"><option value="">Tanpa PO</option>'+purchaseOrders.map(function(p){return'<option value="'+esc(p.id)+'">'+esc(p.id)+' · '+esc(p.supplier||'Supplier')+' · '+esc(p.projectName||'')+'</option>';}).join('')+'</select></label><label class="block text-[11px] font-bold text-slate-600">Referensi / dokumen<input id="inv-reference" class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="No. surat jalan / nota / bukti"></label><label id="inv-notes-wrap" class="block text-[11px] font-bold text-slate-600 sm:col-span-2">Catatan / alasan<input id="inv-notes" class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="Wajib untuk penyesuaian stok"></label><div class="sm:col-span-2 lg:col-span-3 flex flex-wrap items-center justify-between gap-2"><p class="text-[10px] text-slate-500">Saldo awal hanya boleh satu kali dan harus menjadi transaksi pertama material. Pengeluaran/retur wajib dikaitkan ke proyek.</p><button id="inv-save" type="submit" class="px-5 py-2.5 rounded-lg bg-slate-900 text-white text-xs font-bold">Simpan Saldo Awal</button></div></form></section>';
 }
 async function saveInventoryTransaction(){
- var b=bridge(),button=el('inv-save');
+ var b=bridge(),button=el('inv-save'),d=null,added=null;
  try{
   if(!b||!b.isOwner())throw new Error('Transaksi stok hanya dapat dicatat oleh Owner.');
-  var d=data(),material=d.materials.find(function(m){return String(m.id)===String(el('inv-material').value);});
+  d=data();var material=d.materials.find(function(m){return String(m.id)===String(el('inv-material').value);});
   var identity=b.getIdentity();
   var result=E().validateTransaction({
    materialId:el('inv-material').value,movement:el('inv-movement').value,qty:el('inv-qty').value,
@@ -67,13 +67,13 @@ async function saveInventoryTransaction(){
    supplier:el('inv-supplier').value,purchaseOrderId:el('inv-po').value,
    reference:el('inv-reference').value,notes:el('inv-notes').value,
    createdBy:identity&&identity.email||'Owner'
-  },{materials:d.materials,projects:d.projects,transactions:d.inventoryTransactions});
-  d.inventoryTransactions.unshift(result.transaction);
+  },{materials:d.materials,projects:d.projects,purchaseOrders:d.purchaseOrders,transactions:d.inventoryTransactions});
+  added=result.transaction;d.inventoryTransactions.unshift(added);
   if(button){button.disabled=true;button.textContent='Menyimpan & memverifikasi...';}
   await b.save();
   formOpen=false;renderInventory();
   notify(result.transaction.transactionNo+' berhasil dicatat dan diverifikasi. Stok '+result.transaction.materialName+' sekarang '+qty(result.balances[result.transaction.materialId])+' '+result.transaction.unit+'.');
- }catch(error){notify(error.message||String(error),true);}
+ }catch(error){if(added&&d&&Array.isArray(d.inventoryTransactions)){var rollbackIndex=d.inventoryTransactions.findIndex(function(x){return String(x.id)===String(added.id);});if(rollbackIndex>=0)d.inventoryTransactions.splice(rollbackIndex,1);}notify(error.message||String(error),true);}
  finally{var current=el('inv-save');if(current){current.disabled=false;updateMovementFields();}}
 }
 function renderInventory(defaultMovement){
