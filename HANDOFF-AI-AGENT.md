@@ -180,3 +180,23 @@ Important boundaries:
 - Before production, run the Apps Script schema setup/migration with Owner approval and verify the new Sales_Orders tab plus one end-to-end test quotation and payment.
 
 Next phase: Inventory ledger, stock reservation, material requirements from HPP, purchasing requisitions, purchase order receiving, and offcut traceability. Keep each change inside this internal Business OS repository and its feature branch.
+
+
+## 7. Update — 20 November 2026: Inventory ledger and PO receiving
+
+Delivered on `feature/hpp-material-conversion-20261120` in the internal `advertising-business-os` repository:
+- Owner-only Inventory & Stok page with balances and movement history.
+- Opening, receipt, project issue, project return, adjustment in, and adjustment out movements.
+- Append-only inventory ledger with server-side validation; no negative stock, duplicate opening balance, invalid unit, invalid project, or direct insert/delete bypass.
+- PO-linked receipts validate the material, unit, and total quantity received against ordered PO lines.
+- Purchase Order cannot be marked Received until all ordered material quantities are recorded. PO cannot be cancelled after any receipt.
+- Added `Inventory_Transactions` sheet schema and Owner-only sync/read-back verification.
+- Added Inventory engine, backend validation, PO receipt, mapping, RBAC, and CI regression tests.
+
+Important operational boundary:
+- Stock uses the usage unit configured on Material Master. Do not assume the system has inferred current stock; enter verified opening balances.
+- Purchase-unit conversion for full packs/rolls, stock reservation from HPP, pick lists, reorder suggestions, supplier invoice matching, stock valuation, and offcut tracking remain future work.
+- No live schema migration, Apps Script deployment, merge to main, or production deployment has been performed.
+- Public Astro website repository remains untouched.
+
+Next phase: derive material demand from approved HPP, reserve stock when Sales Order is released to production, issue/pick lists, and recommend purchasing from shortages. Then implement supplier receiving and purchase-unit conversions for packs/rolls.
