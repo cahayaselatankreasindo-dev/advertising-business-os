@@ -119,11 +119,12 @@ async function createDraftPOFromShortage(salesOrderId){
    var supplier=String(material.supplierName||'').trim(),unitPrice=Number(material.unitPrice);
    if(!supplier)throw new Error('Supplier belum diisi untuk '+material.name+'. Lengkapi Master Material sebelum membuat PO.');
    if(!Number.isFinite(unitPrice)||unitPrice<=0)throw new Error('Harga satuan pemakaian belum valid untuk '+material.name+'.');
+   if(!material.priceDate||!material.priceSource)throw new Error('Sumber dan tanggal harga belum dicatat untuk '+material.name+'. Perbarui Master Material sebelum membuat PO.');
    var openQty=openPurchaseOrderQty(order.projectId,material.id,d);
    var buyQty=Math.max(0,row.shortage-openQty);
    if(buyQty<=0)return;
    if(!groups[supplier])groups[supplier]=[];
-   groups[supplier].push({materialId:material.id,name:material.name,unit:material.unit,qty:buyQty,unitPrice:unitPrice,subtotal:buyQty*unitPrice});
+   groups[supplier].push({materialId:material.id,name:material.name,unit:material.unit,qty:buyQty,unitPrice:unitPrice,subtotal:buyQty*unitPrice,priceSnapshot:{purchasePrice:material.purchasePrice,purchaseUnit:material.purchaseUnit,conversionFactor:material.conversionFactor,priceSource:material.priceSource,priceDate:material.priceDate}});
   });
   var suppliers=Object.keys(groups);
   if(!suppliers.length){notify('Kekurangan material sudah tercakup dalam Draft/PO berjalan untuk proyek ini.');return;}
