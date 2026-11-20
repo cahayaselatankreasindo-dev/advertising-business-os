@@ -3282,7 +3282,7 @@
 
     window.CSKSalesOrderBridge = {
       getData: function () {
-        return { quotations: db.quotations || [], invoices: db.invoices || [], invoicePayments: db.invoicePayments || [], projects: db.projects || [], salesOrders: db.salesOrders || [] };
+        return { quotations: db.quotations || [], invoices: db.invoices || [], invoicePayments: db.invoicePayments || [], projects: db.projects || [], salesOrders: db.salesOrders || [], costSheets: db.costSheets || [], materials: db.materials || [], inventoryTransactions: db.inventoryTransactions || [] };
       },
       isOwner: function () { return isOwnerSession(); },
       getIdentity: function () { return window.CSKAuth && window.CSKAuth.getIdentity ? window.CSKAuth.getIdentity() : null; },
