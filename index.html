@@ -2012,14 +2012,32 @@
       const record={id:'PO-CSK-'+Date.now(),projectId,projectName:project.title||'',supplier,date:document.getElementById('po-date').value||now.slice(0,10),items:poLines.map(x=>({...x})),total,status:'draft',createdAt:now,updatedAt:now};
       db.purchaseOrders.push(record); poLines=[]; document.getElementById('po-supplier').value=''; saveDB(); renderPurchasing(); showToast('Purchase Order tersimpan.');
     }
+    function getPoReceiptProgress(po) {
+      const expected={};
+      (po.items||[]).forEach(item=>{const id=String(item.materialId||'');expected[id]=(expected[id]||0)+(Number(item.qty)||0);});
+      const received={};
+      (db.inventoryTransactions||[]).filter(tx=>String(tx.purchaseOrderId||'')===String(po.id)&&tx.movement==='receipt').forEach(tx=>{const id=String(tx.materialId||'');received[id]=(received[id]||0)+(Number(tx.qty)||0);});
+      const ids=Object.keys(expected);
+      return {complete:ids.length>0&&ids.every(id=>(received[id]||0)+0.000001>=expected[id]),hasReceipts:ids.some(id=>(received[id]||0)>0),receivedLines:ids.filter(id=>(received[id]||0)+0.000001>=expected[id]).length,lineCount:ids.length};
+    }
     function updatePoStatus(id,status) {
       const x=db.purchaseOrders.find(p=>p.id===id); if(!x)return;
+      const progress=getPoReceiptProgress(x);
+      if(status==='received'&&!progress.complete)return showToast('PO belum dapat ditandai diterima. Catat seluruh penerimaan barang melalui modul Inventory terlebih dahulu.',true);
+      if(status==='cancelled'&&progress.hasReceipts)return showToast('PO tidak dapat dibatalkan setelah ada penerimaan stok. Selesaikan rekonsiliasi terlebih dahulu.',true);
       x.status=status; x.updatedAt=new Date().toISOString(); saveDB(); renderPurchasing(); showToast('Status PO diperbarui.');
     }
     function renderPoList() {
       const el=document.getElementById('po-list'); if(!el)return;
       const labels={draft:'Draft',ordered:'Dipesan',received:'Diterima',cancelled:'Dibatalkan'};
-      el.innerHTML=(db.purchaseOrders||[]).slice().reverse().map(x=>'<article class="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><b class="text-sm text-stone-900">'+escapeInvoiceHtml(x.id)+'</b><div class="text-xs text-stone-500 mt-1 break-words">'+escapeInvoiceHtml(x.projectName)+' · '+escapeInvoiceHtml(x.supplier)+'</div><div class="text-[11px] text-stone-400 mt-1">'+escapeInvoiceHtml(x.date)+'</div></div><b class="text-sm whitespace-nowrap">'+formatRp(x.total)+'</b></div><div class="flex flex-wrap gap-2 text-[11px]"><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600">Status: '+escapeInvoiceHtml(labels[x.status]||x.status||'-')+'</span><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600">'+((x.items||[]).length)+' item</span></div><div class="grid grid-cols-2 sm:grid-cols-3 gap-2">'+(x.status!=='ordered'&&x.status!=='received'&&x.status!=='cancelled'?'<button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'ordered\')" class="min-h-9 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold">Tandai dipesan</button>':'')+(x.status!=='received'&&x.status!=='cancelled'?'<button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'received\')" class="min-h-9 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold">Tandai diterima</button>':'')+(x.status!=='received'&&x.status!=='cancelled'?'<button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'cancelled\')" class="min-h-9 rounded-lg bg-red-50 text-red-600 text-xs font-semibold">Batalkan</button>':'')+'</div></article>').join('')||'<div class="text-sm text-stone-400 bg-white border border-stone-200 rounded-2xl p-6 text-center">Belum ada Purchase Order.</div>';
+      el.innerHTML=(db.purchaseOrders||[]).slice().reverse().map(x=>{
+        const progress=getPoReceiptProgress(x);
+        const receiptInfo='<span class="px-2 py-1 rounded-full bg-cyan-50 text-cyan-700">Penerimaan: '+progress.receivedLines+'/'+progress.lineCount+' jenis material</span>';
+        const orderButton=x.status==='draft'?'<button onclick="updatePoStatus(\\''+escapeInvoiceHtml(x.id)+'\\',\\'ordered\\')" class="min-h-9 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold">Tandai dipesan</button>':'';
+        const receiptButton=x.status==='ordered'&&!progress.complete?'<button onclick="openInventoryReceiptFromPO(\\''+escapeInvoiceHtml(x.id)+'\\')" class="min-h-9 rounded-lg bg-emerald-700 text-white text-xs font-semibold">Catat Penerimaan</button>':x.status==='ordered'&&progress.complete?'<button onclick="updatePoStatus(\\''+escapeInvoiceHtml(x.id)+'\\',\\'received\\')" class="min-h-9 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold">Tandai diterima</button>':'';
+        const cancelButton=(x.status==='draft'||x.status==='ordered')&&!progress.hasReceipts?'<button onclick="updatePoStatus(\\''+escapeInvoiceHtml(x.id)+'\\',\\'cancelled\\')" class="min-h-9 rounded-lg bg-red-50 text-red-600 text-xs font-semibold">Batalkan</button>':'';
+        return '<article class="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><b class="text-sm text-stone-900">'+escapeInvoiceHtml(x.id)+'</b><div class="text-xs text-stone-500 mt-1 break-words">'+escapeInvoiceHtml(x.projectName)+' · '+escapeInvoiceHtml(x.supplier)+'</div><div class="text-[11px] text-stone-400 mt-1">'+escapeInvoiceHtml(x.date)+'</div></div><b class="text-sm whitespace-nowrap">'+formatRp(x.total)+'</b></div><div class="flex flex-wrap gap-2 text-[11px]"><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600">Status: '+escapeInvoiceHtml(labels[x.status]||x.status||'-')+'</span><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600">'+((x.items||[]).length)+' item</span>'+receiptInfo+'</div><div class="grid grid-cols-2 sm:grid-cols-3 gap-2">'+orderButton+receiptButton+cancelButton+'</div></article>';
+      }).join('')||'<div class="text-sm text-stone-400 bg-white border border-stone-200 rounded-2xl p-6 text-center">Belum ada Purchase Order.</div>';
     }
 
     // ============== HPP & MATERIAL CALCULATOR ==============
