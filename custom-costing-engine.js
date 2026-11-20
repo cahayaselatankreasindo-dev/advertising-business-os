@@ -172,8 +172,9 @@
     const length=positive(input.lengthMm,'Panjang komponen'),qty=positive(input.qty,'Jumlah komponen');
     const waste=nonNegative(input.wasteRate||0,'Waste');if(waste>100)throw new Error('Waste maksimal 100%.');
     const meters=length*qty/1000*(1+waste/100),basis=String(input.priceUnit||'m').toLowerCase();
-    const lineQty=basis==='cm'||basis==='cm.'?meters*100:meters;
-    return {lineQty,lineUnit:lineQty===meters?'m':'cm',lineUnitPrice:positive(input.unitPrice,'Harga per satuan panjang'),totalCost:lineQty*Number(input.unitPrice),lengthM:meters};
+    const isCm=basis==='cm'||basis==='cm.';
+    const lineQty=isCm?meters*100:meters;
+    return {lineQty,lineUnit:isCm?'cm':'m',lineUnitPrice:positive(input.unitPrice,'Harga per satuan panjang'),totalCost:lineQty*Number(input.unitPrice),lengthM:meters};
   }
   function calculateVolumeCost(input){
     const w=positive(input.widthMm,'Lebar'),h=positive(input.heightMm,'Tinggi'),d=positive(input.depthMm,'Tebal/kedalaman'),qty=positive(input.qty,'Jumlah');
