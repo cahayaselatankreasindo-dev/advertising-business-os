@@ -360,7 +360,7 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - Opening balance can be recorded only once per material and must be the first ledger movement for that material.
 - Project issue and return require a valid project. Adjustments require a reason. Receipts require a supplier or a linked Purchase Order.
 - PO-linked receipts validate material, unit, and cumulative received quantity against the ordered PO line. A receipt cannot exceed the PO quantity.
-- Purchase Orders can only be marked Received after all ordered material quantities have been recorded in Inventory. A PO with any receipt cannot be cancelled.
+- New Purchase Orders carry an inventory-control version and can only be marked Received after all ordered material quantities have been recorded in Inventory. A PO with any receipt cannot be cancelled. Historical POs without the version flag remain compatible with initial sync.
 - Inventory transactions are append-only. Existing ledger entries cannot be edited or deleted; corrections use adjustment transactions.
 - Server-side validation recomputes the dated ledger and blocks negative stock, duplicate opening balances, invalid units, invalid project references, unapproved PO receipts, and excess PO receipt quantities.
 - Added a dedicated `Inventory_Transactions` tab and Owner-only sync/read-back verification. Team sessions do not receive or write the inventory ledger.
