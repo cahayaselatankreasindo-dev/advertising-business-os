@@ -1,0 +1,25 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const html=fs.readFileSync('index.html','utf8');
+const ui=fs.readFileSync('custom-costing.js','utf8');
+const engine=fs.readFileSync('custom-costing-engine.js','utf8');
+const sw=fs.readFileSync('sw.js','utf8');
+const backend=fs.readFileSync('google_apps_script.js','utf8');
+const clasp=fs.readFileSync('apps-script/Code.gs','utf8');
+const manager=fs.readFileSync('catalog-manager.js','utf8');
+
+assert.ok(html.includes('openCskCustomCosting()'),'HPP page exposes custom costing action');
+assert.ok(html.includes('window.CSKCustomCostingBridge'),'HPP bridge is scoped to internal app');
+assert.ok(html.includes('./custom-costing-engine.js')&&html.includes('./custom-costing.js'),'custom costing scripts are loaded by Business OS');
+assert.ok(ui.includes("getCurrentProjectId()"),'custom costing requires a selected project');
+assert.ok(ui.includes("addLine(pendingLine)"),'calculated custom line is added through HPP bridge');
+assert.ok(ui.includes('costingDetails'),'calculation details are retained with the HPP line');
+assert.ok(engine.includes('calculateSheetCutList')&&engine.includes('calculateBarCutList'),'sheet and profile cut-list calculators are available');
+assert.ok(engine.includes('calculatePackCost')&&engine.includes('calculateAreaCost'),'pack conversion and area calculators are available');
+assert.ok(engine.includes('calculateLinearCost')&&engine.includes('calculateVolumeCost'),'linear and volume calculators are available');
+assert.ok(sw.includes("'./custom-costing-engine.js'")&&sw.includes("'./custom-costing.js'"),'service worker caches internal costing assets');
+assert.ok(backend.includes('"RollLengthM"')&&backend.includes('"rollLengthM"'),'material schema stores roll length with meter unit');
+assert.equal(backend,clasp,'Apps Script canonical and deployment sources stay identical');
+assert.ok(manager.includes("rollLengthM:familyAttributes.rollLengthsM||''"),'catalog manager keeps roll length separate from millimeter length');
+console.log('CSK custom costing integration tests passed.');
