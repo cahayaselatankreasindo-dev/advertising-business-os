@@ -782,15 +782,59 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders) {
   return true;
 }
 
+// PO cannot be marked received until every ordered material quantity has a matching
+// receipt in the append-only inventory ledger. A PO with any receipt cannot be cancelled.
+function validatePurchaseOrderReceiptStatuses_(ss, incomingPurchaseOrders, incomingTransactions) {
+  if (!Array.isArray(incomingPurchaseOrders)) return true;
+  var currentPOs = readSheetData(ss, "Purchase_Orders");
+  var transactions = readSheetData(ss, "Inventory_Transactions");
+  var incomingTx = Array.isArray(incomingTransactions) ? incomingTransactions : [];
+  var txMap = {};
+  transactions.concat(incomingTx).forEach(function(tx) { if (tx && tx.id) txMap[String(tx.id)] = tx; });
+  var ledger = Object.keys(txMap).map(function(id) { return txMap[id]; });
+  incomingPurchaseOrders.forEach(function(incomingPO) {
+    var status = String(incomingPO.status || "").toLowerCase();
+    var poId = String(incomingPO.id || "");
+    if (!poId) throw new Error("PURCHASE_ORDER_ID_REQUIRED");
+    var existing = currentPOs.find(function(po) { return String(po.id) === poId; });
+    var items = Array.isArray(incomingPO.items) ? incomingPO.items : [];
+    if (!items.length) {
+      try { items = JSON.parse(incomingPO.itemsJson || (existing && existing.itemsJson) || "[]"); } catch (parseError) { items = []; }
+    }
+    var received = ledger.filter(function(tx) { return String(tx.purchaseOrderId || "") === poId && String(tx.movement) === "receipt"; });
+    if (status === "cancelled" && received.length) throw new Error("PURCHASE_ORDER_CANNOT_CANCEL_AFTER_RECEIPT");
+    if (status === "received") {
+      if (!items.length) throw new Error("PURCHASE_ORDER_RECEIPT_INCOMPLETE");
+      var expected = {};
+      items.forEach(function(item) {
+        var materialId = String(item.materialId || "");
+        expected[materialId] = (expected[materialId] || 0) + Math.max(0,Number(item.qty) || 0);
+      });
+      Object.keys(expected).forEach(function(materialId) {
+        var actual = received.filter(function(tx) { return String(tx.materialId) === materialId; })
+          .reduce(function(sum,tx) { return sum + Math.max(0,Number(tx.qty) || 0); },0);
+        if (actual + 0.000001 < expected[materialId]) throw new Error("PURCHASE_ORDER_RECEIPT_INCOMPLETE");
+      });
+    }
+  });
+  return true;
+}
+
 // Inventory ledger is append-only. Every stock movement is checked against master data
 // and the full dated ledger before any new row is merged.
-function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions) {
+function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, incomingPurchaseOrders) {
   if (!Array.isArray(incomingTransactions)) throw new Error("INVALID_INVENTORY_TRANSACTIONS");
   ensureSheet(ss, "Inventory_Transactions", FIELD_MAP.Inventory_Transactions.headers);
   var existing = readSheetData(ss, "Inventory_Transactions");
   var materials = readSheetData(ss, "Materials");
   var projects = readSheetData(ss, "Projects");
   var purchaseOrders = readSheetData(ss, "Purchase_Orders");
+  (incomingPurchaseOrders || []).forEach(function(incomingPO) {
+    var copy = Object.assign({}, incomingPO);
+    if (Array.isArray(incomingPO.items)) copy.itemsJson = JSON.stringify(incomingPO.items);
+    var index = purchaseOrders.findIndex(function(po) { return String(po.id) === String(copy.id); });
+    if (index >= 0) purchaseOrders[index] = copy; else purchaseOrders.push(copy);
+  });
   var movementDirection = {opening:1,receipt:1,return:1,issue:-1,adjustment_in:1,adjustment_out:-1};
   var seenIds = {};
   var seenNumbers = {};
@@ -907,13 +951,14 @@ function doPost(e) {
         if (payload.materials)      mergeSummary.Materials       = mergeSheet(ss, "Materials", payload.materials);
         if (payload.costSheets) mergeSummary.Cost_Sheets = mergeSheet(ss, "Cost_Sheets", payload.costSheets.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
         if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
+        if (payload.purchaseOrders) validatePurchaseOrderReceiptStatuses_(ss, payload.purchaseOrders, payload.inventoryTransactions || []);
+        if (payload.inventoryTransactions) validateInventoryTransactionsBeforeMerge_(ss, payload.inventoryTransactions, payload.purchaseOrders || []);
         if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
         if (payload.salesOrders) {
           validateSalesOrdersBeforeMerge_(ss, payload.salesOrders);
           mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); return y; }));
         }
         if (payload.inventoryTransactions) {
-          validateInventoryTransactionsBeforeMerge_(ss, payload.inventoryTransactions);
           mergeSummary.Inventory_Transactions = mergeSheet(ss, "Inventory_Transactions", payload.inventoryTransactions);
         }
         if (payload.quotationSnapshots) mergeSummary.Quotations = mergeSheet(ss, "Quotations", payload.quotationSnapshots.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
