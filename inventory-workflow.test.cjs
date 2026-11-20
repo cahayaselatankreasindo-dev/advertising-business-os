@@ -67,6 +67,27 @@ assert.throws(()=>E.validateTransaction({
  purchaseOrderId:'PO-001'
 },{materials,projects,purchaseOrders:[{...po,status:'draft'}],transactions:[]}),/berstatus Dipesan/);
 
+const demand=E.calculateHppRequirements({
+ projectId:'PRJ-001',
+ items:[
+  {itemType:'material',materialId:'MAT-ACR',name:'Acrylic full sheet',qty:2,unit:'lembar'},
+  {itemType:'material',materialId:'MAT-HOL',name:'Hollow',qty:3,unit:'m'},
+  {itemType:'service',serviceId:'SVC-1',qty:1,unit:'job'}
+ ]},
+ [
+  {...materials[0],purchaseUnit:'lembar',conversionFactor:2.9768},
+  materials[1]
+ ],{'MAT-ACR':4,'MAT-HOL':5});
+assert.equal(demand.requirements.length,2);
+assert.equal(demand.requirements[0].materialId,'MAT-ACR');
+assert.ok(Math.abs(demand.requirements[0].required-5.9536)<1e-9);
+assert.ok(Math.abs(demand.requirements[0].shortage-1.9536)<1e-9);
+assert.equal(demand.requirements[1].shortage,0);
+assert.equal(demand.ready,false,'short material stock is flagged before production release');
+const mismatch=E.calculateHppRequirements({items:[{itemType:'material',materialId:'MAT-ACR',qty:2,unit:'box'}]},materials,{});
+assert.equal(mismatch.ready,false);
+assert.match(mismatch.errors[0],/tidak cocok/);
+
 const backend=fs.readFileSync('google_apps_script.js','utf8');
 const deploy=fs.readFileSync('apps-script/Code.gs','utf8');
 const guard=fs.readFileSync('security/guard.js','utf8');
@@ -89,6 +110,8 @@ assert.match(html,/id="page-inventory"/,'inventory page is mounted in Business O
 assert.match(html,/CSKInventoryBridge/,'inventory uses internal Business OS bridge');
 assert.match(ui,/validateTransaction/,'inventory UI validates transactions before save');
 assert.match(ui,/openInventoryReceiptFromPO/,'inventory UI supports PO-linked receiving');
+assert.match(ui,/calculateHppRequirements/,'Sales Order material plan uses HPP and verified unit conversion');
+assert.match(ui,/belum dikurangi reservasi order lain/,'material planner distinguishes physical stock from reservations');
 assert.match(sw,/inventory-engine\.js/,'inventory engine is cached');
 assert.match(sw,/inventory\.js/,'inventory UI is cached');
 assert.match(auth,/INVENTORY_LEDGER_SERVER_ONLY/,'backend RBAC test covers append-only inventory protection');
