@@ -83,7 +83,7 @@
   }
   function resetDb() {
     if (typeof db === 'undefined') return;
-    ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','legacyCostings','projectCosts','services','purchaseOrders','quotationSnapshots','quotations','invoices','invoicePayments'].forEach(function (key) { db[key] = []; });
+    ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','legacyCostings','projectCosts','services','purchaseOrders','quotationSnapshots','quotations','invoices','invoicePayments','salesOrders','inventoryTransactions'].forEach(function (key) { db[key] = []; });
     db.settings = { googleSheetUrl: apiUrl(), lastSync: '', lastSyncError: '' };
     db.role = 'team';
   }
@@ -145,7 +145,7 @@
   }
   function collectionsForRole() {
     if (identity.role === 'team') return ['leads','clients','projects'];
-    return ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','services','purchaseOrders','quotationSnapshots','quotations','invoices'];
+    return ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','services','purchaseOrders','quotationSnapshots','quotations','invoices','salesOrders','inventoryTransactions'];
   }
   function makeSyncPayload() {
     var payload = { action: 'sync_all' };
@@ -244,7 +244,7 @@
     document.querySelectorAll('.pillar-finance,.pillar-marketing,.pillar-riset,.pillar-marketing-mob').forEach(function (el) {
       el.style.display = isTeam ? 'none' : '';
     });
-    var ownerPages = ['finance','marketing','analysis','memory','settings','services','purchasing','hpp','documents'];
+    var ownerPages = ['finance','marketing','analysis','memory','settings','services','purchasing','hpp','documents','sales-orders','inventory'];
     document.querySelectorAll('[onclick]').forEach(function (el) {
       var source = el.getAttribute('onclick') || '';
       var match = source.match(/(?:nav|mobileGo)\(['"]([^'"]+)['"]\)/);

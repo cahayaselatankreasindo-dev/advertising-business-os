@@ -368,6 +368,12 @@
       <button onclick="nav('documents')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-file-text-o w-5 text-amber-400"></i> Dokumen · Quotation & Invoice
       </button>
+      <button onclick="nav('sales-orders')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
+        <i class="fa fa-clipboard-check w-5 text-emerald-400"></i> Sales Order & Produksi
+      </button>
+      <button onclick="nav('inventory')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
+        <i class="fa fa-archive w-5 text-cyan-400"></i> Inventory & Stok
+      </button>
       <button onclick="nav('clients')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-users w-5 text-indigo-400"></i> Pilar 4 · Klien (PMF)
       </button>
@@ -608,12 +614,14 @@
 
       <!-- SERVICES CATALOG -->
       <section id="page-services" class="page-content hidden space-y-6">
-        <div><span class="inline-flex px-2 py-1 rounded bg-violet-100 text-violet-800 text-[10px] font-bold uppercase">Master Data</span><h1 class="text-2xl font-bold text-slate-900 mt-2">Database Layanan CSK</h1><p class="text-sm text-slate-500">Kelola kategori, spesifikasi, dan harga dasar layanan untuk digunakan pada quotation.</p></div>
-        <div class="bg-white border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-4 gap-2">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3"><div><span class="inline-flex px-2 py-1 rounded bg-violet-100 text-violet-800 text-[10px] font-bold uppercase">Master Data</span><h1 class="text-2xl font-bold text-slate-900 mt-2">Database Produk & Jasa CSK</h1><p class="text-sm text-slate-500">Kelola produk jual, jasa desain, printing, finishing, fabrikasi, instalasi, dan logistik.</p></div><button onclick="openCskCatalogManager('service')" class="px-4 py-2 rounded-lg bg-violet-700 text-white text-sm font-semibold self-start">Katalog Produk & Jasa</button></div>
+        <div class="bg-white border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
           <input id="svc-name" class="p-2 border rounded-lg text-sm" placeholder="Nama layanan">
           <input id="svc-category" class="p-2 border rounded-lg text-sm" placeholder="Kategori">
-          <input id="svc-spec" class="p-2 border rounded-lg text-sm" placeholder="Spesifikasi / deskripsi">
-          <div class="flex gap-2"><input id="svc-price" type="number" min="0" class="w-full p-2 border rounded-lg text-sm" placeholder="Harga dasar"><button onclick="addService()" class="px-3 rounded-lg bg-violet-700 text-white text-sm">Tambah</button></div>
+          <input id="svc-spec" class="p-2 border rounded-lg text-sm lg:col-span-2" placeholder="Spesifikasi / basis biaya">
+          <input id="svc-unit" class="p-2 border rounded-lg text-sm" placeholder="Satuan (m2, jam, job)">
+          <input id="svc-cost" type="number" min="0" class="p-2 border rounded-lg text-sm" placeholder="Biaya dasar / HPP">
+          <div class="flex gap-2 lg:col-span-2"><input id="svc-price" type="number" min="1" class="w-full p-2 border rounded-lg text-sm" placeholder="Harga jual dasar"><button onclick="addService()" class="px-3 rounded-lg bg-violet-700 text-white text-sm">Tambah</button></div>
         </div>
         <div class="flex flex-wrap gap-2"><input id="svc-search" oninput="renderServices()" class="p-2 border rounded-lg text-sm flex-1 min-w-48" placeholder="Cari layanan atau kategori"><span id="svc-count" class="text-xs text-slate-500 self-center"></span></div>
         <div id="services-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
@@ -638,19 +646,20 @@
           <p class="text-sm text-slate-500">Kelola harga bahan, hitung kebutuhan material, biaya produksi, dan rekomendasi harga penawaran.</p></div>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div class="lg:col-span-1 bg-white border border-slate-200 rounded-xl p-4 space-y-3">
-            <h2 class="font-bold">Database Material</h2>
-            <input id="hpp-mat-name" class="w-full p-2 border rounded-lg text-sm" placeholder="Nama material">
-            <div class="grid grid-cols-2 gap-2"><input id="hpp-mat-unit" class="w-full p-2 border rounded-lg text-sm" placeholder="Satuan (m2, pcs)"><input id="hpp-mat-price" type="number" min="0" class="w-full p-2 border rounded-lg text-sm" placeholder="Harga satuan"></div>
-            <button onclick="addHppMaterial()" class="w-full bg-cyan-700 text-white rounded-lg py-2 text-sm font-semibold">Tambah Material</button>
+            <div class="flex items-center justify-between gap-2"><h2 class="font-bold">Database Material</h2><button onclick="openCskCatalogManager('material')" class="px-3 py-2 rounded-lg bg-orange-600 text-white text-xs font-bold whitespace-nowrap">Katalog Referensi</button></div>
+            <p class="text-[11px] text-slate-500">Aktifkan bahan dari katalog lengkap setelah supplier dan harga beli diverifikasi. Harga pemakaian dihitung otomatis dari konversi.</p>
+            <input id="hpp-mat-name" class="w-full p-2 border rounded-lg text-sm" placeholder="Nama material (tambah cepat)">
+            <div class="grid grid-cols-2 gap-2"><input id="hpp-mat-unit" class="w-full p-2 border rounded-lg text-sm" placeholder="Satuan pakai (m2, pcs)"><input id="hpp-mat-price" type="number" min="1" class="w-full p-2 border rounded-lg text-sm" placeholder="Harga per satuan pakai"></div>
+            <button onclick="addHppMaterial()" class="w-full bg-cyan-700 text-white rounded-lg py-2 text-sm font-semibold">Tambah Cepat Material</button>
             <div id="hpp-material-list" class="space-y-2 max-h-72 overflow-auto"></div>
           </div>
           <div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-4 space-y-3">
             <h2 class="font-bold">Kalkulasi HPP Proyek</h2>
             <select id="hpp-project" class="w-full p-2 border rounded-lg text-sm" onchange="loadHppProject(this.value)"><option value="">Pilih proyek</option></select>
-            <div class="flex flex-wrap gap-2"><select id="hpp-material" class="flex-1 min-w-40 p-2 border rounded-lg text-sm"></select><input id="hpp-qty" type="number" min="0.01" step="0.01" value="1" class="w-24 p-2 border rounded-lg text-sm" aria-label="Kuantitas"><button onclick="addHppLine()" class="px-3 py-2 bg-slate-800 text-white rounded-lg text-sm">Tambah item</button></div>
+            <div class="flex flex-wrap gap-2"><select id="hpp-material" class="flex-1 min-w-40 p-2 border rounded-lg text-sm"></select><input id="hpp-qty" type="number" min="0.01" step="0.01" value="1" class="w-24 p-2 border rounded-lg text-sm" aria-label="Kuantitas"><button onclick="addHppLine()" class="px-3 py-2 bg-slate-800 text-white rounded-lg text-sm">Tambah item</button><button onclick="openCskCustomCosting()" class="px-3 py-2 bg-cyan-700 text-white rounded-lg text-sm">Custom Costing</button></div>
             <div id="hpp-lines" class="space-y-2"></div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2"><label class="text-xs text-slate-600">Tenaga kerja (Rp)<input id="hpp-labor" type="number" min="0" value="0" oninput="calculateHpp()" class="block w-full mt-1 p-2 border rounded-lg text-sm"></label><label class="text-xs text-slate-600">Biaya lain (Rp)<input id="hpp-other" type="number" min="0" value="0" oninput="calculateHpp()" class="block w-full mt-1 p-2 border rounded-lg text-sm"></label><label class="text-xs text-slate-600">Margin laba (%)<input id="hpp-margin" type="number" min="0" max="90" value="30" oninput="calculateHpp()" class="block w-full mt-1 p-2 border rounded-lg text-sm"></label></div>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm"><div class="bg-slate-50 p-3 rounded-lg"><div class="text-xs text-slate-500">Material</div><b id="hpp-material-total">Rp 0</b></div><div class="bg-slate-50 p-3 rounded-lg"><div class="text-xs text-slate-500">Total HPP</div><b id="hpp-total">Rp 0</b></div><div class="bg-slate-50 p-3 rounded-lg"><div class="text-xs text-slate-500">Harga penawaran</div><b id="hpp-price">Rp 0</b></div><div class="bg-slate-50 p-3 rounded-lg"><div class="text-xs text-slate-500">Estimasi laba</div><b id="hpp-profit">Rp 0</b></div></div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm"><div class="bg-slate-50 p-3 rounded-lg"><div class="text-xs text-slate-500">Material + Jasa</div><b id="hpp-material-total">Rp 0</b></div><div class="bg-slate-50 p-3 rounded-lg"><div class="text-xs text-slate-500">Total HPP</div><b id="hpp-total">Rp 0</b></div><div class="bg-slate-50 p-3 rounded-lg"><div class="text-xs text-slate-500">Harga penawaran</div><b id="hpp-price">Rp 0</b></div><div class="bg-slate-50 p-3 rounded-lg"><div class="text-xs text-slate-500">Estimasi laba</div><b id="hpp-profit">Rp 0</b></div></div>
             <button onclick="saveHppEstimate()" class="bg-emerald-700 text-white rounded-lg px-4 py-2 text-sm font-semibold">Simpan HPP Proyek</button>
             <div id="hpp-saved-list" class="pt-3 border-t space-y-2"></div>
           </div>
@@ -669,6 +678,18 @@
           <button onclick="nav('leads')" class="text-xs text-amber-700 font-semibold hover:underline">Buka Leads</button>
         </div>
         <div id="documents-projects-container" class="space-y-3"></div>
+      </section>
+
+      <!-- SALES ORDER & PRODUCTION WORKFLOW -->
+      <section id="page-sales-orders" class="page-content hidden space-y-6">
+        <div><span class="inline-flex px-2 py-1 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase">Order Management</span><h1 class="text-2xl font-bold text-slate-900 mt-2">Sales Order & Production Workflow</h1><p class="text-sm text-slate-500">Kelola pesanan yang sudah disetujui, verifikasi DP, pantau produksi, QC, pengiriman, hingga penutupan order.</p></div>
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><b>Kontrol produksi:</b> status produksi hanya dapat dimulai setelah pembayaran DP benar-benar tercatat dan terverifikasi melalui Invoice Payment Ledger. Status Deal Won atau invoice terbit bukan bukti uang diterima.</div>
+        <div id="sales-orders-app" class="space-y-5"><div class="bg-white border rounded-xl p-6 text-sm text-slate-500">Memuat Sales Order...</div></div>
+      </section>
+
+      <section id="page-inventory" class="page-content hidden space-y-6">
+        <div><span class="inline-flex px-2 py-1 rounded bg-cyan-100 text-cyan-800 text-[10px] font-bold uppercase">Inventory Control</span><h1 class="text-2xl font-bold text-slate-900 mt-2">Inventory & Stok Material</h1><p class="text-sm text-slate-500">Pantau saldo bahan baku dari transaksi masuk, keluar, retur, dan penyesuaian.</p></div>
+        <div id="inventory-app" class="space-y-5"><div class="bg-white border rounded-xl p-6 text-sm text-slate-500">Memuat ledger stok...</div></div>
       </section>
 
       <!-- 5. FINANCE (Pilar 2 — Jurnal Keuangan) -->
@@ -886,6 +907,8 @@
         <div class="flex items-center justify-between mb-4"><div><div class="font-bold text-base">Semua Modul</div><div class="text-xs text-slate-500 mt-1">Akses operasional CSK</div></div><button onclick="toggleMobileMore(false)" class="w-9 h-9 rounded-full bg-stone-100"><i class="fa fa-times"></i></button></div>
         <div class="csk-mobile-more-grid">
           <button onclick="mobileGo('documents')"><i class="fa fa-file-text-o"></i>Quotation & Invoice</button>
+          <button onclick="mobileGo('sales-orders')"><i class="fa fa-clipboard-check"></i>Sales Order & Produksi</button>
+          <button onclick="mobileGo('inventory')"><i class="fa fa-archive"></i>Inventory & Stok</button>
           <button onclick="mobileGo('services')"><i class="fa fa-cubes"></i>Layanan CSK</button>
           <button onclick="mobileGo('purchasing')"><i class="fa fa-shopping-cart"></i>Purchasing & PO</button>
           <button onclick="mobileGo('clients')"><i class="fa fa-users"></i>Klien</button>
@@ -1233,8 +1256,11 @@
             <option value="penawaran">Surat Penawaran (Quotation)</option>
           </select>
           <button id="inv-save-quotation" onclick="saveQuotationSnapshot()" class="hidden bg-violet-600 hover:bg-violet-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs"><i class="fa fa-save"></i> Simpan Quotation</button>
+          <button onclick="downloadLegacyInvoicePdf()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition">
+            <i class="fa fa-download"></i> Unduh PDF
+          </button>
           <button onclick="window.print()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition">
-            <i class="fa fa-print"></i> Cetak / PDF
+            <i class="fa fa-print"></i> Cetak
           </button>
           <button onclick="copyInvoiceWA()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition">
             <i class="fa fa-whatsapp"></i> Salin Teks WA
@@ -1400,6 +1426,8 @@
       quotations: [],
       invoices: [],
       invoicePayments: [],
+      salesOrders: [],
+      inventoryTransactions: [],
       settings: {
         googleSheetUrl: '',
         lastSync: ''
@@ -1431,6 +1459,8 @@
           db.quotations = parsed.quotations || [];
           db.invoices = parsed.invoices || [];
           db.invoicePayments = parsed.invoicePayments || [];
+          db.salesOrders = parsed.salesOrders || [];
+          db.inventoryTransactions = parsed.inventoryTransactions || [];
           db.settings       = parsed.settings       || { googleSheetUrl: '', lastSync: '' };
           db.role           = parsed.role           || 'owner';
         } catch (e) {
@@ -1564,6 +1594,8 @@
         if (page === 'hpp') renderHpp();
         if (page === 'services') renderServices();
         if (page === 'purchasing') renderPurchasing();
+        if (page === 'sales-orders' && typeof window.renderSalesOrders === 'function') window.renderSalesOrders();
+        if (page === 'inventory' && typeof window.renderInventory === 'function') window.renderInventory();
       } catch (error) {
         console.error('CSK page render failed:', page, error);
         if (typeof showToast === 'function') showToast('Halaman terbuka, tetapi data gagal dimuat. Muat ulang halaman.', true);
@@ -1914,25 +1946,33 @@
       const rows=db.services.filter(x=>[x.name,x.category,x.spec].some(v=>String(v||'').toLowerCase().includes(q)));
       const count=document.getElementById('svc-count');if(count)count.innerText=rows.length+' dari '+db.services.length+' layanan';
       const el=document.getElementById('services-list');if(!el)return;
-      el.innerHTML=rows.map(x=>{const id=escapeInvoiceHtml(x.id);return '<article class="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 min-w-0"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold text-sm text-stone-900 break-words">'+escapeInvoiceHtml(x.name)+'</h3><div class="inline-flex mt-2 px-2 py-1 rounded-full bg-violet-50 text-violet-700 text-[10px] font-semibold">'+escapeInvoiceHtml(x.category)+'</div></div><b class="text-sm whitespace-nowrap">'+formatRp(x.basePrice)+'</b></div><p class="text-xs text-stone-600 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(x.spec||'Belum ada spesifikasi')+'</p><div class="grid grid-cols-2 gap-2 pt-2 border-t border-stone-100"><button onclick="editService(\''+id+'\')" class="min-h-9 rounded-lg border border-stone-200 bg-white text-xs font-semibold">Edit layanan</button><button onclick="deleteService(\''+id+'\')" class="min-h-9 rounded-lg border border-red-100 bg-red-50 text-xs font-semibold text-red-600">Hapus</button></div></article>';}).join('')||'<div class="bg-white border border-stone-200 rounded-2xl p-6 text-sm text-stone-500 text-center">Tidak ada layanan yang cocok dengan pencarian.</div>';
+      el.innerHTML=rows.map(x=>{const id=escapeInvoiceHtml(x.id);return '<article class="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 min-w-0"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><h3 class="font-semibold text-sm text-stone-900 break-words">'+escapeInvoiceHtml(x.name)+'</h3><div class="inline-flex mt-2 px-2 py-1 rounded-full bg-violet-50 text-violet-700 text-[10px] font-semibold">'+escapeInvoiceHtml(x.category)+'</div><div class="text-[10px] text-slate-500 mt-1">'+(x.recordType==='product'?'Produk':'Jasa')+'</div></div><b class="text-sm whitespace-nowrap">'+formatRp(x.basePrice)+'</b></div><div class="text-[11px] text-slate-500">Satuan: '+escapeInvoiceHtml(x.unit||'job')+' · Biaya dasar: '+formatRp(x.costPrice||0)+'</div><p class="text-xs text-stone-600 whitespace-pre-wrap break-words">'+escapeInvoiceHtml(x.spec||'Belum ada spesifikasi')+'</p><div class="grid grid-cols-2 gap-2 pt-2 border-t border-stone-100"><button onclick="editService(\''+id+'\')" class="min-h-9 rounded-lg border border-stone-200 bg-white text-xs font-semibold">Edit layanan</button><button onclick="deleteService(\''+id+'\')" class="min-h-9 rounded-lg border border-red-100 bg-red-50 text-xs font-semibold text-red-600">Hapus</button></div></article>';}).join('')||'<div class="bg-white border border-stone-200 rounded-2xl p-6 text-sm text-stone-500 text-center">Tidak ada layanan yang cocok dengan pencarian.</div>';
     }
     function editService(id) {
       const item=(db.services||[]).find(x=>x.id===id);if(!item)return;
       const name=prompt('Nama layanan:',item.name);if(name===null)return;
       const category=prompt('Kategori:',item.category);if(category===null)return;
-      const spec=prompt('Spesifikasi:',item.spec||'');if(spec===null)return;
-      const raw=prompt('Harga dasar (Rp):',String(item.basePrice||0));if(raw===null)return;
-      const price=Number(raw);if(!name.trim()||!category.trim()||!Number.isFinite(price)||price<0)return showToast('Data layanan tidak valid.',true);
-      Object.assign(item,{name:name.trim(),category:category.trim(),spec:spec.trim(),basePrice:price,updatedAt:new Date().toISOString()});saveDB();renderServices();showToast('Layanan diperbarui.');
+      const spec=prompt('Spesifikasi / basis biaya:',item.spec||'');if(spec===null)return;
+      const unit=prompt('Satuan layanan:',item.unit||'job');if(unit===null)return;
+      const raw=prompt('Harga jual dasar (Rp):',String(item.basePrice||0));if(raw===null)return;
+      const costRaw=prompt('Biaya dasar / HPP jasa (Rp):',String(item.costPrice||0));if(costRaw===null)return;
+      const price=Number(raw),cost=Number(costRaw);
+      if(!name.trim()||!category.trim()||!unit.trim()||!Number.isFinite(price)||price<=0||!Number.isFinite(cost)||cost<0)return showToast('Data layanan tidak valid.',true);
+      Object.assign(item,{name:name.trim(),category:category.trim(),spec:spec.trim(),unit:unit.trim(),basePrice:price,costPrice:cost,updatedAt:new Date().toISOString()});saveDB();renderServices();showToast('Layanan diperbarui.');
     }
 
     function addService() {
-      const name=document.getElementById('svc-name').value.trim(), category=document.getElementById('svc-category').value.trim(), spec=document.getElementById('svc-spec').value.trim(), basePrice=Number(document.getElementById('svc-price').value);
-      if(!name||!category||!Number.isFinite(basePrice)||basePrice<0)return showToast('Lengkapi nama, kategori, dan harga dasar layanan.',true);
-      db.services.push({id:'SVC-'+Date.now(),name,category,spec,basePrice,updatedAt:new Date().toISOString()});
-      ['svc-name','svc-category','svc-spec','svc-price'].forEach(id=>document.getElementById(id).value=''); saveDB(); renderServices(); showToast('Layanan ditambahkan.');
+      const name=document.getElementById('svc-name').value.trim(), category=document.getElementById('svc-category').value.trim(), spec=document.getElementById('svc-spec').value.trim(), unit=document.getElementById('svc-unit').value.trim()||'job', basePrice=Number(document.getElementById('svc-price').value), costPrice=Number(document.getElementById('svc-cost').value);
+      if(!name||!category||!Number.isFinite(basePrice)||basePrice<=0||!Number.isFinite(costPrice)||costPrice<0)return showToast('Lengkapi nama, kategori, satuan, harga jual, dan biaya dasar layanan.',true);
+      const now=new Date().toISOString();
+      db.services=db.services||[];
+      db.services.push({id:'SVC-'+Date.now(),sku:'SVC-MANUAL-'+Date.now(),name,category,recordType:'service',spec,unit,basePrice,costPrice,costingMethod:'service_unit',status:'active',updatedAt:now});
+      ['svc-name','svc-category','svc-spec','svc-unit','svc-price','svc-cost'].forEach(id=>document.getElementById(id).value=''); saveDB(); renderServices(); showToast('Layanan ditambahkan.');
     }
     function deleteService(id) {
+      const usedInCosting=(db.costSheets||[]).some(sheet=>(sheet.items||[]).some(item=>item.serviceId===id));
+      const usedInDocuments=[...(db.quotations||[]),...(db.invoices||[])].some(doc=>(doc.lines||[]).some(line=>line.serviceId===id));
+      if(usedInCosting||usedInDocuments)return showToast('Jasa sudah digunakan dalam HPP atau dokumen komersial. Nonaktifkan, jangan hapus riwayat.',true);
       if(!confirm('Hapus layanan ini dari katalog?'))return;
       db.services=db.services.filter(x=>x.id!==id); saveDB(); renderServices(); showToast('Layanan dihapus.');
     }
@@ -1969,17 +2009,35 @@
       const projectId=document.getElementById('po-project').value, project=db.projects.find(x=>x.id===projectId), supplier=document.getElementById('po-supplier').value.trim();
       if(!project||!supplier||!poLines.length)return showToast('Pilih proyek, isi supplier, dan tambahkan material.',true);
       const total=poLines.reduce((s,x)=>s+x.subtotal,0), now=new Date().toISOString();
-      const record={id:'PO-CSK-'+Date.now(),projectId,projectName:project.title||'',supplier,date:document.getElementById('po-date').value||now.slice(0,10),items:poLines.map(x=>({...x})),total,status:'draft',createdAt:now,updatedAt:now};
+      const record={id:'PO-CSK-'+Date.now(),projectId,projectName:project.title||'',supplier,date:document.getElementById('po-date').value||now.slice(0,10),items:poLines.map(x=>({...x})),total,status:'draft',inventoryControlVersion:1,createdAt:now,updatedAt:now};
       db.purchaseOrders.push(record); poLines=[]; document.getElementById('po-supplier').value=''; saveDB(); renderPurchasing(); showToast('Purchase Order tersimpan.');
+    }
+    function getPoReceiptProgress(po) {
+      const expected={};
+      (po.items||[]).forEach(item=>{const id=String(item.materialId||'');expected[id]=(expected[id]||0)+(Number(item.qty)||0);});
+      const received={};
+      (db.inventoryTransactions||[]).filter(tx=>String(tx.purchaseOrderId||'')===String(po.id)&&tx.movement==='receipt').forEach(tx=>{const id=String(tx.materialId||'');received[id]=(received[id]||0)+(Number(tx.qty)||0);});
+      const ids=Object.keys(expected);
+      return {complete:ids.length>0&&ids.every(id=>(received[id]||0)+0.000001>=expected[id]),hasReceipts:ids.some(id=>(received[id]||0)>0),receivedLines:ids.filter(id=>(received[id]||0)+0.000001>=expected[id]).length,lineCount:ids.length};
     }
     function updatePoStatus(id,status) {
       const x=db.purchaseOrders.find(p=>p.id===id); if(!x)return;
+      const progress=getPoReceiptProgress(x);
+      if(status==='received'&&!progress.complete)return showToast('PO belum dapat ditandai diterima. Catat seluruh penerimaan barang melalui modul Inventory terlebih dahulu.',true);
+      if(status==='cancelled'&&progress.hasReceipts)return showToast('PO tidak dapat dibatalkan setelah ada penerimaan stok. Selesaikan rekonsiliasi terlebih dahulu.',true);
       x.status=status; x.updatedAt=new Date().toISOString(); saveDB(); renderPurchasing(); showToast('Status PO diperbarui.');
     }
     function renderPoList() {
       const el=document.getElementById('po-list'); if(!el)return;
       const labels={draft:'Draft',ordered:'Dipesan',received:'Diterima',cancelled:'Dibatalkan'};
-      el.innerHTML=(db.purchaseOrders||[]).slice().reverse().map(x=>'<article class="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><b class="text-sm text-stone-900">'+escapeInvoiceHtml(x.id)+'</b><div class="text-xs text-stone-500 mt-1 break-words">'+escapeInvoiceHtml(x.projectName)+' · '+escapeInvoiceHtml(x.supplier)+'</div><div class="text-[11px] text-stone-400 mt-1">'+escapeInvoiceHtml(x.date)+'</div></div><b class="text-sm whitespace-nowrap">'+formatRp(x.total)+'</b></div><div class="flex flex-wrap gap-2 text-[11px]"><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600">Status: '+escapeInvoiceHtml(labels[x.status]||x.status||'-')+'</span><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600">'+((x.items||[]).length)+' item</span></div><div class="grid grid-cols-2 sm:grid-cols-3 gap-2">'+(x.status!=='ordered'&&x.status!=='received'&&x.status!=='cancelled'?'<button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'ordered\')" class="min-h-9 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold">Tandai dipesan</button>':'')+(x.status!=='received'&&x.status!=='cancelled'?'<button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'received\')" class="min-h-9 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold">Tandai diterima</button>':'')+(x.status!=='received'&&x.status!=='cancelled'?'<button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'cancelled\')" class="min-h-9 rounded-lg bg-red-50 text-red-600 text-xs font-semibold">Batalkan</button>':'')+'</div></article>').join('')||'<div class="text-sm text-stone-400 bg-white border border-stone-200 rounded-2xl p-6 text-center">Belum ada Purchase Order.</div>';
+      el.innerHTML=(db.purchaseOrders||[]).slice().reverse().map(x=>{
+        const progress=getPoReceiptProgress(x);
+        const receiptInfo='<span class="px-2 py-1 rounded-full bg-cyan-50 text-cyan-700">Penerimaan: '+progress.receivedLines+'/'+progress.lineCount+' jenis material</span>';
+        const orderButton=x.status==='draft'?'<button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'ordered\')" class="min-h-9 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold">Tandai dipesan</button>':'';
+        const receiptButton=x.status==='ordered'&&!progress.complete?'<button onclick="openInventoryReceiptFromPO(\''+escapeInvoiceHtml(x.id)+'\')" class="min-h-9 rounded-lg bg-emerald-700 text-white text-xs font-semibold">Catat Penerimaan</button>':x.status==='ordered'&&progress.complete?'<button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'received\')" class="min-h-9 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold">Tandai diterima</button>':'';
+        const cancelButton=(x.status==='draft'||x.status==='ordered')&&!progress.hasReceipts?'<button onclick="updatePoStatus(\''+escapeInvoiceHtml(x.id)+'\',\'cancelled\')" class="min-h-9 rounded-lg bg-red-50 text-red-600 text-xs font-semibold">Batalkan</button>':'';
+        return '<article class="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><b class="text-sm text-stone-900">'+escapeInvoiceHtml(x.id)+'</b><div class="text-xs text-stone-500 mt-1 break-words">'+escapeInvoiceHtml(x.projectName)+' · '+escapeInvoiceHtml(x.supplier)+'</div><div class="text-[11px] text-stone-400 mt-1">'+escapeInvoiceHtml(x.date)+'</div></div><b class="text-sm whitespace-nowrap">'+formatRp(x.total)+'</b></div><div class="flex flex-wrap gap-2 text-[11px]"><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600">Status: '+escapeInvoiceHtml(labels[x.status]||x.status||'-')+'</span><span class="px-2 py-1 rounded-full bg-stone-100 text-stone-600">'+((x.items||[]).length)+' item</span>'+receiptInfo+'</div><div class="grid grid-cols-2 sm:grid-cols-3 gap-2">'+orderButton+receiptButton+cancelButton+'</div></article>';
+      }).join('')||'<div class="text-sm text-stone-400 bg-white border border-stone-200 rounded-2xl p-6 text-center">Belum ada Purchase Order.</div>';
     }
 
     // ============== HPP & MATERIAL CALCULATOR ==============
@@ -1991,7 +2049,11 @@
       const mats = document.getElementById('hpp-material-list');
       if (mats) mats.innerHTML = db.materials.length ? db.materials.map(m => '<article class="rounded-xl border border-stone-100 bg-stone-50/70 p-3 flex flex-col gap-2"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="font-semibold text-xs text-stone-800 break-words">'+escapeInvoiceHtml(m.name)+'</div><div class="text-[11px] text-stone-500 mt-1">Satuan: '+escapeInvoiceHtml(m.unit)+'</div></div><b class="text-xs text-stone-900 whitespace-nowrap">'+formatRp(m.unitPrice)+'</b></div><div class="grid grid-cols-2 gap-2"><button onclick="editHppMaterial(\''+escapeInvoiceHtml(m.id)+'\')" class="min-h-9 rounded-lg border border-stone-200 bg-white text-xs font-semibold text-stone-700">Edit material</button><button onclick="deleteHppMaterial(\''+escapeInvoiceHtml(m.id)+'\')" class="min-h-9 rounded-lg border border-red-100 bg-red-50 text-xs font-semibold text-red-600">Hapus</button></div></article>').join('') : '<p class="text-xs text-stone-400 text-center py-4">Belum ada material.</p>';
       const select = document.getElementById('hpp-material');
-      if (select) select.innerHTML = db.materials.map(m => '<option value="' + escapeInvoiceHtml(m.id) + '">' + escapeInvoiceHtml(m.name) + ' (' + formatRp(m.unitPrice) + '/' + escapeInvoiceHtml(m.unit) + ')</option>').join('');
+      if (select) {
+        const materialOptions = db.materials.filter(m => m.status !== 'inactive').map(m => '<option value="material:' + escapeInvoiceHtml(m.id) + '">Material · ' + escapeInvoiceHtml(m.name) + ' (' + formatRp(m.unitPrice) + '/' + escapeInvoiceHtml(m.unit) + ')</option>').join('');
+        const serviceOptions = (db.services || []).filter(s => s.status !== 'inactive').map(s => '<option value="service:' + escapeInvoiceHtml(s.id) + '">' + (s.recordType==='product'?'Produk · ':'Jasa · ') + escapeInvoiceHtml(s.name) + ' (biaya ' + formatRp(s.costPrice || 0) + '/' + escapeInvoiceHtml(s.unit || 'job') + ')</option>').join('');
+        select.innerHTML = '<option value="">Pilih material, produk, atau jasa</option>' + materialOptions + serviceOptions;
+      }
       renderHppEstimate(); renderHppSaved();
     }
     function editHppMaterial(id) {
@@ -2001,7 +2063,7 @@
       const raw=prompt('Harga satuan (Rp):',String(m.unitPrice)); if(raw===null)return;
       const price=Number(raw);
       if(!name.trim()||!unit.trim()||!Number.isFinite(price)||price<0)return showToast('Data material tidak valid.',true);
-      m.name=name.trim(); m.unit=unit.trim(); m.unitPrice=price; m.updatedAt=new Date().toISOString();
+      m.name=name.trim(); m.unit=unit.trim(); m.unitPrice=price; m.conversionFactor=Number(m.conversionFactor)||1; m.purchaseUnit=m.purchaseUnit||m.unit; m.purchasePrice=price*m.conversionFactor; m.priceSource='Edit manual - wajib diverifikasi'; m.priceDate=new Date().toISOString().slice(0,10); m.updatedAt=new Date().toISOString();
       saveDB(); renderHpp(); showToast('Master material diperbarui. Harga pada HPP lama tetap menggunakan snapshot.');
     }
     function deleteHppMaterial(id) {
@@ -2024,15 +2086,28 @@
 
     function addHppMaterial() {
       const name = document.getElementById('hpp-mat-name').value.trim(), unit = document.getElementById('hpp-mat-unit').value.trim(), unitPrice = Number(document.getElementById('hpp-mat-price').value);
-      if (!name || !unit || !Number.isFinite(unitPrice) || unitPrice < 0) return showToast('Isi nama, satuan, dan harga material dengan benar.', true);
-      db.materials.push({id:'MAT-'+Date.now(),name,unit,unitPrice,updatedAt:new Date().toISOString()});
+      if (!name || !unit || !Number.isFinite(unitPrice) || unitPrice <= 0) return showToast('Isi nama, satuan, dan harga material lebih dari nol.', true);
+      const now = new Date().toISOString();
+      db.materials = db.materials || [];
+      db.materials.push({id:'MAT-'+Date.now(),sku:'MAT-MANUAL-'+Date.now(),name,category:'Belum dikategorikan',unit,unitPrice,purchaseUnit:unit,purchasePrice:unitPrice,conversionFactor:1,costingMethod:'direct_unit',priceSource:'Input manual - wajib diverifikasi',priceDate:now.slice(0,10),status:'active',updatedAt:now});
       document.getElementById('hpp-mat-name').value=''; document.getElementById('hpp-mat-unit').value=''; document.getElementById('hpp-mat-price').value='';
-      saveDB(); renderHpp(); showToast('Material ditambahkan.');
+      saveDB(); renderHpp(); showToast('Material ditambahkan. Lengkapi supplier dan bukti harga melalui master material.');
     }
     function addHppLine() {
-      const id=document.getElementById('hpp-material').value, qty=Number(document.getElementById('hpp-qty').value), m=db.materials.find(x=>x.id===id);
-      if(!m || !Number.isFinite(qty) || qty<=0) return showToast('Pilih material dan kuantitas lebih dari nol.',true);
-      hppLines.push({materialId:m.id,name:m.name,unit:m.unit,qty,unitPrice:Number(m.unitPrice),subtotal:qty*Number(m.unitPrice)});
+      const selected=document.getElementById('hpp-material').value, qty=Number(document.getElementById('hpp-qty').value);
+      const parts=selected.split(':'), type=parts[0], id=parts.slice(1).join(':');
+      if(!id || !Number.isFinite(qty) || qty<=0) return showToast('Pilih material atau jasa dan kuantitas lebih dari nol.',true);
+      if(type==='service') {
+        const service=(db.services||[]).find(x=>x.id===id);
+        if(!service || !Number.isFinite(Number(service.costPrice)) || Number(service.costPrice)<=0) return showToast('Jasa belum memiliki biaya dasar/HPP. Lengkapi biaya jasa terlebih dahulu.',true);
+        const unitPrice=Number(service.costPrice);
+        hppLines.push({itemType:'service',serviceId:service.id,name:service.name,unit:service.unit||'job',qty,unitPrice,subtotal:qty*unitPrice});
+      } else {
+        const material=db.materials.find(x=>x.id===id);
+        if(!material || !Number.isFinite(Number(material.unitPrice)) || Number(material.unitPrice)<=0) return showToast('Material belum memiliki harga pemakaian yang valid.',true);
+        const unitPrice=Number(material.unitPrice);
+        hppLines.push({itemType:'material',materialId:material.id,name:material.name,unit:material.unit,qty,unitPrice,subtotal:qty*unitPrice});
+      }
       renderHppEstimate();
     }
     function calculateHppTotals(items, labor, other, margin) {
@@ -2067,7 +2142,7 @@
     }
     function renderHppEstimate() {
       const el=document.getElementById('hpp-lines'); if(!el)return;
-      el.innerHTML=hppLines.map((x,i)=>'<div class="border rounded-lg p-3 space-y-2"><div class="grid grid-cols-2 sm:grid-cols-4 gap-2"><label class="text-[11px] text-slate-500">Nama material<input value="'+escapeInvoiceHtml(x.name)+'" onchange="setHppLineField('+i+',\'name\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Satuan<input value="'+escapeInvoiceHtml(x.unit)+'" onchange="setHppLineField('+i+',\'unit\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Kuantitas<input type="number" min="0.01" step="0.01" value="'+Number(x.qty)+'" onchange="setHppLineField('+i+',\'qty\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Harga satuan (Rp)<input type="number" min="0" step="1" value="'+Number(x.unitPrice)+'" onchange="setHppLineField('+i+',\'unitPrice\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label></div><div class="flex justify-between items-center text-xs"><span class="text-slate-500">Subtotal item</span><b>'+formatRp(Number(x.qty)*Number(x.unitPrice))+'</b><button onclick="removeHppLine('+i+')" class="text-red-600">Hapus item</button></div></div>').join('') || '<p class="text-xs text-slate-400">Belum ada item material.</p>';
+      el.innerHTML=hppLines.map((x,i)=>'<div class="border rounded-lg p-3 space-y-2"><div class="grid grid-cols-2 sm:grid-cols-4 gap-2"><label class="text-[11px] text-slate-500">Nama item<input value="'+escapeInvoiceHtml(x.name)+'" onchange="setHppLineField('+i+',\'name\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Satuan<input value="'+escapeInvoiceHtml(x.unit)+'" onchange="setHppLineField('+i+',\'unit\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Kuantitas<input type="number" min="0.01" step="0.01" value="'+Number(x.qty)+'" onchange="setHppLineField('+i+',\'qty\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Harga satuan (Rp)<input type="number" min="0" step="1" value="'+Number(x.unitPrice)+'" onchange="setHppLineField('+i+',\'unitPrice\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label></div>'+(x.costingDetails&&x.costingDetails.summary?'<p class="text-[10px] text-blue-700 bg-blue-50 rounded p-2">'+escapeInvoiceHtml(x.costingDetails.summary)+'</p>':'')+'<div class="flex justify-between items-center text-xs"><span class="text-slate-500">Subtotal item</span><b>'+formatRp(Number(x.qty)*Number(x.unitPrice))+'</b><button onclick="removeHppLine('+i+')" class="text-red-600">Hapus item</button></div></div>').join('') || '<p class="text-xs text-slate-400">Belum ada item material.</p>';
       calculateHpp();
     }
     function removeHppLine(i) { hppLines.splice(i,1); renderHppEstimate(); }
@@ -2646,6 +2721,76 @@
       document.getElementById('inv-calc-grand').innerText = formatRp(billAmount);
     }
 
+    function downloadLegacyInvoicePdf() {
+      if (!currentActiveProject) return;
+      if (!window.CSKPDF || typeof window.CSKPDF.downloadDocument !== 'function') {
+        return showToast('Mesin PDF belum tersedia. Muat ulang aplikasi dan coba lagi.', true);
+      }
+      const p = currentActiveProject;
+      const quotationSnapshot = currentInvoiceType === 'penawaran' ? getActiveQuotationSnapshot() : null;
+      const costSheet = getProjectCostSheet(p.id);
+      const contractTotal = Number(quotationSnapshot ? quotationSnapshot.total : (costSheet ? costSheet.price : (p.value || 0)));
+      const amounts = calculateInvoiceAmounts(contractTotal, currentInvoiceType, currentInvoiceDpPercent);
+      const isQuotation = currentInvoiceType === 'penawaran';
+      const today = new Date();
+      const date = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
+      const due = p.deadline ? String(p.deadline).slice(0, 10) : (() => {
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
+        return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+      })();
+      const cleanId = String(p.id).replace(/[^a-zA-Z0-9]/g, '').slice(-10) || 'PROJECT';
+      const year = today.getFullYear();
+      const docNo = isQuotation
+        ? 'QUO-CSK-' + year + '-' + cleanId
+        : 'INV-CSK-' + year + '-' + cleanId + '-' + (currentInvoiceType === 'dp' ? 'DP' : 'PEL');
+      let lines = [{ name: p.title || 'Pekerjaan produksi', description: p.notes || '', qty: 1, unit: 'Lot', unitPrice: amounts.amount }];
+      if (isQuotation) {
+        if (quotationSnapshot && Array.isArray(quotationSnapshot.lines)) lines = quotationSnapshot.lines;
+        else if (costSheet) {
+          try { lines = buildQuotationSnapshot(p).lines; } catch (error) { showToast(error.message, true); }
+        }
+      } else {
+        lines = [{
+          name: p.title || 'Pekerjaan produksi',
+          description: currentInvoiceType === 'dp'
+            ? 'Tagihan uang muka ' + currentInvoiceDpPercent + '% dari nilai kontrak.'
+            : 'Tagihan pelunasan sisa ' + (100 - currentInvoiceDpPercent) + '% dari nilai kontrak.',
+          qty: 1,
+          unit: 'Lot',
+          unitPrice: amounts.amount
+        }];
+      }
+      const matchedClient = (db.clients || []).find(c => String(c.name || '').toLowerCase() === String(p.client || '').toLowerCase());
+      const paymentSummary = isQuotation ? '' : (
+        'Nilai kontrak: Rp ' + Math.round(contractTotal).toLocaleString('id-ID') +
+        ' | DP ' + currentInvoiceDpPercent + '%: Rp ' + Math.round(amounts.dpAmount).toLocaleString('id-ID') +
+        (currentInvoiceType === 'dp'
+          ? ' | Sisa setelah DP: Rp ' + Math.round(amounts.balance).toLocaleString('id-ID')
+          : ' | Tagihan pelunasan: Rp ' + Math.round(amounts.amount).toLocaleString('id-ID'))
+      );
+      return window.CSKPDF.downloadDocument({
+        kind: isQuotation ? 'quotation' : 'invoice',
+        title: isQuotation ? 'SURAT PENAWARAN' : (currentInvoiceType === 'dp' ? 'INVOICE UANG MUKA' : 'INVOICE PELUNASAN'),
+        docNo,
+        date,
+        dueDate: due,
+        projectDeadline: p.deadline || '',
+        client: p.client || 'Klien CSK',
+        clientPhone: matchedClient ? matchedClient.phone || '' : '',
+        projectName: p.title || 'Pekerjaan Produksi',
+        projectId: p.id,
+        lines,
+        total: amounts.amount,
+        contractTotal: isQuotation ? null : contractTotal,
+        paymentSummary,
+        paymentTerms: isQuotation
+          ? 'Penawaran berlaku sesuai tanggal yang tercantum. Pekerjaan dimulai setelah persetujuan dan pembayaran uang muka sesuai kesepakatan.'
+          : 'Pembayaran dilakukan melalui rekening resmi Cahaya Selatan Kreasindo. Konfirmasi pembayaran melalui WhatsApp 0888-8533-488.',
+        terms: 'Ruang lingkup pekerjaan mengikuti spesifikasi dan rincian pada dokumen ini. Perubahan spesifikasi atau pekerjaan tambahan akan dikonfirmasi dan dihitung terpisah.',
+        notes: p.notes || ''
+      });
+    }
+
     function copyInvoiceWA() {
       if (!currentActiveProject) return;
       const p = currentActiveProject;
@@ -3119,8 +3264,68 @@
       // Saat aplikasi dibuka: tarik & gabungkan data dari cloud (AMAN, tidak menimpa)
       pullAndMerge();
     });
+    window.CSKInventoryBridge = {
+      getData: function () {
+        return { materials: db.materials || [], projects: db.projects || [], purchaseOrders: db.purchaseOrders || [], inventoryTransactions: db.inventoryTransactions || [] };
+      },
+      isOwner: function () { return isOwnerSession(); },
+      getIdentity: function () { return window.CSKAuth && window.CSKAuth.getIdentity ? window.CSKAuth.getIdentity() : null; },
+      save: async function () {
+        saveDB(true);
+        if (!window.CSKAuth || !window.CSKAuth.isReady || !window.CSKAuth.isReady()) throw new Error("Login dan koneksi Google Sheets harus aktif sebelum mencatat stok.");
+        var verified = await window.CSKAuth.sync(true);
+        if (!verified) throw new Error("Transaksi stok belum terverifikasi di Google Sheets. Periksa koneksi lalu sinkronkan kembali.");
+        return true;
+      },
+      toast: function (message, isError) { showToast(message, !!isError); }
+    };
+
+    window.CSKSalesOrderBridge = {
+      getData: function () {
+        return { quotations: db.quotations || [], invoices: db.invoices || [], invoicePayments: db.invoicePayments || [], projects: db.projects || [], salesOrders: db.salesOrders || [], costSheets: db.costSheets || [], materials: db.materials || [], inventoryTransactions: db.inventoryTransactions || [], purchaseOrders: db.purchaseOrders || [] };
+      },
+      isOwner: function () { return isOwnerSession(); },
+      getIdentity: function () { return window.CSKAuth && window.CSKAuth.getIdentity ? window.CSKAuth.getIdentity() : null; },
+      save: async function () {
+        saveDB(true);
+        if (!window.CSKAuth || !window.CSKAuth.isReady || !window.CSKAuth.isReady()) throw new Error("Login dan koneksi Google Sheets harus aktif sebelum menyimpan Sales Order.");
+        var verified = await window.CSKAuth.sync(true);
+        if (!verified) throw new Error("Sales Order belum terverifikasi di Google Sheets. Periksa koneksi lalu sinkronkan kembali.");
+        return true;
+      },
+      toast: function (message, isError) { showToast(message, !!isError); }
+    };
+
+    window.CSKCustomCostingBridge = {
+      getMaterials: function () { return Array.isArray(db.materials) ? db.materials : []; },
+      getCurrentProjectId: function () { const node=document.getElementById('hpp-project'); return node ? node.value : ''; },
+      addLine: function (line) {
+        const projectId=this.getCurrentProjectId();
+        if (!projectId || !db.projects.some(function (project) { return String(project.id)===String(projectId); })) {
+          showToast('Pilih proyek yang valid sebelum memasukkan biaya custom.', true);
+          return false;
+        }
+        if (!line || !Number.isFinite(Number(line.qty)) || Number(line.qty)<=0 || !Number.isFinite(Number(line.unitPrice)) || Number(line.unitPrice)<=0) {
+          showToast('Hasil kalkulasi custom tidak valid.', true);
+          return false;
+        }
+        hppLines.push(Object.assign({}, line, { subtotal:Number(line.qty)*Number(line.unitPrice) }));
+        renderHppEstimate();
+        return true;
+      },
+      toast: function (message, isError) { showToast(message, !!isError); }
+    };
+
   </script>
+  <script src="./csk-pdf.js"></script>
+  <script src="./catalog-manager.js"></script>
+  <script src="./custom-costing-engine.js"></script>
+  <script src="./custom-costing.js"></script>
   <script src="./commercial-documents.js"></script>
+  <script src="./sales-order-engine.js"></script>
+  <script src="./sales-orders.js"></script>
+  <script src="./inventory-engine.js"></script>
+  <script src="./inventory.js"></script>
   <script src="./crm-upgrade.js"></script>
 </body>
 </html>

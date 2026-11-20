@@ -6,6 +6,7 @@ on:
       - main
       - security/csk-pin-rbac-hardening
       - feature/commercial-documents-standalone-20261109
+      - feature/hpp-material-conversion-20261120
   pull_request:
     branches:
       - main
@@ -26,6 +27,23 @@ jobs:
           node -e "new Function(require('fs').readFileSync('apps-script/Code.gs','utf8'))"
           node --check security/guard.js
           node --check commercial-documents.js
+          node --check csk-pdf.js
+          node --check csk-pdf.test.cjs
+          node --check catalog-seed.test.cjs
+          node --check catalog-manager.js
+          node --check catalog-manager.test.cjs
+          node --check custom-costing-engine.js
+          node --check custom-costing.js
+          node --check custom-costing-engine.test.cjs
+          node --check custom-costing-integration.test.cjs
+          node --check sales-order-engine.js
+          node --check sales-orders.js
+          node --check sales-order-workflow.test.cjs
+          node --check sales-order-backend.test.cjs
+          node --check inventory-engine.js
+          node --check inventory.js
+          node --check inventory-workflow.test.cjs
+          node --check inventory-backend.test.cjs
           node --check commercial-documents.test.cjs
           node --check commercial-workflow.test.cjs
           node --check mapping.test.js
@@ -36,7 +54,17 @@ jobs:
       - name: Mapping and RBAC integration tests
         run: node mapping.test.js
       - name: Commercial Document Center tests
-        run: node commercial-documents.test.cjs
+        run: |
+          node commercial-documents.test.cjs
+          node csk-pdf.test.cjs
+          node catalog-seed.test.cjs
+          node catalog-manager.test.cjs
+          node custom-costing-engine.test.cjs
+          node custom-costing-integration.test.cjs
+          node sales-order-workflow.test.cjs
+          node sales-order-backend.test.cjs
+          node inventory-workflow.test.cjs
+          node inventory-backend.test.cjs
       - name: Commercial workflow simulation
         run: node commercial-workflow.test.cjs
       - name: Backend security policy tests

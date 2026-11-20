@@ -75,20 +75,30 @@ var FIELD_MAP = {
     fields:  ["id", "date", "platform", "campaign", "budget", "spent", "leadsGenerated", "notes"]
   },
   Materials: {
-    headers: ["ID", "Nama", "Satuan", "HargaSatuan", "UpdatedAt"],
-    fields: ["id", "name", "unit", "unitPrice", "updatedAt"]
+    // Kolom lama dipertahankan di posisi awal; atribut costing ditambahkan di kanan.
+    // unit = satuan pemakaian; unitPrice = harga per satuan pemakaian (kompatibel dengan HPP lama).
+    headers: ["ID", "Nama", "Satuan", "HargaSatuan", "UpdatedAt", "SKU", "Kategori", "Subkategori", "Merek", "Grade", "Spesifikasi", "Warna", "KetebalanMm", "LebarMm", "PanjangMm", "DiameterMm", "SatuanBeli", "HargaBeli", "FaktorKonversi", "MetodeCosting", "SupplierID", "SupplierNama", "MinimumOrder", "WasteRate", "SumberHarga", "TanggalHarga", "Status", "Catatan", "RollLengthM"],
+    fields: ["id", "name", "unit", "unitPrice", "updatedAt", "sku", "category", "subcategory", "brand", "grade", "spec", "color", "thicknessMm", "widthMm", "lengthMm", "diameterMm", "purchaseUnit", "purchasePrice", "conversionFactor", "costingMethod", "supplierId", "supplierName", "minimumOrder", "wasteRate", "priceSource", "priceDate", "status", "notes", "rollLengthM"]
   },
   Cost_Sheets: {
     headers: ["ID", "ProjectID", "NamaProyek", "ItemsJSON", "MaterialTotal", "TenagaKerja", "BiayaLain", "Margin", "TotalHPP", "HargaPenawaran", "EstimasiLaba", "UpdatedAt"],
     fields: ["id", "projectId", "projectName", "itemsJson", "materialTotal", "labor", "other", "margin", "total", "price", "profit", "updatedAt"]
   },
   Services: {
-    headers: ["ID", "NamaLayanan", "Kategori", "Spesifikasi", "HargaDasar", "UpdatedAt"],
-    fields: ["id", "name", "category", "spec", "basePrice", "updatedAt"]
+    headers: ["ID", "NamaLayanan", "Kategori", "Spesifikasi", "HargaDasar", "UpdatedAt", "SKU", "Satuan", "MetodeCosting", "BiayaDasar", "SupplierID", "SupplierNama", "Status", "Catatan", "Jenis"],
+    fields: ["id", "name", "category", "spec", "basePrice", "updatedAt", "sku", "unit", "costingMethod", "costPrice", "supplierId", "supplierName", "status", "notes", "recordType"]
   },
   Purchase_Orders: {
-    headers: ["ID", "ProjectID", "NamaProyek", "Supplier", "Tanggal", "ItemsJSON", "Total", "Status", "CreatedAt", "UpdatedAt"],
-    fields: ["id", "projectId", "projectName", "supplier", "date", "itemsJson", "total", "status", "createdAt", "updatedAt"]
+    headers: ["ID", "ProjectID", "NamaProyek", "Supplier", "Tanggal", "ItemsJSON", "Total", "Status", "CreatedAt", "UpdatedAt", "InventoryControlVersion"],
+    fields: ["id", "projectId", "projectName", "supplier", "date", "itemsJson", "total", "status", "createdAt", "updatedAt", "inventoryControlVersion"]
+  },
+  Sales_Orders: {
+    headers: ["ID", "NomorSO", "QuotationID", "NomorQuotation", "ProjectID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "TanggalOrder", "TanggalPengiriman", "ItemsJSON", "Total", "DPPersen", "DPWajib", "Status", "RiwayatJSON", "Catatan", "CreatedAt", "UpdatedAt"],
+    fields: ["id", "orderNo", "quotationId", "quotationNo", "projectId", "projectName", "client", "clientPhone", "clientEmail", "orderDate", "deliveryDate", "itemsJson", "total", "dpPercent", "dpRequiredAmount", "status", "historyJson", "notes", "createdAt", "updatedAt"]
+  },
+  Inventory_Transactions: {
+    headers: ["ID", "NomorTransaksi", "MaterialID", "NamaMaterial", "JenisPergerakan", "Qty", "Satuan", "Tanggal", "ProjectID", "NamaProyek", "PurchaseOrderID", "Supplier", "Referensi", "Catatan", "CreatedAt", "CreatedBy"],
+    fields: ["id", "transactionNo", "materialId", "materialName", "movement", "qty", "unit", "date", "projectId", "projectName", "purchaseOrderId", "supplier", "reference", "notes", "createdAt", "createdBy"]
   },
   Quotations: {
     headers: ["ID", "ProjectID", "NamaProyek", "Klien", "Deadline", "Catatan", "LinesJSON", "Total", "SourceCostSheetID", "SourceCostSheetUpdatedAt", "DPPersen", "Status", "CreatedAt", "UpdatedAt"],
@@ -247,6 +257,8 @@ function setupSheet() {
   ensureSheet(ss, "Cost_Sheets", FIELD_MAP.Cost_Sheets.headers);
   ensureSheet(ss, "Services", FIELD_MAP.Services.headers);
   ensureSheet(ss, "Purchase_Orders", FIELD_MAP.Purchase_Orders.headers);
+  ensureSheet(ss, "Sales_Orders", FIELD_MAP.Sales_Orders.headers);
+  ensureSheet(ss, "Inventory_Transactions", FIELD_MAP.Inventory_Transactions.headers);
   ensureSheet(ss, "Quotations", FIELD_MAP.Quotations.headers);
   ensureSheet(ss, "Commercial_Quotations", FIELD_MAP.Commercial_Quotations.headers);
   ensureSheet(ss, "Invoices", FIELD_MAP.Invoices.headers);
@@ -452,6 +464,8 @@ function doGet(e) {
       projectCosts: identity.role === "owner" ? readLegacySheetData_(ss, "Project_Costs") : [],
       services: readSheetData(ss, "Services"),
       purchaseOrders: readSheetData(ss, "Purchase_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
+      salesOrders: readSheetData(ss, "Sales_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } try { x.history = JSON.parse(x.historyJson || "[]"); } catch(e) { x.history = []; } return x; }),
+      inventoryTransactions: readSheetData(ss, "Inventory_Transactions"),
       quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
       quotations: readSheetData(ss, "Commercial_Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
       invoices: readSheetData(ss, "Invoices").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
@@ -675,6 +689,238 @@ function mergeInvoicesSafely_(ss, incomingInvoices) {
     lock.releaseLock();
   }
 }
+// Validasi server-side Sales Order: quotation approved, satu SO per quotation,
+// transisi status terkendali, dan pelepasan produksi berdasarkan pembayaran DP terverifikasi.
+function validateSalesOrdersBeforeMerge_(ss, incomingOrders) {
+  if (!Array.isArray(incomingOrders)) throw new Error("INVALID_SALES_ORDERS");
+  ensureSheet(ss, "Sales_Orders", FIELD_MAP.Sales_Orders.headers);
+  var existingOrders = readSheetData(ss, "Sales_Orders");
+  var quotations = readSheetData(ss, "Commercial_Quotations");
+  var invoices = readSheetData(ss, "Invoices");
+  var payments = readSheetData(ss, "Invoice_Payments");
+  var projects = readSheetData(ss, "Projects");
+  var seenIds = {};
+  var seenQuotes = {};
+  var seenNumbers = {};
+  var allowedStatuses = ["awaiting_dp","ready_production","in_production","quality_check","ready_delivery","delivered","closed","cancelled"];
+  var transitions = {
+    awaiting_dp:["ready_production","cancelled"],
+    ready_production:["in_production","cancelled"],
+    in_production:["quality_check"],
+    quality_check:["in_production","ready_delivery"],
+    ready_delivery:["delivered"],
+    delivered:["closed"],
+    closed:[],
+    cancelled:[]
+  };
+  incomingOrders.forEach(function(order) {
+    if (!order || !/^SO-[A-Za-z0-9_-]{8,100}$/.test(String(order.id || ""))) throw new Error("INVALID_SALES_ORDER_ID");
+    var id = String(order.id);
+    var quoteId = String(order.quotationId || "");
+    if (!quoteId) throw new Error("SALES_ORDER_QUOTATION_REQUIRED");
+    if (seenIds[id]) throw new Error("DUPLICATE_SALES_ORDER_ID");
+    seenIds[id] = true;
+    var quote = quotations.find(function(q) { return String(q.id) === quoteId; });
+    if (!quote || String(quote.status || "").toLowerCase() !== "approved") throw new Error("SALES_ORDER_REQUIRES_APPROVED_QUOTATION");
+    if (!/^SO-CSK-\d{4}-\d{5}$/.test(String(order.orderNo || ""))) throw new Error("INVALID_SALES_ORDER_NUMBER");
+    if (seenNumbers[String(order.orderNo)]) throw new Error("DUPLICATE_SALES_ORDER_NUMBER");
+    seenNumbers[String(order.orderNo)] = true;
+    var projectId = String(order.projectId || "");
+    if (!projectId || !projects.some(function(p) { return String(p.id) === projectId; })) throw new Error("SALES_ORDER_PROJECT_REQUIRED");
+    var total = Math.round(Number(order.total));
+    var dpPercent = Number(order.dpPercent);
+    var dpRequired = Math.round(total * dpPercent / 100);
+    if (!Number.isSafeInteger(total) || total <= 0 || !Number.isFinite(dpPercent) || dpPercent < 0 || dpPercent > 99) throw new Error("INVALID_SALES_ORDER_VALUE");
+    if (Math.round(Number(order.dpRequiredAmount)) !== dpRequired) throw new Error("SALES_ORDER_DP_SNAPSHOT_MISMATCH");
+    if (allowedStatuses.indexOf(String(order.status || "")) < 0) throw new Error("INVALID_SALES_ORDER_STATUS");
+    var items = Array.isArray(order.items) ? order.items : [];
+    if (!items.length || items.length > 500) throw new Error("INVALID_SALES_ORDER_ITEMS");
+    var existing = existingOrders.find(function(x) { return String(x.id) === id; });
+    var duplicate = existingOrders.find(function(x) { return String(x.quotationId) === quoteId && String(x.id) !== id; });
+    if (duplicate) throw new Error("QUOTATION_ALREADY_HAS_SALES_ORDER");
+    if (seenQuotes[quoteId] && seenQuotes[quoteId] !== id) throw new Error("DUPLICATE_SALES_ORDER_FOR_QUOTATION");
+    seenQuotes[quoteId] = id;
+    var itemsJson = JSON.stringify(items);
+    var quotationLines = [];
+    try { quotationLines = JSON.parse(quote.linesJson || "[]"); } catch (parseError) { quotationLines = []; }
+    if (!Array.isArray(quotationLines)) quotationLines = [];
+    if (!existing) {
+      var expectedInitial = dpRequired > 0 ? "awaiting_dp" : "ready_production";
+      if (String(order.status) !== expectedInitial) throw new Error("INVALID_INITIAL_SALES_ORDER_STATUS");
+      if (String(order.quotationNo || "") !== String(quote.docNo || quote.id)) throw new Error("SALES_ORDER_QUOTATION_SNAPSHOT_MISMATCH");
+      if (total !== Math.round(Number(quote.total)) || dpPercent !== Number(quote.dpPercent || 0)) throw new Error("SALES_ORDER_QUOTATION_VALUE_MISMATCH");
+      if (itemsJson !== JSON.stringify(quotationLines)) throw new Error("SALES_ORDER_ITEMS_SNAPSHOT_MISMATCH");
+    } else {
+      var currentItems = String(existing.itemsJson || "[]");
+      var immutableChanged = String(existing.quotationId) !== quoteId ||
+        String(existing.orderNo) !== String(order.orderNo) ||
+        String(existing.projectId) !== projectId ||
+        Math.round(Number(existing.total)) !== total ||
+        Number(existing.dpPercent) !== dpPercent ||
+        Math.round(Number(existing.dpRequiredAmount)) !== dpRequired ||
+        String(existing.orderDate) !== String(order.orderDate) ||
+        currentItems !== itemsJson;
+      if (immutableChanged) throw new Error("SALES_ORDER_SNAPSHOT_IMMUTABLE");
+      if (String(existing.status) !== String(order.status)) {
+        var nextAllowed = transitions[String(existing.status)] || [];
+        if (nextAllowed.indexOf(String(order.status)) < 0) throw new Error("INVALID_SALES_ORDER_STATUS_TRANSITION");
+      }
+    }
+    var invoiceIds = {};
+    invoices.forEach(function(invoice) {
+      if (String(invoice.sourceQuotationId || invoice.quotationId || "") === quoteId) invoiceIds[String(invoice.id)] = true;
+    });
+    if (quote.convertedInvoiceId) invoiceIds[String(quote.convertedInvoiceId)] = true;
+    var paid = payments.filter(function(payment) { return !!invoiceIds[String(payment.invoiceId)]; })
+      .reduce(function(sum,payment) { return sum + Math.max(0,Number(payment.amount) || 0); },0);
+    var invoiceTotal = invoices.filter(function(invoice) { return !!invoiceIds[String(invoice.id)]; })
+      .reduce(function(sum,invoice) { return sum + Math.max(0,Number(invoice.total) || 0); },0);
+    var status = String(order.status);
+    if (status !== "awaiting_dp" && status !== "cancelled" && paid < dpRequired) throw new Error("SALES_ORDER_DP_NOT_VERIFIED");
+    if (status === "closed" && (invoiceTotal <= 0 || paid < invoiceTotal)) throw new Error("SALES_ORDER_CANNOT_CLOSE_WITH_UNPAID_INVOICE");
+  });
+  return true;
+}
+
+// PO cannot be marked received until every ordered material quantity has a matching
+// receipt in the append-only inventory ledger. A PO with any receipt cannot be cancelled.
+function validatePurchaseOrderReceiptStatuses_(ss, incomingPurchaseOrders, incomingTransactions) {
+  if (!Array.isArray(incomingPurchaseOrders)) return true;
+  var currentPOs = readSheetData(ss, "Purchase_Orders");
+  var transactions = readSheetData(ss, "Inventory_Transactions");
+  var incomingTx = Array.isArray(incomingTransactions) ? incomingTransactions : [];
+  var txMap = {};
+  transactions.concat(incomingTx).forEach(function(tx) { if (tx && tx.id) txMap[String(tx.id)] = tx; });
+  var ledger = Object.keys(txMap).map(function(id) { return txMap[id]; });
+  incomingPurchaseOrders.forEach(function(incomingPO) {
+    var status = String(incomingPO.status || "").toLowerCase();
+    var poId = String(incomingPO.id || "");
+    if (!poId) throw new Error("PURCHASE_ORDER_ID_REQUIRED");
+    var existing = currentPOs.find(function(po) { return String(po.id) === poId; });
+    var items = Array.isArray(incomingPO.items) ? incomingPO.items : [];
+    if (!items.length) {
+      try { items = JSON.parse(incomingPO.itemsJson || (existing && existing.itemsJson) || "[]"); } catch (parseError) { items = []; }
+    }
+    var received = ledger.filter(function(tx) { return String(tx.purchaseOrderId || "") === poId && String(tx.movement) === "receipt"; });
+    if (status === "cancelled" && received.length) throw new Error("PURCHASE_ORDER_CANNOT_CANCEL_AFTER_RECEIPT");
+    var existingVersion = Number(existing && existing.inventoryControlVersion || 0);
+    var incomingVersion = Number(incomingPO.inventoryControlVersion || existingVersion || 0);
+    if (status === "received" && incomingVersion >= 1) {
+      if (!items.length) throw new Error("PURCHASE_ORDER_RECEIPT_INCOMPLETE");
+      var expected = {};
+      items.forEach(function(item) {
+        var materialId = String(item.materialId || "");
+        expected[materialId] = (expected[materialId] || 0) + Math.max(0,Number(item.qty) || 0);
+      });
+      Object.keys(expected).forEach(function(materialId) {
+        var actual = received.filter(function(tx) { return String(tx.materialId) === materialId; })
+          .reduce(function(sum,tx) { return sum + Math.max(0,Number(tx.qty) || 0); },0);
+        if (actual + 0.000001 < expected[materialId]) throw new Error("PURCHASE_ORDER_RECEIPT_INCOMPLETE");
+      });
+    }
+  });
+  return true;
+}
+
+// Inventory ledger is append-only. Every stock movement is checked against master data
+// and the full dated ledger before any new row is merged.
+function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, incomingPurchaseOrders) {
+  if (!Array.isArray(incomingTransactions)) throw new Error("INVALID_INVENTORY_TRANSACTIONS");
+  ensureSheet(ss, "Inventory_Transactions", FIELD_MAP.Inventory_Transactions.headers);
+  var existing = readSheetData(ss, "Inventory_Transactions");
+  var materials = readSheetData(ss, "Materials");
+  var projects = readSheetData(ss, "Projects");
+  var purchaseOrders = readSheetData(ss, "Purchase_Orders");
+  (incomingPurchaseOrders || []).forEach(function(incomingPO) {
+    var copy = Object.assign({}, incomingPO);
+    if (Array.isArray(incomingPO.items)) copy.itemsJson = JSON.stringify(incomingPO.items);
+    var index = purchaseOrders.findIndex(function(po) { return String(po.id) === String(copy.id); });
+    if (index >= 0) purchaseOrders[index] = copy; else purchaseOrders.push(copy);
+  });
+  var movementDirection = {opening:1,receipt:1,return:1,issue:-1,adjustment_in:1,adjustment_out:-1};
+  var seenIds = {};
+  var seenNumbers = {};
+  var newRows = [];
+  var immutableFields = ["transactionNo","materialId","materialName","movement","qty","unit","date","projectId","projectName","purchaseOrderId","supplier","reference","notes","createdAt","createdBy"];
+  incomingTransactions.forEach(function(tx) {
+    if (!tx || !/^ITX-[A-Za-z0-9_-]{8,100}$/.test(String(tx.id || ""))) throw new Error("INVALID_INVENTORY_TRANSACTION_ID");
+    var id = String(tx.id);
+    if (seenIds[id]) throw new Error("DUPLICATE_INVENTORY_TRANSACTION_ID");
+    seenIds[id] = true;
+    if (!/^STK-CSK-\d{4}-\d{5}$/.test(String(tx.transactionNo || ""))) throw new Error("INVALID_INVENTORY_TRANSACTION_NUMBER");
+    if (seenNumbers[String(tx.transactionNo)]) throw new Error("DUPLICATE_INVENTORY_TRANSACTION_NUMBER");
+    seenNumbers[String(tx.transactionNo)] = true;
+    var material = materials.find(function(m) { return String(m.id) === String(tx.materialId || ""); });
+    if (!material) throw new Error("INVENTORY_MATERIAL_NOT_FOUND");
+    if (!Object.prototype.hasOwnProperty.call(movementDirection, String(tx.movement || ""))) throw new Error("INVALID_INVENTORY_MOVEMENT");
+    var qty = Number(tx.qty);
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(Number(tx.qty))) throw new Error("INVALID_INVENTORY_QUANTITY");
+    if (String(tx.unit || "") !== String(material.unit || "")) throw new Error("INVENTORY_UNIT_MISMATCH");
+    var date = String(tx.date || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("INVALID_INVENTORY_DATE");
+    var parsedDate = new Date(date + "T00:00:00Z");
+    if (isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10) !== date) throw new Error("INVALID_INVENTORY_DATE");
+    var projectId = String(tx.projectId || "");
+    if (["issue","return"].indexOf(String(tx.movement)) >= 0 && !projects.some(function(p) { return String(p.id) === projectId; })) throw new Error("INVENTORY_PROJECT_REQUIRED");
+    if (["adjustment_in","adjustment_out"].indexOf(String(tx.movement)) >= 0 && !String(tx.notes || "").trim()) throw new Error("INVENTORY_ADJUSTMENT_REASON_REQUIRED");
+    var current = existing.find(function(row) { return String(row.id) === id; });
+    if (!current && String(tx.movement) === "receipt") {
+      var poId = String(tx.purchaseOrderId || "");
+      var supplier = String(tx.supplier || "").trim();
+      if (!poId && !supplier) throw new Error("INVENTORY_RECEIPT_SOURCE_REQUIRED");
+      if (poId) {
+        var po = purchaseOrders.find(function(p) { return String(p.id) === poId; });
+        var poStatus = String(po && po.status || "").toLowerCase();
+        if (!po || ["ordered","received"].indexOf(poStatus) < 0) throw new Error("INVENTORY_PURCHASE_ORDER_NOT_READY_FOR_RECEIPT");
+        var poItems = [];
+        try { poItems = JSON.parse(po.itemsJson || "[]"); } catch (parseError) { poItems = []; }
+        var poItem = poItems.find(function(item) { return String(item.materialId) === String(tx.materialId); });
+        if (!poItem) throw new Error("INVENTORY_MATERIAL_NOT_IN_PURCHASE_ORDER");
+        if (String(poItem.unit || "") !== String(tx.unit || "")) throw new Error("INVENTORY_PO_UNIT_MISMATCH");
+        var orderedQty = poItems.filter(function(item) { return String(item.materialId) === String(tx.materialId); })
+          .reduce(function(sum,item) { return sum + Math.max(0,Number(item.qty) || 0); },0);
+        var receivedQty = existing.concat(newRows).filter(function(row) {
+          return String(row.purchaseOrderId || "") === poId && String(row.materialId) === String(tx.materialId) && String(row.movement) === "receipt";
+        }).reduce(function(sum,row) { return sum + Math.max(0,Number(row.qty) || 0); },0);
+        if (receivedQty + qty > orderedQty + 0.000001) throw new Error("INVENTORY_RECEIPT_EXCEEDS_PURCHASE_ORDER");
+      }
+    }
+    if (current) {
+      var changed = immutableFields.some(function(field) { return String(current[field] == null ? "" : current[field]) !== String(tx[field] == null ? "" : tx[field]); });
+      if (changed) throw new Error("INVENTORY_TRANSACTION_IMMUTABLE");
+    } else {
+      var duplicateNumber = existing.find(function(row) { return String(row.transactionNo) === String(tx.transactionNo) && String(row.id) !== id; });
+      if (duplicateNumber) throw new Error("DUPLICATE_INVENTORY_TRANSACTION_NUMBER");
+      newRows.push(tx);
+    }
+  });
+  var ledger = existing.concat(newRows).slice().sort(function(a,b) {
+    var dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
+    if (dateCompare) return dateCompare;
+    var createdCompare = String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+    if (createdCompare) return createdCompare;
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  });
+  var balances = {};
+  var openingSeen = {};
+  var movementSeen = {};
+  ledger.forEach(function(tx) {
+    var materialId = String(tx.materialId || "");
+    var direction = movementDirection[String(tx.movement || "")];
+    var before = Number(balances[materialId] || 0);
+    if (String(tx.movement) === "opening") {
+      if (openingSeen[materialId]) throw new Error("INVENTORY_OPENING_ALREADY_EXISTS");
+      if (movementSeen[materialId]) throw new Error("INVENTORY_OPENING_MUST_BE_FIRST");
+      openingSeen[materialId] = true;
+    }
+    movementSeen[materialId] = true;
+    var after = before + Number(tx.qty) * direction;
+    if (after < -0.000001) throw new Error("INVENTORY_INSUFFICIENT_STOCK");
+    balances[materialId] = Math.max(0, after);
+  });
+  return true;
+}
+
 function doPost(e) {
   try {
     var payload = JSON.parse((e && e.postData && e.postData.contents) || "{}");
@@ -707,7 +953,16 @@ function doPost(e) {
         if (payload.materials)      mergeSummary.Materials       = mergeSheet(ss, "Materials", payload.materials);
         if (payload.costSheets) mergeSummary.Cost_Sheets = mergeSheet(ss, "Cost_Sheets", payload.costSheets.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
         if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
+        if (payload.purchaseOrders) validatePurchaseOrderReceiptStatuses_(ss, payload.purchaseOrders, payload.inventoryTransactions || []);
+        if (payload.inventoryTransactions) validateInventoryTransactionsBeforeMerge_(ss, payload.inventoryTransactions, payload.purchaseOrders || []);
         if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
+        if (payload.salesOrders) {
+          validateSalesOrdersBeforeMerge_(ss, payload.salesOrders);
+          mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); return y; }));
+        }
+        if (payload.inventoryTransactions) {
+          mergeSummary.Inventory_Transactions = mergeSheet(ss, "Inventory_Transactions", payload.inventoryTransactions);
+        }
         if (payload.quotationSnapshots) mergeSummary.Quotations = mergeSheet(ss, "Quotations", payload.quotationSnapshots.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
         if (payload.quotations) mergeSummary.Commercial_Quotations = mergeCommercialQuotationsSafely_(ss, payload.quotations);
         if (payload.invoices) mergeSummary.Invoices = mergeInvoicesSafely_(ss, payload.invoices);
@@ -1051,6 +1306,7 @@ function cskAssertPayloadAllowed_(identity, payload) {
   // Enforce this on the server so hiding a button cannot be bypassed from the browser.
   if (action === "delete" && role !== "owner") throw new Error("FORBIDDEN_DELETE");
   if ((action === "insert" || action === "delete") && String(payload.sheet || "") === "Invoice_Payments") throw new Error("PAYMENT_LEDGER_SERVER_ONLY");
+  if (String(payload.sheet || "") === "Inventory_Transactions" && action !== "sync_all") throw new Error("INVENTORY_LEDGER_SERVER_ONLY");
   if (action === "record_invoice_payment") {
     if (role !== "owner") throw new Error("FORBIDDEN_PAYMENT_WRITE");
     if (!payload.payment || typeof payload.payment !== "object") throw new Error("PAYMENT_REQUIRED");
@@ -1063,7 +1319,7 @@ function cskAssertPayloadAllowed_(identity, payload) {
         Object.prototype.hasOwnProperty.call(payload, "projectCosts")) {
       throw new Error("LEGACY_COST_DATA_READ_ONLY");
     }
-    var ownerCollections = ["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots","quotations","invoices"];
+    var ownerCollections = ["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots","quotations","invoices","salesOrders","inventoryTransactions"];
     var teamCollections = ["leads","clients","projects"];
     var allowed = role === "owner" ? ownerCollections : teamCollections;
     Object.keys(payload).forEach(function(key) {

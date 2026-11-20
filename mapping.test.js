@@ -235,8 +235,26 @@ const FIELD_MAP = sandbox.FIELD_MAP;
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
-    ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoice_Payments','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Services'].sort(),
-    'FIELD_MAP mencakup 14 tab');
+    ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoice_Payments','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Sales_Orders','Inventory_Transactions','Services'].sort(),
+    'FIELD_MAP mencakup 16 tab');
+  eq(FIELD_MAP.Purchase_Orders.headers,
+    ['ID','ProjectID','NamaProyek','Supplier','Tanggal','ItemsJSON','Total','Status','CreatedAt','UpdatedAt','InventoryControlVersion'],
+    'Purchase Orders menambahkan versi kontrol penerimaan tanpa mengubah kolom lama');
+  eq(FIELD_MAP.Purchase_Orders.fields,
+    ['id','projectId','projectName','supplier','date','itemsJson','total','status','createdAt','updatedAt','inventoryControlVersion'],
+    'Purchase Orders inventory control version terpetakan');
+  eq(FIELD_MAP.Inventory_Transactions.headers,
+    ['ID','NomorTransaksi','MaterialID','NamaMaterial','JenisPergerakan','Qty','Satuan','Tanggal','ProjectID','NamaProyek','PurchaseOrderID','Supplier','Referensi','Catatan','CreatedAt','CreatedBy'],
+    'FIELD_MAP.Inventory_Transactions mempertahankan append-only stock ledger');
+  eq(FIELD_MAP.Inventory_Transactions.fields,
+    ['id','transactionNo','materialId','materialName','movement','qty','unit','date','projectId','projectName','purchaseOrderId','supplier','reference','notes','createdAt','createdBy'],
+    'FIELD_MAP.Inventory_Transactions fields terpetakan lengkap');
+  eq(FIELD_MAP.Sales_Orders.headers,
+    ['ID','NomorSO','QuotationID','NomorQuotation','ProjectID','NamaProyek','Klien','WhatsAppKlien','EmailKlien','TanggalOrder','TanggalPengiriman','ItemsJSON','Total','DPPersen','DPWajib','Status','RiwayatJSON','Catatan','CreatedAt','UpdatedAt'],
+    'FIELD_MAP.Sales_Orders mempertahankan snapshot order dan riwayat');
+  eq(FIELD_MAP.Sales_Orders.fields,
+    ['id','orderNo','quotationId','quotationNo','projectId','projectName','client','clientPhone','clientEmail','orderDate','deliveryDate','itemsJson','total','dpPercent','dpRequiredAmount','status','historyJson','notes','createdAt','updatedAt'],
+    'FIELD_MAP.Sales_Orders fields terpetakan lengkap');
   eq(FIELD_MAP.Leads.headers.slice(-3),
     ['NextFollowUp','LastContactAt','FollowUpNote'],
     'FIELD_MAP.Leads menambahkan field follow-up di kanan');
@@ -252,6 +270,18 @@ if (FIELD_MAP) {
   eq(FIELD_MAP.Projects.fields,
     ['id','title','client','value','status','deadline','notes','sopChecklist','pic','suggestedPrice','sourceQuotationId','sourceInvoiceId'],
     'FIELD_MAP.Projects.fields memuat referensi dokumen');
+  eq(FIELD_MAP.Materials.headers.slice(0,5),
+    ['ID','Nama','Satuan','HargaSatuan','UpdatedAt'],
+    'FIELD_MAP.Materials mempertahankan lima kolom lama di posisi awal');
+  eq(FIELD_MAP.Materials.fields.slice(0,5),
+    ['id','name','unit','unitPrice','updatedAt'],
+    'FIELD_MAP.Materials mempertahankan mapping lama');
+  eq(FIELD_MAP.Materials.fields.slice(5),
+    ['sku','category','subcategory','brand','grade','spec','color','thicknessMm','widthMm','lengthMm','diameterMm','purchaseUnit','purchasePrice','conversionFactor','costingMethod','supplierId','supplierName','minimumOrder','wasteRate','priceSource','priceDate','status','notes','rollLengthM'],
+    'FIELD_MAP.Materials memuat atribut pembelian, spesifikasi, dan costing');
+  eq(FIELD_MAP.Services.fields.slice(6),
+    ['sku','unit','costingMethod','costPrice','supplierId','supplierName','status','notes','recordType'],
+    'FIELD_MAP.Services memuat satuan, biaya dasar, dan supplier');
   eq(FIELD_MAP.Commercial_Quotations.fields,
     ['id','projectId','leadId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','terms','paymentTerms','notes','status','convertedInvoiceId','createdAt','updatedAt','projectDeadline'],
     'FIELD_MAP.Commercial_Quotations.fields lengkap');

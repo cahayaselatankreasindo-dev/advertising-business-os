@@ -38,11 +38,13 @@ assert.ok(!source.includes('Array.isArray(db.quotationSnapshots)?db.quotationSna
 for (const name of [
   'createProjectFromDocument', 'createProjectFromQuotation', 'createProjectFromInvoice',
   'createInvoiceFromQuotation', 'selectCommercialLead', 'addCommercialMasterItem',
-  'saveCommercialDocument', 'printCommercialDocument', 'copyCommercialDocumentWA'
+  'saveCommercialDocument', 'downloadCommercialDocumentPdf', 'printCommercialDocument', 'copyCommercialDocumentWA'
 ]) assert.ok(source.includes('function ' + name + '(') || source.includes('w.' + name + '='));
 assert.ok(source.includes('sourceInvoiceId:sourceI'));
 assert.ok(source.includes('function syncProjectCommercialFields(project,sourceDoc)'), 'linked project commercial fields have a dedicated sync helper');
 assert.ok(source.includes('projectDeadline'), 'documents keep project deadline separate from payment due date or quotation validity');
+assert.ok(source.includes('data-action=\"download\"'), 'document editor exposes a direct PDF download action');
+assert.ok(source.includes('data-action=\"download-existing\"'), 'saved documents expose a direct PDF download action');
 assert.ok(source.includes("dueDate:plus(t,k==='quotation'?14:7)"), 'quotation validity defaults to 14 days and invoice due date to 7 days');
 assert.ok(source.includes("deadline:d.projectDeadline||''"), 'new project deadline comes only from the dedicated project deadline field');
 assert.ok(source.includes("Object.prototype.hasOwnProperty.call(sourceDoc,'projectDeadline')"), 'clearing a document deadline clears the linked project deadline');

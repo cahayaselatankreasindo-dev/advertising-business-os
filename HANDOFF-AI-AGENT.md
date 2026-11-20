@@ -156,3 +156,67 @@ node mapping.test.js    # 81 test, harus 0 gagal
 - **Jangan asumsi** file/fitur ada tanpa verifikasi. Selalu cek dulu.
 - **Jangan push ke Sheets** tanpa menampilkan list ke user dulu (user pernah marah
   karena 247 lead di-push tanpa konfirmasi).
+
+
+---
+
+## 6. Update — 20 November 2026: Custom costing and Sales Order workflow
+
+Current feature branch: `feature/hpp-material-conversion-20261120` in `cahayaselatankreasindo-dev/advertising-business-os`.
+
+Delivered in the feature branch:
+- Custom material costing for sheet/roll cut lists, profile/bar cut lists, pack conversion, area, linear length, and volume. Calculated costs can be added to HPP with price snapshots and costing details.
+- Reference material/product/service catalog and Owner-only activation controls.
+- Commercial quotation/invoice PDF improvements.
+- Owner-only Sales Order dashboard and approved quotation conversion.
+- Server-side Sales Order validation: one SO per approved quotation, immutable quotation snapshots, status transition controls, DP release gate from verified Invoice_Payments, and full-settlement gate before closure.
+- New `Sales_Orders` sheet schema; new data collection is Owner-only and excluded from Team payloads and responses.
+- Added regression tests and CI checks for custom costing, Sales Order engine, backend validation, and RBAC.
+
+Important boundaries:
+- The public Astro website repository is not modified.
+- No merge to main, production deployment, Apps Script deployment, or live Google Sheets schema migration has been performed.
+- The Sales Order phase does not yet reserve inventory, generate material pick lists, auto-create purchase requisitions, record receiving, track offcuts, or reconcile actual HPP.
+- Before production, run the Apps Script schema setup/migration with Owner approval and verify the new Sales_Orders tab plus one end-to-end test quotation and payment.
+
+Next phase: Inventory ledger, stock reservation, material requirements from HPP, purchasing requisitions, purchase order receiving, and offcut traceability. Keep each change inside this internal Business OS repository and its feature branch.
+
+
+## 7. Update — 20 November 2026: Inventory ledger and PO receiving
+
+Delivered on `feature/hpp-material-conversion-20261120` in the internal `advertising-business-os` repository:
+- Owner-only Inventory & Stok page with balances and movement history.
+- Opening, receipt, project issue, project return, adjustment in, and adjustment out movements.
+- Append-only inventory ledger with server-side validation; no negative stock, duplicate opening balance, invalid unit, invalid project, or direct insert/delete bypass.
+- PO-linked receipts validate the material, unit, and total quantity received against ordered PO lines.
+- Purchase Order cannot be marked Received until all ordered material quantities are recorded. PO cannot be cancelled after any receipt.
+- Added `Inventory_Transactions` sheet schema and Owner-only sync/read-back verification.
+- Added Inventory engine, backend validation, PO receipt, mapping, RBAC, and CI regression tests.
+
+Important operational boundary:
+- Stock uses the usage unit configured on Material Master. Do not assume the system has inferred current stock; enter verified opening balances.
+- Purchase-unit conversion for full packs/rolls, stock reservation from HPP, pick lists, reorder suggestions, supplier invoice matching, stock valuation, and offcut tracking remain future work.
+- No live schema migration, Apps Script deployment, merge to main, or production deployment has been performed.
+- Public Astro website repository remains untouched.
+
+Next phase: derive material demand from approved HPP, reserve stock when Sales Order is released to production, issue/pick lists, and recommend purchasing from shortages. Then implement supplier receiving and purchase-unit conversions for packs/rolls.
+
+
+## 8. Update — 20 November 2026: HPP material planning and draft PO suggestions
+
+Delivered on the internal feature branch:
+- Sales Order page compares project HPP material lines with current physical stock from the Inventory ledger.
+- Converts HPP line quantities into Material Master stock units using the usage unit or verified purchase-to-usage conversion factor. Missing/invalid conversions are surfaced rather than guessed.
+- Displays required stock, physical stock, shortage, quantity already covered by Draft/Ordered POs, and remaining quantity to purchase.
+- Owner can generate supplier-grouped Draft POs from uncovered shortages. Drafts use Master Material supplier, unit, and unit price, and remain Draft until reviewed and ordered.
+- Existing Draft/Ordered POs are deducted from new purchase suggestions to reduce duplicate ordering.
+
+Limitations:
+- The shortage view uses physical stock and does not subtract stock reserved by other Sales Orders. Reservation and pick-list workflow remain the next phase.
+- Supplier and unit-price master data must be complete and current; verify before issuing POs.
+- Draft PO generation does not reserve stock, issue orders, or update physical stock.
+- Public Astro website repository remains untouched; no production deployment, Apps Script deployment, live migration, or merge has occurred.
+
+
+### Compatibility note — Purchase Orders
+New POs created by the current app carry `inventoryControlVersion: 1` and must satisfy receipt-ledger completion before status Received. Historical POs without the version field are exempt from the new completion gate so they do not block the first sync after deployment. Existing legacy data is not auto-converted into stock; only verified inventory transactions affect balances.

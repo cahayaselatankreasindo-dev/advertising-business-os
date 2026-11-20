@@ -197,3 +197,34 @@ Backend dikirim melalui `clasp` dan deployment Web App yang sudah ada diperbarui
 Script memeriksa login PIN/RBAC, lalu memastikan Deployment ID yang diberikan memang terdaftar pada Script ID di `apps-script/.clasp.json` **sebelum** melakukan push. Jika project atau Deployment ID tidak cocok, proses berhenti tanpa mengirim kode. Setelah push, script meminta konfirmasi `PIN-READY` dan hanya memperbarui deployment yang ditentukan; tidak membuat deployment baru dan tidak menyentuh data Google Sheets.
 
 Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke repository.
+
+
+## Sales Order & Production Workflow
+
+- Approved quotations can be converted into one linked Sales Order; duplicate orders from the same quotation are blocked.
+- Sales Orders retain a commercial snapshot of the approved quotation and linked project.
+- Production release is blocked until the agreed DP is recorded in the verified invoice payment ledger.
+- Workflow: Awaiting DP → Ready Production → In Production → Quality Control → Ready Delivery → Delivered → Closed. QC can send work back to production for rework.
+- Closing is blocked until all linked invoices are fully paid.
+- Sales Orders are Owner-only. Team accounts do not receive the Sales Order collection.
+- Inventory reservation, material pick lists, automatic purchasing from shortages, and offcut tracking are planned next phases.
+
+
+## Inventory & Stock Ledger
+
+- Owner-only inventory balance and transaction history by material.
+- Movements: opening balance, receipt, project issue, project return, adjustment in/out.
+- Stock is measured in the material master usage unit; opening stock is never assumed.
+- The ledger is append-only. Corrections require a documented adjustment; stock cannot go negative.
+- PO-linked receipts are checked against ordered materials, units, and cumulative PO quantities.
+- New POs can only be marked Received when all ordered quantities have been recorded in Inventory; cancellation is blocked after a receipt. Historical POs remain compatible with the first sync.
+- Stock reservation from HPP/Sales Orders, pick lists, reorder suggestions, purchase-unit conversion, offcut tracking, and stock valuation are subsequent phases.
+
+
+## HPP Material Planning & Draft Purchasing
+
+- Sales Orders compare saved HPP material requirements with physical stock.
+- HPP purchase-unit quantities convert to stock units only when a verified Material Master conversion factor exists.
+- The shortage view includes physical stock, existing Draft/Ordered PO coverage, and remaining purchase quantity.
+- Owner can create supplier-grouped Draft POs from uncovered shortages. Drafts are not issued automatically and require review.
+- Stock reservation across active Sales Orders and material pick lists are not yet enabled; the view reports physical stock only.
