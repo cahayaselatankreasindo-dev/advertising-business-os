@@ -371,6 +371,9 @@
       <button onclick="nav('sales-orders')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-clipboard-check w-5 text-emerald-400"></i> Sales Order & Produksi
       </button>
+      <button onclick="nav('inventory')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
+        <i class="fa fa-archive w-5 text-cyan-400"></i> Inventory & Stok
+      </button>
       <button onclick="nav('clients')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-users w-5 text-indigo-400"></i> Pilar 4 · Klien (PMF)
       </button>
@@ -684,6 +687,11 @@
         <div id="sales-orders-app" class="space-y-5"><div class="bg-white border rounded-xl p-6 text-sm text-slate-500">Memuat Sales Order...</div></div>
       </section>
 
+      <section id="page-inventory" class="page-content hidden space-y-6">
+        <div><span class="inline-flex px-2 py-1 rounded bg-cyan-100 text-cyan-800 text-[10px] font-bold uppercase">Inventory Control</span><h1 class="text-2xl font-bold text-slate-900 mt-2">Inventory & Stok Material</h1><p class="text-sm text-slate-500">Pantau saldo bahan baku dari transaksi masuk, keluar, retur, dan penyesuaian.</p></div>
+        <div id="inventory-app" class="space-y-5"><div class="bg-white border rounded-xl p-6 text-sm text-slate-500">Memuat ledger stok...</div></div>
+      </section>
+
       <!-- 5. FINANCE (Pilar 2 — Jurnal Keuangan) -->
       <section id="page-finance" class="page-content hidden space-y-6 pillar-finance">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -900,6 +908,7 @@
         <div class="csk-mobile-more-grid">
           <button onclick="mobileGo('documents')"><i class="fa fa-file-text-o"></i>Quotation & Invoice</button>
           <button onclick="mobileGo('sales-orders')"><i class="fa fa-clipboard-check"></i>Sales Order & Produksi</button>
+          <button onclick="mobileGo('inventory')"><i class="fa fa-archive"></i>Inventory & Stok</button>
           <button onclick="mobileGo('services')"><i class="fa fa-cubes"></i>Layanan CSK</button>
           <button onclick="mobileGo('purchasing')"><i class="fa fa-shopping-cart"></i>Purchasing & PO</button>
           <button onclick="mobileGo('clients')"><i class="fa fa-users"></i>Klien</button>
@@ -1418,6 +1427,7 @@
       invoices: [],
       invoicePayments: [],
       salesOrders: [],
+      inventoryTransactions: [],
       settings: {
         googleSheetUrl: '',
         lastSync: ''
@@ -1450,6 +1460,7 @@
           db.invoices = parsed.invoices || [];
           db.invoicePayments = parsed.invoicePayments || [];
           db.salesOrders = parsed.salesOrders || [];
+          db.inventoryTransactions = parsed.inventoryTransactions || [];
           db.settings       = parsed.settings       || { googleSheetUrl: '', lastSync: '' };
           db.role           = parsed.role           || 'owner';
         } catch (e) {
@@ -1584,6 +1595,7 @@
         if (page === 'services') renderServices();
         if (page === 'purchasing') renderPurchasing();
         if (page === 'sales-orders' && typeof window.renderSalesOrders === 'function') window.renderSalesOrders();
+        if (page === 'inventory' && typeof window.renderInventory === 'function') window.renderInventory();
       } catch (error) {
         console.error('CSK page render failed:', page, error);
         if (typeof showToast === 'function') showToast('Halaman terbuka, tetapi data gagal dimuat. Muat ulang halaman.', true);
@@ -3234,6 +3246,22 @@
       // Saat aplikasi dibuka: tarik & gabungkan data dari cloud (AMAN, tidak menimpa)
       pullAndMerge();
     });
+    window.CSKInventoryBridge = {
+      getData: function () {
+        return { materials: db.materials || [], projects: db.projects || [], purchaseOrders: db.purchaseOrders || [], inventoryTransactions: db.inventoryTransactions || [] };
+      },
+      isOwner: function () { return isOwnerSession(); },
+      getIdentity: function () { return window.CSKAuth && window.CSKAuth.getIdentity ? window.CSKAuth.getIdentity() : null; },
+      save: async function () {
+        saveDB(true);
+        if (!window.CSKAuth || !window.CSKAuth.isReady || !window.CSKAuth.isReady()) throw new Error("Login dan koneksi Google Sheets harus aktif sebelum mencatat stok.");
+        var verified = await window.CSKAuth.sync(true);
+        if (!verified) throw new Error("Transaksi stok belum terverifikasi di Google Sheets. Periksa koneksi lalu sinkronkan kembali.");
+        return true;
+      },
+      toast: function (message, isError) { showToast(message, !!isError); }
+    };
+
     window.CSKSalesOrderBridge = {
       getData: function () {
         return { quotations: db.quotations || [], invoices: db.invoices || [], invoicePayments: db.invoicePayments || [], projects: db.projects || [], salesOrders: db.salesOrders || [] };
@@ -3278,6 +3306,8 @@
   <script src="./commercial-documents.js"></script>
   <script src="./sales-order-engine.js"></script>
   <script src="./sales-orders.js"></script>
+  <script src="./inventory-engine.js"></script>
+  <script src="./inventory.js"></script>
   <script src="./crm-upgrade.js"></script>
 </body>
 </html>
