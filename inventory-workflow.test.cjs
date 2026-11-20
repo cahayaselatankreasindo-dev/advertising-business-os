@@ -103,7 +103,8 @@ assert.match(backend,/INVENTORY_TRANSACTION_IMMUTABLE/,'backend prevents edits t
 assert.match(backend,/INVENTORY_INSUFFICIENT_STOCK/,'backend prevents negative stock');
 assert.match(backend,/INVENTORY_RECEIPT_EXCEEDS_PURCHASE_ORDER/,'backend caps receipts to PO quantity');
 assert.match(backend,/validatePurchaseOrderReceiptStatuses_/,'backend validates PO completion against inventory receipts');
-assert.match(backend,/PURCHASE_ORDER_RECEIPT_INCOMPLETE/,'PO cannot be marked received before all items are received');
+assert.match(backend,/PURCHASE_ORDER_RECEIPT_INCOMPLETE/,'new versioned POs cannot be marked received before all items are received');
+assert.match(backend,/inventoryControlVersion/,'legacy Purchase Orders remain compatible while new POs require receipt control');
 assert.match(backend,/INVENTORY_LEDGER_SERVER_ONLY/,'direct insert and delete are blocked');
 assert.match(guard,/inventoryTransactions/,'owner sync includes inventory ledger');
 assert.match(guard,/inventory/,'inventory navigation is Owner-only');
