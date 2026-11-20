@@ -76,7 +76,7 @@ const sw=fs.readFileSync('sw.js','utf8');
 const auth=fs.readFileSync('backend-auth.test.cjs','utf8');
 assert.equal(backend,deploy,'Apps Script canonical and deployment source must remain identical');
 assert.match(backend,/Inventory_Transactions:\s*\{/,'inventory ledger schema exists');
-assert.match(backend,/validateInventoryTransactionsBeforeMerge_\(ss, payload\.inventoryTransactions\)/,'backend validates inventory writes');
+assert.match(backend,/validateInventoryTransactionsBeforeMerge_\(ss, payload\.inventoryTransactions, payload\.purchaseOrders/,'backend validates inventory writes');
 assert.match(backend,/INVENTORY_TRANSACTION_IMMUTABLE/,'backend prevents edits to existing stock transactions');
 assert.match(backend,/INVENTORY_INSUFFICIENT_STOCK/,'backend prevents negative stock');
 assert.match(backend,/INVENTORY_RECEIPT_EXCEEDS_PURCHASE_ORDER/,'backend caps receipts to PO quantity');
