@@ -131,7 +131,7 @@ async function createDraftPOFromShortage(salesOrderId){
   var now=new Date().toISOString(),date=E().localDate();
   suppliers.forEach(function(supplier,index){
    var items=groups[supplier],total=items.reduce(function(sum,item){return sum+item.subtotal;},0);
-   created.push({id:'PO-CSK-'+Date.now()+'-'+(index+1),projectId:order.projectId,projectName:order.projectName||'',supplier:supplier,date:date,items:items,total:total,status:'draft',createdAt:now,updatedAt:now});
+   created.push({id:'PO-CSK-'+Date.now()+'-'+(index+1),projectId:order.projectId,projectName:order.projectName||'',supplier:supplier,date:date,items:items,total:total,status:'draft',inventoryControlVersion:1,createdAt:now,updatedAt:now});
   });
   created.forEach(function(po){d.purchaseOrders.unshift(po);});
   try{await b.save();}catch(syncError){created.forEach(function(po){var i=d.purchaseOrders.findIndex(function(x){return String(x.id)===String(po.id);});if(i>=0)d.purchaseOrders.splice(i,1);});throw syncError;}
