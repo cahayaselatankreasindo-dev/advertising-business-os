@@ -200,3 +200,19 @@ Important operational boundary:
 - Public Astro website repository remains untouched.
 
 Next phase: derive material demand from approved HPP, reserve stock when Sales Order is released to production, issue/pick lists, and recommend purchasing from shortages. Then implement supplier receiving and purchase-unit conversions for packs/rolls.
+
+
+## 8. Update — 20 November 2026: HPP material planning and draft PO suggestions
+
+Delivered on the internal feature branch:
+- Sales Order page compares project HPP material lines with current physical stock from the Inventory ledger.
+- Converts HPP line quantities into Material Master stock units using the usage unit or verified purchase-to-usage conversion factor. Missing/invalid conversions are surfaced rather than guessed.
+- Displays required stock, physical stock, shortage, quantity already covered by Draft/Ordered POs, and remaining quantity to purchase.
+- Owner can generate supplier-grouped Draft POs from uncovered shortages. Drafts use Master Material supplier, unit, and unit price, and remain Draft until reviewed and ordered.
+- Existing Draft/Ordered POs are deducted from new purchase suggestions to reduce duplicate ordering.
+
+Limitations:
+- The shortage view uses physical stock and does not subtract stock reserved by other Sales Orders. Reservation and pick-list workflow remain the next phase.
+- Supplier and unit-price master data must be complete and current; verify before issuing POs.
+- Draft PO generation does not reserve stock, issue orders, or update physical stock.
+- Public Astro website repository remains untouched; no production deployment, Apps Script deployment, live migration, or merge has occurred.
