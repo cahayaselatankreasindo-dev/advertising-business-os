@@ -99,7 +99,37 @@
     var balances=calculateBalances(materials,existing.concat([transaction]));
     return{transaction:transaction,balances:balances};
   }
+  function calculateHppRequirements(costSheet,materials,balances){
+    if(!costSheet)return{hasHpp:false,requirements:[],errors:['HPP proyek belum dibuat.'],ready:false};
+    var materialMap=new Map((Array.isArray(materials)?materials:[]).map(function(m){return[String(m.id),m];}));
+    var grouped={},errors=[];
+    (Array.isArray(costSheet.items)?costSheet.items:[]).forEach(function(item,index){
+      if(item.serviceId||item.itemType==='service'||!item.materialId)return;
+      var material=materialMap.get(String(item.materialId));
+      if(!material){errors.push('Item '+(item.name||('#'+(index+1)))+' tidak ditemukan di Master Material.');return;}
+      var qty=Number(item.qty),lineUnit=String(item.unit||'').trim().toLowerCase();
+      if(!Number.isFinite(qty)||qty<=0){errors.push('Kuantitas HPP untuk '+material.name+' tidak valid.');return;}
+      var stockUnit=String(material.unit||'').trim(),purchaseUnit=String(material.purchaseUnit||'').trim();
+      var stockQty=0;
+      if(lineUnit===stockUnit.toLowerCase())stockQty=qty;
+      else if(lineUnit===purchaseUnit.toLowerCase()){
+        var factor=Number(material.conversionFactor);
+        if(!Number.isFinite(factor)||factor<=0){errors.push('Faktor konversi '+material.name+' belum valid.');return;}
+        stockQty=qty*factor;
+      }else{
+        errors.push('Satuan HPP '+item.unit+' untuk '+material.name+' tidak cocok dengan satuan stok '+stockUnit+' atau satuan beli '+purchaseUnit+'.');
+        return;
+      }
+      var key=String(material.id);
+      if(!grouped[key])grouped[key]={materialId:material.id,name:material.name,unit:stockUnit,required:0,onHand:n((balances||{})[key])};
+      grouped[key].required+=stockQty;
+    });
+    var requirements=Object.keys(grouped).map(function(key){
+      var row=grouped[key];row.shortage=Math.max(0,row.required-row.onHand);row.remaining=row.onHand-row.required;row.ready=row.shortage<=0;return row;
+    }).sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
+    return{hasHpp:true,requirements:requirements,errors:errors,ready:errors.length===0&&requirements.length>0&&requirements.every(function(row){return row.ready;}),materialCount:requirements.length};
+  }
   function getBalance(materialId,balances){return n((balances||{})[String(materialId)]);}
   function movementLabel(value){return MOVEMENTS[value]?MOVEMENTS[value].label:String(value||'-');}
-  return{MOVEMENTS:MOVEMENTS,localDate:localDate,nextTransactionNumber:nextTransactionNumber,sortTransactions:sortTransactions,calculateBalances:calculateBalances,validateTransaction:validateTransaction,getBalance:getBalance,movementLabel:movementLabel};
+  return{MOVEMENTS:MOVEMENTS,localDate:localDate,nextTransactionNumber:nextTransactionNumber,sortTransactions:sortTransactions,calculateBalances:calculateBalances,validateTransaction:validateTransaction,getBalance:getBalance,calculateHppRequirements:calculateHppRequirements,movementLabel:movementLabel};
 });
