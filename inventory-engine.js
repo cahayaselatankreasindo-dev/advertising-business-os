@@ -45,6 +45,7 @@
       if(String(tx.unit||'')!==String(material.unit||''))throw new Error('Satuan transaksi harus sama dengan satuan stok material ('+(material.unit||'-')+').');
       if(tx.movement==='opening'){
         if(openingSeen[materialId])throw new Error('Saldo awal hanya boleh dicatat satu kali untuk setiap material.');
+        if(n(balances[materialId])!==0)throw new Error('Saldo awal harus menjadi transaksi stok pertama material.');
         openingSeen[materialId]=true;
       }
       var before=n(balances[materialId]),after=before+(qty*movement.direction);
