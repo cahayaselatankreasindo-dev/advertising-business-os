@@ -217,7 +217,7 @@ Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke 
 - Stock is measured in the material master usage unit; opening stock is never assumed.
 - The ledger is append-only. Corrections require a documented adjustment; stock cannot go negative.
 - PO-linked receipts are checked against ordered materials, units, and cumulative PO quantities.
-- A PO can only be marked Received when all ordered quantities have been recorded in Inventory; cancellation is blocked after a receipt.
+- New POs can only be marked Received when all ordered quantities have been recorded in Inventory; cancellation is blocked after a receipt. Historical POs remain compatible with the first sync.
 - Stock reservation from HPP/Sales Orders, pick lists, reorder suggestions, purchase-unit conversion, offcut tracking, and stock valuation are subsequent phases.
 
 
