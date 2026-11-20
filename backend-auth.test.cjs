@@ -120,7 +120,7 @@ vm.runInNewContext(
 );
 
 assert.equal(roleSandbox.authorizePayload({ role: 'owner' }, {
-  action: 'sync_all', quotations: [], invoices: []
+  action: 'sync_all', quotations: [], invoices: [], salesOrders: []
 }), true, 'Owner may sync commercial quotations and invoices');
 assert.equal(roleSandbox.authorizePayload({ role: 'team' }, {
   action: 'sync_all', leads: [], clients: [], projects: []
@@ -131,6 +131,9 @@ assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
 assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
   action: 'sync_all', quotations: []
 }), /FORBIDDEN_COLLECTION:quotations/, 'Team cannot write quotations through generic sync');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
+  action: 'sync_all', salesOrders: []
+}), /FORBIDDEN_COLLECTION:salesOrders/, 'Team cannot write Sales Orders through generic sync');
 assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
   action: 'record_invoice_payment', payment: { id: 'PAY-TEST-0001' }
 }), /FORBIDDEN_PAYMENT_WRITE/, 'Team cannot record invoice payments');
@@ -157,13 +160,14 @@ assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
 }), /PAYMENT_LEDGER_SERVER_ONLY/, 'payment ledger cannot be overwritten by generic sync');
 const roleData = {
   leads: [1], clients: [2], projects: [3],
-  quotations: [4], invoices: [5], invoicePayments: [6], finance: [7]
+  quotations: [4], invoices: [5], invoicePayments: [6], salesOrders: [8], finance: [7]
 };
 const teamData = roleSandbox.filterData(roleData, 'team');
 assert.deepEqual(Object.keys(teamData).sort(), ['clients', 'lastSynced', 'leads', 'projects']);
 assert.equal(teamData.invoices, undefined, 'Team does not receive commercial invoices');
 assert.equal(teamData.quotations, undefined, 'Team does not receive commercial quotations');
-assert.equal(teamData.invoicePayments, undefined, 'Team does not receive payment ledger');\nassert.equal(teamData.salesOrders, undefined, 'Team does not receive Sales Orders');
+assert.equal(teamData.invoicePayments, undefined, 'Team does not receive payment ledger');
+assert.equal(teamData.salesOrders, undefined, 'Team does not receive Sales Orders');
 assert.equal(roleSandbox.filterData(roleData, 'owner'), roleData, 'Owner receives the full authorized dataset');
 
 console.log('CSK PIN authentication, server-side RBAC, safe migration, and outbound-email safety checks passed.');
