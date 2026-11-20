@@ -2009,7 +2009,7 @@
       const projectId=document.getElementById('po-project').value, project=db.projects.find(x=>x.id===projectId), supplier=document.getElementById('po-supplier').value.trim();
       if(!project||!supplier||!poLines.length)return showToast('Pilih proyek, isi supplier, dan tambahkan material.',true);
       const total=poLines.reduce((s,x)=>s+x.subtotal,0), now=new Date().toISOString();
-      const record={id:'PO-CSK-'+Date.now(),projectId,projectName:project.title||'',supplier,date:document.getElementById('po-date').value||now.slice(0,10),items:poLines.map(x=>({...x})),total,status:'draft',createdAt:now,updatedAt:now};
+      const record={id:'PO-CSK-'+Date.now(),projectId,projectName:project.title||'',supplier,date:document.getElementById('po-date').value||now.slice(0,10),items:poLines.map(x=>({...x})),total,status:'draft',inventoryControlVersion:1,createdAt:now,updatedAt:now};
       db.purchaseOrders.push(record); poLines=[]; document.getElementById('po-supplier').value=''; saveDB(); renderPurchasing(); showToast('Purchase Order tersimpan.');
     }
     function getPoReceiptProgress(po) {
