@@ -77,7 +77,7 @@ function applyPurchaseOrderSelection(poId){
  }
  if(qtyInput){qtyInput.disabled=!remaining.length;qtyInput.value=remaining.length?remaining[0].qty:'';if(remaining.length)qtyInput.max=remaining[0].qty;else qtyInput.removeAttribute('max');}
  var save=el('inv-save');if(save)save.disabled=!remaining.length;
- var hint=el('inv-unit-hint');if(hint)hint.textContent=remaining.length?'Penerimaan PO '+po.id+'. Masih tersisa '+qty(progress.remaining)+' '+(remaining[0].material.unit||'')+' dari seluruh item. Kuantitas maksimum mengikuti sisa PO.':'Seluruh kuantitas PO sudah tercatat sebagai penerimaan.';
+ var hint=el('inv-unit-hint');if(hint)hint.textContent=remaining.length?'Penerimaan PO '+po.id+'. '+remaining.length+' jenis material masih memiliki sisa. Kuantitas maksimum mengikuti sisa tiap material.':'Seluruh kuantitas PO sudah tercatat sebagai penerimaan.';
  updateMovementFields();updateUnitHint();
 }
 function updateUnitHint(){
