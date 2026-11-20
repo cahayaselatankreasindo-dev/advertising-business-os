@@ -34,7 +34,7 @@
   }
   function calculateBalances(materials,transactions){
     var materialMap=new Map((Array.isArray(materials)?materials:[]).map(function(m){return[String(m.id),m];}));
-    var balances={},openingSeen={};
+    var balances={},openingSeen={},movementSeen={};
     sortTransactions(transactions).forEach(function(tx){
       var materialId=String(tx.materialId||''),material=materialMap.get(materialId);
       if(!material)throw new Error('Transaksi stok mengacu pada material yang tidak terdaftar: '+materialId);
@@ -45,9 +45,10 @@
       if(String(tx.unit||'')!==String(material.unit||''))throw new Error('Satuan transaksi harus sama dengan satuan stok material ('+(material.unit||'-')+').');
       if(tx.movement==='opening'){
         if(openingSeen[materialId])throw new Error('Saldo awal hanya boleh dicatat satu kali untuk setiap material.');
-        if(n(balances[materialId])!==0)throw new Error('Saldo awal harus menjadi transaksi stok pertama material.');
+        if(movementSeen[materialId])throw new Error('Saldo awal harus menjadi transaksi stok pertama material.');
         openingSeen[materialId]=true;
       }
+      movementSeen[materialId]=true;
       var before=n(balances[materialId]),after=before+(qty*movement.direction);
       if(after< -0.000001)throw new Error('Stok tidak mencukupi untuk '+(material.name||materialId)+'. Stok tersedia '+before+' '+(material.unit||'')+'.');
       balances[materialId]=Math.max(0,after);
@@ -61,6 +62,7 @@
     var existing=Array.isArray(context.transactions)?context.transactions:[];
     var material=materials.find(function(m){return String(m.id)===String(input&&input.materialId||'');});
     if(!material)throw new Error('Pilih material yang terdaftar.');
+    if(!String(material.unit||'').trim())throw new Error('Master Material belum memiliki satuan stok. Lengkapi satuan terlebih dahulu.');
     if(!MOVEMENTS[input.movement])throw new Error('Pilih jenis transaksi stok yang valid.');
     var qty=Number(input.qty);
     if(!Number.isFinite(qty)||qty<=0)throw new Error('Kuantitas harus lebih dari nol.');
