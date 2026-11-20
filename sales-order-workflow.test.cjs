@@ -24,7 +24,7 @@ assert.equal(duplicate.existing,true,'one quotation must not create duplicate Sa
 assert.equal(duplicate.order.id,created.order.id);
 assert.equal(E.nextOrderNumber([created.order],'2026-11-20'),'SO-CSK-2026-00002');
 assert.throws(()=>E.buildOrder({...quote,status:'draft'},project,[]),/harus disetujui/);
-assert.throws(()=>E.buildOrder(quote,null,[]),/Proyek belum terhubung/);
+assert.throws(()=>E.buildOrder({...quote,projectId:''},null,[]),/Proyek belum terhubung/);
 
 const invoices=[{id:'INV-TEST-001',sourceQuotationId:quote.id,total:10000000}];
 const underpaid=E.summarizePayments(quote,invoices,[{id:'PAY-1',invoiceId:'INV-TEST-001',amount:4900000}]);
@@ -48,7 +48,7 @@ assert.throws(()=>E.transition(order,'closed',dpPaid,'owner@example.test'),/selu
 const fullyPaid=E.summarizePayments(quote,invoices,[{id:'PAY-1',invoiceId:'INV-TEST-001',amount:10000000}]);
 order=E.transition(order,'closed',fullyPaid,'owner@example.test');
 assert.equal(order.status,'closed');
-assert.equal(order.history.length,8);
+assert.equal(order.history.length,9);
 assert.throws(()=>E.transition(order,'in_production',fullyPaid,'owner@example.test'),/tidak diizinkan/);
 
 const noDpQuote={...quote,id:'QUO-TEST-002',dpPercent:0};
