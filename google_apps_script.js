@@ -845,7 +845,7 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     var id = String(tx.id);
     if (seenIds[id]) throw new Error("DUPLICATE_INVENTORY_TRANSACTION_ID");
     seenIds[id] = true;
-    if (!/^STK-CSK-\\d{4}-\\d{5}$/.test(String(tx.transactionNo || ""))) throw new Error("INVALID_INVENTORY_TRANSACTION_NUMBER");
+    if (!/^STK-CSK-\d{4}-\d{5}$/.test(String(tx.transactionNo || ""))) throw new Error("INVALID_INVENTORY_TRANSACTION_NUMBER");
     if (seenNumbers[String(tx.transactionNo)]) throw new Error("DUPLICATE_INVENTORY_TRANSACTION_NUMBER");
     seenNumbers[String(tx.transactionNo)] = true;
     var material = materials.find(function(m) { return String(m.id) === String(tx.materialId || ""); });
