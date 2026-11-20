@@ -153,6 +153,9 @@ assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
   action: 'delete', sheet: 'Inventory_Transactions', id: 'ITX-TEST-0001'
 }), /INVENTORY_LEDGER_SERVER_ONLY/, 'Inventory ledger rows cannot be deleted');
 assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
+  action: 'update', sheet: 'Inventory_Transactions', id: 'ITX-TEST-0001', data: { qty: 99 }
+}), /INVENTORY_LEDGER_SERVER_ONLY/, 'Inventory ledger rows cannot be updated directly');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
   action: 'insert', sheet: 'Invoices', data: { id: 'INV-DIRECT' }
 }), /COMMERCIAL_DOCUMENT_REQUIRES_SYNC/, 'Owner must use guarded sync for invoice creation');
 assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
