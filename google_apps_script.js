@@ -735,12 +735,15 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders) {
     if (seenQuotes[quoteId] && seenQuotes[quoteId] !== id) throw new Error("DUPLICATE_SALES_ORDER_FOR_QUOTATION");
     seenQuotes[quoteId] = id;
     var itemsJson = JSON.stringify(items);
+    var quotationLines = [];
+    try { quotationLines = JSON.parse(quote.linesJson || "[]"); } catch (parseError) { quotationLines = []; }
+    if (!Array.isArray(quotationLines)) quotationLines = [];
     if (!existing) {
       var expectedInitial = dpRequired > 0 ? "awaiting_dp" : "ready_production";
       if (String(order.status) !== expectedInitial) throw new Error("INVALID_INITIAL_SALES_ORDER_STATUS");
       if (String(order.quotationNo || "") !== String(quote.docNo || quote.id)) throw new Error("SALES_ORDER_QUOTATION_SNAPSHOT_MISMATCH");
       if (total !== Math.round(Number(quote.total)) || dpPercent !== Number(quote.dpPercent || 0)) throw new Error("SALES_ORDER_QUOTATION_VALUE_MISMATCH");
-      if (itemsJson !== JSON.stringify(quote.lines || [])) throw new Error("SALES_ORDER_ITEMS_SNAPSHOT_MISMATCH");
+      if (itemsJson !== JSON.stringify(quotationLines)) throw new Error("SALES_ORDER_ITEMS_SNAPSHOT_MISMATCH");
     } else {
       var currentItems = String(existing.itemsJson || "[]");
       var immutableChanged = String(existing.quotationId) !== quoteId ||
