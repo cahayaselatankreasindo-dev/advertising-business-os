@@ -96,6 +96,10 @@ var FIELD_MAP = {
     headers: ["ID", "NomorSO", "QuotationID", "NomorQuotation", "ProjectID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "TanggalOrder", "TanggalPengiriman", "ItemsJSON", "Total", "DPPersen", "DPWajib", "Status", "RiwayatJSON", "Catatan", "CreatedAt", "UpdatedAt"],
     fields: ["id", "orderNo", "quotationId", "quotationNo", "projectId", "projectName", "client", "clientPhone", "clientEmail", "orderDate", "deliveryDate", "itemsJson", "total", "dpPercent", "dpRequiredAmount", "status", "historyJson", "notes", "createdAt", "updatedAt"]
   },
+  Inventory_Transactions: {
+    headers: ["ID", "NomorTransaksi", "MaterialID", "NamaMaterial", "JenisPergerakan", "Qty", "Satuan", "Tanggal", "ProjectID", "NamaProyek", "PurchaseOrderID", "Supplier", "Referensi", "Catatan", "CreatedAt", "CreatedBy"],
+    fields: ["id", "transactionNo", "materialId", "materialName", "movement", "qty", "unit", "date", "projectId", "projectName", "purchaseOrderId", "supplier", "reference", "notes", "createdAt", "createdBy"]
+  },
   Quotations: {
     headers: ["ID", "ProjectID", "NamaProyek", "Klien", "Deadline", "Catatan", "LinesJSON", "Total", "SourceCostSheetID", "SourceCostSheetUpdatedAt", "DPPersen", "Status", "CreatedAt", "UpdatedAt"],
     fields: ["id", "projectId", "projectName", "client", "deadline", "notes", "linesJson", "total", "sourceCostSheetId", "sourceCostSheetUpdatedAt", "dpPercent", "status", "createdAt", "updatedAt"]
@@ -254,6 +258,7 @@ function setupSheet() {
   ensureSheet(ss, "Services", FIELD_MAP.Services.headers);
   ensureSheet(ss, "Purchase_Orders", FIELD_MAP.Purchase_Orders.headers);
   ensureSheet(ss, "Sales_Orders", FIELD_MAP.Sales_Orders.headers);
+  ensureSheet(ss, "Inventory_Transactions", FIELD_MAP.Inventory_Transactions.headers);
   ensureSheet(ss, "Quotations", FIELD_MAP.Quotations.headers);
   ensureSheet(ss, "Commercial_Quotations", FIELD_MAP.Commercial_Quotations.headers);
   ensureSheet(ss, "Invoices", FIELD_MAP.Invoices.headers);
@@ -460,6 +465,7 @@ function doGet(e) {
       services: readSheetData(ss, "Services"),
       purchaseOrders: readSheetData(ss, "Purchase_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
       salesOrders: readSheetData(ss, "Sales_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } try { x.history = JSON.parse(x.historyJson || "[]"); } catch(e) { x.history = []; } return x; }),
+      inventoryTransactions: readSheetData(ss, "Inventory_Transactions"),
       quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
       quotations: readSheetData(ss, "Commercial_Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
       invoices: readSheetData(ss, "Invoices").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
@@ -776,6 +782,89 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders) {
   return true;
 }
 
+// Inventory ledger is append-only. Every stock movement is checked against master data
+// and the full dated ledger before any new row is merged.
+function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions) {
+  if (!Array.isArray(incomingTransactions)) throw new Error("INVALID_INVENTORY_TRANSACTIONS");
+  ensureSheet(ss, "Inventory_Transactions", FIELD_MAP.Inventory_Transactions.headers);
+  var existing = readSheetData(ss, "Inventory_Transactions");
+  var materials = readSheetData(ss, "Materials");
+  var projects = readSheetData(ss, "Projects");
+  var purchaseOrders = readSheetData(ss, "Purchase_Orders");
+  var movementDirection = {opening:1,receipt:1,return:1,issue:-1,adjustment_in:1,adjustment_out:-1};
+  var seenIds = {};
+  var seenNumbers = {};
+  var newRows = [];
+  var immutableFields = ["transactionNo","materialId","materialName","movement","qty","unit","date","projectId","projectName","purchaseOrderId","supplier","reference","notes","createdAt","createdBy"];
+  incomingTransactions.forEach(function(tx) {
+    if (!tx || !/^ITX-[A-Za-z0-9_-]{8,100}$/.test(String(tx.id || ""))) throw new Error("INVALID_INVENTORY_TRANSACTION_ID");
+    var id = String(tx.id);
+    if (seenIds[id]) throw new Error("DUPLICATE_INVENTORY_TRANSACTION_ID");
+    seenIds[id] = true;
+    if (!/^STK-CSK-\\d{4}-\\d{5}$/.test(String(tx.transactionNo || ""))) throw new Error("INVALID_INVENTORY_TRANSACTION_NUMBER");
+    if (seenNumbers[String(tx.transactionNo)]) throw new Error("DUPLICATE_INVENTORY_TRANSACTION_NUMBER");
+    seenNumbers[String(tx.transactionNo)] = true;
+    var material = materials.find(function(m) { return String(m.id) === String(tx.materialId || ""); });
+    if (!material) throw new Error("INVENTORY_MATERIAL_NOT_FOUND");
+    if (!Object.prototype.hasOwnProperty.call(movementDirection, String(tx.movement || ""))) throw new Error("INVALID_INVENTORY_MOVEMENT");
+    var qty = Number(tx.qty);
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(Number(tx.qty))) throw new Error("INVALID_INVENTORY_QUANTITY");
+    if (String(tx.unit || "") !== String(material.unit || "")) throw new Error("INVENTORY_UNIT_MISMATCH");
+    var date = String(tx.date || "");
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) throw new Error("INVALID_INVENTORY_DATE");
+    var parsedDate = new Date(date + "T00:00:00Z");
+    if (isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10) !== date) throw new Error("INVALID_INVENTORY_DATE");
+    var projectId = String(tx.projectId || "");
+    if (["issue","return"].indexOf(String(tx.movement)) >= 0 && !projects.some(function(p) { return String(p.id) === projectId; })) throw new Error("INVENTORY_PROJECT_REQUIRED");
+    if (["adjustment_in","adjustment_out"].indexOf(String(tx.movement)) >= 0 && !String(tx.notes || "").trim()) throw new Error("INVENTORY_ADJUSTMENT_REASON_REQUIRED");
+    if (String(tx.movement) === "receipt") {
+      var poId = String(tx.purchaseOrderId || "");
+      var supplier = String(tx.supplier || "").trim();
+      if (!poId && !supplier) throw new Error("INVENTORY_RECEIPT_SOURCE_REQUIRED");
+      if (poId) {
+        var po = purchaseOrders.find(function(p) { return String(p.id) === poId; });
+        if (!po || String(po.status || "").toLowerCase() === "cancelled") throw new Error("INVENTORY_PURCHASE_ORDER_NOT_FOUND");
+        var poItems = [];
+        try { poItems = JSON.parse(po.itemsJson || "[]"); } catch (parseError) { poItems = []; }
+        if (!poItems.some(function(item) { return String(item.materialId) === String(tx.materialId); })) throw new Error("INVENTORY_MATERIAL_NOT_IN_PURCHASE_ORDER");
+      }
+    }
+    if (String(tx.movement) === "opening" && existing.concat(newRows).some(function(row) { return String(row.materialId) === String(tx.materialId) && String(row.movement) === "opening"; })) throw new Error("INVENTORY_OPENING_ALREADY_EXISTS");
+    var current = existing.find(function(row) { return String(row.id) === id; });
+    if (current) {
+      var changed = immutableFields.some(function(field) { return String(current[field] == null ? "" : current[field]) !== String(tx[field] == null ? "" : tx[field]); });
+      if (changed) throw new Error("INVENTORY_TRANSACTION_IMMUTABLE");
+    } else {
+      var duplicateNumber = existing.find(function(row) { return String(row.transactionNo) === String(tx.transactionNo) && String(row.id) !== id; });
+      if (duplicateNumber) throw new Error("DUPLICATE_INVENTORY_TRANSACTION_NUMBER");
+      newRows.push(tx);
+    }
+  });
+  var ledger = existing.concat(newRows).slice().sort(function(a,b) {
+    var dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
+    if (dateCompare) return dateCompare;
+    var createdCompare = String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+    if (createdCompare) return createdCompare;
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  });
+  var balances = {};
+  var openingSeen = {};
+  ledger.forEach(function(tx) {
+    var materialId = String(tx.materialId || "");
+    var direction = movementDirection[String(tx.movement || "")];
+    var before = Number(balances[materialId] || 0);
+    if (String(tx.movement) === "opening") {
+      if (openingSeen[materialId]) throw new Error("INVENTORY_OPENING_ALREADY_EXISTS");
+      if (before !== 0) throw new Error("INVENTORY_OPENING_MUST_BE_FIRST");
+      openingSeen[materialId] = true;
+    }
+    var after = before + Number(tx.qty) * direction;
+    if (after < -0.000001) throw new Error("INVENTORY_INSUFFICIENT_STOCK");
+    balances[materialId] = Math.max(0, after);
+  });
+  return true;
+}
+
 function doPost(e) {
   try {
     var payload = JSON.parse((e && e.postData && e.postData.contents) || "{}");
@@ -812,6 +901,10 @@ function doPost(e) {
         if (payload.salesOrders) {
           validateSalesOrdersBeforeMerge_(ss, payload.salesOrders);
           mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); return y; }));
+        }
+        if (payload.inventoryTransactions) {
+          validateInventoryTransactionsBeforeMerge_(ss, payload.inventoryTransactions);
+          mergeSummary.Inventory_Transactions = mergeSheet(ss, "Inventory_Transactions", payload.inventoryTransactions);
         }
         if (payload.quotationSnapshots) mergeSummary.Quotations = mergeSheet(ss, "Quotations", payload.quotationSnapshots.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
         if (payload.quotations) mergeSummary.Commercial_Quotations = mergeCommercialQuotationsSafely_(ss, payload.quotations);
@@ -1156,6 +1249,7 @@ function cskAssertPayloadAllowed_(identity, payload) {
   // Enforce this on the server so hiding a button cannot be bypassed from the browser.
   if (action === "delete" && role !== "owner") throw new Error("FORBIDDEN_DELETE");
   if ((action === "insert" || action === "delete") && String(payload.sheet || "") === "Invoice_Payments") throw new Error("PAYMENT_LEDGER_SERVER_ONLY");
+  if ((action === "insert" || action === "delete") && String(payload.sheet || "") === "Inventory_Transactions") throw new Error("INVENTORY_LEDGER_SERVER_ONLY");
   if (action === "record_invoice_payment") {
     if (role !== "owner") throw new Error("FORBIDDEN_PAYMENT_WRITE");
     if (!payload.payment || typeof payload.payment !== "object") throw new Error("PAYMENT_REQUIRED");
@@ -1168,7 +1262,7 @@ function cskAssertPayloadAllowed_(identity, payload) {
         Object.prototype.hasOwnProperty.call(payload, "projectCosts")) {
       throw new Error("LEGACY_COST_DATA_READ_ONLY");
     }
-    var ownerCollections = ["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots","quotations","invoices","salesOrders"];
+    var ownerCollections = ["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots","quotations","invoices","salesOrders","inventoryTransactions"];
     var teamCollections = ["leads","clients","projects"];
     var allowed = role === "owner" ? ownerCollections : teamCollections;
     Object.keys(payload).forEach(function(key) {
