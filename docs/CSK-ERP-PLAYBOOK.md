@@ -349,3 +349,40 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - Changes are confined to `advertising-business-os` on the existing feature branch. The public Astro website repository and its deployment are untouched.
 - No production Google Sheet migration, Apps Script deployment, branch merge, or production release has been performed.
 - Before release, run Apps Script schema setup/migration under owner supervision, verify the new Sales_Orders tab, test a sample approved quotation and actual DP payment, and manually check desktop/iPhone UI.
+
+
+## 16. Inventory ledger and Purchase Order receiving — 20 November 2026
+
+### Delivered on the internal Business OS feature branch
+- Added an Owner-only Inventory & Stok page with current balance by material and a dated movement history.
+- Added stock movement types: opening balance, receipt, issue to project, return from project, adjustment in, and adjustment out.
+- Stock is recorded in the usage unit configured on the Material Master. The system does not assume opening stock; balances begin at zero until an opening or receipt transaction is recorded.
+- Opening balance can be recorded only once per material and must be the first ledger movement for that material.
+- Project issue and return require a valid project. Adjustments require a reason. Receipts require a supplier or a linked Purchase Order.
+- PO-linked receipts validate material, unit, and cumulative received quantity against the ordered PO line. A receipt cannot exceed the PO quantity.
+- Purchase Orders can only be marked Received after all ordered material quantities have been recorded in Inventory. A PO with any receipt cannot be cancelled.
+- Inventory transactions are append-only. Existing ledger entries cannot be edited or deleted; corrections use adjustment transactions.
+- Server-side validation recomputes the dated ledger and blocks negative stock, duplicate opening balances, invalid units, invalid project references, unapproved PO receipts, and excess PO receipt quantities.
+- Added a dedicated `Inventory_Transactions` tab and Owner-only sync/read-back verification. Team sessions do not receive or write the inventory ledger.
+- Added engine, backend validation, PO receiving, mapping, RBAC, and CI tests.
+
+### Operational rules
+1. Set opening stock once for materials already held before the system goes live.
+2. Record every supplier receipt; when possible, link the receipt to an ordered Purchase Order.
+3. The system tracks received quantity per PO line. Once all ordered quantities are received, the PO status changes to Received.
+4. Record material issues against the project that consumes the stock.
+5. Record returns when unused material returns from a project.
+6. Correct count differences through a documented adjustment, never by editing/deleting the original movement.
+
+### Not yet included
+- Automatic stock reservation when a Sales Order is released to production.
+- Material pick lists and BOM/requirement explosion from HPP into stock demand.
+- Purchasing suggestions based on stock shortages and reorder points.
+- Purchase-unit to usage-unit conversion at goods receipt for pack-based or full-roll purchasing; current PO quantities must use the material stock unit.
+- Supplier invoice matching, landed cost, stock valuation methods (FIFO/average), lot/batch traceability, and offcut/leftover stock.
+- Actual-versus-estimated HPP reconciliation and project profitability.
+
+### Safety and release boundary
+- Changes remain inside `advertising-business-os`; the public Astro website repository and deployment remain untouched.
+- No production Google Sheet migration, Apps Script deployment, branch merge, or production release has been performed.
+- Before release, create/verify the `Inventory_Transactions` tab through the Apps Script schema setup, load verified opening stock, and test a receipt linked to a real ordered PO plus a project issue.
