@@ -92,6 +92,10 @@ var FIELD_MAP = {
     headers: ["ID", "ProjectID", "NamaProyek", "Supplier", "Tanggal", "ItemsJSON", "Total", "Status", "CreatedAt", "UpdatedAt"],
     fields: ["id", "projectId", "projectName", "supplier", "date", "itemsJson", "total", "status", "createdAt", "updatedAt"]
   },
+  Sales_Orders: {
+    headers: ["ID", "NomorSO", "QuotationID", "NomorQuotation", "ProjectID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "TanggalOrder", "TanggalPengiriman", "ItemsJSON", "Total", "DPPersen", "DPWajib", "Status", "RiwayatJSON", "Catatan", "CreatedAt", "UpdatedAt"],
+    fields: ["id", "orderNo", "quotationId", "quotationNo", "projectId", "projectName", "client", "clientPhone", "clientEmail", "orderDate", "deliveryDate", "itemsJson", "total", "dpPercent", "dpRequiredAmount", "status", "historyJson", "notes", "createdAt", "updatedAt"]
+  },
   Quotations: {
     headers: ["ID", "ProjectID", "NamaProyek", "Klien", "Deadline", "Catatan", "LinesJSON", "Total", "SourceCostSheetID", "SourceCostSheetUpdatedAt", "DPPersen", "Status", "CreatedAt", "UpdatedAt"],
     fields: ["id", "projectId", "projectName", "client", "deadline", "notes", "linesJson", "total", "sourceCostSheetId", "sourceCostSheetUpdatedAt", "dpPercent", "status", "createdAt", "updatedAt"]
@@ -249,6 +253,7 @@ function setupSheet() {
   ensureSheet(ss, "Cost_Sheets", FIELD_MAP.Cost_Sheets.headers);
   ensureSheet(ss, "Services", FIELD_MAP.Services.headers);
   ensureSheet(ss, "Purchase_Orders", FIELD_MAP.Purchase_Orders.headers);
+  ensureSheet(ss, "Sales_Orders", FIELD_MAP.Sales_Orders.headers);
   ensureSheet(ss, "Quotations", FIELD_MAP.Quotations.headers);
   ensureSheet(ss, "Commercial_Quotations", FIELD_MAP.Commercial_Quotations.headers);
   ensureSheet(ss, "Invoices", FIELD_MAP.Invoices.headers);
@@ -454,6 +459,7 @@ function doGet(e) {
       projectCosts: identity.role === "owner" ? readLegacySheetData_(ss, "Project_Costs") : [],
       services: readSheetData(ss, "Services"),
       purchaseOrders: readSheetData(ss, "Purchase_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
+      salesOrders: readSheetData(ss, "Sales_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } try { x.history = JSON.parse(x.historyJson || "[]"); } catch(e) { x.history = []; } return x; }),
       quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
       quotations: readSheetData(ss, "Commercial_Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
       invoices: readSheetData(ss, "Invoices").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
@@ -677,6 +683,96 @@ function mergeInvoicesSafely_(ss, incomingInvoices) {
     lock.releaseLock();
   }
 }
+// Validasi server-side Sales Order: quotation approved, satu SO per quotation,
+// transisi status terkendali, dan pelepasan produksi berdasarkan pembayaran DP terverifikasi.
+function validateSalesOrdersBeforeMerge_(ss, incomingOrders) {
+  if (!Array.isArray(incomingOrders)) throw new Error("INVALID_SALES_ORDERS");
+  ensureSheet(ss, "Sales_Orders", FIELD_MAP.Sales_Orders.headers);
+  var existingOrders = readSheetData(ss, "Sales_Orders");
+  var quotations = readSheetData(ss, "Commercial_Quotations");
+  var invoices = readSheetData(ss, "Invoices");
+  var payments = readSheetData(ss, "Invoice_Payments");
+  var projects = readSheetData(ss, "Projects");
+  var seenIds = {};
+  var seenQuotes = {};
+  var seenNumbers = {};
+  var allowedStatuses = ["awaiting_dp","ready_production","in_production","quality_check","ready_delivery","delivered","closed","cancelled"];
+  var transitions = {
+    awaiting_dp:["ready_production","cancelled"],
+    ready_production:["in_production","cancelled"],
+    in_production:["quality_check"],
+    quality_check:["in_production","ready_delivery"],
+    ready_delivery:["delivered"],
+    delivered:["closed"],
+    closed:[],
+    cancelled:[]
+  };
+  incomingOrders.forEach(function(order) {
+    if (!order || !/^SO-[A-Za-z0-9_-]{8,100}$/.test(String(order.id || ""))) throw new Error("INVALID_SALES_ORDER_ID");
+    var id = String(order.id);
+    var quoteId = String(order.quotationId || "");
+    if (!quoteId) throw new Error("SALES_ORDER_QUOTATION_REQUIRED");
+    if (seenIds[id]) throw new Error("DUPLICATE_SALES_ORDER_ID");
+    seenIds[id] = true;
+    var quote = quotations.find(function(q) { return String(q.id) === quoteId; });
+    if (!quote || String(quote.status || "").toLowerCase() !== "approved") throw new Error("SALES_ORDER_REQUIRES_APPROVED_QUOTATION");
+    if (!/^SO-CSK-\d{4}-\d{5}$/.test(String(order.orderNo || ""))) throw new Error("INVALID_SALES_ORDER_NUMBER");
+    if (seenNumbers[String(order.orderNo)]) throw new Error("DUPLICATE_SALES_ORDER_NUMBER");
+    seenNumbers[String(order.orderNo)] = true;
+    var projectId = String(order.projectId || "");
+    if (!projectId || !projects.some(function(p) { return String(p.id) === projectId; })) throw new Error("SALES_ORDER_PROJECT_REQUIRED");
+    var total = Math.round(Number(order.total));
+    var dpPercent = Number(order.dpPercent);
+    var dpRequired = Math.round(total * dpPercent / 100);
+    if (!Number.isSafeInteger(total) || total <= 0 || !Number.isFinite(dpPercent) || dpPercent < 0 || dpPercent > 99) throw new Error("INVALID_SALES_ORDER_VALUE");
+    if (Math.round(Number(order.dpRequiredAmount)) !== dpRequired) throw new Error("SALES_ORDER_DP_SNAPSHOT_MISMATCH");
+    if (allowedStatuses.indexOf(String(order.status || "")) < 0) throw new Error("INVALID_SALES_ORDER_STATUS");
+    var items = Array.isArray(order.items) ? order.items : [];
+    if (!items.length || items.length > 500) throw new Error("INVALID_SALES_ORDER_ITEMS");
+    var existing = existingOrders.find(function(x) { return String(x.id) === id; });
+    var duplicate = existingOrders.find(function(x) { return String(x.quotationId) === quoteId && String(x.id) !== id; });
+    if (duplicate) throw new Error("QUOTATION_ALREADY_HAS_SALES_ORDER");
+    if (seenQuotes[quoteId] && seenQuotes[quoteId] !== id) throw new Error("DUPLICATE_SALES_ORDER_FOR_QUOTATION");
+    seenQuotes[quoteId] = id;
+    var itemsJson = JSON.stringify(items);
+    if (!existing) {
+      var expectedInitial = dpRequired > 0 ? "awaiting_dp" : "ready_production";
+      if (String(order.status) !== expectedInitial) throw new Error("INVALID_INITIAL_SALES_ORDER_STATUS");
+      if (String(order.quotationNo || "") !== String(quote.docNo || quote.id)) throw new Error("SALES_ORDER_QUOTATION_SNAPSHOT_MISMATCH");
+      if (total !== Math.round(Number(quote.total)) || dpPercent !== Number(quote.dpPercent || 0)) throw new Error("SALES_ORDER_QUOTATION_VALUE_MISMATCH");
+      if (itemsJson !== JSON.stringify(quote.lines || [])) throw new Error("SALES_ORDER_ITEMS_SNAPSHOT_MISMATCH");
+    } else {
+      var currentItems = String(existing.itemsJson || "[]");
+      var immutableChanged = String(existing.quotationId) !== quoteId ||
+        String(existing.orderNo) !== String(order.orderNo) ||
+        String(existing.projectId) !== projectId ||
+        Math.round(Number(existing.total)) !== total ||
+        Number(existing.dpPercent) !== dpPercent ||
+        Math.round(Number(existing.dpRequiredAmount)) !== dpRequired ||
+        String(existing.orderDate) !== String(order.orderDate) ||
+        currentItems !== itemsJson;
+      if (immutableChanged) throw new Error("SALES_ORDER_SNAPSHOT_IMMUTABLE");
+      if (String(existing.status) !== String(order.status)) {
+        var nextAllowed = transitions[String(existing.status)] || [];
+        if (nextAllowed.indexOf(String(order.status)) < 0) throw new Error("INVALID_SALES_ORDER_STATUS_TRANSITION");
+      }
+    }
+    var invoiceIds = {};
+    invoices.forEach(function(invoice) {
+      if (String(invoice.sourceQuotationId || invoice.quotationId || "") === quoteId) invoiceIds[String(invoice.id)] = true;
+    });
+    if (quote.convertedInvoiceId) invoiceIds[String(quote.convertedInvoiceId)] = true;
+    var paid = payments.filter(function(payment) { return !!invoiceIds[String(payment.invoiceId)]; })
+      .reduce(function(sum,payment) { return sum + Math.max(0,Number(payment.amount) || 0); },0);
+    var invoiceTotal = invoices.filter(function(invoice) { return !!invoiceIds[String(invoice.id)]; })
+      .reduce(function(sum,invoice) { return sum + Math.max(0,Number(invoice.total) || 0); },0);
+    var status = String(order.status);
+    if (status !== "awaiting_dp" && status !== "cancelled" && paid < dpRequired) throw new Error("SALES_ORDER_DP_NOT_VERIFIED");
+    if (status === "closed" && (invoiceTotal <= 0 || paid < invoiceTotal)) throw new Error("SALES_ORDER_CANNOT_CLOSE_WITH_UNPAID_INVOICE");
+  });
+  return true;
+}
+
 function doPost(e) {
   try {
     var payload = JSON.parse((e && e.postData && e.postData.contents) || "{}");
@@ -710,6 +806,10 @@ function doPost(e) {
         if (payload.costSheets) mergeSummary.Cost_Sheets = mergeSheet(ss, "Cost_Sheets", payload.costSheets.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
         if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
         if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
+        if (payload.salesOrders) {
+          validateSalesOrdersBeforeMerge_(ss, payload.salesOrders);
+          mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); return y; }));
+        }
         if (payload.quotationSnapshots) mergeSummary.Quotations = mergeSheet(ss, "Quotations", payload.quotationSnapshots.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
         if (payload.quotations) mergeSummary.Commercial_Quotations = mergeCommercialQuotationsSafely_(ss, payload.quotations);
         if (payload.invoices) mergeSummary.Invoices = mergeInvoicesSafely_(ss, payload.invoices);
@@ -1065,7 +1165,7 @@ function cskAssertPayloadAllowed_(identity, payload) {
         Object.prototype.hasOwnProperty.call(payload, "projectCosts")) {
       throw new Error("LEGACY_COST_DATA_READ_ONLY");
     }
-    var ownerCollections = ["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots","quotations","invoices"];
+    var ownerCollections = ["leads","clients","projects","finance","memory","marketingSpend","materials","costSheets","services","purchaseOrders","quotationSnapshots","quotations","invoices","salesOrders"];
     var teamCollections = ["leads","clients","projects"];
     var allowed = role === "owner" ? ownerCollections : teamCollections;
     Object.keys(payload).forEach(function(key) {
