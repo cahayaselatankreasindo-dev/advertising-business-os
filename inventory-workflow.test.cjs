@@ -27,7 +27,7 @@ assert.equal(E.getBalance('MAT-ACR',balances),4);
 assert.equal(E.getBalance('MAT-HOL',balances),0);
 assert.equal(E.nextTransactionNumber(ledger,'2026-11-20'),'STK-CSK-2026-00006');
 
-assert.throws(()=>E.calculateBalances(materials,[receipt,opening]),/transaksi stok pertama/,'opening balance must be the first ledger movement');
+assert.throws(()=>E.calculateBalances(materials,[receipt,{...opening,date:'2026-11-06',createdAt:'2026-11-06T08:00:00.000Z'}]),/transaksi stok pertama/,'opening balance must be the first ledger movement');
 assert.throws(()=>E.calculateBalances(materials,[opening,{...opening,id:'ITX-SECOND-00001',transactionNo:'STK-CSK-2026-00009'}]),/satu kali/,'one opening balance per material');
 assert.throws(()=>E.calculateBalances(materials,[tx('00000006','STK-CSK-2026-00006','issue',6,'2026-11-02',{projectId:'PRJ-001'})]),/Stok tidak mencukupi/,'stock cannot go negative');
 
