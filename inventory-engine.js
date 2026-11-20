@@ -73,6 +73,17 @@
     if(['issue','return'].indexOf(input.movement)>=0&&!projects.some(function(p){return String(p.id)===projectId;}))throw new Error('Pilih proyek untuk pengeluaran atau retur material.');
     if(['adjustment_in','adjustment_out'].indexOf(input.movement)>=0&&!String(input.notes||'').trim())throw new Error('Alasan penyesuaian stok wajib diisi.');
     if(input.movement==='receipt'&&!String(input.supplier||'').trim()&&!String(input.purchaseOrderId||'').trim())throw new Error('Isi supplier atau nomor Purchase Order untuk penerimaan.');
+    if(input.movement==='receipt'&&String(input.purchaseOrderId||'').trim()){
+      var po=(Array.isArray(context.purchaseOrders)?context.purchaseOrders:[]).find(function(p){return String(p.id)===String(input.purchaseOrderId);});
+      if(!po||['ordered','received'].indexOf(String(po.status||'').toLowerCase())<0)throw new Error('Purchase Order harus berstatus Dipesan sebelum penerimaan dicatat.');
+      var poItems=Array.isArray(po.items)?po.items:[];
+      var matching=poItems.filter(function(item){return String(item.materialId)===String(material.id);});
+      if(!matching.length)throw new Error('Material tidak tercantum pada Purchase Order yang dipilih.');
+      if(matching.some(function(item){return String(item.unit||'')!==String(material.unit||'');}))throw new Error('Satuan item Purchase Order tidak sama dengan satuan stok material.');
+      var orderedQty=matching.reduce(function(sum,item){return sum+n(item.qty);},0);
+      var receivedQty=existing.filter(function(tx){return String(tx.purchaseOrderId||'')===String(po.id)&&String(tx.materialId)===String(material.id)&&tx.movement==='receipt';}).reduce(function(sum,tx){return sum+n(tx.qty);},0);
+      if(receivedQty+qty>orderedQty+0.000001)throw new Error('Jumlah penerimaan melebihi sisa kuantitas Purchase Order.');
+    }
     if(input.movement==='opening'&&existing.some(function(tx){return String(tx.materialId)===String(material.id)&&tx.movement==='opening';}))throw new Error('Saldo awal material ini sudah pernah dicatat.');
     var transaction={
       id:String(input.id||'ITX-'+Date.now()+'-'+Math.random().toString(36).slice(2,8).toUpperCase()),
