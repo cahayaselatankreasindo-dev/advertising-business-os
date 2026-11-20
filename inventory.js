@@ -1,6 +1,6 @@
 (function(w){
 'use strict';
-var mountId='inventory-app',formOpen=false,filterText='',bound=false;
+var mountId='inventory-app',formOpen=false,filterText='',bound=false,prefillPurchaseOrderId='';
 function bridge(){return w.CSKInventoryBridge||null;}
 function el(id){return w.document.getElementById(id);}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
@@ -18,8 +18,8 @@ function ensureBound(){
   var b=event.target.closest('[data-inv-action]');if(!b)return;
   var action=b.dataset.invAction;
   if(action==='open'){formOpen=true;renderInventory();}
-  if(action==='close'){formOpen=false;renderInventory();}
-  if(action==='movement'){formOpen=true;renderInventory(b.dataset.movement);}
+  if(action==='close'){formOpen=false;prefillPurchaseOrderId='';renderInventory();}
+  if(action==='movement'){formOpen=true;prefillPurchaseOrderId='';renderInventory(b.dataset.movement);}
  });
  page.addEventListener('submit',function(event){
   if(event.target&&event.target.id==='inventory-entry-form'){event.preventDefault();saveInventoryTransaction();}
@@ -29,10 +29,55 @@ function ensureBound(){
  });
  page.addEventListener('change',function(event){
   if(event.target&&event.target.id==='inv-material'){updateUnitHint();}
-  if(event.target&&event.target.id==='inv-po'){var d=data(),po=d.purchaseOrders.find(function(p){return String(p.id)===String(event.target.value);});if(po&&el('inv-supplier'))el('inv-supplier').value=po.supplier||'';}
+  if(event.target&&event.target.id==='inv-po'){if(event.target.value)applyPurchaseOrderSelection(event.target.value);else restoreAllMaterialOptions();}
   if(event.target&&event.target.id==='inv-movement'){updateMovementFields();}
  });
  bound=true;
+}
+function purchaseOrderItems(po){
+ if(Array.isArray(po&&po.items))return po.items;
+ try{return JSON.parse(po&&po.itemsJson||'[]');}catch(e){return[];}
+}
+function purchaseOrderReceiptProgress(po,transactions){
+ var expected={};
+ purchaseOrderItems(po).forEach(function(item){var id=String(item.materialId||'');expected[id]=(expected[id]||0)+n(item.qty);});
+ var received={};
+ (transactions||[]).filter(function(tx){return String(tx.purchaseOrderId||'')===String(po&&po.id)&&tx.movement==='receipt';}).forEach(function(tx){var id=String(tx.materialId||'');received[id]=(received[id]||0)+n(tx.qty);});
+ var keys=Object.keys(expected);
+ var total=keys.reduce(function(sum,id){return sum+expected[id];},0);
+ var done=keys.reduce(function(sum,id){return sum+Math.min(expected[id],received[id]||0);},0);
+ return{complete:keys.length>0&&keys.every(function(id){return(received[id]||0)+0.000001>=expected[id];}),total:total,received:done,remaining:Math.max(0,total-done)};
+}
+function restoreAllMaterialOptions(){
+ var d=data(),select=el('inv-material'),qtyInput=el('inv-qty');
+ if(!select)return;
+ select.innerHTML='<option value="">Pilih material</option>'+d.materials.slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));}).map(function(m){return'<option value="'+esc(m.id)+'">'+esc(m.name)+' · '+esc(m.unit||'-')+'</option>';}).join('');
+ if(qtyInput){qtyInput.disabled=false;qtyInput.removeAttribute('max');}
+ var save=el('inv-save');if(save)save.disabled=false;
+ updateUnitHint();
+}
+function applyPurchaseOrderSelection(poId){
+ var d=data(),po=d.purchaseOrders.find(function(p){return String(p.id)===String(poId);});
+ if(!po)return notify('Purchase Order tidak ditemukan.',true);
+ if(String(po.status||'').toLowerCase()!=='ordered')return notify('Purchase Order harus berstatus Dipesan untuk mencatat penerimaan.',true);
+ if(el('inv-movement'))el('inv-movement').value='receipt';
+ if(el('inv-po'))el('inv-po').value=po.id;
+ if(el('inv-supplier'))el('inv-supplier').value=po.supplier||'';
+ var items=purchaseOrderItems(po),progress=purchaseOrderReceiptProgress(po,d.inventoryTransactions);
+ var select=el('inv-material'),qtyInput=el('inv-qty'),remaining=[];
+ items.forEach(function(item){
+  var already=(d.inventoryTransactions||[]).filter(function(tx){return String(tx.purchaseOrderId||'')===String(po.id)&&String(tx.materialId)===String(item.materialId)&&tx.movement==='receipt';}).reduce(function(sum,tx){return sum+n(tx.qty);},0);
+  var left=Math.max(0,n(item.qty)-already);
+  if(left>0){var m=d.materials.find(function(x){return String(x.id)===String(item.materialId);});if(m)remaining.push({material:m,qty:left});}
+ });
+ if(select){
+  select.innerHTML=remaining.length?remaining.map(function(x){return'<option value="'+esc(x.material.id)+'">'+esc(x.material.name)+' · sisa '+qty(x.qty)+' '+esc(x.material.unit||'')+'</option>';}).join(''):'<option value="">Semua item PO sudah diterima</option>';
+  if(remaining.length)select.value=remaining[0].material.id;
+ }
+ if(qtyInput){qtyInput.disabled=!remaining.length;qtyInput.value=remaining.length?remaining[0].qty:'';if(remaining.length)qtyInput.max=remaining[0].qty;else qtyInput.removeAttribute('max');}
+ var save=el('inv-save');if(save)save.disabled=!remaining.length;
+ var hint=el('inv-unit-hint');if(hint)hint.textContent=remaining.length?'Penerimaan PO '+po.id+'. Masih tersisa '+qty(progress.remaining)+' '+(remaining[0].material.unit||'')+' dari seluruh item. Kuantitas maksimum mengikuti sisa PO.':'Seluruh kuantitas PO sudah tercatat sebagai penerimaan.';
+ updateMovementFields();updateUnitHint();
 }
 function updateUnitHint(){
  var d=data(),m=d.materials.find(function(x){return String(x.id)===String(el('inv-material')&&el('inv-material').value);});
@@ -50,7 +95,7 @@ function updateMovementFields(){
 function formHtml(d,defaultMovement){
  var materials=d.materials.slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
  var projects=d.projects.slice().sort(function(a,b){return String(a.title||'').localeCompare(String(b.title||''));});
- var purchaseOrders=(d.purchaseOrders||[]).filter(function(p){return ['ordered','received'].indexOf(String(p.status||'').toLowerCase())>=0;});
+ var purchaseOrders=(d.purchaseOrders||[]).filter(function(p){return String(p.status||'').toLowerCase()==='ordered';});
  var types=Object.keys(E().MOVEMENTS);
  var options=types.map(function(t){return'<option value="'+t+'" '+(t===(defaultMovement||'opening')?'selected':'')+'>'+esc(movementLabel(t))+'</option>';}).join('');
  return'<section class="bg-white border border-slate-200 rounded-2xl p-4 mb-5"><div class="flex justify-between items-start gap-3"><div><h2 class="font-bold text-sm">Catat Pergerakan Stok</h2><p class="text-xs text-slate-500 mt-1">Setiap transaksi tersimpan sebagai ledger permanen dan tidak dapat diedit atau dihapus.</p></div><button type="button" data-inv-action="close" class="px-3 py-2 border rounded-lg text-xs">Tutup</button></div><form id="inventory-entry-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4"><label class="block text-[11px] font-bold text-slate-600">Jenis transaksi<select id="inv-movement" class="mt-1 w-full border rounded-lg p-2.5 text-xs">'+options+'</select></label><label class="block text-[11px] font-bold text-slate-600">Material<select id="inv-material" required class="mt-1 w-full border rounded-lg p-2.5 text-xs"><option value="">Pilih material</option>'+materials.map(function(m){return'<option value="'+esc(m.id)+'">'+esc(m.name)+' · '+esc(m.unit||'-')+'</option>';}).join('')+'</select></label><label class="block text-[11px] font-bold text-slate-600">Kuantitas<input id="inv-qty" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="Contoh: 25"></label><div id="inv-unit-hint" class="sm:col-span-2 lg:col-span-3 rounded-lg bg-blue-50 p-2.5 text-[11px] text-blue-800">Pilih material untuk melihat satuan stok.</div><label class="block text-[11px] font-bold text-slate-600">Tanggal transaksi<input id="inv-date" type="date" required value="'+E().localDate()+'" class="mt-1 w-full border rounded-lg p-2.5 text-xs"></label><label id="inv-project-wrap" class="block text-[11px] font-bold text-slate-600">Proyek<select id="inv-project" class="mt-1 w-full border rounded-lg p-2.5 text-xs"><option value="">Pilih proyek</option>'+projects.map(function(p){return'<option value="'+esc(p.id)+'">'+esc(p.title||p.client||p.id)+'</option>';}).join('')+'</select></label><label id="inv-supplier-wrap" class="block text-[11px] font-bold text-slate-600">Supplier<input id="inv-supplier" class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="Nama supplier"></label><label id="inv-po-wrap" class="block text-[11px] font-bold text-slate-600">Purchase Order<select id="inv-po" class="mt-1 w-full border rounded-lg p-2.5 text-xs"><option value="">Tanpa PO</option>'+purchaseOrders.map(function(p){return'<option value="'+esc(p.id)+'">'+esc(p.id)+' · '+esc(p.supplier||'Supplier')+' · '+esc(p.projectName||'')+'</option>';}).join('')+'</select></label><label class="block text-[11px] font-bold text-slate-600">Referensi / dokumen<input id="inv-reference" class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="No. surat jalan / nota / bukti"></label><label id="inv-notes-wrap" class="block text-[11px] font-bold text-slate-600 sm:col-span-2">Catatan / alasan<input id="inv-notes" class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="Wajib untuk penyesuaian stok"></label><div class="sm:col-span-2 lg:col-span-3 flex flex-wrap items-center justify-between gap-2"><p class="text-[10px] text-slate-500">Saldo awal hanya boleh satu kali dan harus menjadi transaksi pertama material. Pengeluaran/retur wajib dikaitkan ke proyek.</p><button id="inv-save" type="submit" class="px-5 py-2.5 rounded-lg bg-slate-900 text-white text-xs font-bold">Simpan Saldo Awal</button></div></form></section>';
@@ -70,9 +115,11 @@ async function saveInventoryTransaction(){
   },{materials:d.materials,projects:d.projects,purchaseOrders:d.purchaseOrders,transactions:d.inventoryTransactions});
   added=result.transaction;d.inventoryTransactions.unshift(added);
   if(button){button.disabled=true;button.textContent='Menyimpan & memverifikasi...';}
-  await b.save();
-  formOpen=false;renderInventory();
-  notify(result.transaction.transactionNo+' berhasil dicatat dan diverifikasi. Stok '+result.transaction.materialName+' sekarang '+qty(result.balances[result.transaction.materialId])+' '+result.transaction.unit+'.');
+  var changedPO=null,previousPOState=null,poComplete=false;
+  if(result.transaction.purchaseOrderId){changedPO=d.purchaseOrders.find(function(p){return String(p.id)===String(result.transaction.purchaseOrderId);});if(changedPO){previousPOState={status:changedPO.status,updatedAt:changedPO.updatedAt};poComplete=purchaseOrderReceiptProgress(changedPO,d.inventoryTransactions).complete;if(poComplete){changedPO.status='received';changedPO.updatedAt=new Date().toISOString();}}}
+  try{await b.save();}catch(syncError){var rollbackIndex=d.inventoryTransactions.findIndex(function(x){return String(x.id)===String(added.id);});if(rollbackIndex>=0)d.inventoryTransactions.splice(rollbackIndex,1);if(changedPO&&previousPOState){changedPO.status=previousPOState.status;changedPO.updatedAt=previousPOState.updatedAt;}throw syncError;}
+  formOpen=false;prefillPurchaseOrderId='';renderInventory();
+  notify(result.transaction.transactionNo+' berhasil dicatat dan diverifikasi. Stok '+result.transaction.materialName+' sekarang '+qty(result.balances[result.transaction.materialId])+' '+result.transaction.unit+(poComplete?'. Seluruh item PO telah diterima; status PO diperbarui.':'.'));
  }catch(error){if(added&&d&&Array.isArray(d.inventoryTransactions)){var rollbackIndex=d.inventoryTransactions.findIndex(function(x){return String(x.id)===String(added.id);});if(rollbackIndex>=0)d.inventoryTransactions.splice(rollbackIndex,1);}notify(error.message||String(error),true);}
  finally{var current=el('inv-save');if(current){current.disabled=false;updateMovementFields();}}
 }
@@ -96,7 +143,14 @@ function renderInventory(defaultMovement){
   ensureBound();
   updateUnitHint();
   updateMovementFields();
+  if(formOpen&&prefillPurchaseOrderId)applyPurchaseOrderSelection(prefillPurchaseOrderId);
  }catch(error){page.innerHTML='<div class="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">'+esc(error.message||String(error))+'</div>';}
 }
 w.renderInventory=renderInventory;
+w.openInventoryReceiptFromPO=function(poId){
+ var b=bridge();if(!b||!b.isOwner())return notify('Penerimaan stok hanya dapat dicatat oleh Owner.',true);
+ prefillPurchaseOrderId=String(poId||'');formOpen=true;
+ if(typeof w.nav==='function')w.nav('inventory');
+ renderInventory('receipt');
+};
 })(window);
