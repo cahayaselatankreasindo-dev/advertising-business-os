@@ -259,7 +259,7 @@ if (FIELD_MAP) {
     ['id','name','unit','unitPrice','updatedAt'],
     'FIELD_MAP.Materials mempertahankan mapping lama');
   eq(FIELD_MAP.Materials.fields.slice(5),
-    ['sku','category','subcategory','brand','grade','spec','color','thicknessMm','widthMm','lengthMm','diameterMm','purchaseUnit','purchasePrice','conversionFactor','costingMethod','supplierId','supplierName','minimumOrder','wasteRate','priceSource','priceDate','status','notes'],
+    ['sku','category','subcategory','brand','grade','spec','color','thicknessMm','widthMm','lengthMm','diameterMm','purchaseUnit','purchasePrice','conversionFactor','costingMethod','supplierId','supplierName','minimumOrder','wasteRate','priceSource','priceDate','status','notes','rollLengthM'],
     'FIELD_MAP.Materials memuat atribut pembelian, spesifikasi, dan costing');
   eq(FIELD_MAP.Services.fields.slice(6),
     ['sku','unit','costingMethod','costPrice','supplierId','supplierName','status','notes','recordType'],
