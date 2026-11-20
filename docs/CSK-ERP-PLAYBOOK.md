@@ -285,4 +285,32 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - The reference catalog is not a live supplier price list. No supplier prices are invented or preloaded.
 - Catalog families and variant dimensions must be reconciled with the actual brands, sizes, grades, and stock units used by CSK suppliers.
 - The live Google Apps Script deployment and production Google Sheet have not been migrated by this feature branch.
-- Advanced nesting/cut-list optimization for sheet goods, stock/offcut handling, service-cost integration into HPP, and full Sales Order workflow remain subsequent implementation phases.
+- Advanced nesting optimization, stock/offcut inventory reservation and traceability, and full Sales Order workflow remain subsequent implementation phases. The current custom cut-list engine is an estimate and requires workshop validation.
+
+
+## 14. Custom costing foundation — 20 November 2026
+
+### Scope delivered on the internal Business OS feature branch
+- Added a separate custom-costing engine and modal, loaded only by `advertising-business-os/index.html`; the public Astro website repository is not modified.
+- Sheet/roll cutting estimator accepts multiple rectangular component sizes, quantities, sheet/roll dimensions, kerf, waste allowance, and optional 90-degree rotation. It uses a MaxRects-style best-short-side-fit heuristic and records placements, estimated sheet count, yield, and offcut area.
+- Profile/bar cutting estimator accepts multiple cut lengths, quantities, stock length, kerf, and waste allowance. It uses first-fit decreasing bin packing and reports estimated bar count and remaining offcut length.
+- Pack-to-piece calculator supports either prorated consumption cost or whole-pack purchase cost.
+- Dimensional calculators support area (m²/cm²), linear length (m/cm), and volume (m³).
+- Every calculated line carries a price snapshot and structured costing details into the existing HPP item snapshot. Existing Cost_Sheets JSON storage is reused; no new production table is required.
+- Added `RollLengthM` separately from `PanjangMm` so roll media length is not stored in the wrong unit. Existing Materials columns remain in place and the new field is appended.
+- Added automated tests for conversion formulas, cut-list limits, waste allowance, pack purchasing choices, and internal HPP integration.
+
+### Formula and costing rules
+- Sheet/roll purchase mode: required whole sheets/rolls × verified purchase price per sheet/roll.
+- Sheet/roll stock mode: charged cut area (including kerf allowance) × purchase price per m² of the source sheet/roll.
+- Bar purchase mode: required whole bars × verified purchase price per bar.
+- Bar stock mode: charged cut length (including kerf) × purchase price per meter of the source bar.
+- Pack consumption mode: actual usage × (pack purchase price ÷ verified units per pack).
+- Whole-pack mode: ceiling(adjusted usage ÷ units per pack) × pack purchase price.
+- Area, linear, and volume methods convert millimeter dimensions into the selected cost unit before applying the verified master unit price.
+
+### Explicit limitations before production use
+- Nesting and bar allocation are estimates, not certified CAM/CNC cutting plans. They do not yet model grain direction constraints beyond a rotate toggle, defects, clamps, saw paths, edge trimming, stock-specific offcut reuse, or multiple stock lengths.
+- Stock/offcut mode is a proportional cost allocation. Actual inventory reservations and offcut traceability are part of the inventory phase.
+- Waste allowance is applied conservatively per component line; owner should calibrate it against actual workshop yield.
+- Validate sample outputs with CSK's real acrylic, plywood, hollow, flexi, and accessory purchase invoices before using the result in customer quotations.
