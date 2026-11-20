@@ -73,7 +73,6 @@ function renderForm(){
   var waste=Number(m.wasteRate)||0,method=activeMethod,html='';
   if(method==='sheet'||method==='roll'){
     var sw=Number(m.widthMm)||'',sh=method==='roll'?(Number(m.rollLengthM)||0)*1000:(Number(m.lengthMm)||'');
-    html='<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">'+field(method==='roll'?'Lebar roll (mm)':'Lebar lembar (mm)','cc-stock-width',sw,'Contoh 1220',1,1)+field(method==='roll'?'Panjang roll (mm)':'Panjang lembar (mm)','cc-stock-height',sh,'Contoh 2440',1,1)+field('Kerf / mata potong (mm)','cc-kerf',3,'3',0,0)+field('Waste / cadangan (%)','cc-waste',waste,'5',.1,0)+'</div>'+selectField('Sumber biaya',['source'].join(''),'whole','') ;
     html='<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">'+field(method==='roll'?'Lebar roll (mm)':'Lebar lembar (mm)','cc-stock-width',sw,'Contoh 1220',1,1)+field(method==='roll'?'Panjang roll (mm)':'Panjang lembar (mm)','cc-stock-height',sh,'Contoh 2440',1,1)+field('Kerf / mata potong (mm)','cc-kerf',3,'3',0,0)+field('Waste / cadangan (%)','cc-waste',waste,'5',.1,0)+'</div>'+selectField('Perlakuan material',[{value:'whole',label:'Beli lembar/roll utuh (biaya penuh)'},{value:'stock',label:'Gunakan stok/offcut (biaya proporsional luas)'}],'cc-source-mode','whole')+'<div class="flex items-center gap-2 text-xs"><input id="cc-rotate" type="checkbox" checked><label for="cc-rotate">Izinkan komponen diputar 90° (periksa arah serat/tekstur)</label></div><div><div class="flex items-center justify-between"><b class="text-xs">Daftar komponen</b><button type="button" class="cc-btn bg-blue-50 text-blue-700" data-cc-action="add-part">+ Tambah ukuran</button></div><div id="cc-part-rows">'+partRow('','','1','remove-part')+'</div></div>';
   }else if(method==='bar'){
     html='<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">'+field('Panjang stok / batang (mm)', 'cc-stock-length',Number(m.lengthMm)||6000,'6000',1,1)+field('Kerf / mata potong (mm)','cc-kerf',3,'3',0,0)+field('Waste / cadangan (%)','cc-waste',waste,'5',.1,0)+'</div>'+selectField('Perlakuan material',[{value:'whole',label:'Beli batang utuh (biaya penuh)'},{value:'stock',label:'Gunakan stok (biaya proporsional panjang)'}],'cc-source-mode','whole')+'<div><div class="flex items-center justify-between"><b class="text-xs">Daftar potongan profil</b><button type="button" class="cc-btn bg-blue-50 text-blue-700" data-cc-action="add-cut">+ Tambah ukuran</button></div><div id="cc-cut-rows">'+cutRow('','1','remove-cut')+'</div></div>';
@@ -109,7 +108,7 @@ function calculate(){
     var waste=Number(val('cc-waste')||0),result,line,summary,source=val('cc-source-mode')||'';
     if(activeMethod==='sheet'||activeMethod==='roll'){
       var sw=num('cc-stock-width'),sh=num('cc-stock-height'),kerf=num('cc-kerf')||0;
-      result=E.calculateSheetCutList({sheetWidthMm:sw,sheetHeightMm:sh,kerfMm:kerf,wasteRate:waste,allowRotation:el('cc-rotate').checked,parts:readRows('[data-cc-width]','part').map(function(p){return p;})});
+      result=E.calculateSheetCutList({sheetWidthMm:sw,sheetHeightMm:sh,kerfMm:kerf,wasteRate:waste,allowRotation:el('cc-rotate').checked,parts:readRows('#cc-part-rows .cc-part','part').map(function(p){return p;})});
       var price=Number(m.purchasePrice);if(!Number.isFinite(price)||price<=0)throw new Error('Harga beli per lembar/roll belum diisi dan diverifikasi pada master material.');
       if(source==='stock'){
         var area=result.chargedAreaMm2/1000000,stockArea=result.sheetAreaMm2/1000000;
@@ -119,7 +118,7 @@ function calculate(){
       }
       summary='<b>'+result.sheetsUsed+' lembar/roll</b> · '+result.piecesCount+' komponen · yield '+result.yieldPercent.toFixed(1)+'% · estimasi offcut '+(result.offcutAreaMm2/1000000).toFixed(3)+' m².';
     }else if(activeMethod==='bar'){
-      result=E.calculateBarCutList({stockLengthMm:num('cc-stock-length'),kerfMm:num('cc-kerf')||0,wasteRate:waste,cuts:readRows('[data-cc-length]','cut')});
+      result=E.calculateBarCutList({stockLengthMm:num('cc-stock-length'),kerfMm:num('cc-kerf')||0,wasteRate:waste,cuts:readRows('#cc-cut-rows .cc-part','cut')});
       var barPrice=Number(m.purchasePrice);if(!Number.isFinite(barPrice)||barPrice<=0)throw new Error('Harga beli per batang belum diisi dan diverifikasi pada master material.');
       if(source==='stock'){
         var usedM=result.chargedLengthMm/1000,stockM=num('cc-stock-length')/1000;
