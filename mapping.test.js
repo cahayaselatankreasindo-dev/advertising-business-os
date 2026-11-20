@@ -237,6 +237,12 @@ if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
     ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoice_Payments','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Sales_Orders','Inventory_Transactions','Services'].sort(),
     'FIELD_MAP mencakup 16 tab');
+  eq(FIELD_MAP.Purchase_Orders.headers,
+    ['ID','ProjectID','NamaProyek','Supplier','Tanggal','ItemsJSON','Total','Status','CreatedAt','UpdatedAt','InventoryControlVersion'],
+    'Purchase Orders menambahkan versi kontrol penerimaan tanpa mengubah kolom lama');
+  eq(FIELD_MAP.Purchase_Orders.fields,
+    ['id','projectId','projectName','supplier','date','itemsJson','total','status','createdAt','updatedAt','inventoryControlVersion'],
+    'Purchase Orders inventory control version terpetakan');
   eq(FIELD_MAP.Inventory_Transactions.headers,
     ['ID','NomorTransaksi','MaterialID','NamaMaterial','JenisPergerakan','Qty','Satuan','Tanggal','ProjectID','NamaProyek','PurchaseOrderID','Supplier','Referensi','Catatan','CreatedAt','CreatedBy'],
     'FIELD_MAP.Inventory_Transactions mempertahankan append-only stock ledger');
