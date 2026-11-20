@@ -817,20 +817,28 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions) {
     var projectId = String(tx.projectId || "");
     if (["issue","return"].indexOf(String(tx.movement)) >= 0 && !projects.some(function(p) { return String(p.id) === projectId; })) throw new Error("INVENTORY_PROJECT_REQUIRED");
     if (["adjustment_in","adjustment_out"].indexOf(String(tx.movement)) >= 0 && !String(tx.notes || "").trim()) throw new Error("INVENTORY_ADJUSTMENT_REASON_REQUIRED");
-    if (String(tx.movement) === "receipt") {
+    var current = existing.find(function(row) { return String(row.id) === id; });
+    if (!current && String(tx.movement) === "receipt") {
       var poId = String(tx.purchaseOrderId || "");
       var supplier = String(tx.supplier || "").trim();
       if (!poId && !supplier) throw new Error("INVENTORY_RECEIPT_SOURCE_REQUIRED");
       if (poId) {
         var po = purchaseOrders.find(function(p) { return String(p.id) === poId; });
-        if (!po || String(po.status || "").toLowerCase() === "cancelled") throw new Error("INVENTORY_PURCHASE_ORDER_NOT_FOUND");
+        var poStatus = String(po && po.status || "").toLowerCase();
+        if (!po || ["ordered","received"].indexOf(poStatus) < 0) throw new Error("INVENTORY_PURCHASE_ORDER_NOT_READY_FOR_RECEIPT");
         var poItems = [];
         try { poItems = JSON.parse(po.itemsJson || "[]"); } catch (parseError) { poItems = []; }
-        if (!poItems.some(function(item) { return String(item.materialId) === String(tx.materialId); })) throw new Error("INVENTORY_MATERIAL_NOT_IN_PURCHASE_ORDER");
+        var poItem = poItems.find(function(item) { return String(item.materialId) === String(tx.materialId); });
+        if (!poItem) throw new Error("INVENTORY_MATERIAL_NOT_IN_PURCHASE_ORDER");
+        if (String(poItem.unit || "") !== String(tx.unit || "")) throw new Error("INVENTORY_PO_UNIT_MISMATCH");
+        var orderedQty = poItems.filter(function(item) { return String(item.materialId) === String(tx.materialId); })
+          .reduce(function(sum,item) { return sum + Math.max(0,Number(item.qty) || 0); },0);
+        var receivedQty = existing.concat(newRows).filter(function(row) {
+          return String(row.purchaseOrderId || "") === poId && String(row.materialId) === String(tx.materialId) && String(row.movement) === "receipt";
+        }).reduce(function(sum,row) { return sum + Math.max(0,Number(row.qty) || 0); },0);
+        if (receivedQty + qty > orderedQty + 0.000001) throw new Error("INVENTORY_RECEIPT_EXCEEDS_PURCHASE_ORDER");
       }
     }
-    if (String(tx.movement) === "opening" && existing.concat(newRows).some(function(row) { return String(row.materialId) === String(tx.materialId) && String(row.movement) === "opening"; })) throw new Error("INVENTORY_OPENING_ALREADY_EXISTS");
-    var current = existing.find(function(row) { return String(row.id) === id; });
     if (current) {
       var changed = immutableFields.some(function(field) { return String(current[field] == null ? "" : current[field]) !== String(tx[field] == null ? "" : tx[field]); });
       if (changed) throw new Error("INVENTORY_TRANSACTION_IMMUTABLE");
@@ -849,15 +857,17 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions) {
   });
   var balances = {};
   var openingSeen = {};
+  var movementSeen = {};
   ledger.forEach(function(tx) {
     var materialId = String(tx.materialId || "");
     var direction = movementDirection[String(tx.movement || "")];
     var before = Number(balances[materialId] || 0);
     if (String(tx.movement) === "opening") {
       if (openingSeen[materialId]) throw new Error("INVENTORY_OPENING_ALREADY_EXISTS");
-      if (before !== 0) throw new Error("INVENTORY_OPENING_MUST_BE_FIRST");
+      if (movementSeen[materialId]) throw new Error("INVENTORY_OPENING_MUST_BE_FIRST");
       openingSeen[materialId] = true;
     }
+    movementSeen[materialId] = true;
     var after = before + Number(tx.qty) * direction;
     if (after < -0.000001) throw new Error("INVENTORY_INSUFFICIENT_STOCK");
     balances[materialId] = Math.max(0, after);
