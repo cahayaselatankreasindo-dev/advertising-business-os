@@ -80,12 +80,15 @@ assert.match(backend,/validateInventoryTransactionsBeforeMerge_\(ss, payload\.in
 assert.match(backend,/INVENTORY_TRANSACTION_IMMUTABLE/,'backend prevents edits to existing stock transactions');
 assert.match(backend,/INVENTORY_INSUFFICIENT_STOCK/,'backend prevents negative stock');
 assert.match(backend,/INVENTORY_RECEIPT_EXCEEDS_PURCHASE_ORDER/,'backend caps receipts to PO quantity');
+assert.match(backend,/validatePurchaseOrderReceiptStatuses_/,'backend validates PO completion against inventory receipts');
+assert.match(backend,/PURCHASE_ORDER_RECEIPT_INCOMPLETE/,'PO cannot be marked received before all items are received');
 assert.match(backend,/INVENTORY_LEDGER_SERVER_ONLY/,'direct insert and delete are blocked');
 assert.match(guard,/inventoryTransactions/,'owner sync includes inventory ledger');
 assert.match(guard,/inventory/,'inventory navigation is Owner-only');
 assert.match(html,/id="page-inventory"/,'inventory page is mounted in Business OS');
 assert.match(html,/CSKInventoryBridge/,'inventory uses internal Business OS bridge');
 assert.match(ui,/validateTransaction/,'inventory UI validates transactions before save');
+assert.match(ui,/openInventoryReceiptFromPO/,'inventory UI supports PO-linked receiving');
 assert.match(sw,/inventory-engine\.js/,'inventory engine is cached');
 assert.match(sw,/inventory\.js/,'inventory UI is cached');
 assert.match(auth,/INVENTORY_LEDGER_SERVER_ONLY/,'backend RBAC test covers append-only inventory protection');
