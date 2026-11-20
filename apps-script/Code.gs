@@ -855,7 +855,7 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(Number(tx.qty))) throw new Error("INVALID_INVENTORY_QUANTITY");
     if (String(tx.unit || "") !== String(material.unit || "")) throw new Error("INVENTORY_UNIT_MISMATCH");
     var date = String(tx.date || "");
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) throw new Error("INVALID_INVENTORY_DATE");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("INVALID_INVENTORY_DATE");
     var parsedDate = new Date(date + "T00:00:00Z");
     if (isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10) !== date) throw new Error("INVALID_INVENTORY_DATE");
     var projectId = String(tx.projectId || "");
