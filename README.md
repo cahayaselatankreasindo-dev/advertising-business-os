@@ -219,3 +219,12 @@ Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke 
 - PO-linked receipts are checked against ordered materials, units, and cumulative PO quantities.
 - A PO can only be marked Received when all ordered quantities have been recorded in Inventory; cancellation is blocked after a receipt.
 - Stock reservation from HPP/Sales Orders, pick lists, reorder suggestions, purchase-unit conversion, offcut tracking, and stock valuation are subsequent phases.
+
+
+## HPP Material Planning & Draft Purchasing
+
+- Sales Orders compare saved HPP material requirements with physical stock.
+- HPP purchase-unit quantities convert to stock units only when a verified Material Master conversion factor exists.
+- The shortage view includes physical stock, existing Draft/Ordered PO coverage, and remaining purchase quantity.
+- Owner can create supplier-grouped Draft POs from uncovered shortages. Drafts are not issued automatically and require review.
+- Stock reservation across active Sales Orders and material pick lists are not yet enabled; the view reports physical stock only.
