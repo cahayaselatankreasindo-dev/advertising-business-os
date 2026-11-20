@@ -111,7 +111,7 @@ assert.match(html,/id="page-inventory"/,'inventory page is mounted in Business O
 assert.match(html,/CSKInventoryBridge/,'inventory uses internal Business OS bridge');
 assert.match(ui,/validateTransaction/,'inventory UI validates transactions before save');
 assert.match(ui,/openInventoryReceiptFromPO/,'inventory UI supports PO-linked receiving');
-assert.match(ui,/calculateHppRequirements/,'Sales Order material plan uses HPP and verified unit conversion');
+assert.match(salesUI,/calculateHppRequirements/,'Sales Order material plan uses HPP and verified unit conversion');
 assert.match(salesUI,/createDraftPOFromShortage/,'Sales Order can create supplier-grouped draft POs from HPP shortages');
 assert.match(salesUI,/openPurchaseOrderQty/,'shortage planner subtracts quantities already covered by draft or ordered POs');
 assert.match(salesUI,/Buat Draft PO dari Kekurangan/,'owner can start purchasing from the shortage panel');
