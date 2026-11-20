@@ -40,6 +40,10 @@ jobs:
           node --check sales-orders.js
           node --check sales-order-workflow.test.cjs
           node --check sales-order-backend.test.cjs
+          node --check inventory-engine.js
+          node --check inventory.js
+          node --check inventory-workflow.test.cjs
+          node --check inventory-backend.test.cjs
           node --check commercial-documents.test.cjs
           node --check commercial-workflow.test.cjs
           node --check mapping.test.js
@@ -59,6 +63,8 @@ jobs:
           node custom-costing-integration.test.cjs
           node sales-order-workflow.test.cjs
           node sales-order-backend.test.cjs
+          node inventory-workflow.test.cjs
+          node inventory-backend.test.cjs
       - name: Commercial workflow simulation
         run: node commercial-workflow.test.cjs
       - name: Backend security policy tests
