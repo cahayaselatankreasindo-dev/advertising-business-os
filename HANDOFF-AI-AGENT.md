@@ -156,3 +156,27 @@ node mapping.test.js    # 81 test, harus 0 gagal
 - **Jangan asumsi** file/fitur ada tanpa verifikasi. Selalu cek dulu.
 - **Jangan push ke Sheets** tanpa menampilkan list ke user dulu (user pernah marah
   karena 247 lead di-push tanpa konfirmasi).
+
+
+---
+
+## 6. Update — 20 November 2026: Custom costing and Sales Order workflow
+
+Current feature branch: `feature/hpp-material-conversion-20261120` in `cahayaselatankreasindo-dev/advertising-business-os`.
+
+Delivered in the feature branch:
+- Custom material costing for sheet/roll cut lists, profile/bar cut lists, pack conversion, area, linear length, and volume. Calculated costs can be added to HPP with price snapshots and costing details.
+- Reference material/product/service catalog and Owner-only activation controls.
+- Commercial quotation/invoice PDF improvements.
+- Owner-only Sales Order dashboard and approved quotation conversion.
+- Server-side Sales Order validation: one SO per approved quotation, immutable quotation snapshots, status transition controls, DP release gate from verified Invoice_Payments, and full-settlement gate before closure.
+- New `Sales_Orders` sheet schema; new data collection is Owner-only and excluded from Team payloads and responses.
+- Added regression tests and CI checks for custom costing, Sales Order engine, backend validation, and RBAC.
+
+Important boundaries:
+- The public Astro website repository is not modified.
+- No merge to main, production deployment, Apps Script deployment, or live Google Sheets schema migration has been performed.
+- The Sales Order phase does not yet reserve inventory, generate material pick lists, auto-create purchase requisitions, record receiving, track offcuts, or reconcile actual HPP.
+- Before production, run the Apps Script schema setup/migration with Owner approval and verify the new Sales_Orders tab plus one end-to-end test quotation and payment.
+
+Next phase: Inventory ledger, stock reservation, material requirements from HPP, purchasing requisitions, purchase order receiving, and offcut traceability. Keep each change inside this internal Business OS repository and its feature branch.
