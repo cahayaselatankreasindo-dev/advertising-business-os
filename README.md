@@ -208,3 +208,14 @@ Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke 
 - Closing is blocked until all linked invoices are fully paid.
 - Sales Orders are Owner-only. Team accounts do not receive the Sales Order collection.
 - Inventory reservation, material pick lists, automatic purchasing from shortages, and offcut tracking are planned next phases.
+
+
+## Inventory & Stock Ledger
+
+- Owner-only inventory balance and transaction history by material.
+- Movements: opening balance, receipt, project issue, project return, adjustment in/out.
+- Stock is measured in the material master usage unit; opening stock is never assumed.
+- The ledger is append-only. Corrections require a documented adjustment; stock cannot go negative.
+- PO-linked receipts are checked against ordered materials, units, and cumulative PO quantities.
+- A PO can only be marked Received when all ordered quantities have been recorded in Inventory; cancellation is blocked after a receipt.
+- Stock reservation from HPP/Sales Orders, pick lists, reorder suggestions, purchase-unit conversion, offcut tracking, and stock valuation are subsequent phases.
