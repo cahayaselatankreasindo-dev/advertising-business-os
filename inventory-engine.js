@@ -1,0 +1,91 @@
+'use strict';
+(function(root,factory){
+  var api=factory();
+  if(typeof module==='object'&&module.exports)module.exports=api;
+  if(root)root.CSKInventoryEngine=api;
+})(typeof globalThis!=='undefined'?globalThis:null,function(){
+  var MOVEMENTS={
+    opening:{label:'Saldo awal',direction:1},
+    receipt:{label:'Penerimaan',direction:1},
+    return:{label:'Retur dari proyek',direction:1},
+    issue:{label:'Pengeluaran ke proyek',direction:-1},
+    adjustment_in:{label:'Penyesuaian masuk',direction:1},
+    adjustment_out:{label:'Penyesuaian keluar',direction:-1}
+  };
+  function n(value){var x=Number(value);return Number.isFinite(x)?x:0;}
+  function localDate(value){
+    var d=value instanceof Date?value:new Date(value||Date.now());
+    return[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+  }
+  function nextTransactionNumber(rows,date){
+    var year=String(date||localDate()).slice(0,4);
+    var pattern=new RegExp('^STK-CSK-'+year+'-(\\d+)$'),max=0;
+    (Array.isArray(rows)?rows:[]).forEach(function(row){var m=pattern.exec(String(row.transactionNo||''));if(m)max=Math.max(max,Number(m[1])||0);});
+    return'STK-CSK-'+year+'-'+String(max+1).padStart(5,'0');
+  }
+  function sortTransactions(rows){
+    return(Array.isArray(rows)?rows:[]).slice().sort(function(a,b){
+      var dateA=String(a.date||'').slice(0,10),dateB=String(b.date||'').slice(0,10);
+      if(dateA!==dateB)return dateA.localeCompare(dateB);
+      var createdA=String(a.createdAt||''),createdB=String(b.createdAt||'');
+      if(createdA!==createdB)return createdA.localeCompare(createdB);
+      return String(a.id||'').localeCompare(String(b.id||''));
+    });
+  }
+  function calculateBalances(materials,transactions){
+    var materialMap=new Map((Array.isArray(materials)?materials:[]).map(function(m){return[String(m.id),m];}));
+    var balances={},openingSeen={};
+    sortTransactions(transactions).forEach(function(tx){
+      var materialId=String(tx.materialId||''),material=materialMap.get(materialId);
+      if(!material)throw new Error('Transaksi stok mengacu pada material yang tidak terdaftar: '+materialId);
+      var movement=MOVEMENTS[String(tx.movement||'')];
+      if(!movement)throw new Error('Jenis pergerakan stok tidak dikenal.');
+      var qty=n(tx.qty);
+      if(!Number.isFinite(Number(tx.qty))||qty<=0)throw new Error('Kuantitas transaksi stok harus lebih dari nol.');
+      if(String(tx.unit||'')!==String(material.unit||''))throw new Error('Satuan transaksi harus sama dengan satuan stok material ('+(material.unit||'-')+').');
+      if(tx.movement==='opening'){
+        if(openingSeen[materialId])throw new Error('Saldo awal hanya boleh dicatat satu kali untuk setiap material.');
+        openingSeen[materialId]=true;
+      }
+      var before=n(balances[materialId]),after=before+(qty*movement.direction);
+      if(after< -0.000001)throw new Error('Stok tidak mencukupi untuk '+(material.name||materialId)+'. Stok tersedia '+before+' '+(material.unit||'')+'.');
+      balances[materialId]=Math.max(0,after);
+    });
+    return balances;
+  }
+  function validateTransaction(input,context){
+    context=context||{};
+    var materials=Array.isArray(context.materials)?context.materials:[];
+    var projects=Array.isArray(context.projects)?context.projects:[];
+    var existing=Array.isArray(context.transactions)?context.transactions:[];
+    var material=materials.find(function(m){return String(m.id)===String(input&&input.materialId||'');});
+    if(!material)throw new Error('Pilih material yang terdaftar.');
+    if(!MOVEMENTS[input.movement])throw new Error('Pilih jenis transaksi stok yang valid.');
+    var qty=Number(input.qty);
+    if(!Number.isFinite(qty)||qty<=0)throw new Error('Kuantitas harus lebih dari nol.');
+    if(String(input.unit||'')!==String(material.unit||''))throw new Error('Satuan harus mengikuti satuan stok material: '+(material.unit||'-')+'.');
+    var date=String(input.date||'');
+    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date))throw new Error('Tanggal transaksi tidak valid.');
+    var projectId=String(input.projectId||'');
+    if(['issue','return'].indexOf(input.movement)>=0&&!projects.some(function(p){return String(p.id)===projectId;}))throw new Error('Pilih proyek untuk pengeluaran atau retur material.');
+    if(['adjustment_in','adjustment_out'].indexOf(input.movement)>=0&&!String(input.notes||'').trim())throw new Error('Alasan penyesuaian stok wajib diisi.');
+    if(input.movement==='receipt'&&!String(input.supplier||'').trim()&&!String(input.purchaseOrderId||'').trim())throw new Error('Isi supplier atau nomor Purchase Order untuk penerimaan.');
+    if(input.movement==='opening'&&existing.some(function(tx){return String(tx.materialId)===String(material.id)&&tx.movement==='opening';}))throw new Error('Saldo awal material ini sudah pernah dicatat.');
+    var transaction={
+      id:String(input.id||'ITX-'+Date.now()+'-'+Math.random().toString(36).slice(2,8).toUpperCase()),
+      transactionNo:String(input.transactionNo||nextTransactionNumber(existing,date)),
+      materialId:String(material.id),materialName:String(material.name||''),
+      movement:String(input.movement),qty:qty,unit:String(material.unit||''),
+      date:date,projectId:projectId,projectName:String((projects.find(function(p){return String(p.id)===projectId;})||{}).title||''),
+      purchaseOrderId:String(input.purchaseOrderId||''),supplier:String(input.supplier||''),
+      reference:String(input.reference||''),notes:String(input.notes||''),
+      createdAt:String(input.createdAt||new Date().toISOString()),createdBy:String(input.createdBy||'Owner')
+    };
+    if(transaction.notes.length>500||transaction.reference.length>120||transaction.supplier.length>160)throw new Error('Catatan, referensi, atau supplier terlalu panjang.');
+    var balances=calculateBalances(materials,existing.concat([transaction]));
+    return{transaction:transaction,balances:balances};
+  }
+  function getBalance(materialId,balances){return n((balances||{})[String(materialId)]);}
+  function movementLabel(value){return MOVEMENTS[value]?MOVEMENTS[value].label:String(value||'-');}
+  return{MOVEMENTS:MOVEMENTS,localDate:localDate,nextTransactionNumber:nextTransactionNumber,sortTransactions:sortTransactions,calculateBalances:calculateBalances,validateTransaction:validateTransaction,getBalance:getBalance,movementLabel:movementLabel};
+});
