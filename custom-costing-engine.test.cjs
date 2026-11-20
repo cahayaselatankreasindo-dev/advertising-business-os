@@ -64,7 +64,7 @@ assert.equal(linearCm.lineQty,50);
 assert.equal(linearCm.totalCost,5000);
 
 const volume=engine.calculateVolumeCost({widthMm:100,heightMm:100,depthMm:10,qty:2,unitPrice:1000000});
-assert.equal(volume.volumeM3,0.00002);
-assert.equal(volume.totalCost,20);
+assert.equal(volume.volumeM3,0.0002);
+assert.equal(volume.totalCost,200);
 
 console.log('CSK custom costing engine tests passed.');
