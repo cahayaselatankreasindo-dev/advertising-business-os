@@ -197,3 +197,14 @@ Backend dikirim melalui `clasp` dan deployment Web App yang sudah ada diperbarui
 Script memeriksa login PIN/RBAC, lalu memastikan Deployment ID yang diberikan memang terdaftar pada Script ID di `apps-script/.clasp.json` **sebelum** melakukan push. Jika project atau Deployment ID tidak cocok, proses berhenti tanpa mengirim kode. Setelah push, script meminta konfirmasi `PIN-READY` dan hanya memperbarui deployment yang ditentukan; tidak membuat deployment baru dan tidak menyentuh data Google Sheets.
 
 Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke repository.
+
+
+## Sales Order & Production Workflow
+
+- Approved quotations can be converted into one linked Sales Order; duplicate orders from the same quotation are blocked.
+- Sales Orders retain a commercial snapshot of the approved quotation and linked project.
+- Production release is blocked until the agreed DP is recorded in the verified invoice payment ledger.
+- Workflow: Awaiting DP → Ready Production → In Production → Quality Control → Ready Delivery → Delivered → Closed. QC can send work back to production for rework.
+- Closing is blocked until all linked invoices are fully paid.
+- Sales Orders are Owner-only. Team accounts do not receive the Sales Order collection.
+- Inventory reservation, material pick lists, automatic purchasing from shortages, and offcut tracking are planned next phases.
