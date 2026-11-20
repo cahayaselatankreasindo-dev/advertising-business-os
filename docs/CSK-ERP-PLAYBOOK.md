@@ -285,7 +285,7 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - The reference catalog is not a live supplier price list. No supplier prices are invented or preloaded.
 - Catalog families and variant dimensions must be reconciled with the actual brands, sizes, grades, and stock units used by CSK suppliers.
 - The live Google Apps Script deployment and production Google Sheet have not been migrated by this feature branch.
-- Advanced nesting optimization, stock/offcut inventory reservation and traceability, and full Sales Order workflow remain subsequent implementation phases. The current custom cut-list engine is an estimate and requires workshop validation.
+- Advanced nesting optimization, stock/offcut inventory reservation and traceability, and automatic purchasing from production requirements remain subsequent implementation phases. The current custom cut-list engine is an estimate and requires workshop validation.
 
 
 ## 14. Custom costing foundation — 20 November 2026
@@ -314,3 +314,38 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - Stock/offcut mode is a proportional cost allocation. Actual inventory reservations and offcut traceability are part of the inventory phase.
 - Waste allowance is applied conservatively per component line; owner should calibrate it against actual workshop yield.
 - Validate sample outputs with CSK's real acrylic, plywood, hollow, flexi, and accessory purchase invoices before using the result in customer quotations.
+
+
+## 15. Sales Order and production workflow — 20 November 2026
+
+### Delivered on the internal Business OS feature branch
+- Added an Owner-only Sales Order dashboard and a direct conversion action on approved quotations.
+- A quotation can create only one Sales Order. Creation is idempotent and reuses/creates the linked project before persisting the order.
+- Sales Order snapshots retain quotation number, client contact, project, order date, target delivery date, line items, total value, DP percentage, required DP amount, notes, and status history.
+- Added a dedicated `Sales_Orders` Google Sheets tab. The tab is appended to the existing data contract; no existing sheet columns are moved or rewritten.
+- Sales Order data is included in Owner sync and read-back verification. Team sessions do not receive Sales Order data and cannot write it through generic sync.
+- Production release is gated by actual, server-verified invoice payments linked to the approved quotation. An invoice being issued or a lead becoming Deal Won does not count as cash received.
+- Workflow statuses: `awaiting_dp` → `ready_production` → `in_production` → `quality_check` → `ready_delivery` → `delivered` → `closed`. QC may return an order to production for rework. Cancellation is allowed only before production begins.
+- Closing requires all linked invoices to be fully paid in the server-side payment ledger.
+- Server validates quotation approval, project linkage, one-order-per-quotation, immutable quotation/item/value snapshots, unique order numbers, allowed status transitions, verified DP, and fully paid closure.
+- Added engine tests, backend validation tests, RBAC tests, mapping tests, and CI checks.
+
+### Operational flow
+1. Owner approves a quotation in Commercial Document Center.
+2. Owner creates or opens its Sales Order. The system links the project and freezes the commercial snapshot.
+3. Owner issues/opens the linked invoice and records DP only after funds are actually received.
+4. Owner moves the order to Ready Production only after verified payments meet the agreed DP threshold.
+5. Owner tracks production, QC, rework if needed, delivery, and final closure.
+6. The order can be closed only after delivery and full settlement of linked invoices.
+
+### Not yet included
+- Inventory reservation and decrement of stock when a Sales Order enters production.
+- BOM/material requirement explosion from approved HPP into material pick lists.
+- Automatic PR/PO creation from shortages, receiving notes, supplier invoice matching, and stock ledger reconciliation.
+- Offcut/leftover stock identification and traceability.
+- Actual-versus-estimated HPP and job profitability reconciliation.
+
+### Safety and release boundary
+- Changes are confined to `advertising-business-os` on the existing feature branch. The public Astro website repository and its deployment are untouched.
+- No production Google Sheet migration, Apps Script deployment, branch merge, or production release has been performed.
+- Before release, run Apps Script schema setup/migration under owner supervision, verify the new Sales_Orders tab, test a sample approved quotation and actual DP payment, and manually check desktop/iPhone UI.
