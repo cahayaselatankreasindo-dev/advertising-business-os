@@ -89,8 +89,8 @@ var FIELD_MAP = {
     fields: ["id", "name", "category", "spec", "basePrice", "updatedAt", "sku", "unit", "costingMethod", "costPrice", "supplierId", "supplierName", "status", "notes", "recordType"]
   },
   Purchase_Orders: {
-    headers: ["ID", "ProjectID", "NamaProyek", "Supplier", "Tanggal", "ItemsJSON", "Total", "Status", "CreatedAt", "UpdatedAt"],
-    fields: ["id", "projectId", "projectName", "supplier", "date", "itemsJson", "total", "status", "createdAt", "updatedAt"]
+    headers: ["ID", "ProjectID", "NamaProyek", "Supplier", "Tanggal", "ItemsJSON", "Total", "Status", "CreatedAt", "UpdatedAt", "InventoryControlVersion"],
+    fields: ["id", "projectId", "projectName", "supplier", "date", "itemsJson", "total", "status", "createdAt", "updatedAt", "inventoryControlVersion"]
   },
   Sales_Orders: {
     headers: ["ID", "NomorSO", "QuotationID", "NomorQuotation", "ProjectID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "TanggalOrder", "TanggalPengiriman", "ItemsJSON", "Total", "DPPersen", "DPWajib", "Status", "RiwayatJSON", "Catatan", "CreatedAt", "UpdatedAt"],
@@ -803,7 +803,9 @@ function validatePurchaseOrderReceiptStatuses_(ss, incomingPurchaseOrders, incom
     }
     var received = ledger.filter(function(tx) { return String(tx.purchaseOrderId || "") === poId && String(tx.movement) === "receipt"; });
     if (status === "cancelled" && received.length) throw new Error("PURCHASE_ORDER_CANNOT_CANCEL_AFTER_RECEIPT");
-    if (status === "received") {
+    var existingVersion = Number(existing && existing.inventoryControlVersion || 0);
+    var incomingVersion = Number(incomingPO.inventoryControlVersion || existingVersion || 0);
+    if (status === "received" && incomingVersion >= 1) {
       if (!items.length) throw new Error("PURCHASE_ORDER_RECEIPT_INCOMPLETE");
       var expected = {};
       items.forEach(function(item) {
