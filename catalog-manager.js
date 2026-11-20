@@ -165,7 +165,7 @@ function saveMaterialFromCatalog(){
     purchaseUnit:purchaseUnit,purchasePrice:purchasePrice,conversionFactor:factor,
     costingMethod:family.costingMethod,supplierName:supplier,supplierId:'',
     thicknessMm:familyAttributes.thicknessMm||'',widthMm:familyAttributes.sheetSizes&&familyAttributes.sheetSizes.widthMm||familyAttributes.rollWidthsMm||'',
-    lengthMm:familyAttributes.sheetSizes&&familyAttributes.sheetSizes.lengthMm||familyAttributes.rollLengthsM||familyAttributes.standardLengthMm||'',diameterMm:familyAttributes.diameterMm||'',color:familyAttributes.colors||familyAttributes.color||'',
+    lengthMm:familyAttributes.sheetSizes&&familyAttributes.sheetSizes.lengthMm||familyAttributes.standardLengthMm||'',rollLengthM:familyAttributes.rollLengthsM||'',diameterMm:familyAttributes.diameterMm||'',color:familyAttributes.colors||familyAttributes.color||'',
     minimumOrder:1,wasteRate:waste,priceSource:source,priceDate:date,status:'active',notes:'Diaktifkan dari katalog referensi CSK.',updatedAt:now
   };
   materials.push(record);
