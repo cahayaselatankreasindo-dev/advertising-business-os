@@ -53,6 +53,7 @@ function restoreAllMaterialOptions(){
  if(!select)return;
  select.innerHTML='<option value="">Pilih material</option>'+d.materials.slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));}).map(function(m){return'<option value="'+esc(m.id)+'">'+esc(m.name)+' · '+esc(m.unit||'-')+'</option>';}).join('');
  if(qtyInput){qtyInput.disabled=false;qtyInput.removeAttribute('max');}
+ var supplier=el('inv-supplier');if(supplier)supplier.value='';
  var save=el('inv-save');if(save)save.disabled=false;
  updateUnitHint();
 }
@@ -82,6 +83,14 @@ function applyPurchaseOrderSelection(poId){
 function updateUnitHint(){
  var d=data(),m=d.materials.find(function(x){return String(x.id)===String(el('inv-material')&&el('inv-material').value);});
  var hint=el('inv-unit-hint');if(hint)hint.textContent=m?'Satuan stok: '+(m.unit||'-')+'. Kuantitas wajib dicatat dalam satuan ini.':'Pilih material untuk melihat satuan stok.';
+ var poId=el('inv-po')&&el('inv-po').value,qtyInput=el('inv-qty');
+ if(poId&&m&&qtyInput){
+  var po=d.purchaseOrders.find(function(p){return String(p.id)===String(poId);});
+  var ordered=purchaseOrderItems(po).filter(function(item){return String(item.materialId)===String(m.id);}).reduce(function(sum,item){return sum+n(item.qty);},0);
+  var received=(d.inventoryTransactions||[]).filter(function(tx){return String(tx.purchaseOrderId||'')===String(poId)&&String(tx.materialId)===String(m.id)&&tx.movement==='receipt';}).reduce(function(sum,tx){return sum+n(tx.qty);},0);
+  var remaining=Math.max(0,ordered-received);qtyInput.max=remaining;
+  if(Number(qtyInput.value)>remaining)qtyInput.value=remaining;
+ }
 }
 function updateMovementFields(){
  var type=el('inv-movement')&&el('inv-movement').value;
