@@ -32,6 +32,10 @@ jobs:
           node --check catalog-seed.test.cjs
           node --check catalog-manager.js
           node --check catalog-manager.test.cjs
+          node --check custom-costing-engine.js
+          node --check custom-costing.js
+          node --check custom-costing-engine.test.cjs
+          node --check custom-costing-integration.test.cjs
           node --check commercial-documents.test.cjs
           node --check commercial-workflow.test.cjs
           node --check mapping.test.js
@@ -47,6 +51,8 @@ jobs:
           node csk-pdf.test.cjs
           node catalog-seed.test.cjs
           node catalog-manager.test.cjs
+          node custom-costing-engine.test.cjs
+          node custom-costing-integration.test.cjs
       - name: Commercial workflow simulation
         run: node commercial-workflow.test.cjs
       - name: Backend security policy tests
