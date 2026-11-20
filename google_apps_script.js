@@ -77,8 +77,8 @@ var FIELD_MAP = {
   Materials: {
     // Kolom lama dipertahankan di posisi awal; atribut costing ditambahkan di kanan.
     // unit = satuan pemakaian; unitPrice = harga per satuan pemakaian (kompatibel dengan HPP lama).
-    headers: ["ID", "Nama", "Satuan", "HargaSatuan", "UpdatedAt", "SKU", "Kategori", "Subkategori", "Merek", "Grade", "Spesifikasi", "Warna", "KetebalanMm", "LebarMm", "PanjangMm", "DiameterMm", "SatuanBeli", "HargaBeli", "FaktorKonversi", "MetodeCosting", "SupplierID", "SupplierNama", "MinimumOrder", "WasteRate", "SumberHarga", "TanggalHarga", "Status", "Catatan"],
-    fields: ["id", "name", "unit", "unitPrice", "updatedAt", "sku", "category", "subcategory", "brand", "grade", "spec", "color", "thicknessMm", "widthMm", "lengthMm", "diameterMm", "purchaseUnit", "purchasePrice", "conversionFactor", "costingMethod", "supplierId", "supplierName", "minimumOrder", "wasteRate", "priceSource", "priceDate", "status", "notes"]
+    headers: ["ID", "Nama", "Satuan", "HargaSatuan", "UpdatedAt", "SKU", "Kategori", "Subkategori", "Merek", "Grade", "Spesifikasi", "Warna", "KetebalanMm", "LebarMm", "PanjangMm", "DiameterMm", "SatuanBeli", "HargaBeli", "FaktorKonversi", "MetodeCosting", "SupplierID", "SupplierNama", "MinimumOrder", "WasteRate", "SumberHarga", "TanggalHarga", "Status", "Catatan", "RollLengthM"],
+    fields: ["id", "name", "unit", "unitPrice", "updatedAt", "sku", "category", "subcategory", "brand", "grade", "spec", "color", "thicknessMm", "widthMm", "lengthMm", "diameterMm", "purchaseUnit", "purchasePrice", "conversionFactor", "costingMethod", "supplierId", "supplierName", "minimumOrder", "wasteRate", "priceSource", "priceDate", "status", "notes", "rollLengthM"]
   },
   Cost_Sheets: {
     headers: ["ID", "ProjectID", "NamaProyek", "ItemsJSON", "MaterialTotal", "TenagaKerja", "BiayaLain", "Margin", "TotalHPP", "HargaPenawaran", "EstimasiLaba", "UpdatedAt"],
