@@ -1304,7 +1304,7 @@ function cskAssertPayloadAllowed_(identity, payload) {
   // Enforce this on the server so hiding a button cannot be bypassed from the browser.
   if (action === "delete" && role !== "owner") throw new Error("FORBIDDEN_DELETE");
   if ((action === "insert" || action === "delete") && String(payload.sheet || "") === "Invoice_Payments") throw new Error("PAYMENT_LEDGER_SERVER_ONLY");
-  if ((action === "insert" || action === "delete") && String(payload.sheet || "") === "Inventory_Transactions") throw new Error("INVENTORY_LEDGER_SERVER_ONLY");
+  if (String(payload.sheet || "") === "Inventory_Transactions" && action !== "sync_all") throw new Error("INVENTORY_LEDGER_SERVER_ONLY");
   if (action === "record_invoice_payment") {
     if (role !== "owner") throw new Error("FORBIDDEN_PAYMENT_WRITE");
     if (!payload.payment || typeof payload.payment !== "object") throw new Error("PAYMENT_REQUIRED");
