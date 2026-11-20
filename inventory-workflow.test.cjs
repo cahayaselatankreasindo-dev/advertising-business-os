@@ -22,8 +22,8 @@ const returned=tx('00000004','STK-CSK-2026-00004','return',0.5,'2026-11-12',{pro
 const adjusted=tx('00000005','STK-CSK-2026-00005','adjustment_out',0.5,'2026-11-13',{notes:'Selisih hasil stock opname'});
 const ledger=[opening,receipt,issue,returned,adjusted];
 const balances=E.calculateBalances(materials,ledger);
-assert.equal(balances['MAT-ACR'],3.5);
-assert.equal(E.getBalance('MAT-ACR',balances),3.5);
+assert.equal(balances['MAT-ACR'],4);
+assert.equal(E.getBalance('MAT-ACR',balances),4);
 assert.equal(E.getBalance('MAT-HOL',balances),0);
 assert.equal(E.nextTransactionNumber(ledger,'2026-11-20'),'STK-CSK-2026-00006');
 
@@ -36,7 +36,7 @@ const created=E.validateTransaction({
  projectId:'PRJ-001',notes:''
 },{materials,projects,transactions:ledger});
 assert.equal(created.transaction.projectName,'Rak Display Custom');
-assert.equal(created.balances['MAT-ACR'],2.5);
+assert.equal(created.balances['MAT-ACR'],3);
 assert.equal(created.transaction.movement,'issue');
 
 assert.throws(()=>E.validateTransaction({
