@@ -386,3 +386,20 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - Changes remain inside `advertising-business-os`; the public Astro website repository and deployment remain untouched.
 - No production Google Sheet migration, Apps Script deployment, branch merge, or production release has been performed.
 - Before release, create/verify the `Inventory_Transactions` tab through the Apps Script schema setup, load verified opening stock, and test a receipt linked to a real ordered PO plus a project issue.
+
+
+## 17. HPP material demand and shortage-driven draft purchasing — 20 November 2026
+
+### Delivered on the internal Business OS feature branch
+- Sales Order detail now reads the project's saved HPP and compares its material lines with physical stock from the Inventory ledger.
+- HPP quantities are normalized to the Material Master stock unit. If the HPP line uses the material usage unit, quantity is used directly; if it uses the purchase unit, the verified `conversionFactor` converts it into stock units. Unknown or missing conversions are surfaced as errors rather than guessed.
+- The material plan displays required quantity, physical stock, shortage, quantity already covered by Draft/Ordered POs, and remaining quantity still to purchase.
+- Owner can create Draft Purchase Orders from uncovered shortages. Lines are grouped by the supplier recorded in Material Master, use the material stock unit and its current master unit price, and remain Draft for Owner review.
+- Existing Draft/Ordered PO quantities are subtracted so the same project/material shortage is not automatically ordered twice.
+- Draft PO creation does not issue the PO, reserve stock, or change physical inventory. Owner must review supplier, price, quantities, and then mark the PO as Ordered.
+
+### Operational boundary
+- Physical stock is not reduced by other Sales Orders because stock reservation has not yet been implemented. The planner explicitly labels stock as physical and not reserved.
+- Draft PO suggestions depend on complete supplier and unit-price data in Material Master. Missing data blocks generation and must be corrected first.
+- Master unit price is a planning snapshot; reconfirm supplier quotations before issuing a PO.
+- Automatic reservation, pick lists, stock issue from reservations, and actual-versus-estimated HPP remain future phases.
