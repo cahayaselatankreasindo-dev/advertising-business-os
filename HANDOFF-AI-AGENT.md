@@ -216,3 +216,7 @@ Limitations:
 - Supplier and unit-price master data must be complete and current; verify before issuing POs.
 - Draft PO generation does not reserve stock, issue orders, or update physical stock.
 - Public Astro website repository remains untouched; no production deployment, Apps Script deployment, live migration, or merge has occurred.
+
+
+### Compatibility note — Purchase Orders
+New POs created by the current app carry `inventoryControlVersion: 1` and must satisfy receipt-ledger completion before status Received. Historical POs without the version field are exempt from the new completion gate so they do not block the first sync after deployment. Existing legacy data is not auto-converted into stock; only verified inventory transactions affect balances.
