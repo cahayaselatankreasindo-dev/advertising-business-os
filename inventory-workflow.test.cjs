@@ -115,7 +115,7 @@ assert.match(salesUI,/calculateHppRequirements/,'Sales Order material plan uses 
 assert.match(salesUI,/createDraftPOFromShortage/,'Sales Order can create supplier-grouped draft POs from HPP shortages');
 assert.match(salesUI,/openPurchaseOrderQty/,'shortage planner subtracts quantities already covered by draft or ordered POs');
 assert.match(salesUI,/Buat Draft PO dari Kekurangan/,'owner can start purchasing from the shortage panel');
-assert.match(ui,/belum dikurangi reservasi order lain/,'material planner distinguishes physical stock from reservations');
+assert.match(salesUI,/belum dikurangi reservasi order lain/,'material planner distinguishes physical stock from reservations');
 assert.match(sw,/inventory-engine\.js/,'inventory engine is cached');
 assert.match(sw,/inventory\.js/,'inventory UI is cached');
 assert.match(auth,/INVENTORY_LEDGER_SERVER_ONLY/,'backend RBAC test covers append-only inventory protection');
