@@ -105,7 +105,7 @@ function extractBackendFunction(name) {
 const roleSandbox = {
   FIELD_MAP: {
     Leads: {}, Clients: {}, Projects: {}, Invoices: {},
-    Commercial_Quotations: {}, Finance: {}, Invoice_Payments: {}
+    Commercial_Quotations: {}, Finance: {}, Invoice_Payments: {}, Sales_Orders: {}
   }
 };
 vm.runInNewContext(
@@ -163,7 +163,7 @@ const teamData = roleSandbox.filterData(roleData, 'team');
 assert.deepEqual(Object.keys(teamData).sort(), ['clients', 'lastSynced', 'leads', 'projects']);
 assert.equal(teamData.invoices, undefined, 'Team does not receive commercial invoices');
 assert.equal(teamData.quotations, undefined, 'Team does not receive commercial quotations');
-assert.equal(teamData.invoicePayments, undefined, 'Team does not receive payment ledger');
+assert.equal(teamData.invoicePayments, undefined, 'Team does not receive payment ledger');\nassert.equal(teamData.salesOrders, undefined, 'Team does not receive Sales Orders');
 assert.equal(roleSandbox.filterData(roleData, 'owner'), roleData, 'Owner receives the full authorized dataset');
 
 console.log('CSK PIN authentication, server-side RBAC, safe migration, and outbound-email safety checks passed.');
