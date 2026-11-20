@@ -15,7 +15,7 @@ const mixed=engine.calculateSheetCutList({
   sheetWidthMm:1220,sheetHeightMm:2440,kerfMm:3,wasteRate:10,allowRotation:true,
   parts:[{widthMm:600,heightMm:400,qty:2},{widthMm:300,heightMm:200,qty:2}]
 });
-assert.equal(mixed.piecesCount,5,'waste allowance rounds spare piece quantities upward');
+assert.equal(mixed.piecesCount,6,'waste allowance rounds each component quantity upward before nesting');
 assert.ok(mixed.sheetsUsed>=1);
 
 assert.throws(()=>engine.calculateSheetCutList({
