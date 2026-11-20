@@ -235,8 +235,14 @@ const FIELD_MAP = sandbox.FIELD_MAP;
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
-    ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoice_Payments','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Services'].sort(),
-    'FIELD_MAP mencakup 14 tab');
+    ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoice_Payments','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Sales_Orders','Services'].sort(),
+    'FIELD_MAP mencakup 15 tab');
+  eq(FIELD_MAP.Sales_Orders.headers,
+    ['ID','NomorSO','QuotationID','NomorQuotation','ProjectID','NamaProyek','Klien','WhatsAppKlien','EmailKlien','TanggalOrder','TanggalPengiriman','ItemsJSON','Total','DPPersen','DPWajib','Status','RiwayatJSON','Catatan','CreatedAt','UpdatedAt'],
+    'FIELD_MAP.Sales_Orders mempertahankan snapshot order dan riwayat');
+  eq(FIELD_MAP.Sales_Orders.fields,
+    ['id','orderNo','quotationId','quotationNo','projectId','projectName','client','clientPhone','clientEmail','orderDate','deliveryDate','itemsJson','total','dpPercent','dpRequiredAmount','status','historyJson','notes','createdAt','updatedAt'],
+    'FIELD_MAP.Sales_Orders fields terpetakan lengkap');
   eq(FIELD_MAP.Leads.headers.slice(-3),
     ['NextFollowUp','LastContactAt','FollowUpNote'],
     'FIELD_MAP.Leads menambahkan field follow-up di kanan');
