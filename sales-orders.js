@@ -1,6 +1,6 @@
 (function(w){
 'use strict';
-var rootId='page-sales-orders',filter='all',bound=false;
+var rootId='sales-orders-app',filter='all',bound=false;
 function bridge(){return w.CSKSalesOrderBridge||null;}
 function el(id){return w.document.getElementById(id);}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
