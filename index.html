@@ -368,6 +368,9 @@
       <button onclick="nav('documents')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-file-text-o w-5 text-amber-400"></i> Dokumen · Quotation & Invoice
       </button>
+      <button onclick="nav('sales-orders')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
+        <i class="fa fa-clipboard-check w-5 text-emerald-400"></i> Sales Order & Produksi
+      </button>
       <button onclick="nav('clients')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition">
         <i class="fa fa-users w-5 text-indigo-400"></i> Pilar 4 · Klien (PMF)
       </button>
@@ -674,6 +677,13 @@
         <div id="documents-projects-container" class="space-y-3"></div>
       </section>
 
+      <!-- SALES ORDER & PRODUCTION WORKFLOW -->
+      <section id="page-sales-orders" class="page-content hidden space-y-6">
+        <div><span class="inline-flex px-2 py-1 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase">Order Management</span><h1 class="text-2xl font-bold text-slate-900 mt-2">Sales Order & Production Workflow</h1><p class="text-sm text-slate-500">Kelola pesanan yang sudah disetujui, verifikasi DP, pantau produksi, QC, pengiriman, hingga penutupan order.</p></div>
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><b>Kontrol produksi:</b> status produksi hanya dapat dimulai setelah pembayaran DP benar-benar tercatat dan terverifikasi melalui Invoice Payment Ledger. Status Deal Won atau invoice terbit bukan bukti uang diterima.</div>
+        <div id="sales-orders-app" class="space-y-5"><div class="bg-white border rounded-xl p-6 text-sm text-slate-500">Memuat Sales Order...</div></div>
+      </section>
+
       <!-- 5. FINANCE (Pilar 2 — Jurnal Keuangan) -->
       <section id="page-finance" class="page-content hidden space-y-6 pillar-finance">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -889,6 +899,7 @@
         <div class="flex items-center justify-between mb-4"><div><div class="font-bold text-base">Semua Modul</div><div class="text-xs text-slate-500 mt-1">Akses operasional CSK</div></div><button onclick="toggleMobileMore(false)" class="w-9 h-9 rounded-full bg-stone-100"><i class="fa fa-times"></i></button></div>
         <div class="csk-mobile-more-grid">
           <button onclick="mobileGo('documents')"><i class="fa fa-file-text-o"></i>Quotation & Invoice</button>
+          <button onclick="mobileGo('sales-orders')"><i class="fa fa-clipboard-check"></i>Sales Order & Produksi</button>
           <button onclick="mobileGo('services')"><i class="fa fa-cubes"></i>Layanan CSK</button>
           <button onclick="mobileGo('purchasing')"><i class="fa fa-shopping-cart"></i>Purchasing & PO</button>
           <button onclick="mobileGo('clients')"><i class="fa fa-users"></i>Klien</button>
@@ -1406,6 +1417,7 @@
       quotations: [],
       invoices: [],
       invoicePayments: [],
+      salesOrders: [],
       settings: {
         googleSheetUrl: '',
         lastSync: ''
@@ -1437,6 +1449,7 @@
           db.quotations = parsed.quotations || [];
           db.invoices = parsed.invoices || [];
           db.invoicePayments = parsed.invoicePayments || [];
+          db.salesOrders = parsed.salesOrders || [];
           db.settings       = parsed.settings       || { googleSheetUrl: '', lastSync: '' };
           db.role           = parsed.role           || 'owner';
         } catch (e) {
@@ -1570,6 +1583,7 @@
         if (page === 'hpp') renderHpp();
         if (page === 'services') renderServices();
         if (page === 'purchasing') renderPurchasing();
+        if (page === 'sales-orders' && typeof window.renderSalesOrders === 'function') window.renderSalesOrders();
       } catch (error) {
         console.error('CSK page render failed:', page, error);
         if (typeof showToast === 'function') showToast('Halaman terbuka, tetapi data gagal dimuat. Muat ulang halaman.', true);
@@ -3220,6 +3234,22 @@
       // Saat aplikasi dibuka: tarik & gabungkan data dari cloud (AMAN, tidak menimpa)
       pullAndMerge();
     });
+    window.CSKSalesOrderBridge = {
+      getData: function () {
+        return { quotations: db.quotations || [], invoices: db.invoices || [], invoicePayments: db.invoicePayments || [], projects: db.projects || [], salesOrders: db.salesOrders || [] };
+      },
+      isOwner: function () { return isOwnerSession(); },
+      getIdentity: function () { return window.CSKAuth && window.CSKAuth.getIdentity ? window.CSKAuth.getIdentity() : null; },
+      save: async function () {
+        saveDB(true);
+        if (!window.CSKAuth || !window.CSKAuth.isReady || !window.CSKAuth.isReady()) throw new Error("Login dan koneksi Google Sheets harus aktif sebelum menyimpan Sales Order.");
+        var verified = await window.CSKAuth.sync(true);
+        if (!verified) throw new Error("Sales Order belum terverifikasi di Google Sheets. Periksa koneksi lalu sinkronkan kembali.");
+        return true;
+      },
+      toast: function (message, isError) { showToast(message, !!isError); }
+    };
+
     window.CSKCustomCostingBridge = {
       getMaterials: function () { return Array.isArray(db.materials) ? db.materials : []; },
       getCurrentProjectId: function () { const node=document.getElementById('hpp-project'); return node ? node.value : ''; },
@@ -3246,6 +3276,8 @@
   <script src="./custom-costing-engine.js"></script>
   <script src="./custom-costing.js"></script>
   <script src="./commercial-documents.js"></script>
+  <script src="./sales-order-engine.js"></script>
+  <script src="./sales-orders.js"></script>
   <script src="./crm-upgrade.js"></script>
 </body>
 </html>
