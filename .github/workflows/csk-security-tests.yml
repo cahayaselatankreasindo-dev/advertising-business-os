@@ -53,6 +53,7 @@ jobs:
           node --check crm-upgrade.test.cjs
           node --check deal-conversion.test.cjs
           node --check csk-visual-refresh.test.cjs
+          node --check csk-ui-components.test.cjs
       - name: Mapping and RBAC integration tests
         run: node mapping.test.js
       - name: Commercial Document Center tests
@@ -85,3 +86,5 @@ jobs:
         run: node photo-lab.test.cjs
       - name: CSK colorful UI visual-system tests
         run: node csk-visual-refresh.test.cjs
+      - name: CSK shared UI component tests
+        run: node csk-ui-components.test.cjs
