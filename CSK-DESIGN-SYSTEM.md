@@ -48,3 +48,7 @@ Colorful premium business software: lively and recognisable, but calm enough for
 
 ## Safety boundary
 These CSS layers are additive. Do not change business calculations, authentication, data sync, Google Sheets schemas, PDF output, or production deployments as part of a visual-only task.
+
+
+## Authentication screen
+The existing GAS login gate uses the same CSK brand language: deep indigo backdrop, orange/pink/violet action gradient, light form surface, clear focus states, and a compact Owner/Team access note. Keep the screen visually consistent with the app. Styling must not change authentication logic or credential handling.
