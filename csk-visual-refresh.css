@@ -1,0 +1,363 @@
+/* CSK Business OS — Colorful Studio UI
+   Visual-only layer: no data, workflow, authentication, or sync logic changes. */
+:root {
+  --csk-ui-canvas: #F5F7FC;
+  --csk-ui-surface: #FFFFFF;
+  --csk-ui-ink: #182033;
+  --csk-ui-muted: #68738A;
+  --csk-ui-line: #E5E9F2;
+  --csk-ui-orange: #F97316;
+  --csk-ui-violet: #7C3AED;
+  --csk-ui-blue: #2563EB;
+  --csk-ui-cyan: #0891B2;
+  --csk-ui-green: #059669;
+  --csk-ui-pink: #DB2777;
+  --csk-ui-yellow: #D97706;
+  --csk-ui-radius: 18px;
+  --csk-ui-shadow: 0 10px 28px rgba(30, 41, 59, .07);
+}
+
+html, body {
+  background: var(--csk-ui-canvas) !important;
+  color: var(--csk-ui-ink);
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 92% 2%, rgba(124, 58, 237, .09), transparent 25rem),
+    radial-gradient(circle at 2% 40%, rgba(8, 145, 178, .07), transparent 22rem) !important;
+}
+
+/* Desktop navigation: energetic CSK indigo with a clear orange-pink active state. */
+body > aside {
+  background: linear-gradient(165deg, #171A3A 0%, #25205A 55%, #38216D 100%) !important;
+  color: #E8EAF7 !important;
+  border-right: 0 !important;
+  box-shadow: 10px 0 32px rgba(28, 20, 65, .10);
+}
+
+body > aside > div:first-child,
+body > aside > div:nth-child(2),
+body > aside > div:last-child {
+  border-color: rgba(255, 255, 255, .12) !important;
+}
+
+body > aside .text-white { color: #FFFFFF !important; }
+body > aside .text-amber-500 { color: #FBBF24 !important; }
+body > aside .text-slate-500 { color: #B9BCE0 !important; }
+body > aside .text-slate-400 { color: #D5D7EA !important; }
+
+body > aside nav .nav-btn {
+  color: #D9DDF0 !important;
+  border-radius: 13px !important;
+  min-height: 43px;
+  margin: 3px 0;
+  padding: 10px 12px !important;
+  transition: background .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+
+body > aside nav .nav-btn:hover {
+  background: rgba(255, 255, 255, .11) !important;
+  color: #FFFFFF !important;
+  transform: translateX(2px);
+}
+
+body > aside nav .nav-btn.active,
+body > aside nav .nav-btn.bg-slate-800 {
+  background: linear-gradient(105deg, #F97316 0%, #EC4899 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 8px 18px rgba(236, 72, 153, .24);
+  font-weight: 700 !important;
+}
+
+body > aside nav .nav-btn.active i,
+body > aside nav .nav-btn.bg-slate-800 i { color: #FFFFFF !important; }
+
+body > aside nav .nav-btn i {
+  width: 22px;
+  font-size: 15px;
+}
+
+/* Each business area gets a recognisable colour without changing its workflow. */
+body > aside nav button[onclick="nav('dashboard')"] i { color: #FBBF24 !important; }
+body > aside nav button[onclick="nav('leads')"] i { color: #60A5FA !important; }
+body > aside nav button[onclick="nav('finance')"] i { color: #34D399 !important; }
+body > aside nav button[onclick="nav('projects')"] i { color: #38BDF8 !important; }
+body > aside nav button[onclick="nav('services')"] i { color: #C4B5FD !important; }
+body > aside nav button[onclick="nav('purchasing')"] i { color: #FDBA74 !important; }
+body > aside nav button[onclick="nav('hpp')"] i { color: #67E8F9 !important; }
+body > aside nav button[onclick="nav('documents')"] i { color: #FDE68A !important; }
+body > aside nav button[onclick="nav('sales-orders')"] i { color: #86EFAC !important; }
+body > aside nav button[onclick="nav('inventory')"] i { color: #5EEAD4 !important; }
+body > aside nav button[onclick="nav('clients')"] i { color: #A5B4FC !important; }
+body > aside nav button[onclick="nav('marketing')"] i { color: #F9A8D4 !important; }
+body > aside nav button[onclick="nav('analysis')"] i { color: #D8B4FE !important; }
+body > aside nav button[onclick="nav('settings')"] i { color: #CBD5E1 !important; }
+
+body > aside nav .nav-btn.active i,
+body > aside nav .nav-btn.bg-slate-800 i { color: #FFFFFF !important; }
+
+body > aside button[onclick="syncWithGoogle()"] {
+  background: rgba(255, 255, 255, .10) !important;
+  border: 1px solid rgba(255, 255, 255, .16);
+  color: #FDE68A !important;
+  border-radius: 11px !important;
+}
+
+/* Main workspace: light, colourful, and easy to scan for long work sessions. */
+main.flex-1.overflow-y-auto {
+  background: transparent !important;
+}
+
+main .page-content {
+  color: var(--csk-ui-ink);
+}
+
+main .page-content h1,
+main .page-content h2,
+main .page-content h3 {
+  color: #202746;
+}
+
+main .page-content .bg-white {
+  border-color: var(--csk-ui-line) !important;
+  border-radius: var(--csk-ui-radius) !important;
+  box-shadow: var(--csk-ui-shadow) !important;
+}
+
+main .page-content .bg-white:hover {
+  box-shadow: 0 14px 34px rgba(30, 41, 59, .09) !important;
+}
+
+main .page-content input,
+main .page-content select,
+main .page-content textarea {
+  border-color: #DCE2EE !important;
+  border-radius: 11px !important;
+  background-color: #FFFFFF;
+}
+
+main .page-content input:focus,
+main .page-content select:focus,
+main .page-content textarea:focus {
+  outline: 3px solid rgba(124, 58, 237, .13) !important;
+  border-color: #8B5CF6 !important;
+}
+
+main .page-content button {
+  border-radius: 11px;
+  transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+}
+
+main .page-content button:hover {
+  filter: saturate(1.08);
+}
+
+main .page-content button:focus-visible,
+body > aside button:focus-visible,
+nav.pillar-mobile-nav button:focus-visible {
+  outline: 3px solid rgba(124, 58, 237, .42) !important;
+  outline-offset: 2px;
+}
+
+/* Dashboard hero: the colourful signature of the CSK workspace. */
+#page-dashboard > div:first-child {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 25px 27px;
+  border: 0 !important;
+  border-radius: 23px !important;
+  background: linear-gradient(112deg, #F97316 0%, #EC4899 48%, #7C3AED 100%) !important;
+  box-shadow: 0 16px 34px rgba(124, 58, 237, .18) !important;
+}
+
+#page-dashboard > div:first-child::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 230px;
+  height: 230px;
+  right: -55px;
+  top: -115px;
+  border: 34px solid rgba(255, 255, 255, .13);
+  border-radius: 50%;
+  box-shadow: 0 0 0 28px rgba(255, 255, 255, .07);
+}
+
+#page-dashboard > div:first-child h1 {
+  color: #FFFFFF !important;
+  letter-spacing: -.045em;
+}
+
+#page-dashboard > div:first-child p {
+  color: rgba(255, 255, 255, .88) !important;
+}
+
+#page-dashboard > div:first-child > div,
+#page-dashboard > div:first-child button {
+  position: relative;
+  z-index: 1;
+}
+
+#page-dashboard > div:first-child button {
+  background: rgba(255, 255, 255, .16) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255, 255, 255, .30) !important;
+  box-shadow: 0 4px 12px rgba(58, 24, 82, .10) !important;
+  backdrop-filter: blur(8px);
+}
+
+#page-dashboard > div:first-child button:hover {
+  background: rgba(255, 255, 255, .26) !important;
+  transform: translateY(-2px);
+}
+
+/* KPI cards: five distinct pastel accents make key numbers glanceable. */
+#page-dashboard > .grid.grid-cols-2 > div {
+  position: relative;
+  overflow: hidden;
+  min-height: 124px;
+  border: 1px solid var(--csk-ui-line) !important;
+  border-top: 4px solid var(--csk-ui-blue) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 8px 22px rgba(30, 41, 59, .055) !important;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+#page-dashboard > .grid.grid-cols-2 > div:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px rgba(30, 41, 59, .10) !important;
+}
+
+#page-dashboard > .grid.grid-cols-2 > div:nth-child(1) {
+  background: linear-gradient(145deg, #EFF6FF 0%, #FFFFFF 78%) !important;
+  border-top-color: #3B82F6 !important;
+}
+#page-dashboard > .grid.grid-cols-2 > div:nth-child(2) {
+  background: linear-gradient(145deg, #ECFDF5 0%, #FFFFFF 78%) !important;
+  border-top-color: #10B981 !important;
+}
+#page-dashboard > .grid.grid-cols-2 > div:nth-child(3) {
+  background: linear-gradient(145deg, #ECFEFF 0%, #FFFFFF 78%) !important;
+  border-top-color: #06B6D4 !important;
+}
+#page-dashboard > .grid.grid-cols-2 > div:nth-child(4) {
+  background: linear-gradient(145deg, #FFFBEB 0%, #FFFFFF 78%) !important;
+  border-top-color: #F59E0B !important;
+}
+#page-dashboard > .grid.grid-cols-2 > div:nth-child(5) {
+  background: linear-gradient(145deg, #FDF2F8 0%, #FFFFFF 78%) !important;
+  border-top-color: #EC4899 !important;
+}
+
+#page-dashboard > .grid.grid-cols-1 > div {
+  border-top: 3px solid #A78BFA !important;
+}
+
+#page-dashboard > .pillar-marketing {
+  background: linear-gradient(115deg, #FFF1F2 0%, #FDF2F8 52%, #FFFFFF 100%) !important;
+  border: 1px solid #FBCFE8 !important;
+}
+
+/* Consistent table hierarchy across CRM, inventory, purchasing and finance. */
+main .page-content table thead {
+  background: linear-gradient(90deg, #F1F5FF 0%, #F5F3FF 100%);
+}
+
+main .page-content table thead th {
+  color: #4B4B78;
+  font-weight: 700;
+  letter-spacing: .025em;
+}
+
+main .page-content table tbody tr {
+  transition: background-color .15s ease;
+}
+
+main .page-content table tbody tr:hover {
+  background: #F7F5FF;
+}
+
+/* Mobile: retain the colour system without crowding the working area. */
+.csk-brand-header {
+  background: linear-gradient(105deg, #FFFFFF 0%, #FFF7ED 62%, #F5F3FF 100%) !important;
+  border-bottom: 1px solid #E9E5F2 !important;
+  box-shadow: 0 4px 16px rgba(39, 32, 90, .055);
+}
+
+.csk-brand-header .csk-brand-action {
+  background: #FFFFFF !important;
+  border-color: #E5DDF7 !important;
+  color: #4C367D !important;
+}
+
+nav.pillar-mobile-nav {
+  background: rgba(255, 255, 255, .97) !important;
+  border-top: 1px solid #E6E4F0 !important;
+  box-shadow: 0 -8px 24px rgba(39, 32, 90, .08) !important;
+  backdrop-filter: blur(16px);
+}
+
+nav.pillar-mobile-nav .mob-btn {
+  border-radius: 12px;
+  color: #788097 !important;
+}
+
+nav.pillar-mobile-nav .mob-btn[aria-current="page"] {
+  color: #6D28D9 !important;
+  background: linear-gradient(135deg, #F3E8FF 0%, #FFF1E6 100%) !important;
+}
+
+nav.pillar-mobile-nav .mob-btn[aria-current="page"] i {
+  color: #EA580C !important;
+}
+
+@media (max-width: 767px) {
+  #page-dashboard > div:first-child {
+    padding: 19px 18px;
+    border-radius: 19px !important;
+  }
+
+  #page-dashboard > div:first-child h1 {
+    font-size: 22px !important;
+  }
+
+  #page-dashboard > div:first-child > div:last-child {
+    gap: 7px !important;
+  }
+
+  #page-dashboard > div:first-child button {
+    min-height: 42px;
+    border-radius: 11px !important;
+  }
+
+  #page-dashboard > .grid.grid-cols-2 > div {
+    min-height: 112px;
+    padding: 13px !important;
+  }
+
+  main .page-content .bg-white {
+    border-radius: 16px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+@media print {
+  body { background: #FFFFFF !important; }
+  #page-dashboard > div:first-child {
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
