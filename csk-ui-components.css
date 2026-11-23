@@ -1,0 +1,424 @@
+/* CSK Business OS — reusable page, form, card and navigation components.
+   Additive visual layer only. Business logic and DOM event handlers are untouched. */
+
+:root {
+  --csk-page-accent: #7C3AED;
+  --csk-page-accent-strong: #6D28D9;
+  --csk-page-wash: #F5F3FF;
+  --csk-page-border: #DDD6FE;
+  --csk-page-ink: #24213F;
+}
+
+/* Module colour identity. Keep each page's colour consistent across its header,
+   actions and small visual markers. */
+#page-leads { --csk-page-accent:#3B82F6; --csk-page-accent-strong:#1D4ED8; --csk-page-wash:#EFF6FF; --csk-page-border:#BFDBFE; }
+#page-clients { --csk-page-accent:#6366F1; --csk-page-accent-strong:#4338CA; --csk-page-wash:#EEF2FF; --csk-page-border:#C7D2FE; }
+#page-projects { --csk-page-accent:#10B981; --csk-page-accent-strong:#047857; --csk-page-wash:#ECFDF5; --csk-page-border:#A7F3D0; }
+#page-services { --csk-page-accent:#8B5CF6; --csk-page-accent-strong:#6D28D9; --csk-page-wash:#F5F3FF; --csk-page-border:#DDD6FE; }
+#page-purchasing { --csk-page-accent:#F59E0B; --csk-page-accent-strong:#B45309; --csk-page-wash:#FFFBEB; --csk-page-border:#FDE68A; }
+#page-hpp { --csk-page-accent:#06B6D4; --csk-page-accent-strong:#0E7490; --csk-page-wash:#ECFEFF; --csk-page-border:#A5F3FC; }
+#page-documents { --csk-page-accent:#F59E0B; --csk-page-accent-strong:#B45309; --csk-page-wash:#FFFBEB; --csk-page-border:#FDE68A; }
+#page-sales-orders { --csk-page-accent:#059669; --csk-page-accent-strong:#047857; --csk-page-wash:#ECFDF5; --csk-page-border:#A7F3D0; }
+#page-inventory { --csk-page-accent:#0D9488; --csk-page-accent-strong:#0F766E; --csk-page-wash:#F0FDFA; --csk-page-border:#99F6E4; }
+#page-finance { --csk-page-accent:#059669; --csk-page-accent-strong:#047857; --csk-page-wash:#ECFDF5; --csk-page-border:#A7F3D0; }
+#page-marketing { --csk-page-accent:#EC4899; --csk-page-accent-strong:#BE185D; --csk-page-wash:#FDF2F8; --csk-page-border:#FBCFE8; }
+#page-memory { --csk-page-accent:#D97706; --csk-page-accent-strong:#92400E; --csk-page-wash:#FFFBEB; --csk-page-border:#FDE68A; }
+#page-analysis { --csk-page-accent:#8B5CF6; --csk-page-accent-strong:#6D28D9; --csk-page-wash:#F5F3FF; --csk-page-border:#DDD6FE; }
+#page-settings { --csk-page-accent:#64748B; --csk-page-accent-strong:#334155; --csk-page-wash:#F1F5F9; --csk-page-border:#CBD5E1; }
+
+/* A consistent page header gives every module a recognisable starting point. */
+main .page-content:not(#page-dashboard) > div:first-child {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 19px 22px !important;
+  border: 1px solid var(--csk-page-border) !important;
+  border-left: 4px solid var(--csk-page-accent) !important;
+  border-radius: 19px !important;
+  background: linear-gradient(112deg, var(--csk-page-wash) 0%, #FFFFFF 78%) !important;
+  box-shadow: 0 8px 22px rgba(30, 41, 59, .045) !important;
+}
+
+main .page-content:not(#page-dashboard) > div:first-child::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 130px;
+  height: 130px;
+  right: -52px;
+  bottom: -86px;
+  border: 20px solid color-mix(in srgb, var(--csk-page-accent) 10%, transparent);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+main .page-content:not(#page-dashboard) > div:first-child h1 {
+  color: #202746 !important;
+  font-size: clamp(21px, 2vw, 27px) !important;
+  line-height: 1.2 !important;
+  letter-spacing: -.035em;
+  font-weight: 800 !important;
+}
+
+main .page-content:not(#page-dashboard) > div:first-child p {
+  color: #64708A !important;
+  max-width: 780px;
+  line-height: 1.6;
+}
+
+main .page-content:not(#page-dashboard) > div:first-child .pillar-badge,
+main .page-content:not(#page-dashboard) > div:first-child > span {
+  color: var(--csk-page-accent-strong) !important;
+  background: color-mix(in srgb, var(--csk-page-accent) 12%, white) !important;
+  border: 1px solid color-mix(in srgb, var(--csk-page-accent) 20%, white);
+  border-radius: 999px !important;
+  letter-spacing: .045em;
+}
+
+/* Header actions inherit the active module colour. */
+main .page-content:not(#page-dashboard) > div:first-child button {
+  background: linear-gradient(105deg, var(--csk-page-accent) 0%, var(--csk-page-accent-strong) 100%) !important;
+  color: #FFFFFF !important;
+  border: 0 !important;
+  box-shadow: 0 7px 15px color-mix(in srgb, var(--csk-page-accent) 22%, transparent) !important;
+}
+
+main .page-content:not(#page-dashboard) > div:first-child button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px color-mix(in srgb, var(--csk-page-accent) 28%, transparent) !important;
+}
+
+/* Reusable content cards: soft elevation, clear edges and a calmer hover response. */
+main .page-content .bg-white {
+  background-color: var(--csk-ui-surface, #FFFFFF) !important;
+  border-color: var(--csk-ui-line, #E5E9F2) !important;
+  box-shadow: 0 8px 22px rgba(30, 41, 59, .055) !important;
+}
+
+main .page-content .bg-white h2,
+main .page-content .bg-white h3 {
+  letter-spacing: -.015em;
+}
+
+main .page-content:not(#page-dashboard) > .grid > .bg-white,
+main .page-content:not(#page-dashboard) > .bg-white {
+  border-top: 3px solid var(--csk-page-accent) !important;
+}
+
+main .page-content .border-b,
+main .page-content .border-t,
+main .page-content .divide-y > * {
+  border-color: #E9ECF4 !important;
+}
+
+/* Forms: larger touch targets, stronger labels, visible focus and readable errors. */
+main .page-content label,
+#modal-lead label,
+#modal-client label,
+#modal-project label,
+#modal-finance label,
+#modal-marketing label,
+#modal-memory label {
+  color: #47516A;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+main .page-content input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+main .page-content select,
+main .page-content textarea,
+#modal-lead input,
+#modal-lead select,
+#modal-lead textarea,
+#modal-client input,
+#modal-client select,
+#modal-client textarea,
+#modal-project input,
+#modal-project select,
+#modal-project textarea,
+#modal-finance input,
+#modal-finance select,
+#modal-finance textarea,
+#modal-marketing input,
+#modal-marketing select,
+#modal-marketing textarea,
+#modal-memory input,
+#modal-memory select,
+#modal-memory textarea {
+  border: 1px solid #DCE2EE !important;
+  border-radius: 11px !important;
+  background: #FFFFFF !important;
+  color: #202746;
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+main .page-content input::placeholder,
+main .page-content textarea::placeholder,
+#modal-lead input::placeholder,
+#modal-client input::placeholder,
+#modal-project input::placeholder,
+#modal-finance input::placeholder,
+#modal-marketing input::placeholder,
+#modal-memory input::placeholder {
+  color: #9AA3B5;
+}
+
+main .page-content input:focus,
+main .page-content select:focus,
+main .page-content textarea:focus,
+#modal-lead input:focus,
+#modal-lead select:focus,
+#modal-lead textarea:focus,
+#modal-client input:focus,
+#modal-client select:focus,
+#modal-client textarea:focus,
+#modal-project input:focus,
+#modal-project select:focus,
+#modal-project textarea:focus,
+#modal-finance input:focus,
+#modal-finance select:focus,
+#modal-finance textarea:focus,
+#modal-marketing input:focus,
+#modal-marketing select:focus,
+#modal-marketing textarea:focus,
+#modal-memory input:focus,
+#modal-memory select:focus,
+#modal-memory textarea:focus {
+  border-color: #8B5CF6 !important;
+  outline: 0 !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, .13) !important;
+}
+
+main .page-content input[type="checkbox"],
+main .page-content input[type="radio"] {
+  accent-color: #7C3AED;
+}
+
+/* Filter chips and compact actions. */
+main .page-content .lead-filter-btn {
+  border-radius: 999px !important;
+  min-height: 35px;
+  white-space: nowrap;
+  transition: background .16s ease, color .16s ease, box-shadow .16s ease;
+}
+
+main .page-content .lead-filter-btn.bg-slate-900,
+main .page-content .lead-filter-btn[aria-pressed="true"] {
+  background: linear-gradient(105deg, #7C3AED, #EC4899) !important;
+  border-color: transparent !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 5px 12px rgba(124, 58, 237, .18);
+}
+
+main .page-content button:not(:disabled) {
+  cursor: pointer;
+}
+
+main .page-content button:disabled {
+  cursor: not-allowed;
+  filter: grayscale(.25);
+  opacity: .58;
+}
+
+/* Tables should feel like a business application, not raw spreadsheet output. */
+main .page-content table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+main .page-content table thead th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  background: linear-gradient(90deg, #F1F5FF 0%, #F5F3FF 100%);
+  color: #505A76;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .045em;
+}
+
+main .page-content table tbody td {
+  border-bottom: 1px solid #EEF0F6;
+  color: #3F4961;
+}
+
+main .page-content table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+main .page-content table tbody tr:hover td {
+  background: #FAF9FF;
+}
+
+/* Modals: keep forms focused and make the document studio feel distinct. */
+#modal-lead,
+#modal-client,
+#modal-project,
+#modal-finance,
+#modal-marketing,
+#modal-memory {
+  background: rgba(20, 24, 49, .62) !important;
+  backdrop-filter: blur(8px);
+}
+
+#modal-lead > div,
+#modal-client > div,
+#modal-project > div,
+#modal-finance > div,
+#modal-marketing > div,
+#modal-memory > div {
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 22px !important;
+  box-shadow: 0 28px 80px rgba(16, 24, 50, .24) !important;
+}
+
+#modal-lead > div > div:first-child,
+#modal-client > div > div:first-child,
+#modal-project > div > div:first-child,
+#modal-finance > div > div:first-child,
+#modal-marketing > div > div:first-child,
+#modal-memory > div > div:first-child {
+  border-color: #ECEEF5 !important;
+}
+
+#modal-invoice > div {
+  border: 1px solid #E6E8F0;
+  border-radius: 20px !important;
+  box-shadow: 0 28px 80px rgba(16, 24, 50, .28) !important;
+}
+
+#modal-invoice .no-print:first-child {
+  background: linear-gradient(105deg, #211B4A 0%, #35216B 65%, #7C2D7A 100%) !important;
+}
+
+/* Mobile "Lainnya" sheet: consistent with the indigo/orange product identity. */
+#csk-mobile-more {
+  background: rgba(23, 26, 58, .48) !important;
+  backdrop-filter: blur(5px);
+}
+
+#csk-mobile-more .csk-mobile-more-panel {
+  border: 1px solid #E8E5F2;
+  background: linear-gradient(150deg, #FFFFFF 0%, #FFF7ED 58%, #F5F3FF 100%) !important;
+  box-shadow: 0 -16px 46px rgba(32, 24, 72, .16) !important;
+}
+
+#csk-mobile-more .csk-mobile-more-grid button {
+  background: #FFFFFF !important;
+  border-color: #E7E5F0 !important;
+  border-radius: 15px !important;
+  box-shadow: 0 4px 12px rgba(31, 41, 55, .045);
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+
+#csk-mobile-more .csk-mobile-more-grid button:active {
+  transform: scale(.98);
+  box-shadow: 0 2px 6px rgba(31, 41, 55, .08);
+}
+
+#csk-mobile-more .csk-mobile-more-grid button:nth-child(3n+1) i { color: #7C3AED !important; }
+#csk-mobile-more .csk-mobile-more-grid button:nth-child(3n+2) i { color: #EC4899 !important; }
+#csk-mobile-more .csk-mobile-more-grid button:nth-child(3n) i { color: #F97316 !important; }
+
+nav.pillar-mobile-nav .mob-btn {
+  min-height: 50px;
+  border-radius: 13px !important;
+  transition: background .16s ease, color .16s ease;
+}
+
+nav.pillar-mobile-nav .mob-btn[aria-current="page"] {
+  background: linear-gradient(135deg, #F3E8FF 0%, #FFF1E6 100%) !important;
+  color: #5B21B6 !important;
+  box-shadow: inset 0 0 0 1px rgba(124, 58, 237, .08);
+}
+
+nav.pillar-mobile-nav .mob-btn[aria-current="page"] i {
+  color: #EA580C !important;
+}
+
+/* Save/sync toast is deliberately high-contrast and easy to notice. */
+#toast {
+  border: 1px solid rgba(255, 255, 255, .16);
+  background: linear-gradient(105deg, #211B4A 0%, #35216B 100%) !important;
+  box-shadow: 0 12px 34px rgba(25, 22, 57, .24) !important;
+  border-radius: 14px !important;
+  padding: 12px 16px !important;
+}
+
+/* Charts and data areas keep a little breathing room. */
+main .page-content canvas {
+  max-width: 100%;
+}
+
+main .page-content .overflow-x-auto {
+  border-radius: 13px;
+  scrollbar-width: thin;
+  scrollbar-color: #C4B5FD #F4F3FA;
+}
+
+main .page-content .overflow-x-auto::-webkit-scrollbar {
+  height: 7px;
+}
+
+main .page-content .overflow-x-auto::-webkit-scrollbar-thumb {
+  background: #C4B5FD;
+  border-radius: 999px;
+}
+
+@media (max-width: 767px) {
+  main .page-content:not(#page-dashboard) > div:first-child {
+    padding: 16px 16px !important;
+    border-radius: 16px !important;
+  }
+
+  main .page-content:not(#page-dashboard) > div:first-child h1 {
+    font-size: 21px !important;
+  }
+
+  main .page-content:not(#page-dashboard) > div:first-child p {
+    font-size: 12px !important;
+  }
+
+  main .page-content .lead-filter-btn {
+    min-height: 38px;
+  }
+
+  #modal-lead > div,
+  #modal-client > div,
+  #modal-project > div,
+  #modal-finance > div,
+  #modal-marketing > div,
+  #modal-memory > div {
+    border-radius: 19px !important;
+    padding: 17px !important;
+  }
+
+  #csk-mobile-more .csk-mobile-more-grid {
+    gap: 8px;
+  }
+
+  #csk-mobile-more .csk-mobile-more-grid button {
+    min-height: 72px;
+    padding: 8px 5px;
+    font-size: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main .page-content *,
+  #csk-mobile-more *,
+  nav.pillar-mobile-nav * {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+@media print {
+  main .page-content:not(#page-dashboard) > div:first-child {
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
