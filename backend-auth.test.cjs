@@ -247,11 +247,11 @@ const throttleSandbox = {
   Date: { now: () => authClock }
 };
 vm.runInNewContext(
-  extractBackendFunction('cskHex_') +
-  extractBackendFunction('cskLoginStateKey_') +
-  extractBackendFunction('cskReadLoginState_') +
-  extractBackendFunction('cskCheckLoginLock_') +
-  extractBackendFunction('cskRecordLoginFailure_') +
+  extractBackendFunction('cskHex_') + '\n' +
+  extractBackendFunction('cskLoginStateKey_') + '\n' +
+  extractBackendFunction('cskReadLoginState_') + '\n' +
+  extractBackendFunction('cskCheckLoginLock_') + '\n' +
+  extractBackendFunction('cskRecordLoginFailure_') + '\n' +
   extractBackendFunction('cskClearLoginFailures_') +
   '\nthis.checkLoginLock = cskCheckLoginLock_;' +
   '\nthis.recordLoginFailure = cskRecordLoginFailure_;' +
