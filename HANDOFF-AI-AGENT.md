@@ -220,3 +220,34 @@ Limitations:
 
 ### Compatibility note — Purchase Orders
 New POs created by the current app carry `inventoryControlVersion: 1` and must satisfy receipt-ledger completion before status Received. Historical POs without the version field are exempt from the new completion gate so they do not block the first sync after deployment. Existing legacy data is not auto-converted into stock; only verified inventory transactions affect balances.
+
+## 9. Update — 24 November 2026: Visual refresh and modernization direction
+
+Current UI development branch: `feature/csk-colorful-ui-20261124`, based on `feature/hpp-material-conversion-20261120`.
+
+Delivered:
+- Added `csk-visual-refresh.css` as a visual-only design layer.
+- Loaded the stylesheet from `index.html` and changed the PWA theme colour to CSK orange.
+- Added a colourful but professional palette: deep indigo shell, CSK orange brand accent, and distinct blue/emerald/cyan/violet/pink/amber module accents.
+- Restyled the desktop sidebar, dashboard hero, five KPI cards, content cards, tables, form focus states, and mobile navigation.
+- Added reduced-motion and keyboard-focus treatments.
+- Added `csk-visual-refresh.test.cjs` and included it in `.github/workflows/csk-security-tests.yml`.
+- Added `CSK-BUSINESS-OS-ROADMAP.md` documenting the product workflow, target architecture, data model, business invariants, UI direction, and staged migration plan.
+
+Verification:
+- GitHub Actions run 440 passed, including all existing regression suites and the new visual-system test.
+- GitHub Actions run 441 passed after the roadmap was added.
+- These are source/CI checks; a real browser visual review across desktop, Android, and iPhone is still required.
+
+Architecture decision:
+- Do not rebuild the current Business OS from scratch.
+- Keep the existing HTML/JavaScript + Apps Script + Google Sheets implementation as the reference baseline while improving the UI and auditing its data contract.
+- Supabase PostgreSQL + Auth + Storage + Edge Functions is the recommended target for a staged modernization, but no CSK Supabase project is currently provisioned in the connected account.
+- Do not create a new Supabase project until the owner selects the organization and reviews any quoted cost.
+- Do not dual-write transactions to Sheets and Supabase. Keep one authoritative source at a time and use an isolated migration rehearsal before cutover.
+
+Safety boundary:
+- This branch is isolated and has not been merged to `main`.
+- No public CSK website, production Google Sheet, Apps Script deployment, Script Properties, or production database was modified.
+- No Supabase project, schema migration, or production cutover was created/performed.
+
