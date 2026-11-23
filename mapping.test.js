@@ -104,6 +104,7 @@ const PropertiesServiceStub = {
     return {
       getProperty(k) { return (k in _props) ? _props[k] : null; },
       setProperty(k, v) { _props[k] = v; },
+      deleteProperty(k) { delete _props[k]; },
       setProperties(values, deleteAll) {
         if (deleteAll) Object.keys(_props).forEach(k => delete _props[k]);
         Object.assign(_props, values);
