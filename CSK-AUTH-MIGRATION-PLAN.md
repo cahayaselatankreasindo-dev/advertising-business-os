@@ -8,7 +8,7 @@
 
 The repository currently implements:
 
-- Email + **8–12 digit PIN** login, not a conventional password form.
+- Email + **4 digit PIN** login after credential rotation. Existing 8–12 digit credentials remain temporarily compatible until the Owner rotates them through Apps Script.
 - Owner and Team identities are allow-listed in the Apps Script backend.
 - PINs are salted and hashed in Apps Script Script Properties; plaintext PINs are not stored.
 - Five failed attempts trigger a temporary 15-minute login lock.
@@ -20,7 +20,7 @@ The repository currently implements:
 
 ## 2. Do not copy the old PIN hash into Supabase Auth
 
-The current Apps Script PIN hash is a custom salted, repeated SHA-256 construction. Supabase Auth uses its own password-hashing and account lifecycle mechanisms. The existing hash is not a portable Supabase password credential.
+The current Apps Script PIN hash is a custom salted, repeated SHA-256 construction. Supabase Auth uses its own password-hashing and account lifecycle mechanisms. The existing hash is not a portable Supabase password credential. The current short-PIN policy is exactly 4 digits; legacy 8–12 digit hashes are accepted only until the Owner rotates credentials on the new Apps Script version.
 
 **Correct migration:**
 1. Keep the current GAS PIN login active while the Supabase development project is prepared.
