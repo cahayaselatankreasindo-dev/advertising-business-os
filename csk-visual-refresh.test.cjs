@@ -4,9 +4,12 @@ const fs = require('node:fs');
 
 const html = fs.readFileSync('index.html', 'utf8');
 const css = fs.readFileSync('csk-visual-refresh.css', 'utf8');
+const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
 
 assert.match(html, /<link rel="stylesheet" href="\.\/csk-visual-refresh\.css">/,
   'the visual refresh stylesheet must be loaded by the app');
+assert.equal(manifest.theme_color, '#F97316', 'the installed PWA should use the CSK orange accent');
+assert.equal(manifest.background_color, '#F5F7FC', 'the installed PWA splash should use the new canvas colour');
 assert.match(html, /<meta name="theme-color" content="#F97316">/,
   'the PWA browser chrome should use the CSK orange accent');
 
