@@ -113,7 +113,11 @@ The first Supabase version should preserve the current Owner/Team boundary. More
 - Test RLS with at least Owner, Team and unauthenticated users using pgTAP or equivalent integration tests.
 - Keep customer-facing PDFs and private internal HPP documents in private Storage buckets with scoped access policies.
 
-## 6. Migration mapping decisions still requiring validation
+## 6. Authentication migration
+
+Use the staged approach in `CSK-AUTH-MIGRATION-PLAN.md`. Do not copy the Apps Script PIN hash into Supabase Auth; provision each existing email exactly once and let the user set a new strong password through Supabase invitation/recovery. Keep GAS as the only production auth provider until the Supabase-backed data API and RLS are ready. Avoid a production dual-login design. At cutover, switch authentication and data API together; if a hybrid bridge is temporarily unavoidable, verify Supabase access tokens server-side and fetch the role from the protected profile. Never trust browser-supplied roles or put access tokens in URL query parameters.
+
+## 7. Migration mapping decisions still requiring validation
 
 1. Whether `Quotations` (HPP-generated snapshot) and `Commercial_Quotations` (customer-facing document center) become one quotation entity with version/source type, or remain separate document classes linked to one project.
 2. How existing client names in `Projects` and documents map to canonical `clients` records when names are duplicated or inconsistent.
@@ -123,7 +127,7 @@ The first Supabase version should preserve the current Owner/Team boundary. More
 6. Whether existing material price and conversion fields have complete historical effective dates.
 7. Whether document PDFs are stored externally and need a private Storage migration or only metadata references.
 
-## 7. Implementation sequence
+## 8. Implementation sequence
 
 1. Confirm the CSK Supabase organization, project owner, plan and acceptable recurring cost.
 2. Create an isolated development project only after that confirmation.
@@ -135,7 +139,7 @@ The first Supabase version should preserve the current Owner/Team boundary. More
 8. Freeze old writes, take a final backup, migrate, verify, then switch the app to the single authoritative database.
 9. Keep a documented rollback path and a read-only Sheets archive.
 
-## 8. Official documentation to re-check during implementation
+## 9. Official documentation to re-check during implementation
 
 - [Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security)
 - [Postgres Roles](https://supabase.com/docs/guides/database/postgres/roles)
