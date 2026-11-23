@@ -1308,8 +1308,10 @@ function cskLoginWithPin_(email, pin, sessionId) {
   var expected = role ? String(props.getProperty(prefix + "_PIN_HASH") || "") : "";
   var actual = cskHashPin_(pin, salt);
   if (!role || !salt || !expected || !cskConstantTimeEquals_(actual, expected)) {
-    if (role && cskRecordLoginFailure_(email)) throw new Error("LOGIN_LOCKED_15_MIN");
-    if (role) cskRecordLoginFailure_(email);
+    if (role) {
+      var isLocked = cskRecordLoginFailure_(email);
+      if (isLocked) throw new Error("LOGIN_LOCKED_15_MIN");
+    }
     throw new Error("LOGIN_INVALID");
   }
 
