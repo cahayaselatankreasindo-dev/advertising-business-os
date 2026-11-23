@@ -422,3 +422,175 @@ main .page-content .overflow-x-auto::-webkit-scrollbar-thumb {
     print-color-adjust: exact;
   }
 }
+
+
+/* Authentication gate — the first screen should feel like the same CSK product. */
+#csk-auth-gate {
+  background:
+    radial-gradient(circle at 15% 12%, rgba(249, 115, 22, .34), transparent 25rem),
+    radial-gradient(circle at 88% 82%, rgba(236, 72, 153, .28), transparent 24rem),
+    linear-gradient(135deg, #171A3A 0%, #29205F 54%, #49216C 100%) !important;
+}
+
+#csk-auth-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: min(100%, 430px) !important;
+  padding: 31px !important;
+  border: 1px solid rgba(255, 255, 255, .78) !important;
+  border-radius: 25px !important;
+  background: linear-gradient(150deg, #FFFFFF 0%, #FFFFFF 70%, #FFF7ED 100%) !important;
+  box-shadow: 0 30px 90px rgba(9, 8, 35, .34) !important;
+}
+
+#csk-auth-card::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -92px;
+  right: -78px;
+  width: 190px;
+  height: 190px;
+  border: 27px solid rgba(124, 58, 237, .08);
+  border-radius: 50%;
+  box-shadow: 0 0 0 22px rgba(249, 115, 22, .045);
+  pointer-events: none;
+}
+
+#csk-auth-card > div:first-child {
+  color: #24204F !important;
+  font-size: 24px !important;
+  font-weight: 900 !important;
+  letter-spacing: -.055em !important;
+}
+
+#csk-auth-card > div:first-child::after {
+  content: "OPERATIONS WORKSPACE";
+  display: block;
+  margin-top: 7px;
+  color: #8B5CF6;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .19em;
+}
+
+#csk-auth-card > p:first-of-type {
+  margin-top: 11px !important;
+  margin-bottom: 23px !important;
+  color: #69738A !important;
+  line-height: 1.6 !important;
+}
+
+#csk-auth-card label {
+  color: #414A65 !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: .025em;
+}
+
+#csk-auth-card input {
+  min-height: 46px;
+  padding: 12px 13px !important;
+  border: 1px solid #E0E4EF !important;
+  border-radius: 12px !important;
+  background: rgba(255, 255, 255, .94) !important;
+  color: #202746 !important;
+  box-shadow: 0 2px 5px rgba(30, 41, 59, .025) !important;
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+#csk-auth-card input:focus {
+  border-color: #8B5CF6 !important;
+  outline: 0 !important;
+  background: #FFFFFF !important;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, .12) !important;
+}
+
+#csk-auth-card input::placeholder {
+  color: #A0A8B8 !important;
+}
+
+#csk-auth-login {
+  min-height: 48px;
+  margin-top: 13px !important;
+  border: 0 !important;
+  border-radius: 13px !important;
+  background: linear-gradient(105deg, #F97316 0%, #EC4899 52%, #7C3AED 100%) !important;
+  color: #FFFFFF !important;
+  font-size: 13px !important;
+  font-weight: 850 !important;
+  letter-spacing: .025em;
+  box-shadow: 0 9px 20px rgba(190, 55, 139, .22) !important;
+  transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+}
+
+#csk-auth-login:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 13px 25px rgba(190, 55, 139, .28) !important;
+  filter: saturate(1.08);
+}
+
+#csk-auth-login:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+
+#csk-auth-save-url {
+  min-height: 42px;
+  border: 1px solid #E7DDF7 !important;
+  border-radius: 11px !important;
+  background: linear-gradient(105deg, #F5F3FF 0%, #FFF7ED 100%) !important;
+  color: #5B3A8C !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+}
+
+#csk-auth-status {
+  min-height: 20px;
+  color: #65708A;
+  line-height: 1.5;
+}
+
+#csk-auth-card > p:last-child {
+  padding: 11px 12px;
+  border: 1px solid #E8E7F1;
+  border-radius: 11px;
+  background: #F8F7FC;
+  color: #788198 !important;
+}
+
+#csk-session-badge {
+  border: 1px solid rgba(255, 255, 255, .15) !important;
+  background: linear-gradient(105deg, #211B4A 0%, #35216B 100%) !important;
+  box-shadow: 0 9px 24px rgba(25, 22, 57, .22) !important;
+}
+
+#csk-session-badge button {
+  background: linear-gradient(105deg, #F97316 0%, #EC4899 100%) !important;
+  color: #FFFFFF !important;
+  border-radius: 999px !important;
+}
+
+@media (max-width: 520px) {
+  #csk-auth-gate {
+    padding: 16px !important;
+  }
+
+  #csk-auth-card {
+    padding: 23px !important;
+    border-radius: 21px !important;
+  }
+
+  #csk-auth-card > div:first-child {
+    font-size: 22px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #csk-auth-card *,
+  #csk-session-badge * {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+  }
+}
