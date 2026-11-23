@@ -45,6 +45,10 @@ The counts below are source-code schema counts, not live row counts.
 - **Legacy compatibility:** `Costings` and `Project_Costs` are read through `LEGACY_READ_MAP` and marked read-only in the returned data. They are not part of the current writable `FIELD_MAP`.
 - **Application settings:** the frontend also stores Google Sheets URL, last-sync metadata and a display role. These are application configuration/session concerns, not ordinary business tables.
 
+### Authentication detail confirmed in the frontend guard
+
+The current frontend gate is injected by `security/guard.js`. It accepts email plus an 8–12 digit PIN, sends a login action to Apps Script, then reads business data using a server-side session ID. The browser does not persist the session ID in localStorage. The credential rotation helper is `rotateCSKPinCredentialsFromPrompt()`; the current repository does not contain a self-service password-change page in the Business OS UI. See `CSK-AUTH-MIGRATION-PLAN.md` for the migration path and the version-drift check required before cutover.
+
 ## 3. Current backend contract
 
 ### Read contract
