@@ -158,7 +158,15 @@ The branch `feature/csk-colorful-ui-20261124` now adds a reusable visual foundat
 - Do not run dual-write transactions between Sheets and Supabase.
 - Do not replace tested HPP, payment, inventory, or sync logic with unverified rewrites.
 
-## 10. Immediate next steps
+## 10. Read-only data audit completed — 24 November 2026
+
+- Inspected the current `FIELD_MAP`, `LEGACY_READ_MAP`, frontend data collections, Apps Script read/write actions, and critical payment, Sales Order, PO and inventory validations.
+- Confirmed 16 current mapped Sheets and 2 legacy read-only Sheets from source code. Live row counts and production data were not accessed.
+- Documented source mappings, business invariants, data-model gaps and migration safeguards in `CSK-SUPABASE-DATA-AUDIT.md`.
+- Drafted the target relational entities, transaction boundaries, Owner/Team authorization model, RLS requirements and migration sequence in `CSK-SUPABASE-SCHEMA-PLAN.md`.
+- Confirmed the connected Supabase account has a project for a different application; it was not inspected or modified. No dedicated CSK project was provisioned and no database changes were applied.
+
+## 11. Immediate next steps
 
 1. Review the colourful dashboard and shared module component layer on desktop and mobile; complete browser QA and fix any visual regressions.
 2. Audit each module's real workflows and extract reusable UI patterns without changing business logic.
