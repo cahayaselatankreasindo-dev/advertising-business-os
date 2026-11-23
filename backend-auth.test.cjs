@@ -243,7 +243,7 @@ const throttleSandbox = {
   CSK_LOGIN_LOCK_SECONDS_: 900,
   PropertiesService: { getScriptProperties: () => loginStateProperties },
   LockService: { getScriptLock: () => scriptLock },
-  Utilities: { computeDigest: () => [1, 2, 3, 4] },
+  Utilities: { DigestAlgorithm: { SHA_256: 'SHA_256' }, Charset: { UTF_8: 'UTF_8' }, computeDigest: () => [1, 2, 3, 4] },
   Date: { now: () => authClock }
 };
 vm.runInNewContext(
