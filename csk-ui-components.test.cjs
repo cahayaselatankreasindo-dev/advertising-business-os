@@ -31,6 +31,7 @@ for (const required of [
   '#modal-lead', '#modal-client', '#modal-project', '#modal-finance',
   '#modal-marketing', '#modal-memory', '#modal-invoice',
   '#csk-mobile-more', 'nav.pillar-mobile-nav', '#toast',
+  '#csk-auth-gate', '#csk-auth-card', '#csk-auth-login', '#csk-session-badge',
   'table thead th', 'input:focus'
 ]) {
   assert.ok(css.includes(required), 'missing shared component styling: ' + required);
