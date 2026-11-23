@@ -47,7 +47,7 @@ The counts below are source-code schema counts, not live row counts.
 
 ### Authentication detail confirmed in the frontend guard
 
-The current frontend gate is injected by `security/guard.js`. It accepts email plus an 8–12 digit PIN, sends a login action to Apps Script, then reads business data using a server-side session ID. The browser does not persist the session ID in localStorage. The credential rotation helper is `rotateCSKPinCredentialsFromPrompt()`; the current repository does not contain a self-service password-change page in the Business OS UI. See `CSK-AUTH-MIGRATION-PLAN.md` for the migration path and the version-drift check required before cutover.
+The current frontend gate is injected by `security/guard.js`. It accepts email plus a PIN through Apps Script, then reads business data using a server-side session ID. The target PIN length is 4 digits; legacy 8–12 digit credentials remain compatible only until the Owner rotates them. The browser does not persist the session ID in localStorage. The credential rotation helper is `rotateCSKPinCredentialsFromPrompt()`; the current repository does not contain a self-service password-change page in the Business OS UI. See `CSK-AUTH-MIGRATION-PLAN.md` for the migration path and version-drift check required before cutover.
 
 ## 3. Current backend contract
 
