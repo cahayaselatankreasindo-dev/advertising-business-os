@@ -16,7 +16,7 @@ Role ditentukan oleh backend dari email yang login. Dropdown role di antarmuka b
 3. Ganti kode editor dengan isi file `apps-script/Code.gs` dari repositori.
 4. Simpan, lalu jalankan `setupSheet()` sekali. Berikan izin yang diminta. Fungsi ini memvalidasi header dan menambahkan tab/kolom yang belum ada tanpa menghapus data lama. Cadangkan Spreadsheet sebelum perubahan skema.
 5. Kembali ke Google Spreadsheet dan muat ulang halaman agar menu **CSK Security** muncul.
-6. Pilih **CSK Security → Setup PIN Owner & Tim**. Masukkan PIN Owner dan PIN Tim yang berbeda (masing-masing 8–12 digit). Gunakan PIN yang tidak dipakai untuk akun lain. **Jangan jalankan fungsi dialog ini melalui tombol Run di Apps Script Editor** karena dialog Spreadsheet memerlukan konteks UI.
+6. Pilih **CSK Security → Setup PIN Owner & Tim**. Masukkan PIN Owner dan PIN Tim yang berbeda (masing-masing tepat 4 digit). Gunakan kombinasi yang tidak mudah ditebak. **Jangan jalankan fungsi dialog ini melalui tombol Run di Apps Script Editor** karena dialog Spreadsheet memerlukan konteks UI.
 7. Buka **Deploy → New deployment → Web app**:
    - Execute as: **Me**
    - Who has access: **Anyone**
@@ -36,7 +36,8 @@ GitHub Pages menerbitkan frontend dari branch `main`. Merge kode ke GitHub tidak
 ## Perlindungan akses
 
 - PIN di-hash berulang dengan salt acak dan disimpan di Script Properties.
-- Lima kegagalan login memicu pembatasan sementara selama 15 menit.
+- PIN baru harus tepat 4 digit. PIN lama 8–12 digit tetap dapat dipakai sementara sampai Owner menjalankan rotasi PIN; setelah rotasi, backend hanya menerima PIN 4 digit.
+- Lima kegagalan login untuk email terdaftar memicu penguncian 15 menit. Penghitung dan waktu penguncian disimpan di Script Properties serta diperbarui di bawah LockService, bukan hanya di cache sementara.
 - Sesi backend aktif maksimal 30 menit dan diperbarui selama aktivitas.
 - Tim hanya dapat membaca, membuat, dan memperbarui Leads, Clients, dan Projects.
 - Tim tidak dapat menghapus Leads, Clients, atau Projects. Larangan penghapusan diperiksa di backend dan UI; hanya Owner yang dapat menghapus setelah hasilnya terverifikasi di Google Sheets.
@@ -54,7 +55,7 @@ GitHub Pages menerbitkan frontend dari branch `main`. Merge kode ke GitHub tidak
 4. Edit deployment Web App yang aktif, pilih versi baru, lalu deploy.
 5. URL `/exec` tetap sama untuk deployment yang diperbarui.
 
-Jangan jalankan ulang setup PIN jika kredensial sudah dibuat. Untuk rotasi PIN yang disengaja, jalankan `rotateCSKPinCredentialsFromPrompt()`. Rotasi mengubah hash dan membuat sesi lama tidak valid saat request berikutnya.
+Jangan jalankan ulang setup PIN jika kredensial sudah dibuat. Untuk mengganti PIN lama 8–12 digit menjadi 4 digit, jalankan **CSK Security → Rotasi PIN Owner & Tim** (`rotateCSKPinCredentialsFromPrompt()`) setelah backend versi baru di-deploy. Masukkan PIN Owner dan Tim baru yang masing-masing tepat 4 digit dan berbeda. Rotasi mengubah hash, menetapkan panjang PIN baru menjadi 4 digit, dan membuat sesi lama tidak valid saat request berikutnya.
 
 ## Catatan migrasi
 
