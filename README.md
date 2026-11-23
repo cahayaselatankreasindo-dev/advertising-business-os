@@ -119,7 +119,7 @@ Aplikasi kini mendukung **tarik-tambah** data antara HP dan PC:
 4. Simpan kode.
 5. Jalankan fungsi **`setupSheet`** sekali dan berikan izin yang diminta. Fungsi ini memvalidasi header dan menambahkan tab/kolom yang belum ada tanpa menghapus data lama. Cadangkan Spreadsheet sebelum perubahan skema.
 6. Kembali ke Google Spreadsheet dan muat ulang halaman agar menu **CSK Security** muncul.
-7. Pilih **CSK Security → Setup PIN Owner & Tim**. Masukkan dua PIN berbeda (masing-masing 8–12 digit). **Jangan jalankan fungsi dialog ini melalui tombol Run di Apps Script Editor** karena dialog Spreadsheet memerlukan konteks UI.
+7. Pilih **CSK Security → Setup PIN Owner & Tim**. Masukkan dua PIN berbeda (masing-masing tepat 4 digit). **Jangan jalankan fungsi dialog ini melalui tombol Run di Apps Script Editor** karena dialog Spreadsheet memerlukan konteks UI.
 8. Klik **Deploy → New deployment → Web app**:
    - Execute as: **Me**
    - Who has access: **Anyone** (data tetap memerlukan email + PIN dan sesi yang diverifikasi backend).
