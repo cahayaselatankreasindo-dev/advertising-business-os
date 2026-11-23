@@ -168,7 +168,7 @@ The branch `feature/csk-colorful-ui-20261124` now adds a reusable visual foundat
 
 ## 11. Authentication clarification and migration plan — 24 November 2026
 
-- Confirmed the current frontend login gate is email + 8–12 digit PIN through Google Apps Script; Owner/Team role is server-derived.
+- Confirmed the current frontend login gate is email + PIN through Google Apps Script; the target is 4 digits. Existing 8–12 digit credentials remain compatible only until Owner rotates them; Owner/Team role is server-derived.
 - Existing credential rotation is documented through the Apps Script security workflow. The current GitHub frontend does not show a self-service password-change screen; compare the deployed Apps Script version before cutover in case it has newer behavior.
 - Added `CSK-AUTH-MIGRATION-PLAN.md`: preserve GAS login during staging, provision each existing email once in Supabase Auth, have each user set a new strong password, map roles in protected profiles, test RLS, and cut over Auth + data backend together to avoid two logins.
 - Updated the login gate styling to match the colourful CSK design system without changing login logic.
@@ -181,3 +181,11 @@ The branch `feature/csk-colorful-ui-20261124` now adds a reusable visual foundat
 3. Inventory the real Google Sheets schema and Apps Script endpoints, including production-vs-LAB boundaries.
 4. Prepare the Supabase schema and RLS design as code and test fixtures first; provision an isolated project only after organization and cost confirmation.
 5. Keep all work on feature branches until the owner reviews and approves the release.
+
+
+## 13. Four-digit PIN update — 24 November 2026
+
+- PIN setup and rotation now require exactly 4 digits for Owner and Team, and store the configured PIN length with the salted hash.
+- Existing 8–12 digit credentials remain accepted during transition until the Owner rotates both PINs. After rotation, only 4-digit PINs are accepted.
+- Login throttling for registered emails now persists in Script Properties and uses LockService for updates: five failed attempts trigger a 15-minute lock. Session storage remains in CacheService.
+- Frontend validation and helper text support the transition. The deployed Apps Script Web App still requires a new deployment; GitHub changes do not deploy Apps Script automatically.
