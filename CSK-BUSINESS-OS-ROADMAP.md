@@ -134,7 +134,7 @@ Use a light, calm canvas with pastel surfaces and saturated colours only for nav
 
 ### Current UI implementation slice
 
-The branch `feature/csk-colorful-ui-20261124` adds `csk-visual-refresh.css`, loads it from `index.html`, updates the PWA theme colour, and includes a visual-system regression test. This is a first visual layer, not a complete redesign of every screen.
+The branch `feature/csk-colorful-ui-20261124` now adds a reusable visual foundation and shared component layer: `csk-visual-refresh.css` styles the brand shell and dashboard; `csk-ui-components.css` gives all 14 operational modules consistent colour identities, page headers, forms, cards, tables, modals, toast, and mobile navigation. The design rules are documented in `CSK-DESIGN-SYSTEM.md`, with separate regression tests for both layers. This remains a visual-only implementation; browser QA on real desktop and mobile devices is still required.
 
 ## 8. Delivery phases
 
@@ -160,8 +160,8 @@ The branch `feature/csk-colorful-ui-20261124` adds `csk-visual-refresh.css`, loa
 
 ## 10. Immediate next steps
 
-1. Review the new colourful dashboard layer on desktop and mobile; fix visual regressions before styling every module.
-2. Audit the existing app page-by-page and extract reusable UI patterns without changing business logic.
+1. Review the colourful dashboard and shared module component layer on desktop and mobile; complete browser QA and fix any visual regressions.
+2. Audit each module's real workflows and extract reusable UI patterns without changing business logic.
 3. Inventory the real Google Sheets schema and Apps Script endpoints, including production-vs-LAB boundaries.
 4. Prepare the Supabase schema and RLS design as code and test fixtures first; provision an isolated project only after organization and cost confirmation.
 5. Keep all work on feature branches until the owner reviews and approves the release.
