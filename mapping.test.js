@@ -159,15 +159,15 @@ vm.runInContext(src, sandbox);
 // Autentikasi uji menggunakan PIN Owner dan Tim yang berbeda.
 _props['API_TOKEN'] = 'legacy-token-must-remain-unused';
 _props['UNRELATED_PROPERTY'] = 'preserve-this-value';
-sandbox.setupCSKPinCredentials('12345678', '87654321');
+sandbox.setupCSKPinCredentials('1357', '8642');
 const OWNER_SESSION = 'O'.repeat(43);
 const TEAM_SESSION = 'T'.repeat(43);
 function login(email, pin, sessionId) {
   const out = sandbox.doPost({ postData: { contents: JSON.stringify({ action: 'login', email, pin, sessionId }) } });
   return JSON.parse(out._t);
 }
-const ownerLogin = login('cahayaselatankreasindo@gmail.com', '12345678', OWNER_SESSION);
-const teamLogin = login('zefdas@gmail.com', '87654321', TEAM_SESSION);
+const ownerLogin = login('cahayaselatankreasindo@gmail.com', '1357', OWNER_SESSION);
+const teamLogin = login('zefdas@gmail.com', '8642', TEAM_SESSION);
 
 // ---------- 3. Mini test runner ----------
 let pass = 0, fail = 0;
@@ -542,9 +542,9 @@ eq(teamLogin.identity.role, 'team', 'auth: role Tim ditentukan server');
 eq(_props['API_TOKEN'], 'legacy-token-must-remain-unused', 'auth: setup PIN tidak menghapus properti API_TOKEN lama');
 eq(_props['UNRELATED_PROPERTY'], 'preserve-this-value', 'auth: setup PIN mempertahankan Script Properties lain');
 
-const wrongPin = login('cahayaselatankreasindo@gmail.com', '00000000', 'W'.repeat(43));
+const wrongPin = login('cahayaselatankreasindo@gmail.com', '0000', 'W'.repeat(43));
 eq(wrongPin.status, 'error', 'auth: PIN salah ditolak');
-const unknownEmail = login('intruder@example.com', '12345678', 'X'.repeat(43));
+const unknownEmail = login('intruder@example.com', '1234', 'X'.repeat(43));
 eq(unknownEmail.status, 'error', 'auth: email tidak terdaftar ditolak');
 
 const noSessionGet = callDoGet(null);
@@ -670,7 +670,7 @@ eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat 
  eq(ownerCommercialData.data.invoices[0].quotationId, 'CQ1', 'Invoice quotation relation reads');
  eq(ownerCommercialData.data.projects.find(x => x.id === 'PC1').sourceInvoiceId, 'CI1', 'Project invoice relation reads');
  const TEAM_SESSION_COMMERCIAL = 'C'.repeat(43);
- const teamCommercialLogin = login('zefdas@gmail.com', '87654321', TEAM_SESSION_COMMERCIAL);
+ const teamCommercialLogin = login('zefdas@gmail.com', '8642', TEAM_SESSION_COMMERCIAL);
  eq(teamCommercialLogin.status, 'success', 'Team can start a fresh session for access tests');
  const teamCommercialData = callDoGet(TEAM_SESSION_COMMERCIAL);
  eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'quotations'), false, 'Team cannot read quotations');
