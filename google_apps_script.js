@@ -1127,6 +1127,83 @@ var CSK_LOGIN_LOCK_SECONDS_ = 900;
 var CSK_LOGIN_MAX_FAILURES_ = 5;
 var CSK_PIN_HASH_ROUNDS_ = 3000;
 
+function cskLoginStateKey_(email) {
+  var normalizedEmail = String(email || "").trim().toLowerCase();
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, normalizedEmail, Utilities.Charset.UTF_8);
+  return "CSK_LOGIN_STATE_" + cskHex_(digest).slice(0, 32);
+}
+
+function cskReadLoginState_(props, key) {
+  var raw = props.getProperty(key);
+  if (!raw) return {};
+  try {
+    var state = JSON.parse(raw);
+    return state && typeof state === "object" ? state : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function cskCheckLoginLock_(email) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(5000);
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var key = cskLoginStateKey_(email);
+    var state = cskReadLoginState_(props, key);
+    var now = Date.now();
+    var lockedUntil = Number(state.lockedUntil || 0);
+    if (lockedUntil > now) throw new Error("LOGIN_LOCKED_15_MIN");
+
+    var lastFailureAt = Number(state.lastFailureAt || 0);
+    if (lockedUntil || !lastFailureAt || now - lastFailureAt >= CSK_LOGIN_LOCK_SECONDS_ * 1000) {
+      props.deleteProperty(key);
+    }
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function cskRecordLoginFailure_(email) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(5000);
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var key = cskLoginStateKey_(email);
+    var state = cskReadLoginState_(props, key);
+    var now = Date.now();
+    var lockedUntil = Number(state.lockedUntil || 0);
+    if (lockedUntil > now) return true;
+
+    var lastFailureAt = Number(state.lastFailureAt || 0);
+    var failures = Number(state.failures || 0);
+    if (lockedUntil || !lastFailureAt || now - lastFailureAt >= CSK_LOGIN_LOCK_SECONDS_ * 1000) {
+      failures = 0;
+    }
+    failures += 1;
+
+    var isLocked = failures >= CSK_LOGIN_MAX_FAILURES_;
+    props.setProperty(key, JSON.stringify({
+      failures: failures,
+      lastFailureAt: now,
+      lockedUntil: isLocked ? now + CSK_LOGIN_LOCK_SECONDS_ * 1000 : 0
+    }));
+    return isLocked;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function cskClearLoginFailures_(email) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(5000);
+  try {
+    PropertiesService.getScriptProperties().deleteProperty(cskLoginStateKey_(email));
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function cskHex_(bytes) {
   return bytes.map(function(b) {
     var v = (b + 256) % 256;
@@ -1153,9 +1230,9 @@ function cskConstantTimeEquals_(a, b) {
 
 function setupCSKPinCredentialsFromPrompt() {
   var ui = SpreadsheetApp.getUi();
-  var owner = ui.prompt("CSK Security Setup", "Masukkan PIN Owner (8-12 digit):", ui.ButtonSet.OK_CANCEL);
+  var owner = ui.prompt("CSK Security Setup", "Masukkan PIN Owner (4 digit):", ui.ButtonSet.OK_CANCEL);
   if (owner.getSelectedButton() !== ui.Button.OK) return "Setup dibatalkan.";
-  var team = ui.prompt("CSK Security Setup", "Masukkan PIN Tim (8-12 digit), harus berbeda:", ui.ButtonSet.OK_CANCEL);
+  var team = ui.prompt("CSK Security Setup", "Masukkan PIN Tim (4 digit), harus berbeda:", ui.ButtonSet.OK_CANCEL);
   if (team.getSelectedButton() !== ui.Button.OK) return "Setup dibatalkan.";
   var result = setupCSKPinCredentials(owner.getResponseText(), team.getResponseText());
   owner = null;
@@ -1166,9 +1243,9 @@ function setupCSKPinCredentialsFromPrompt() {
 
 function rotateCSKPinCredentialsFromPrompt() {
   var ui = SpreadsheetApp.getUi();
-  var owner = ui.prompt("CSK PIN Rotation", "Masukkan PIN Owner baru (8-12 digit):", ui.ButtonSet.OK_CANCEL);
+  var owner = ui.prompt("CSK PIN Rotation", "Masukkan PIN Owner baru (4 digit):", ui.ButtonSet.OK_CANCEL);
   if (owner.getSelectedButton() !== ui.Button.OK) return "Rotasi dibatalkan.";
-  var team = ui.prompt("CSK PIN Rotation", "Masukkan PIN Tim baru (8-12 digit), harus berbeda:", ui.ButtonSet.OK_CANCEL);
+  var team = ui.prompt("CSK PIN Rotation", "Masukkan PIN Tim baru (4 digit), harus berbeda:", ui.ButtonSet.OK_CANCEL);
   if (team.getSelectedButton() !== ui.Button.OK) return "Rotasi dibatalkan.";
   var result = cskStorePinCredentials_(owner.getResponseText(), team.getResponseText(), true);
   owner = null;
@@ -1184,7 +1261,7 @@ function setupCSKPinCredentials(ownerPin, teamPin) {
 function cskStorePinCredentials_(ownerPin, teamPin, allowReplace) {
   ownerPin = String(ownerPin || "");
   teamPin = String(teamPin || "");
-  if (!/^\d{8,12}$/.test(ownerPin) || !/^\d{8,12}$/.test(teamPin)) throw new Error("PIN harus terdiri dari 8-12 digit.");
+  if (!/^\d{4}$/.test(ownerPin) || !/^\d{4}$/.test(teamPin)) throw new Error("PIN harus terdiri dari 4 digit.");
   if (ownerPin === teamPin) throw new Error("PIN Owner dan Tim harus berbeda.");
 
   var props = PropertiesService.getScriptProperties();
@@ -1199,8 +1276,10 @@ function cskStorePinCredentials_(ownerPin, teamPin, allowReplace) {
     CSK_TEAM_EMAILS: "zefdas@gmail.com",
     CSK_OWNER_PIN_SALT: ownerSalt,
     CSK_OWNER_PIN_HASH: cskHashPin_(ownerPin, ownerSalt),
+    CSK_OWNER_PIN_LENGTH: "4",
     CSK_TEAM_PIN_SALT: teamSalt,
-    CSK_TEAM_PIN_HASH: cskHashPin_(teamPin, teamSalt)
+    CSK_TEAM_PIN_HASH: cskHashPin_(teamPin, teamSalt),
+    CSK_TEAM_PIN_LENGTH: "4"
   }, false);
 
   return "PIN Owner dan Tim tersimpan sebagai hash. Properti Apps Script lainnya tetap dipertahankan; sesi lama akan kedaluwarsa saat masa aktifnya habis.";
@@ -1210,27 +1289,32 @@ function cskLoginWithPin_(email, pin, sessionId) {
   email = String(email || "").trim().toLowerCase();
   pin = String(pin || "");
   if (!/^[A-Za-z0-9_-]{40,100}$/.test(String(sessionId || ""))) throw new Error("LOGIN_INVALID");
-  if (!/^\d{8,12}$/.test(pin)) throw new Error("LOGIN_INVALID");
+  if (!/^(?:\d{4}|\d{8,12})$/.test(pin)) throw new Error("LOGIN_INVALID");
 
   var props = PropertiesService.getScriptProperties();
   var ownerEmail = String(props.getProperty("CSK_OWNER_EMAIL") || "").trim().toLowerCase();
   var teamEmails = String(props.getProperty("CSK_TEAM_EMAILS") || "").split(/[;,\n]/).map(function(x){ return x.trim().toLowerCase(); }).filter(Boolean);
   var role = email && email === ownerEmail ? "owner" : (teamEmails.indexOf(email) >= 0 ? "team" : null);
-  var cache = CacheService.getScriptCache();
-  var failKey = "CSK_LOGIN_FAIL_" + cskHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, email, Utilities.Charset.UTF_8)).slice(0, 32);
-  var failures = Number(cache.get(failKey) || 0);
-  if (failures >= CSK_LOGIN_MAX_FAILURES_) throw new Error("LOGIN_LOCKED_15_MIN");
-
   var prefix = role === "owner" ? "CSK_OWNER" : "CSK_TEAM";
+  var configuredPinLength = role ? String(props.getProperty(prefix + "_PIN_LENGTH") || "") : "";
+
+  // Existing 8–12 digit credentials remain valid only until the Owner rotates them.
+  if (role && configuredPinLength === "4" && !/^\d{4}$/.test(pin)) throw new Error("LOGIN_INVALID");
+  if (role && !configuredPinLength && !/^\d{8,12}$/.test(pin)) throw new Error("LOGIN_INVALID");
+
+  if (role) cskCheckLoginLock_(email);
+
   var salt = role ? String(props.getProperty(prefix + "_PIN_SALT") || "") : "unknown-account-salt";
   var expected = role ? String(props.getProperty(prefix + "_PIN_HASH") || "") : "";
   var actual = cskHashPin_(pin, salt);
   if (!role || !salt || !expected || !cskConstantTimeEquals_(actual, expected)) {
-    cache.put(failKey, String(failures + 1), CSK_LOGIN_LOCK_SECONDS_);
+    if (role && cskRecordLoginFailure_(email)) throw new Error("LOGIN_LOCKED_15_MIN");
+    if (role) cskRecordLoginFailure_(email);
     throw new Error("LOGIN_INVALID");
   }
 
-  cache.remove(failKey);
+  cskClearLoginFailures_(email);
+  var cache = CacheService.getScriptCache();
   var session = { email: email, role: role, credentialHash: expected, issuedAt: new Date().toISOString() };
   cache.put(cskSessionKey_(sessionId), JSON.stringify(session), CSK_SESSION_TTL_SECONDS_);
   return { status: "success", identity: { email: email, role: role }, expiresIn: CSK_SESSION_TTL_SECONDS_ };
