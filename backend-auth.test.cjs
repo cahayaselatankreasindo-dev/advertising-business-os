@@ -213,7 +213,7 @@ let pinUuid = 0;
 const pinSetupSandbox = {
   PropertiesService: { getScriptProperties: () => pinProperties },
   Utilities: { getUuid: () => 'test-uuid-' + (++pinUuid) },
-  cskHashPin_: (pin, salt) => 'HASH:' + salt + ':' + pin
+  cskHashPin_: (pin, salt) => 'HASH:' + salt + ':' + String(pin).length + ':opaque'
 };
 vm.runInNewContext(
   extractBackendFunction('cskStorePinCredentials_') +
