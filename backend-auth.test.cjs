@@ -24,8 +24,19 @@ for (const path of ['google_apps_script.js', 'apps-script/Code.gs']) {
   assert.match(source, /function cskFilterDataForRole_\(/, path + ': GET data is filtered by role');
   assert.match(source, /CacheService\.getScriptCache\(\)/, path + ': sessions and login throttling use server cache');
   assert.match(source, /CSK_LOGIN_MAX_FAILURES_\s*=\s*5/, path + ': failed logins are rate-limited');
+  assert.match(source, /CSK_LOGIN_LOCK_SECONDS_\s*=\s*900/, path + ': login lock lasts 15 minutes');
+  assert.match(source, /function cskLoginStateKey_\(/, path + ': login lock state uses a hashed account key');
+  assert.match(source, /function cskCheckLoginLock_\(/, path + ': persistent lock is checked before credential verification');
+  assert.match(source, /function cskRecordLoginFailure_\(/, path + ': failed attempts are persisted');
+  assert.match(source, /function cskClearLoginFailures_\(/, path + ': successful login clears failed attempts');
+  assert.match(source, /CSK_OWNER_PIN_LENGTH:\s*"4"/, path + ': Owner credentials are configured for four digits');
+  assert.match(source, /CSK_TEAM_PIN_LENGTH:\s*"4"/, path + ': Team credentials are configured for four digits');
+  assert.match(source, /PIN harus terdiri dari 4 digit/, path + ': setup and rotation require exactly four digits');
+  assert.match(source, /configuredPinLength === "4"/, path + ': rotated credentials reject legacy PIN lengths');
+  assert.match(source, /!configuredPinLength && !\/\^\\d\{8,12\}\$\//, path + ': unrotated legacy credentials remain compatible');
   assert.match(source, /CSK_SESSION_TTL_SECONDS_\s*=\s*1800/, path + ': sessions have a bounded lifetime');
   assert.match(source, /CSK_PIN_HASH_ROUNDS_\s*=\s*3000/, path + ': PIN hash uses repeated SHA-256');
+  assert.match(source, /function cskLoginWithPin_\([\s\S]*?\^\(\?:\\d\{4\}\|\\d\{8,12\}\)\$/, path + ': login accepts four-digit PINs and legacy PINs during transition');
   assert.match(source, /setProperties\([\s\S]*?,\s*false\)/, path + ': PIN setup preserves unrelated Script Properties');
   assert.doesNotMatch(source, /setProperties\([\s\S]*?,\s*true\)/, path + ': PIN setup never clears all Script Properties');
   assert.doesNotMatch(source, /function getApiToken|function isAuthorized|API_TOKEN/, path + ': shared API token is not used');
@@ -74,6 +85,10 @@ assert.match(appScript, /isOwnerSession\(\) \? '<button onclick="deleteLead/, 'f
 assert.match(appScript, /isOwnerSession\(\)\?'<button onclick="deleteClient/, 'frontend: Team does not see the Clients delete button');
 assert.match(appScript, /isOwnerSession\(\) \? '<button onclick="deleteProject/, 'frontend: Team does not see the Projects delete button');
 
+assert.match(guard, /PIN \(4 digit\)/, 'frontend: login clearly requests a four-digit PIN');
+assert.match(guard, /maxlength="12"/, 'frontend: login keeps room for a legacy PIN during credential rotation');
+assert.match(guard, /PIN lama 8–12 digit masih berlaku sampai diganti/, 'frontend: login explains the temporary legacy-PIN path');
+assert.match(guard, /if \(!\/\^\(\?:\\d\{4\}\|\\d\{8,12\}\)\$\/.test\(pin\)\)/, 'frontend: login accepts four-digit and temporary legacy PIN lengths');
 assert.match(guard, /legacyOwnerCache/, 'frontend: legacy Owner migration uses a temporary recovery cache');
 assert.doesNotMatch(guard, /safeLocalSet\(OWNER_KEY/, 'frontend: Owner database is not written to a persistent Owner cache');
 const ownerSave = guard.match(/function saveScoped\(\)[\s\S]*?\n  }/);
@@ -182,5 +197,76 @@ assert.equal(teamData.invoicePayments, undefined, 'Team does not receive payment
 assert.equal(teamData.salesOrders, undefined, 'Team does not receive Sales Orders');
 assert.equal(teamData.inventoryTransactions, undefined, 'Team does not receive Inventory Transactions');
 assert.equal(roleSandbox.filterData(roleData, 'owner'), roleData, 'Owner receives the full authorized dataset');
+
+
+
+// Four-digit credential storage and persistent login throttling are exercised
+// with isolated Apps Script service doubles; no live credentials are accessed.
+const pinStore = new Map();
+const pinProperties = {
+  getProperty(key) { return pinStore.has(key) ? pinStore.get(key) : null; },
+  setProperty(key, value) { pinStore.set(key, String(value)); },
+  deleteProperty(key) { pinStore.delete(key); },
+  setProperties(values) { Object.keys(values).forEach(key => pinStore.set(key, String(values[key]))); }
+};
+let pinUuid = 0;
+const pinSetupSandbox = {
+  PropertiesService: { getScriptProperties: () => pinProperties },
+  Utilities: { getUuid: () => 'test-uuid-' + (++pinUuid) },
+  cskHashPin_: (pin, salt) => 'HASH:' + salt + ':' + pin
+};
+vm.runInNewContext(
+  extractBackendFunction('cskStorePinCredentials_') +
+  '\nthis.storePinCredentials = cskStorePinCredentials_;',
+  pinSetupSandbox
+);
+pinSetupSandbox.storePinCredentials('1357', '8642', false);
+assert.equal(pinProperties.getProperty('CSK_OWNER_PIN_LENGTH'), '4');
+assert.equal(pinProperties.getProperty('CSK_TEAM_PIN_LENGTH'), '4');
+assert.match(pinProperties.getProperty('CSK_OWNER_PIN_HASH'), /^HASH:/);
+assert.doesNotMatch(pinProperties.getProperty('CSK_OWNER_PIN_HASH'), /1357/, 'four-digit PIN is not stored as plaintext');
+assert.throws(() => pinSetupSandbox.storePinCredentials('123', '8642', true), /4 digit/);
+assert.throws(() => pinSetupSandbox.storePinCredentials('12345', '8642', true), /4 digit/);
+assert.throws(() => pinSetupSandbox.storePinCredentials('1357', '1357', true), /harus berbeda/);
+assert.throws(() => pinSetupSandbox.storePinCredentials('2468', '9753', false), /PIN sudah pernah disetel/);
+
+const loginStateStore = new Map();
+const loginStateProperties = {
+  getProperty(key) { return loginStateStore.has(key) ? loginStateStore.get(key) : null; },
+  setProperty(key, value) { loginStateStore.set(key, String(value)); },
+  deleteProperty(key) { loginStateStore.delete(key); }
+};
+let authClock = 1700000000000;
+const scriptLock = { waitLock() {}, releaseLock() {} };
+const throttleSandbox = {
+  CSK_LOGIN_MAX_FAILURES_: 5,
+  CSK_LOGIN_LOCK_SECONDS_: 900,
+  PropertiesService: { getScriptProperties: () => loginStateProperties },
+  LockService: { getScriptLock: () => scriptLock },
+  Utilities: { computeDigest: () => [1, 2, 3, 4] },
+  Date: { now: () => authClock }
+};
+vm.runInNewContext(
+  extractBackendFunction('cskHex_') +
+  extractBackendFunction('cskLoginStateKey_') +
+  extractBackendFunction('cskReadLoginState_') +
+  extractBackendFunction('cskCheckLoginLock_') +
+  extractBackendFunction('cskRecordLoginFailure_') +
+  extractBackendFunction('cskClearLoginFailures_') +
+  '\nthis.checkLoginLock = cskCheckLoginLock_;' +
+  '\nthis.recordLoginFailure = cskRecordLoginFailure_;' +
+  '\nthis.clearLoginFailures = cskClearLoginFailures_;',
+  throttleSandbox
+);
+for (let attempt = 1; attempt <= 4; attempt++) {
+  assert.equal(throttleSandbox.recordLoginFailure('owner@example.com'), false, 'attempt ' + attempt + ' is below lock threshold');
+}
+assert.equal(throttleSandbox.recordLoginFailure('owner@example.com'), true, 'fifth failure activates the lock');
+assert.throws(() => throttleSandbox.checkLoginLock('owner@example.com'), /LOGIN_LOCKED_15_MIN/);
+authClock += 900001;
+assert.doesNotThrow(() => throttleSandbox.checkLoginLock('owner@example.com'), 'lock expires after 15 minutes');
+assert.equal(throttleSandbox.recordLoginFailure('owner@example.com'), false, 'failure counter resets after the lock window');
+throttleSandbox.clearLoginFailures('owner@example.com');
+assert.equal(loginStateStore.size, 0, 'successful login clears persistent failure state');
 
 console.log('CSK PIN authentication, server-side RBAC, safe migration, and outbound-email safety checks passed.');
