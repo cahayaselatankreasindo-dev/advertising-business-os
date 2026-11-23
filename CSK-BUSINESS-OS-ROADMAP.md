@@ -166,7 +166,15 @@ The branch `feature/csk-colorful-ui-20261124` now adds a reusable visual foundat
 - Drafted the target relational entities, transaction boundaries, Owner/Team authorization model, RLS requirements and migration sequence in `CSK-SUPABASE-SCHEMA-PLAN.md`.
 - Confirmed the connected Supabase account has a project for a different application; it was not inspected or modified. No dedicated CSK project was provisioned and no database changes were applied.
 
-## 11. Immediate next steps
+## 11. Authentication clarification and migration plan — 24 November 2026
+
+- Confirmed the current frontend login gate is email + 8–12 digit PIN through Google Apps Script; Owner/Team role is server-derived.
+- Existing credential rotation is documented through the Apps Script security workflow. The current GitHub frontend does not show a self-service password-change screen; compare the deployed Apps Script version before cutover in case it has newer behavior.
+- Added `CSK-AUTH-MIGRATION-PLAN.md`: preserve GAS login during staging, provision each existing email once in Supabase Auth, have each user set a new strong password, map roles in protected profiles, test RLS, and cut over Auth + data backend together to avoid two logins.
+- Updated the login gate styling to match the colourful CSK design system without changing login logic.
+- Added regression checks for authentication-screen styling. Existing GAS login remains untouched.
+
+## 12. Immediate next steps
 
 1. Review the colourful dashboard and shared module component layer on desktop and mobile; complete browser QA and fix any visual regressions.
 2. Audit each module's real workflows and extract reusable UI patterns without changing business logic.
