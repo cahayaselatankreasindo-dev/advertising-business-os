@@ -920,6 +920,7 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders, incomingTransaction
     var items = Array.isArray(order.items) ? order.items : [];
     if (!items.length || items.length > 500) throw new Error("INVALID_SALES_ORDER_ITEMS");
     var existing = existingOrders.find(function(x) { return String(x.id) === id; });
+    var existingMaterialSnapshot = existing ? parseSalesOrderMaterialRequirements_(existing) : [];
     var duplicate = existingOrders.find(function(x) { return String(x.quotationId) === quoteId && String(x.id) !== id; });
     if (duplicate) throw new Error("QUOTATION_ALREADY_HAS_SALES_ORDER");
     if (seenQuotes[quoteId] && seenQuotes[quoteId] !== id) throw new Error("DUPLICATE_SALES_ORDER_FOR_QUOTATION");
@@ -935,7 +936,7 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders, incomingTransaction
       if (total !== Math.round(Number(quote.total)) || dpPercent !== Number(quote.dpPercent || 0)) throw new Error("SALES_ORDER_QUOTATION_VALUE_MISMATCH");
       if (itemsJson !== JSON.stringify(quotationLines)) throw new Error("SALES_ORDER_ITEMS_SNAPSHOT_MISMATCH");
     } else {
-      var currentSnapshot = parseSalesOrderMaterialRequirements_(existing);
+      var currentSnapshot = existingMaterialSnapshot;
       var incomingSnapshot = parseSalesOrderMaterialRequirements_(order);
       if (currentSnapshot.length && incomingSnapshot.length &&
           JSON.stringify(normalizeMaterialRequirementSnapshot_(currentSnapshot)) !== JSON.stringify(normalizeMaterialRequirementSnapshot_(incomingSnapshot))) {
@@ -983,6 +984,10 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders, incomingTransaction
         snapshot = expectedSnapshot.requirements;
         order.materialRequirements = snapshot;
         order.materialRequirementsJson = JSON.stringify(snapshot);
+      } else if (existingMaterialSnapshot.length) {
+        // Rework after QC reuses the immutable HPP snapshot captured at first production release.
+        order.materialRequirements = normalizeMaterialRequirementSnapshot_(snapshot);
+        order.materialRequirementsJson = JSON.stringify(order.materialRequirements);
       } else {
         var expected = calculateHppMaterialRequirements_(ss, projectId);
         if (expected.errors.length) throw new Error("SALES_ORDER_MATERIAL_PLAN_INVALID");
