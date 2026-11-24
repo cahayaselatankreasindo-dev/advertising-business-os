@@ -563,10 +563,68 @@ function assertUniqueCommercialDocumentNumbers_(ss, sheetName, incomingRows) {
   return true;
 }
 
+function validateCommercialDocumentsBeforeMerge_(ss, sheetName, incomingRows) {
+  if (!Array.isArray(incomingRows)) throw new Error("INVALID_COMMERCIAL_DOCUMENTS");
+  var currentRows = readSheetData(ss, sheetName);
+  var currentById = {};
+  currentRows.forEach(function(row) { currentById[String(row.id || "")] = row; });
+  incomingRows.forEach(function(row) {
+    if (!row || !String(row.id || "").trim()) throw new Error("DOCUMENT_ID_REQUIRED");
+    var existing = currentById[String(row.id)];
+    var lines = Array.isArray(row.lines) ? row.lines : null;
+    if (!lines) {
+      try { lines = JSON.parse(String(row.linesJson || "[]")); } catch (parseError) { throw new Error("INVALID_COMMERCIAL_DOCUMENT_LINES"); }
+    }
+    var incomingLinesJson = JSON.stringify(lines);
+    var existingLinesJson = String(existing && existing.linesJson || "");
+    var financialFields = ["subtotal", "discount", "taxRate", "taxAmount", "total", "dpPercent"];
+    var financialChanged = !existing || incomingLinesJson !== existingLinesJson || financialFields.some(function(field) {
+      var oldValue = existing[field] === undefined || existing[field] === null ? "" : String(existing[field]);
+      var newValue = row[field] === undefined || row[field] === null ? "" : String(row[field]);
+      return oldValue !== newValue;
+    });
+    if (!financialChanged) return;
+    if (!Array.isArray(lines) || !lines.length || lines.length > 500) throw new Error("INVALID_COMMERCIAL_DOCUMENT_LINES");
+    var subtotalRaw = 0;
+    lines.forEach(function(line) {
+      if (!line || !String(line.name || "").trim()) throw new Error("COMMERCIAL_DOCUMENT_LINE_NAME_REQUIRED");
+      var qty = Number(line.qty);
+      var unitPrice = Number(line.unitPrice);
+      if (!Number.isFinite(qty) || qty <= 0) throw new Error("INVALID_COMMERCIAL_DOCUMENT_QUANTITY");
+      if (line.unitPrice === undefined || line.unitPrice === null || String(line.unitPrice).trim() === "" || !Number.isFinite(unitPrice) || unitPrice < 0) {
+        throw new Error("INVALID_COMMERCIAL_DOCUMENT_UNIT_PRICE");
+      }
+      var lineTotal = qty * unitPrice;
+      if (!Number.isFinite(lineTotal)) throw new Error("INVALID_COMMERCIAL_DOCUMENT_LINE_TOTAL");
+      subtotalRaw += lineTotal;
+    });
+    if (!Number.isFinite(subtotalRaw)) throw new Error("INVALID_COMMERCIAL_DOCUMENT_SUBTOTAL");
+    var discount = row.discount === undefined || row.discount === null || row.discount === "" ? 0 : Number(row.discount);
+    var taxRate = row.taxRate === undefined || row.taxRate === null || row.taxRate === "" ? 0 : Number(row.taxRate);
+    var dpPercent = row.dpPercent === undefined || row.dpPercent === null || row.dpPercent === "" ? 50 : Number(row.dpPercent);
+    if (!Number.isFinite(discount) || discount < 0) throw new Error("INVALID_COMMERCIAL_DOCUMENT_DISCOUNT");
+    if (discount > subtotalRaw + 0.000001) throw new Error("COMMERCIAL_DISCOUNT_EXCEEDS_SUBTOTAL");
+    if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) throw new Error("INVALID_COMMERCIAL_DOCUMENT_TAX_RATE");
+    if (!Number.isFinite(dpPercent) || dpPercent < 1 || dpPercent > 99) throw new Error("INVALID_COMMERCIAL_DOCUMENT_DP_PERCENT");
+    var expected = {
+      subtotal: Math.round(subtotalRaw),
+      discount: Math.round(discount),
+      taxAmount: Math.round((subtotalRaw - discount) * taxRate / 100),
+      total: Math.round(subtotalRaw - discount + Math.round((subtotalRaw - discount) * taxRate / 100))
+    };
+    Object.keys(expected).forEach(function(field) {
+      var actual = Number(row[field]);
+      if (!Number.isFinite(actual) || Math.round(actual) !== expected[field]) throw new Error("COMMERCIAL_DOCUMENT_TOTAL_MISMATCH_" + field.toUpperCase());
+    });
+  });
+  return true;
+}
+
 function mergeCommercialQuotationsSafely_(ss, incomingQuotations) {
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    validateCommercialDocumentsBeforeMerge_(ss, "Commercial_Quotations", incomingQuotations);
     assertUniqueCommercialDocumentNumbers_(ss, "Commercial_Quotations", incomingQuotations);
     var normalized = (incomingQuotations || []).map(function(item) {
       var copy = Object.assign({}, item);
@@ -676,6 +734,7 @@ function mergeInvoicesSafely_(ss, incomingInvoices) {
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    validateCommercialDocumentsBeforeMerge_(ss, "Invoices", incomingInvoices);
     assertUniqueCommercialDocumentNumbers_(ss, "Invoices", incomingInvoices);
     assertUniqueInvoiceQuotationSources_(ss, incomingInvoices);
     assertPaidInvoiceChangesAllowed_(ss, incomingInvoices);
