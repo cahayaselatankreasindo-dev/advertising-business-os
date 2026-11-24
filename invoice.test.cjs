@@ -184,3 +184,6 @@ assert.ok(navSource.includes("target.style.display = 'block'"), 'navigation expl
 assert.ok(html.includes('window.nav = nav;'), 'inline sidebar navigation has explicit global binding');
 console.log('CSK navigation, invoice/quotation parity, CRM, HPP, purchasing, finance, marketing, strategy notes, profit consistency and responsive design checks passed.');
 
+// The source-regression pipeline already runs this file; include the dashboard queue tests here as well.
+require('./dashboard.test.cjs');
+
