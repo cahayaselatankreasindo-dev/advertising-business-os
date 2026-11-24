@@ -509,7 +509,7 @@ The PDF is a picking instruction, not proof of material issue. The Inventory iss
 - The report is quantity reconciliation only. It does not claim that net material issued equals material consumed, does not value inventory, and does not calculate actual material cost or project profit.
 
 ### Next accounting prerequisite
-Before actual-versus-estimated HPP cost reconciliation is enabled, CSK must approve an inventory valuation policy and capture verified unit cost for opening balances and supplier receipts. The current price in Material Master is a planning price, not a historical inventory cost ledger.
+Actual-versus-estimated material cost is now available in Sales Order detail using Moving Weighted Average and frozen HPP cost snapshots. The quantity PDF remains quantity-only. Supplier invoice matching, landed-cost allocation, and full project profitability remain future work.
 
 
 ## 21. Inventory valuation and actual material cost — 25 November 2026
@@ -528,13 +528,13 @@ Before actual-versus-estimated HPP cost reconciliation is enabled, CSK must appr
 - `opening_manual` / `manual_receipt`: cost is entered by Owner for opening stock or a receipt not priced by a linked PO.
 - `moving_average`: issue and stock adjustment cost is validated against the current WAC balance.
 - `project_issue_average`: a project return reverses the cost of that project's net issued material.
-- `master_fallback`: used when historical or manually entered inventory does not have a verified unit-cost snapshot. The UI marks this as estimated; it is not evidence of the historical supplier invoice price.
+- `master_fallback`: reserved for historical legacy rows or valuation paths where the original cost basis is missing. New opening balances and manual supplier receipts cannot use a Master price as a substitute for documented cost. Fallback-derived values are visibly marked as estimates.
 - Historical Inventory rows are not rewritten to invent a cost history. Their valuation can use Master Material price as a visibly estimated fallback until the Owner reconciles original documents.
 
 ### Interpretation and boundaries
 - The displayed actual material cost is the net cost of Inventory issues less returns. It is not a complete project profit calculation and does not include labor, services, overhead, machine time, scrap/offcut, or other non-material costs.
 - The estimated material cost comes from the frozen HPP line subtotals. Missing HPP prices remain null and do not become zero-cost estimates.
-- Owner must verify opening unit costs, manual receipt prices, supplier PO line prices, and the first stock valuation before production use. Do not treat fallback values as verified purchase costs.
+- Owner must verify opening unit costs, manual receipt prices, supplier PO line prices, and the first stock valuation before production use. Do not treat fallback values or PO prices as supplier invoice reconciliation.
 - No automatic valuation-method migration, historical ledger rewrite, live Apps Script deployment, Google Sheets migration, merge to main, or public website deployment has been performed.
 
 ### Test coverage
