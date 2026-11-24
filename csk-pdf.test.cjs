@@ -149,6 +149,55 @@ assert.ok(generatedUsage.pages > 1, 'material usage reports paginate across A4 p
 assert.equal(generatedUsage.internal.getNumberOfPages(), generatedUsage.pages);
 
 
+const normalizedCost = pdf.normalizeMaterialCostReport({
+  docNo:'MCR-SO-CSK-2026-00042',
+  orderNo:'SO-CSK-2026-00042',
+  projectId:'PRJ-BOOTH-042',
+  projectName:'Booth Slowmove Bazaar',
+  status:'Dalam Produksi',
+  source:'Snapshot HPP (dibekukan)',
+  date:'2026-11-25',
+  estimatedTotalCost:250000,
+  actualTotalCost:240000,
+  varianceCost:-10000,
+  complete:true,
+  estimated:true,
+  varianceComplete:true,
+  isFinal:false,
+  lines:[
+    {name:'Akrilik Clear 3mm',unit:'m2',estimatedQty:5,actualQty:5.2,estimatedCost:150000,actualCost:156000,varianceCost:6000,variancePct:4,estimated:true,rowComplete:true},
+    {name:'Material tanpa snapshot harga',unit:'pcs',estimatedQty:2,actualQty:1,estimatedCost:null,actualCost:84000,varianceCost:null,variancePct:null,rowComplete:false}
+  ]
+});
+assert.equal(normalizedCost.lines.length,2);
+assert.equal(normalizedCost.lines[1].estimatedCost,null,'missing HPP cost remains unknown in the PDF data model');
+assert.equal(normalizedCost.lines[1].varianceCost,null,'incomplete line variance is not presented as zero');
+assert.equal(pdf.materialCostFilename(normalizedCost),'MATERIAL-COST-PRJ-BOOTH-042-SO-CSK-2026-00042.pdf');
+assert.throws(()=>pdf.generateMaterialCostPdf({lines:[]},function(){}),/Tidak ada rincian biaya material/);
+const generatedCost=pdf.generateMaterialCostPdf({
+  docNo:'MCR-SO-CSK-2026-00042',
+  orderNo:'SO-CSK-2026-00042',
+  projectId:'PRJ-BOOTH-042',
+  projectName:'Booth Slowmove Bazaar',
+  status:'Dalam Produksi',
+  source:'Snapshot HPP (dibekukan)',
+  date:'2026-11-25',
+  estimatedTotalCost:250000,
+  actualTotalCost:240000,
+  varianceCost:-10000,
+  complete:true,
+  estimated:true,
+  varianceComplete:true,
+  isFinal:false,
+  lines:Array.from({length:36},(_,i)=>({
+    name:'Material fabrikasi booth dan display dengan spesifikasi komponen nomor '+(i+1),
+    unit:'lembar',estimatedQty:5,actualQty:4,estimatedCost:100000,actualCost:80000,
+    varianceCost:-20000,variancePct:-20,estimated:false,rowComplete:true
+  }))
+},MockPdf);
+assert.ok(generatedCost.pages>1,'long actual-cost reconciliation reports paginate across landscape A4 pages');
+assert.equal(generatedCost.internal.getNumberOfPages(),generatedCost.pages);
+
 const html = fs.readFileSync('index.html', 'utf8');
 const commercial = fs.readFileSync('commercial-documents.js', 'utf8');
 const sw = fs.readFileSync('sw.js', 'utf8');
@@ -160,7 +209,11 @@ assert.ok(commercial.includes("data-action=\"download-existing\""), 'saved docum
 assert.ok(commercial.includes('w.downloadCommercialDocumentPdf=downloadCommercialDocumentPdf'), 'PDF handler is available to the document UI');
 assert.ok(sw.includes('./csk-pdf.js'), 'service worker precaches the PDF engine');
 const inventory = fs.readFileSync('inventory.js', 'utf8');
+const salesOrders = fs.readFileSync('sales-orders.js', 'utf8');
 assert.ok(inventory.includes('data-inv-action="pdf-picklist"'), 'project picking list exposes a PDF download action');
 assert.ok(inventory.includes('downloadPickingListPdf'), 'inventory UI builds a project-specific picking list PDF');
 assert.ok(pdf.downloadPickingList && pdf.generatePickingListPdf, 'PDF engine exports picking list generation and download functions');
+assert.ok(pdf.downloadMaterialCostReport && pdf.generateMaterialCostPdf, 'PDF engine exports actual-versus-estimated material cost report generation and download');
+assert.ok(salesOrders.includes('downloadMaterialCostReport'), 'Sales Order detail exposes a project material cost PDF action');
+assert.ok(salesOrders.includes('data-so-action=\"cost-report\"'), 'Sales Order material panel provides a cost reconciliation download control');
 console.log('CSK PDF tests passed.');
