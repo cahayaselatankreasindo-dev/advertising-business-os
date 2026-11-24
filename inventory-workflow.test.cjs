@@ -88,6 +88,15 @@ const mismatch=E.calculateHppRequirements({items:[{itemType:'material',materialI
 assert.equal(mismatch.ready,false);
 assert.match(mismatch.errors[0],/tidak cocok/);
 
+// A later Material Master conversion change must not rewrite the approved HPP demand.
+const historicalDemand=E.calculateHppRequirements({
+ projectId:'PRJ-OLD',
+ items:[{itemType:'material',materialId:'MAT-ACR',name:'Akrilik Clear 3mm',qty:2,unit:'lembar',materialSnapshot:{name:'Akrilik Clear 3mm (snapshot)',unit:'m2',purchaseUnit:'lembar',conversionFactor:4}}]
+},[{...materials[0],purchaseUnit:'lembar',conversionFactor:2.5}],{});
+assert.equal(historicalDemand.requirements[0].required,8,'HPP snapshot conversion factor takes precedence over the current Material Master');
+assert.equal(historicalDemand.requirements[0].name,'Akrilik Clear 3mm (snapshot)','material label follows the saved HPP snapshot');
+
+
 const commitmentMaterials=[
  {...materials[0],purchaseUnit:'lembar',conversionFactor:2.5},
  materials[1]
@@ -142,6 +151,17 @@ const unresolvedCommitments=E.calculateOpenSalesOrderCommitments(
 );
 assert.equal(unresolvedCommitments.ready,false,'an active project without HPP is not silently treated as zero demand');
 assert.match(unresolvedCommitments.errors[0],/HPP belum tersedia/);
+
+const snapshotCommitments=E.calculateOpenSalesOrderCommitments([
+ {id:'SO-SNAP-A',orderNo:'SO-CSK-2026-00011',projectId:'PRJ-SNAP',projectName:'Project Snapshot',status:'in_production',sourceCostSheetSnapshot:{id:'HPP-SNAP-A',projectId:'PRJ-SNAP',items:[{materialId:'MAT-ACR',name:'Acrylic old A',qty:2,unit:'lembar',materialSnapshot:{unit:'m2',purchaseUnit:'lembar',conversionFactor:4}}]}},
+ {id:'SO-SNAP-B',orderNo:'SO-CSK-2026-00012',projectId:'PRJ-SNAP',projectName:'Project Snapshot',status:'quality_check',sourceCostSheetSnapshot:{id:'HPP-SNAP-B',projectId:'PRJ-SNAP',items:[{materialId:'MAT-ACR',name:'Acrylic old B',qty:1,unit:'lembar',materialSnapshot:{unit:'m2',purchaseUnit:'lembar',conversionFactor:3}}]}}
+],[{projectId:'PRJ-SNAP',items:[{materialId:'MAT-ACR',name:'Latest HPP',qty:1.5,unit:'m2'}]}],commitmentMaterials,[],{'MAT-ACR':4});
+const snapshotAcrylic=snapshotCommitments.requirements.find(x=>x.materialId==='MAT-ACR');
+assert.equal(snapshotAcrylic.committed,11,'each active Sales Order contributes its own saved HPP demand, not the latest project HPP');
+assert.equal(snapshotAcrylic.shortage,7,'shared stock shortage is calculated from historical Sales Order snapshots');
+assert.equal(snapshotCommitments.activeOrderCount,2);
+assert.equal(snapshotCommitments.activeProjectCount,1);
+
 
 
 const backend=fs.readFileSync('google_apps_script.js','utf8');
