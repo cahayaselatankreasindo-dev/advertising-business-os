@@ -267,6 +267,7 @@ async function downloadMaterialCostReport(salesOrderId){
    complete:cost.complete,
    estimated:cost.estimated,
    varianceComplete:cost.varianceComplete,
+   hasActualMovement:cost.hasActualMovement,
    isFinal:['delivered','closed'].indexOf(String(order.status||''))>=0,
    valuationMethod:'Moving Weighted Average (WAC)',
    lines:lines
