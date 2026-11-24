@@ -1501,7 +1501,8 @@
       const purchaseUnit=String(material.purchaseUnit||unit).trim();
       const unitPrice=Number(material.unitPrice);
       const purchasePrice=Number(material.purchasePrice)||(purchaseUnit===unit?unitPrice:0);
-      const factor=Number(material.conversionFactor)||1;
+      const rawFactor=material.conversionFactor;
+      const factor=rawFactor===undefined||rawFactor===null||rawFactor===''?1:Number(rawFactor);
       const legacyManual=String(material.sku||'').indexOf('MAT-MANUAL-')===0&&purchaseUnit===unit&&factor===1&&Number.isFinite(unitPrice)&&unitPrice>0;
       const verifiedSupplier=!!String(material.supplierName||'').trim()&&!!String(material.priceSource||'').trim()&&!!String(material.priceDate||'').trim();
       return status==='active'&&Number.isFinite(unitPrice)&&unitPrice>0&&Number.isFinite(purchasePrice)&&purchasePrice>0&&
