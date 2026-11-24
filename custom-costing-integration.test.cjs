@@ -15,6 +15,10 @@ assert.ok(html.includes('./custom-costing-engine.js')&&html.includes('./custom-c
 assert.ok(ui.includes("getCurrentProjectId()"),'custom costing requires a selected project');
 assert.ok(ui.includes("addLine(pendingLine)"),'calculated custom line is added through HPP bridge');
 assert.ok(ui.includes('costingDetails'),'calculation details are retained with the HPP line');
+assert.equal((ui.match(/selectField\('Perlakuan material','cc-source-mode'/g)||[]).length,2,'sheet and bar material modes pass selectField arguments in the correct order');
+assert.ok(ui.includes("selectField('Perlakuan pembelian','cc-source-mode'"),'pack mode passes selectField arguments in the correct order');
+assert.ok(!ui.includes("readRows('[data-cc-width]'"),'sheet costing snapshots read complete component rows');
+assert.ok(!ui.includes("readRows('[data-cc-length]'"),'bar costing snapshots read complete cut rows');
 assert.ok(engine.includes('calculateSheetCutList')&&engine.includes('calculateBarCutList'),'sheet and profile cut-list calculators are available');
 assert.ok(engine.includes('calculatePackCost')&&engine.includes('calculateAreaCost'),'pack conversion and area calculators are available');
 assert.ok(engine.includes('calculateLinearCost')&&engine.includes('calculateVolumeCost'),'linear and volume calculators are available');
