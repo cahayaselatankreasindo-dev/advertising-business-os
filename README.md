@@ -269,3 +269,9 @@ Next: server-enforced reservation at production release, partial pick/issue/retu
 - Inventory can generate a branded, multi-page A4 Material Picking List PDF for each active production project.
 - The PDF shows frozen HPP quantity, quantity already issued, and remaining quantity to pick, with warehouse check and handover signature fields.
 - Downloading the PDF does not move stock; every physical issue must still be recorded in the append-only Inventory ledger.
+
+
+### Project material usage report
+- Sales Order detail can export a branded A4 PDF comparing frozen HPP quantities with net material issues (issues less returns), variance, and remaining HPP quantity.
+- The report is a quantity reconciliation only. It is not an actual-cost, inventory-valuation, or profit report.
+- Actual-versus-estimated HPP cost requires an approved stock valuation method and verified unit-cost capture for opening stock and receipts.
