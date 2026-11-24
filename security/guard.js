@@ -173,6 +173,7 @@
   async function verifySync(payload) {
     var result = await get('get_data');
     var data = result.data || {};
+    setLegacyReadOnlyCollections(data);
     var checked = [];
     collectionsForRole().forEach(function (key) {
       var expected = Array.isArray(payload[key]) ? payload[key] : [];
