@@ -253,7 +253,27 @@
       ready:errors.length===0&&!hasShortage,hasShortage:hasShortage
     };
   }
+  function calculateMaterialUsageVariance(requirements,projectId,transactions){
+    var netByMaterial=Object.create(null),project=String(projectId||'');
+    (Array.isArray(transactions)?transactions:[]).forEach(function(tx){
+      if(String(tx.projectId||'')!==project)return;
+      var id=String(tx.materialId||'');
+      if(tx.movement==='issue')netByMaterial[id]=(netByMaterial[id]||0)+n(tx.qty);
+      else if(tx.movement==='return')netByMaterial[id]=(netByMaterial[id]||0)-n(tx.qty);
+    });
+    return(Array.isArray(requirements)?requirements:[]).map(function(line){
+      var planned=n(line.required),netIssued=Math.max(0,netByMaterial[String(line.materialId)]||0);
+      var variance=netIssued-planned;
+      return{
+        materialId:line.materialId,name:line.name||'',unit:line.unit||'',
+        plannedQty:planned,netIssuedQty:netIssued,varianceQty:variance,
+        variancePct:planned>0?variance/planned*100:0,
+        remainingQty:Math.max(0,planned-netIssued),
+        state:variance>0.000001?'over':variance< -0.000001?'under':'on_plan'
+      };
+    });
+  }
   function getBalance(materialId,balances){return n((balances||{})[String(materialId)]);}
   function movementLabel(value){return MOVEMENTS[value]?MOVEMENTS[value].label:String(value||'-');}
-  return{MOVEMENTS:MOVEMENTS,localDate:localDate,nextTransactionNumber:nextTransactionNumber,sortTransactions:sortTransactions,calculateBalances:calculateBalances,validateTransaction:validateTransaction,getBalance:getBalance,calculateHppRequirements:calculateHppRequirements,calculateOpenSalesOrderCommitments:calculateOpenSalesOrderCommitments,movementLabel:movementLabel};
+  return{MOVEMENTS:MOVEMENTS,localDate:localDate,nextTransactionNumber:nextTransactionNumber,sortTransactions:sortTransactions,calculateBalances:calculateBalances,validateTransaction:validateTransaction,getBalance:getBalance,calculateHppRequirements:calculateHppRequirements,calculateOpenSalesOrderCommitments:calculateOpenSalesOrderCommitments,calculateMaterialUsageVariance:calculateMaterialUsageVariance,movementLabel:movementLabel};
 });
