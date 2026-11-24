@@ -991,6 +991,8 @@ function reserveSalesOrderStock_(ss, salesOrderId, identity) {
     validationOrder.sourceCostSheetSnapshot = snapshot;
     validateSalesOrdersBeforeMerge_(ss, [validationOrder]);
     var materials = readSheetData(ss, "Materials");
+    ensureSheet(ss, "Inventory_Transactions", FIELD_MAP.Inventory_Transactions.headers);
+    ensureAllHeaders(ss, "Inventory_Transactions");
     var ledger = readSheetData(ss, "Inventory_Transactions");
     var materialMap = {};
     materials.forEach(function(m) { materialMap[String(m.id)] = m; });
