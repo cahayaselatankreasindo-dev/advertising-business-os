@@ -44,6 +44,7 @@ function rowFor(sheetName,record){
     if(field==='linesJson'&&record.lines)return JSON.stringify(record.lines);
     if(field==='itemsJson'&&record.items)return JSON.stringify(record.items);
     if(field==='historyJson'&&record.history)return JSON.stringify(record.history);
+    if(field==='materialRequirementsJson'&&record.materialRequirements)return JSON.stringify(record.materialRequirements);
     return record[field]===undefined?'':record[field];
   });
 }
@@ -58,10 +59,16 @@ const quote={
   createdAt:'2026-11-20T06:00:00.000Z',updatedAt:'2026-11-20T06:00:00.000Z',projectDeadline:'2026-12-15'
 };
 const project={id:'PRJ-BACKEND-001',title:'Rak Display Custom',client:'PT Contoh',value:10000000,status:'plan'};
-function fixture(){
+function fixture(stockQty){
+  const material={id:'MAT-SO-001',name:'Akrilik Clear 3mm',unit:'m2',purchaseUnit:'lembar',conversionFactor:2.9768,status:'active'};
+  const costSheet={id:'CS-SO-001',projectId:project.id,projectName:project.title,items:[{itemType:'material',materialId:material.id,name:material.name,qty:2,unit:'m2'}],updatedAt:'2026-11-20T06:00:00.000Z'};
+  const opening={id:'ITX-OPENING-001',transactionNo:'STK-CSK-2026-00001',materialId:material.id,materialName:material.name,movement:'opening',qty:stockQty===undefined?5:stockQty,unit:'m2',date:'2026-11-01',projectId:'',projectName:'',purchaseOrderId:'',supplier:'',reference:'',notes:'Saldo awal pengujian',createdAt:'2026-11-01T08:00:00.000Z',createdBy:'Owner'};
   return new FakeSpreadsheet({
     Commercial_Quotations:new FakeSheet([map.Commercial_Quotations.headers,rowFor('Commercial_Quotations',quote)]),
     Projects:new FakeSheet([map.Projects.headers,rowFor('Projects',project)]),
+    Materials:new FakeSheet([map.Materials.headers,rowFor('Materials',material)]),
+    Cost_Sheets:new FakeSheet([map.Cost_Sheets.headers,rowFor('Cost_Sheets',costSheet)]),
+    Inventory_Transactions:new FakeSheet([map.Inventory_Transactions.headers,rowFor('Inventory_Transactions',opening)]),
     Invoices:new FakeSheet([map.Invoices.headers]),
     Invoice_Payments:new FakeSheet([map.Invoice_Payments.headers])
   });
@@ -112,7 +119,10 @@ ss.sheets.Invoice_Payments.appendRow(rowFor('Invoice_Payments',{
   id:'PAY-BACKEND-001',invoiceId:'INV-BACKEND-001',invoiceNo:'INV-CSK-2026-00001',
   paymentDate:'2026-11-20',paymentType:'dp',amount:5000000,method:'transfer'
 }));
-assert.equal(context.validateSalesOrdersBeforeMerge_(ss,[{...initial,status:'ready_production'}]),true,'verified DP releases production');
+assert.equal(context.validateSalesOrdersBeforeMerge_(ss,[{...initial,status:'ready_production'}]),true,'verified DP and sufficient stock release production');
+assert.equal(Array.isArray(initial.materialRequirements),true,'backend freezes the HPP material snapshot at reservation time');
+assert.equal(initial.materialRequirements[0].required,2,'backend derives reserved quantities from the authoritative HPP');
+assert.throws(()=>context.validateSalesOrdersBeforeMerge_(fixture(1),[{...initial,status:'ready_production'}]),/SALES_ORDER_INSUFFICIENT_MATERIAL_STOCK/,'backend blocks production reservation when physical stock is insufficient');
 assert.throws(()=>context.validateSalesOrdersBeforeMerge_(ss,[{...initial,status:'quality_check'}]),/INVALID_SALES_ORDER_STATUS_TRANSITION/,'backend blocks skipped production stages');
 
 const delivered={...initial,status:'delivered'};
