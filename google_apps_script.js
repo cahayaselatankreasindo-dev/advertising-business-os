@@ -93,8 +93,8 @@ var FIELD_MAP = {
     fields: ["id", "projectId", "projectName", "supplier", "date", "itemsJson", "total", "status", "createdAt", "updatedAt", "inventoryControlVersion"]
   },
   Sales_Orders: {
-    headers: ["ID", "NomorSO", "QuotationID", "NomorQuotation", "ProjectID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "TanggalOrder", "TanggalPengiriman", "ItemsJSON", "Total", "DPPersen", "DPWajib", "Status", "RiwayatJSON", "Catatan", "CreatedAt", "UpdatedAt"],
-    fields: ["id", "orderNo", "quotationId", "quotationNo", "projectId", "projectName", "client", "clientPhone", "clientEmail", "orderDate", "deliveryDate", "itemsJson", "total", "dpPercent", "dpRequiredAmount", "status", "historyJson", "notes", "createdAt", "updatedAt"]
+    headers: ["ID", "NomorSO", "QuotationID", "NomorQuotation", "ProjectID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "TanggalOrder", "TanggalPengiriman", "ItemsJSON", "Total", "DPPersen", "DPWajib", "Status", "RiwayatJSON", "Catatan", "CreatedAt", "UpdatedAt", "SourceCostSheetSnapshotJSON"],
+    fields: ["id", "orderNo", "quotationId", "quotationNo", "projectId", "projectName", "client", "clientPhone", "clientEmail", "orderDate", "deliveryDate", "itemsJson", "total", "dpPercent", "dpRequiredAmount", "status", "historyJson", "notes", "createdAt", "updatedAt", "sourceCostSheetSnapshotJson"]
   },
   Inventory_Transactions: {
     headers: ["ID", "NomorTransaksi", "MaterialID", "NamaMaterial", "JenisPergerakan", "Qty", "Satuan", "Tanggal", "ProjectID", "NamaProyek", "PurchaseOrderID", "Supplier", "Referensi", "Catatan", "CreatedAt", "CreatedBy"],
@@ -105,8 +105,8 @@ var FIELD_MAP = {
     fields: ["id", "projectId", "projectName", "client", "deadline", "notes", "linesJson", "total", "sourceCostSheetId", "sourceCostSheetUpdatedAt", "dpPercent", "status", "createdAt", "updatedAt"]
   },
   Commercial_Quotations: {
-    headers: ["ID", "ProjectID", "LeadID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "AlamatKlien", "PICKlien", "NomorDokumen", "TanggalDokumen", "JatuhTempo", "LinesJSON", "Subtotal", "Diskon", "PajakPersen", "PajakNominal", "Total", "DPPersen", "SyaratKetentuan", "KetentuanPembayaran", "Catatan", "Status", "ConvertedInvoiceID", "CreatedAt", "UpdatedAt", "DeadlineProyek"],
-    fields: ["id", "projectId", "leadId", "projectName", "client", "clientPhone", "clientEmail", "clientAddress", "contactPerson", "docNo", "date", "dueDate", "linesJson", "subtotal", "discount", "taxRate", "taxAmount", "total", "dpPercent", "terms", "paymentTerms", "notes", "status", "convertedInvoiceId", "createdAt", "updatedAt", "projectDeadline"]
+    headers: ["ID", "ProjectID", "LeadID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "AlamatKlien", "PICKlien", "NomorDokumen", "TanggalDokumen", "JatuhTempo", "LinesJSON", "Subtotal", "Diskon", "PajakPersen", "PajakNominal", "Total", "DPPersen", "SyaratKetentuan", "KetentuanPembayaran", "Catatan", "Status", "ConvertedInvoiceID", "CreatedAt", "UpdatedAt", "DeadlineProyek", "SourceCostSheetSnapshotJSON"],
+    fields: ["id", "projectId", "leadId", "projectName", "client", "clientPhone", "clientEmail", "clientAddress", "contactPerson", "docNo", "date", "dueDate", "linesJson", "subtotal", "discount", "taxRate", "taxAmount", "total", "dpPercent", "terms", "paymentTerms", "notes", "status", "convertedInvoiceId", "createdAt", "updatedAt", "projectDeadline", "sourceCostSheetSnapshotJson"]
   },
   Invoices: {
     headers: ["ID", "ProjectID", "LeadID", "QuotationID", "SourceQuotationID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "AlamatKlien", "PICKlien", "NomorDokumen", "TanggalDokumen", "JatuhTempo", "LinesJSON", "Subtotal", "Diskon", "PajakPersen", "PajakNominal", "Total", "DPPersen", "KetentuanPembayaran", "SyaratKetentuan", "Catatan", "Status", "CreatedAt", "UpdatedAt", "DeadlineProyek"],
@@ -464,10 +464,10 @@ function doGet(e) {
       projectCosts: identity.role === "owner" ? readLegacySheetData_(ss, "Project_Costs") : [],
       services: readSheetData(ss, "Services"),
       purchaseOrders: readSheetData(ss, "Purchase_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
-      salesOrders: readSheetData(ss, "Sales_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } try { x.history = JSON.parse(x.historyJson || "[]"); } catch(e) { x.history = []; } return x; }),
+      salesOrders: readSheetData(ss, "Sales_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } try { x.history = JSON.parse(x.historyJson || "[]"); } catch(e) { x.history = []; } x.sourceCostSheetSnapshot = parseCostSheetSnapshotValue_(x.sourceCostSheetSnapshotJson); return x; }),
       inventoryTransactions: readSheetData(ss, "Inventory_Transactions"),
       quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
-      quotations: readSheetData(ss, "Commercial_Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
+      quotations: readSheetData(ss, "Commercial_Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } x.sourceCostSheetSnapshot = parseCostSheetSnapshotValue_(x.sourceCostSheetSnapshotJson); return x; }),
       invoices: readSheetData(ss, "Invoices").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
       invoicePayments: readSheetData(ss, "Invoice_Payments"),
       lastSynced: new Date().toISOString()
@@ -563,9 +563,68 @@ function assertUniqueCommercialDocumentNumbers_(ss, sheetName, incomingRows) {
   return true;
 }
 
+
+function parseCostSheetSnapshotValue_(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    try {
+      var parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    } catch (error) { return null; }
+  }
+  return null;
+}
+
+function normalizeCostSheetSnapshot_(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  return {
+    id: String(snapshot.id || ""),
+    projectId: String(snapshot.projectId || ""),
+    projectName: String(snapshot.projectName || ""),
+    items: Array.isArray(snapshot.items) ? snapshot.items : [],
+    materialTotal: Number(snapshot.materialTotal) || 0,
+    labor: Number(snapshot.labor) || 0,
+    other: Number(snapshot.other) || 0,
+    margin: Number(snapshot.margin) || 0,
+    total: Number(snapshot.total) || 0,
+    price: Number(snapshot.price) || 0,
+    profit: Number(snapshot.profit) || 0,
+    updatedAt: String(snapshot.updatedAt || "")
+  };
+}
+
+function canonicalizeCostSnapshotValue_(value) {
+  if (Array.isArray(value)) return value.map(canonicalizeCostSnapshotValue_);
+  if (value && typeof value === "object") {
+    var output = {};
+    Object.keys(value).sort().forEach(function(key) {
+      output[key] = canonicalizeCostSnapshotValue_(value[key]);
+    });
+    return output;
+  }
+  return value;
+}
+
+function costSheetSnapshotJson_(snapshot) {
+  var normalized = normalizeCostSheetSnapshot_(snapshot);
+  return JSON.stringify(normalized ? canonicalizeCostSnapshotValue_(normalized) : null);
+}
+
+function costSheetSnapshotFromRow_(row) {
+  if (!row) return null;
+  var items = [];
+  try { items = JSON.parse(String(row.itemsJson || "[]")); } catch (error) { items = []; }
+  return normalizeCostSheetSnapshot_({
+    id: row.id, projectId: row.projectId, projectName: row.projectName, items: items,
+    materialTotal: row.materialTotal, labor: row.labor, other: row.other, margin: row.margin,
+    total: row.total, price: row.price, profit: row.profit, updatedAt: row.updatedAt
+  });
+}
+
 function validateCommercialDocumentsBeforeMerge_(ss, sheetName, incomingRows) {
   if (!Array.isArray(incomingRows)) throw new Error("INVALID_COMMERCIAL_DOCUMENTS");
   var currentRows = readSheetData(ss, sheetName);
+  var currentCostSheets = readSheetData(ss, "Cost_Sheets");
   var currentById = {};
   currentRows.forEach(function(row) { currentById[String(row.id || "")] = row; });
   incomingRows.forEach(function(row) {
@@ -577,6 +636,22 @@ function validateCommercialDocumentsBeforeMerge_(ss, sheetName, incomingRows) {
     }
     var incomingLinesJson = JSON.stringify(lines);
     var existingLinesJson = String(existing && existing.linesJson || "");
+    var snapshot = parseCostSheetSnapshotValue_(row.sourceCostSheetSnapshot || row.sourceCostSheetSnapshotJson);
+    var existingSnapshot = parseCostSheetSnapshotValue_(existing && existing.sourceCostSheetSnapshotJson);
+    var snapshotChanged = costSheetSnapshotJson_(snapshot) !== costSheetSnapshotJson_(existingSnapshot);
+    if (existingSnapshot && !snapshot) throw new Error("COMMERCIAL_HPP_SNAPSHOT_IMMUTABLE");
+    if (snapshot) {
+      if (!String(snapshot.id || "").trim() || String(snapshot.projectId || "") !== String(row.projectId || "")) throw new Error("INVALID_COMMERCIAL_HPP_SNAPSHOT");
+      if (existing && snapshotChanged && String(existing.status || "").toLowerCase() !== "draft") throw new Error("COMMERCIAL_HPP_SNAPSHOT_IMMUTABLE");
+      if (!existingSnapshot || snapshotChanged) {
+        var matchingCostSheet = currentCostSheets.find(function(sheet) {
+          return String(sheet.id) === String(snapshot.id) && String(sheet.projectId) === String(snapshot.projectId);
+        });
+        var currentSnapshot = costSheetSnapshotFromRow_(matchingCostSheet);
+        if (!currentSnapshot || costSheetSnapshotJson_(snapshot) !== costSheetSnapshotJson_(currentSnapshot)) throw new Error("COMMERCIAL_HPP_SNAPSHOT_NOT_CURRENT");
+      }
+    }
+
     var financialFields = ["subtotal", "discount", "taxRate", "taxAmount", "total", "dpPercent"];
     var financialChanged = !existing || incomingLinesJson !== existingLinesJson || financialFields.some(function(field) {
       var oldValue = existing[field] === undefined || existing[field] === null ? "" : String(existing[field]);
@@ -629,6 +704,7 @@ function mergeCommercialQuotationsSafely_(ss, incomingQuotations) {
     var normalized = (incomingQuotations || []).map(function(item) {
       var copy = Object.assign({}, item);
       copy.linesJson = JSON.stringify(item.lines || []);
+      copy.sourceCostSheetSnapshotJson = JSON.stringify(item.sourceCostSheetSnapshot || null);
       return copy;
     });
     return mergeSheet(ss, "Commercial_Quotations", normalized);
@@ -754,6 +830,7 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders) {
   if (!Array.isArray(incomingOrders)) throw new Error("INVALID_SALES_ORDERS");
   ensureSheet(ss, "Sales_Orders", FIELD_MAP.Sales_Orders.headers);
   var existingOrders = readSheetData(ss, "Sales_Orders");
+  var costSheets = readSheetData(ss, "Cost_Sheets");
   var quotations = readSheetData(ss, "Commercial_Quotations");
   var invoices = readSheetData(ss, "Invoices");
   var payments = readSheetData(ss, "Invoice_Payments");
@@ -800,6 +877,7 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders) {
     if (seenQuotes[quoteId] && seenQuotes[quoteId] !== id) throw new Error("DUPLICATE_SALES_ORDER_FOR_QUOTATION");
     seenQuotes[quoteId] = id;
     var itemsJson = JSON.stringify(items);
+    var incomingHppSnapshot = parseCostSheetSnapshotValue_(order.sourceCostSheetSnapshot || order.sourceCostSheetSnapshotJson);
     var quotationLines = [];
     try { quotationLines = JSON.parse(quote.linesJson || "[]"); } catch (parseError) { quotationLines = []; }
     if (!Array.isArray(quotationLines)) quotationLines = [];
@@ -809,8 +887,12 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders) {
       if (String(order.quotationNo || "") !== String(quote.docNo || quote.id)) throw new Error("SALES_ORDER_QUOTATION_SNAPSHOT_MISMATCH");
       if (total !== Math.round(Number(quote.total)) || dpPercent !== Number(quote.dpPercent || 0)) throw new Error("SALES_ORDER_QUOTATION_VALUE_MISMATCH");
       if (itemsJson !== JSON.stringify(quotationLines)) throw new Error("SALES_ORDER_ITEMS_SNAPSHOT_MISMATCH");
+      var quotationHppSnapshot = parseCostSheetSnapshotValue_(quote.sourceCostSheetSnapshotJson);
+      var expectedHppSnapshot = quotationHppSnapshot || costSheetSnapshotFromRow_(costSheets.find(function(sheet) { return String(sheet.projectId) === projectId; }));
+      if (costSheetSnapshotJson_(incomingHppSnapshot) !== costSheetSnapshotJson_(expectedHppSnapshot)) throw new Error("SALES_ORDER_HPP_SNAPSHOT_MISMATCH");
     } else {
       var currentItems = String(existing.itemsJson || "[]");
+      var existingHppSnapshot = parseCostSheetSnapshotValue_(existing.sourceCostSheetSnapshotJson);
       var immutableChanged = String(existing.quotationId) !== quoteId ||
         String(existing.orderNo) !== String(order.orderNo) ||
         String(existing.projectId) !== projectId ||
@@ -818,7 +900,8 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders) {
         Number(existing.dpPercent) !== dpPercent ||
         Math.round(Number(existing.dpRequiredAmount)) !== dpRequired ||
         String(existing.orderDate) !== String(order.orderDate) ||
-        currentItems !== itemsJson;
+        currentItems !== itemsJson ||
+        costSheetSnapshotJson_(existingHppSnapshot) !== costSheetSnapshotJson_(incomingHppSnapshot);
       if (immutableChanged) throw new Error("SALES_ORDER_SNAPSHOT_IMMUTABLE");
       if (String(existing.status) !== String(order.status)) {
         var nextAllowed = transitions[String(existing.status)] || [];
@@ -1017,7 +1100,7 @@ function doPost(e) {
         if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
         if (payload.salesOrders) {
           validateSalesOrdersBeforeMerge_(ss, payload.salesOrders);
-          mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); return y; }));
+          mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); y.sourceCostSheetSnapshotJson = JSON.stringify(x.sourceCostSheetSnapshot || null); return y; }));
         }
         if (payload.inventoryTransactions) {
           mergeSummary.Inventory_Transactions = mergeSheet(ss, "Inventory_Transactions", payload.inventoryTransactions);
