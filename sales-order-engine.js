@@ -78,6 +78,7 @@
     var dpRequired=calculateDeposit(total,dpPercent);
     var date=options.date||localDate();
     var createdAt=options.createdAt||new Date().toISOString();
+    var sourceSnapshot=quotation.sourceCostSheetSnapshot||options.sourceCostSheetSnapshot||null;
     var initialStatus=dpRequired>0?'awaiting_dp':'ready_production';
     var order={
       id:'SO-'+Date.now()+'-'+Math.random().toString(36).slice(2,8).toUpperCase(),
@@ -92,6 +93,9 @@
       orderDate:date,
       deliveryDate:String(quotation.projectDeadline||''),
       items:Array.isArray(quotation.lines)?JSON.parse(JSON.stringify(quotation.lines)):[],
+      sourceCostSheetSnapshot:sourceSnapshot?JSON.parse(JSON.stringify(sourceSnapshot)):null,
+      sourceCostSheetId:String(sourceSnapshot&&sourceSnapshot.id||''),
+      sourceCostSheetUpdatedAt:String(sourceSnapshot&&sourceSnapshot.updatedAt||''),
       total:total,
       dpPercent:dpPercent,
       dpRequiredAmount:dpRequired,
