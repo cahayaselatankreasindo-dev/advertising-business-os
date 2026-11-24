@@ -40,11 +40,15 @@ assert.equal(normalizedPicking.lines.length, 1, 'fully issued materials are excl
 assert.equal(normalizedPicking.lines[0].outstanding, 3);
 assert.equal(pdf.pickingListFilename(normalizedPicking), 'PICKLIST-PRJ-BOOTH-042-SO-CSK-2026-00042.pdf');
 assert.throws(() => pdf.generatePickingListPdf({ lines: [] }, function() {}), /Tidak ada material/);
-function MockPdf() {
+function MockPdf(options) {
   this.pages = 1;
   this.saved = '';
+  this.orientation = options && options.orientation || 'portrait';
   this.internal = {
-    pageSize: { getWidth: () => 210, getHeight: () => 297 },
+    pageSize: {
+      getWidth: () => this.orientation === 'landscape' ? 297 : 210,
+      getHeight: () => this.orientation === 'landscape' ? 210 : 297
+    },
     getNumberOfPages: () => this.pages
   };
 }
@@ -197,6 +201,8 @@ const generatedCost=pdf.generateMaterialCostPdf({
 },MockPdf);
 assert.ok(generatedCost.pages>1,'long actual-cost reconciliation reports paginate across landscape A4 pages');
 assert.equal(generatedCost.internal.getNumberOfPages(),generatedCost.pages);
+assert.equal(generatedCost.internal.pageSize.getWidth(),297,'material cost report uses landscape A4 width');
+assert.equal(generatedCost.internal.pageSize.getHeight(),210,'material cost report uses landscape A4 height');
 
 const html = fs.readFileSync('index.html', 'utf8');
 const commercial = fs.readFileSync('commercial-documents.js', 'utf8');
