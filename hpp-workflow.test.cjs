@@ -29,6 +29,7 @@ assert.equal(isMaterialSelectable({...verifiedMaterial,status:'inactive'}),false
 assert.equal(isMaterialSelectable({...verifiedMaterial,priceDate:''}),false,'material without a current price date is not selectable');
 assert.equal(isMaterialSelectable({...verifiedMaterial,supplierName:''}),false,'material without supplier is not selectable');
 assert.equal(isMaterialSelectable({...verifiedMaterial,conversionFactor:-1}),false,'invalid conversion factor is rejected');
+assert.equal(isMaterialSelectable({...verifiedMaterial,conversionFactor:0}),false,'an explicit zero conversion factor is not silently treated as one');
 assert.equal(isMaterialSelectable({...verifiedMaterial,unitPrice:0}),false,'zero HPP usage price is rejected');
 assert.equal(isMaterialSelectable({
   id:'MAT-MANUAL-LEGACY',sku:'MAT-MANUAL-LEGACY',name:'Legacy material',
