@@ -195,12 +195,17 @@ function renderReservationPanel(d){
  var html='<section class="bg-white border border-violet-200 rounded-2xl p-4 mb-5"><div class="flex flex-wrap justify-between items-center gap-2"><div><h2 class="font-bold text-sm">Reservasi Stok Terkunci</h2><p class="text-[11px] text-slate-500 mt-1">Reservasi server-side berdasarkan snapshot HPP setiap Sales Order yang sudah siap produksi dan lolos verifikasi DP.</p></div><span class="rounded-full bg-violet-50 text-violet-700 px-2 py-1 text-[10px] font-bold">'+reservations.filter(function(row){return row.status==='active';}).length+' baris aktif</span></div>';
  if(!orders.length)html+='<div class="mt-3 border border-dashed rounded-xl p-4 text-xs text-slate-500">Belum ada Sales Order berstatus Siap Produksi.</div>';
  else html+='<div class="mt-3 space-y-2">'+orders.map(function(order){
-  var active=reservations.filter(function(row){return String(row.salesOrderId)===String(order.id)&&row.status==='active';});
+  var orderHistory=reservations.filter(function(row){return String(row.salesOrderId)===String(order.id);});
+  var active=orderHistory.filter(function(row){return row.status==='active';});
+  var fullyConsumed=orderHistory.length>0&&orderHistory.every(function(row){return row.status==='consumed';});
   var summary=active.map(function(row){var used=(d.inventoryTransactions||[]).filter(function(tx){return tx.movement==='issue'&&String(tx.reservationId||'')===String(row.id||'');}).reduce(function(sum,tx){return sum+n(tx.qty);},0);var remaining=Math.max(0,n(row.qty)-used);return esc(row.materialName)+': '+qty(remaining)+' '+esc(row.unit)+' tersisa';}).join(' · ');
   var action=active.length
    ? '<button data-inv-action="release-so" data-sales-order-id="'+esc(order.id)+'" class="px-3 py-2 rounded-lg border border-red-200 text-red-700 text-[10px] font-bold">Lepas Reservasi</button>'
-   : '<button data-inv-action="reserve-so" data-sales-order-id="'+esc(order.id)+'" class="px-3 py-2 rounded-lg bg-violet-700 text-white text-[10px] font-bold">Kunci Stok</button>';
-  return '<div class="flex flex-wrap items-center justify-between gap-3 border rounded-xl p-3"><div class="min-w-0"><div class="font-bold text-xs">'+esc(order.orderNo||order.id)+' · '+esc(order.projectName||'Proyek')+'</div><div class="text-[10px] text-slate-500 mt-1">'+(active.length?'<span class="text-emerald-700 font-semibold">Terkunci</span> · '+summary:'<span class="text-amber-700">Belum direservasi</span> · '+esc(order.client||''))+'</div></div>'+(bridge()&&bridge().isOwner()?action:'')+'</div>';
+   : fullyConsumed
+    ? '<span class="text-[10px] font-semibold text-emerald-700">Semua material telah digunakan</span>'
+    : '<button data-inv-action="reserve-so" data-sales-order-id="'+esc(order.id)+'" class="px-3 py-2 rounded-lg bg-violet-700 text-white text-[10px] font-bold">Kunci Stok</button>';
+  var state=active.length?'<span class="text-emerald-700 font-semibold">Terkunci</span> · '+summary:fullyConsumed?'<span class="text-emerald-700 font-semibold">Sudah digunakan</span>':'<span class="text-amber-700">Belum direservasi</span> · '+esc(order.client||'');
+  return '<div class="flex flex-wrap items-center justify-between gap-3 border rounded-xl p-3"><div class="min-w-0"><div class="font-bold text-xs">'+esc(order.orderNo||order.id)+' · '+esc(order.projectName||'Proyek')+'</div><div class="text-[10px] text-slate-500 mt-1">'+state+'</div></div>'+(bridge()&&bridge().isOwner()?action:'')+'</div>';
  }).join('')+'</div>';
  html+='<p class="text-[10px] text-slate-400 mt-3">Reservasi dicatat di Google Sheets dan diproses oleh backend. Pembatalan, penyelesaian, atau penutupan Sales Order melepas reservasi aktif secara otomatis. Owner juga dapat melepasnya secara manual untuk koreksi.</p></section>';
  return html;
