@@ -144,6 +144,13 @@ const unvaluedVariance=E.calculateMaterialCostVariance(
 assert.equal(unvaluedVariance.complete,false,'actual material cost is incomplete when no verified or fallback unit cost exists');
 assert.equal(unvaluedVariance.varianceCost,null,'incomplete actual valuation must not present a misleading cost variance');
 assert.equal(unvaluedVariance.rows[0].varianceCost,null);
+const noIssueVariance=E.calculateMaterialCostVariance(
+ [{materialId:'MAT-ACR',name:'Akrilik Clear 3mm',unit:'m2',required:5,estimatedTotalCost:500000}],
+ 'PRJ-NO-ISSUE',[],materials
+);
+assert.equal(noIssueVariance.hasActualMovement,false,'no project issue/return means there is no actual material cost comparison yet');
+assert.equal(noIssueVariance.varianceCost,null,'unstarted projects must not appear to have saved the entire HPP material budget');
+assert.equal(noIssueVariance.varianceComplete,false);
 
 assert.throws(()=>E.validateTransaction({
  materialId:'MAT-ACR',movement:'issue',qty:1,unit:'m2',date:'2026-11-15',projectId:''
