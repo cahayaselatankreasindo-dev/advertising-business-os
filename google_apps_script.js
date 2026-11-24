@@ -97,8 +97,8 @@ var FIELD_MAP = {
     fields: ["id", "orderNo", "quotationId", "quotationNo", "projectId", "projectName", "client", "clientPhone", "clientEmail", "orderDate", "deliveryDate", "itemsJson", "total", "dpPercent", "dpRequiredAmount", "status", "historyJson", "notes", "createdAt", "updatedAt", "materialRequirementsJson"]
   },
   Inventory_Transactions: {
-    headers: ["ID", "NomorTransaksi", "MaterialID", "NamaMaterial", "JenisPergerakan", "Qty", "Satuan", "Tanggal", "ProjectID", "NamaProyek", "PurchaseOrderID", "Supplier", "Referensi", "Catatan", "CreatedAt", "CreatedBy"],
-    fields: ["id", "transactionNo", "materialId", "materialName", "movement", "qty", "unit", "date", "projectId", "projectName", "purchaseOrderId", "supplier", "reference", "notes", "createdAt", "createdBy"]
+    headers: ["ID", "NomorTransaksi", "MaterialID", "NamaMaterial", "JenisPergerakan", "Qty", "Satuan", "Tanggal", "ProjectID", "NamaProyek", "PurchaseOrderID", "Supplier", "Referensi", "Catatan", "CreatedAt", "CreatedBy", "HargaPokokSatuan", "TotalBiaya", "SumberBiaya", "MetodeValuasi"],
+    fields: ["id", "transactionNo", "materialId", "materialName", "movement", "qty", "unit", "date", "projectId", "projectName", "purchaseOrderId", "supplier", "reference", "notes", "createdAt", "createdBy", "unitCost", "totalCost", "costSource", "costingMethod"]
   },
   Quotations: {
     headers: ["ID", "ProjectID", "NamaProyek", "Klien", "Deadline", "Catatan", "LinesJSON", "Total", "SourceCostSheetID", "SourceCostSheetUpdatedAt", "DPPersen", "Status", "CreatedAt", "UpdatedAt"],
@@ -815,6 +815,51 @@ function calculateInventoryBalancesServer_(materials, transactions) {
   return balances;
 }
 
+function calculateInventoryValuationServer_(materials, transactions) {
+  var materialMap = Object.create(null), state = Object.create(null), transactionCosts = Object.create(null);
+  (materials || []).forEach(function(row) { materialMap[String(row.id)] = row; });
+  var directions = {opening:1,receipt:1,return:1,issue:-1,adjustment_in:1,adjustment_out:-1};
+  (transactions || []).slice().sort(function(a,b) {
+    var date = String(a.date || "").localeCompare(String(b.date || ""));
+    if (date) return date;
+    var created = String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+    return created || String(a.id || "").localeCompare(String(b.id || ""));
+  }).forEach(function(tx) {
+    var id = String(tx.materialId || ""), material = materialMap[id], direction = directions[String(tx.movement || "")];
+    if (!material || !direction) return;
+    var current = state[id] || {qty:0,value:0,estimated:false,complete:true};
+    var qty = Number(tx.qty) || 0, average = current.qty > 0.000001 ? current.value / current.qty : 0;
+    var storedUnitCost = Number(tx.unitCost) || 0, unitCost = storedUnitCost;
+    var estimated = tx.costSource === "master_fallback" || tx.costSource === "legacy_master_fallback";
+    var complete = true;
+    if (unitCost <= 0) {
+      if (["issue","return","adjustment_out"].indexOf(String(tx.movement)) >= 0) unitCost = average || Number(material.unitPrice) || 0;
+      else if (tx.movement === "adjustment_in" && current.qty > 0) unitCost = average || Number(material.unitPrice) || 0;
+      else unitCost = Number(material.unitPrice) || 0;
+      estimated = true;
+    }
+    if (unitCost <= 0) { complete = false; unitCost = 0; }
+    var totalCost = Number(tx.totalCost) || 0;
+    if (totalCost <= 0 && unitCost > 0) { totalCost = Math.round(qty * unitCost); estimated = true; }
+    if (unitCost > 0 && totalCost > 0 && Math.abs(totalCost - qty * unitCost) > 1.01) complete = false;
+    var afterQty = current.qty + direction * qty, afterValue = current.value + direction * totalCost;
+    if (afterQty <= 0.000001) { afterQty = 0; afterValue = 0; }
+    if (afterValue < -1.01) { afterValue = 0; estimated = true; complete = false; }
+    state[id] = {qty:Math.max(0,afterQty),value:Math.max(0,afterValue),estimated:current.estimated || estimated,complete:current.complete && complete};
+    transactionCosts[String(tx.id || "")] = {unitCost:unitCost,totalCost:totalCost,estimated:estimated,complete:complete};
+  });
+  var result = {balances:{},stockValue:{},averageCost:{},estimated:{},complete:{},transactionCosts:transactionCosts};
+  Object.keys(state).forEach(function(id) {
+    var row = state[id], average = row.qty > 0 ? row.value / row.qty : 0;
+    result.balances[id] = row.qty;
+    result.stockValue[id] = Math.round(row.value);
+    result.averageCost[id] = Math.round(average * 10000) / 10000;
+    result.estimated[id] = row.estimated;
+    result.complete[id] = row.complete;
+  });
+  return result;
+}
+
 function calculateActiveProjectReservations_(ss, orders, transactions) {
   var activeStatuses = {ready_production:true,in_production:true};
   var materials = readSheetData(ss, "Materials");
@@ -1096,7 +1141,7 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
   var seenIds = {};
   var seenNumbers = {};
   var newRows = [];
-  var immutableFields = ["transactionNo","materialId","materialName","movement","qty","unit","date","projectId","projectName","purchaseOrderId","supplier","reference","notes","createdAt","createdBy"];
+  var immutableFields = ["transactionNo","materialId","materialName","movement","qty","unit","date","projectId","projectName","purchaseOrderId","supplier","unitCost","totalCost","costSource","costingMethod","reference","notes","createdAt","createdBy"];
   incomingTransactions.forEach(function(tx) {
     if (!tx || !/^ITX-[A-Za-z0-9_-]{8,100}$/.test(String(tx.id || ""))) throw new Error("INVALID_INVENTORY_TRANSACTION_ID");
     var id = String(tx.id);
@@ -1120,6 +1165,33 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     if (["adjustment_in","adjustment_out"].indexOf(String(tx.movement)) >= 0 && !String(tx.notes || "").trim()) throw new Error("INVENTORY_ADJUSTMENT_REASON_REQUIRED");
     var current = existing.find(function(row) { return String(row.id) === id; });
     var priorLedger = existing.concat(newRows);
+    if (!current) {
+      var unitCost = Number(tx.unitCost), totalCost = Number(tx.totalCost);
+      if (!Number.isFinite(unitCost) || unitCost <= 0 || !Number.isFinite(totalCost) || totalCost <= 0 ||
+          Math.abs(totalCost - Math.round(qty * unitCost)) > 1 || String(tx.costingMethod || "") !== "moving_average") {
+        throw new Error("INVALID_INVENTORY_COST_SNAPSHOT");
+      }
+      var valuationBefore = calculateInventoryValuationServer_(materials, priorLedger);
+      var averageBefore = Number(valuationBefore.averageCost[String(tx.materialId)] || 0);
+      var masterCost = Number(material.unitPrice) || 0;
+      var expectedCost = unitCost, expectedSource = String(tx.costSource || "");
+      if (["issue","return","adjustment_out"].indexOf(String(tx.movement)) >= 0 ||
+          (String(tx.movement) === "adjustment_in" && averageBefore > 0)) {
+        expectedCost = averageBefore || masterCost;
+        expectedSource = averageBefore > 0 ? "moving_average" : "master_fallback";
+      } else if (String(tx.movement) === "receipt" && String(tx.purchaseOrderId || "")) {
+        var costPO = purchaseOrders.find(function(po) { return String(po.id) === String(tx.purchaseOrderId); });
+        var costItems = [];
+        try { costItems = JSON.parse(costPO && costPO.itemsJson || "[]"); } catch (costParseError) { costItems = []; }
+        var costLine = costItems.find(function(item) { return String(item.materialId) === String(tx.materialId); });
+        var poCost = Number(costLine && costLine.unitPrice) || 0;
+        if (poCost > 0) { expectedCost = poCost; expectedSource = "purchase_order"; }
+      }
+      if (expectedCost <= 0) throw new Error("INVENTORY_COST_SOURCE_REQUIRED");
+      if (Math.abs(unitCost - expectedCost) > 0.02 || String(tx.costSource || "") !== expectedSource) {
+        throw new Error("INVENTORY_COST_SNAPSHOT_MISMATCH");
+      }
+    }
     if (!current && String(tx.movement) === "return") {
       var netIssued = priorLedger.filter(function(row) { return String(row.projectId || "") === projectId && String(row.materialId) === String(tx.materialId); })
         .reduce(function(sum,row) { if (row.movement === "issue") return sum + Number(row.qty || 0); if (row.movement === "return") return sum - Number(row.qty || 0); return sum; },0);
