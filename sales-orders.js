@@ -202,7 +202,7 @@ async function createDraftPOFromShortage(salesOrderId){
   var d=data(),order=d.salesOrders.find(function(x){return String(x.id)===String(salesOrderId);});
   if(!order)throw new Error('Sales Order tidak ditemukan.');
   var sheet=(d.costSheets||[]).find(function(x){return String(x.projectId)===String(order.projectId);});
-  if(!sheet)throw new Error('HPP proyek belum tersedia.');
+  if(!sheet&&!(Array.isArray(order.materialRequirements)&&order.materialRequirements.length))throw new Error('HPP proyek belum tersedia.');
   var balances=w.CSKInventoryEngine.calculateBalances(d.materials||[],d.inventoryTransactions||[]);
   var plan=materialPlanForOrder(order,d,balances);
   if(plan.errors.length)throw new Error('Perbaiki konversi HPP terlebih dahulu: '+plan.errors.join(' '));
