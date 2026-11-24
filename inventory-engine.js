@@ -111,6 +111,9 @@
       if(!Number.isFinite(qty)||qty<=0){errors.push('Kuantitas HPP untuk '+material.name+' tidak valid.');return;}
       var snapshot=item.materialSnapshot&&typeof item.materialSnapshot==='object'?item.materialSnapshot:null;
       var stockUnit=String(snapshot&&snapshot.unit||material.unit||'').trim(),purchaseUnit=String(snapshot&&snapshot.purchaseUnit||material.purchaseUnit||'').trim();
+      if(snapshot&&snapshot.unit&&material.unit&&String(snapshot.unit).trim().toLowerCase()!==String(material.unit).trim().toLowerCase()){
+        errors.push('Satuan stok Master Material berubah sejak HPP disimpan untuk '+(material.name||item.name||'#'+(index+1))+'. Periksa ulang HPP sebelum membuat PO.');return;
+      }
       var stockQty=0;
       if(lineUnit===stockUnit.toLowerCase())stockQty=qty;
       else if(lineUnit===purchaseUnit.toLowerCase()){
