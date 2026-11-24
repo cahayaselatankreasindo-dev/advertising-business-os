@@ -999,7 +999,10 @@ function validateMaterialsBeforeMerge_(ss, incomingMaterials) {
     if (!String(material.name || "").trim() || !String(material.category || "").trim() || !unit || !purchaseUnit) throw new Error("ACTIVE_MATERIAL_SPECIFICATION_REQUIRED");
     if (!Number.isFinite(factor) || factor <= 0) throw new Error("ACTIVE_MATERIAL_CONVERSION_INVALID");
     if (!Number.isFinite(purchasePrice) || purchasePrice <= 0 || !Number.isFinite(usagePrice) || usagePrice <= 0) throw new Error("ACTIVE_MATERIAL_PRICE_REQUIRED");
-    if (Math.abs(usagePrice - purchasePrice / factor) > Math.max(0.01, purchasePrice / factor * 0.000001)) throw new Error("ACTIVE_MATERIAL_USAGE_PRICE_MISMATCH");
+    var wasteRate = Number(material.wasteRate || 0);
+    if (!Number.isFinite(wasteRate) || wasteRate < 0 || wasteRate > 100) throw new Error("ACTIVE_MATERIAL_WASTE_RATE_INVALID");
+    var expectedUsagePrice = (purchasePrice / factor) * (1 + wasteRate / 100);
+    if (Math.abs(usagePrice - expectedUsagePrice) > Math.max(0.01, expectedUsagePrice * 0.000001)) throw new Error("ACTIVE_MATERIAL_USAGE_PRICE_MISMATCH");
     if (!String(material.supplierName || "").trim() || !String(material.priceSource || "").trim()) throw new Error("ACTIVE_MATERIAL_PRICE_SOURCE_REQUIRED");
     var priceDate = String(material.priceDate || "");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(priceDate)) throw new Error("ACTIVE_MATERIAL_PRICE_DATE_REQUIRED");
@@ -1068,10 +1071,11 @@ function reserveSalesOrderStock_(ss, salesOrderId, identity) {
       if (!item.materialId) throw new Error("RESERVATION_MATERIAL_ID_REQUIRED:" + String(item.name || index + 1));
       var material = materialMap[String(item.materialId)];
       if (!material) throw new Error("RESERVATION_MATERIAL_NOT_FOUND:" + String(item.name || index + 1));
-      if (String(material.status || "active").toLowerCase() === "inactive") throw new Error("RESERVATION_MATERIAL_INACTIVE:" + String(material.name || item.name || ""));
+      if (String(material.status || "active").toLowerCase() !== "active") throw new Error("RESERVATION_MATERIAL_NOT_ACTIVE:" + String(material.name || item.name || ""));
       var qty = Number(item.qty), unit = String(item.unit || "").trim().toLowerCase();
       if (!Number.isFinite(qty) || qty <= 0) throw new Error("RESERVATION_INVALID_HPP_QUANTITY");
-      var ms = item.materialSnapshot && typeof item.materialSnapshot === "object" ? item.materialSnapshot : {};
+      var hasMaterialSnapshot = item.materialSnapshot && typeof item.materialSnapshot === "object";
+      var ms = hasMaterialSnapshot ? item.materialSnapshot : {};
       var stockUnit = String(ms.unit || material.unit || "").trim();
       var purchaseUnit = String(ms.purchaseUnit || material.purchaseUnit || "").trim();
       var stockQty;
@@ -1081,6 +1085,9 @@ function reserveSalesOrderStock_(ss, salesOrderId, identity) {
         if (!Number.isFinite(factor) || factor <= 0) throw new Error("RESERVATION_INVALID_CONVERSION_FACTOR");
         stockQty = qty * factor;
       } else throw new Error("RESERVATION_UNIT_MISMATCH:" + String(material.name || item.name || ""));
+      var wasteRate = hasMaterialSnapshot && Object.prototype.hasOwnProperty.call(ms, "wasteRate") ? Number(ms.wasteRate) : (hasMaterialSnapshot ? 0 : Number(material.wasteRate || 0));
+      if (!Number.isFinite(wasteRate) || wasteRate < 0 || wasteRate > 100) throw new Error("RESERVATION_WASTE_RATE_INVALID");
+      stockQty *= 1 + wasteRate / 100;
       var key = String(material.id);
       if (!required[key]) required[key] = { material: material, qty: 0 };
       required[key].qty += stockQty;
@@ -1251,6 +1258,7 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     seenNumbers[String(tx.transactionNo)] = true;
     var material = materials.find(function(m) { return String(m.id) === String(tx.materialId || ""); });
     if (!material) throw new Error("INVENTORY_MATERIAL_NOT_FOUND");
+    if (String(material.status || "active").toLowerCase() !== "active") throw new Error("INVENTORY_MATERIAL_NOT_ACTIVE");
     if (!Object.prototype.hasOwnProperty.call(movementDirection, String(tx.movement || ""))) throw new Error("INVALID_INVENTORY_MOVEMENT");
     var qty = Number(tx.qty);
     if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(Number(tx.qty))) throw new Error("INVALID_INVENTORY_QUANTITY");
