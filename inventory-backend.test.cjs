@@ -2,6 +2,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
+const inventoryEngine=require('./inventory-engine.js');
 
 class FakeRange {
   constructor(sheet,row,col,numRows,numCols){this.sheet=sheet;this.row=row;this.col=col;this.numRows=numRows||1;this.numCols=numCols||1;}
@@ -228,5 +229,28 @@ const notReady=reservationFixture(5,'SO-INV-00000004',2);
 const orderStatusCol=map.Sales_Orders.fields.indexOf('status');
 notReady.ss.sheets.Sales_Orders.rows[1][orderStatusCol]='awaiting_dp';
 assert.throws(()=>context.reserveSalesOrderStock_(notReady.ss,notReady.order.id,{role:'owner',email:'owner@example.test'}),/SALES_ORDER_NOT_READY_FOR_RESERVATION/,'orders awaiting DP cannot reserve stock');
+
+
+const wasteCostingPlan=inventoryEngine.calculateHppRequirements({
+ id:'HPP-WASTE-TEST',items:[{itemType:'material',materialId:'MAT-WASTE',name:'Hollow',unit:'m',qty:2,materialSnapshot:{unit:'m',purchaseUnit:'batang',conversionFactor:6,wasteRate:10}}]
+},[{id:'MAT-WASTE',name:'Hollow',unit:'m',purchaseUnit:'batang',conversionFactor:6}],{});
+assert.equal(wasteCostingPlan.requirements[0].required,2.2,'HPP stock requirements include the 10 percent waste allowance');
+const wasteReservationCase=reservationFixture(4.3,'SO-INV-WASTE-001',4);
+const wasteSnapshot={...wasteReservationCase.snapshot,items:[{...wasteReservationCase.snapshot.items[0],materialSnapshot:{unit:'m2',purchaseUnit:'m2',conversionFactor:1,wasteRate:10}}]};
+wasteReservationCase.snapshot.items=wasteSnapshot.items;
+wasteReservationCase.order.sourceCostSheetSnapshotJson=JSON.stringify(wasteSnapshot);
+wasteReservationCase.quote.sourceCostSheetSnapshotJson=JSON.stringify(wasteSnapshot);
+wasteReservationCase.ss.sheets.Sales_Orders.rows[1][map.Sales_Orders.fields.indexOf('sourceCostSheetSnapshotJson')]=JSON.stringify(wasteSnapshot);
+wasteReservationCase.ss.sheets.Commercial_Quotations.rows[1][map.Commercial_Quotations.fields.indexOf('sourceCostSheetSnapshotJson')]=JSON.stringify(wasteSnapshot);
+assert.throws(()=>context.reserveSalesOrderStock_(wasteReservationCase.ss,wasteReservationCase.order.id,{role:'owner',email:'owner@example.test'}),/RESERVATION_STOCK_INSUFFICIENT/,'Sales Order reservation includes material waste allowance before confirming stock sufficiency');
+const wasteReservationReady=reservationFixture(4.4,'SO-INV-WASTE-002',4);
+const readySnapshot={...wasteReservationReady.snapshot,items:[{...wasteReservationReady.snapshot.items[0],materialSnapshot:{unit:'m2',purchaseUnit:'m2',conversionFactor:1,wasteRate:10}}]};
+wasteReservationReady.snapshot.items=readySnapshot.items;
+wasteReservationReady.order.sourceCostSheetSnapshotJson=JSON.stringify(readySnapshot);
+wasteReservationReady.quote.sourceCostSheetSnapshotJson=JSON.stringify(readySnapshot);
+wasteReservationReady.ss.sheets.Sales_Orders.rows[1][map.Sales_Orders.fields.indexOf('sourceCostSheetSnapshotJson')]=JSON.stringify(readySnapshot);
+wasteReservationReady.ss.sheets.Commercial_Quotations.rows[1][map.Commercial_Quotations.fields.indexOf('sourceCostSheetSnapshotJson')]=JSON.stringify(readySnapshot);
+const wasteReserved=context.reserveSalesOrderStock_(wasteReservationReady.ss,wasteReservationReady.order.id,{role:'owner',email:'owner@example.test'});
+assert.equal(wasteReserved.reservations[0].qty,4.4,'reservation quantity snapshots the waste-adjusted material requirement');
 
 console.log('CSK Inventory backend validation tests passed.');
