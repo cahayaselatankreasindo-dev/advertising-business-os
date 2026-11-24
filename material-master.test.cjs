@@ -2,6 +2,8 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const seed=JSON.parse(fs.readFileSync('data/csk-material-master-seed.json','utf8'));
+const masterSource=fs.readFileSync('material-master.js','utf8');
+assert.ok(masterSource.includes("rawFactor===undefined||rawFactor===null||rawFactor===''?1:n(rawFactor)"),'an explicit zero conversion factor must not be treated as a valid default factor');
 assert.equal(seed.name,'Master Bahan Baku CSK');
 assert.equal(seed.items.length,101,'the initial CSK master includes all 101 listed rows, including the Hollow black family code');
 const skus=seed.items.map(x=>String(x.sku).toUpperCase());
