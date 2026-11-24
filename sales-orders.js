@@ -170,6 +170,20 @@ function openPurchaseOrderQty(projectId,materialId,d){
   return sum+Math.max(0,ordered-received);
  },0);
 }
+function materialPlanForOrder(order,d,balances){
+ if(Array.isArray(order.materialRequirements)&&order.materialRequirements.length){
+  var errors=[],requirements=[];
+  order.materialRequirements.forEach(function(line){
+   var material=(d.materials||[]).find(function(row){return String(row.id)===String(line.materialId);});
+   if(!material){errors.push('Material snapshot tidak ditemukan: '+String(line.materialId));return;}
+   if(String(line.unit||'')!==String(material.unit||'')){errors.push('Satuan snapshot tidak cocok untuk '+material.name+'.');return;}
+   if(!Number.isFinite(Number(line.required))||Number(line.required)<=0){errors.push('Kuantitas snapshot tidak valid untuk '+material.name+'.');return;}
+   requirements.push({materialId:material.id,name:line.name||material.name,unit:material.unit,required:Number(line.required),onHand:n((balances||{})[String(material.id)])});
+  });
+  return{requirements:requirements,errors:errors,ready:errors.length===0};
+ }
+ return w.CSKInventoryEngine.calculateHppRequirements((d.costSheets||[]).find(function(x){return String(x.projectId)===String(order.projectId);}),d.materials||[],balances);
+}
 function materialShortageRows(order,d,balances,plan){
  var reservations=w.CSKInventoryEngine.calculateOpenSalesOrderCommitments(d.salesOrders||[],d.costSheets||[],d.materials||[],d.inventoryTransactions||[],balances);
  return plan.requirements.map(function(item){
@@ -190,7 +204,7 @@ async function createDraftPOFromShortage(salesOrderId){
   var sheet=(d.costSheets||[]).find(function(x){return String(x.projectId)===String(order.projectId);});
   if(!sheet)throw new Error('HPP proyek belum tersedia.');
   var balances=w.CSKInventoryEngine.calculateBalances(d.materials||[],d.inventoryTransactions||[]);
-  var plan=w.CSKInventoryEngine.calculateHppRequirements(sheet,d.materials||[],balances);
+  var plan=materialPlanForOrder(order,d,balances);
   if(plan.errors.length)throw new Error('Perbaiki konversi HPP terlebih dahulu: '+plan.errors.join(' '));
   var shortageRows=materialShortageRows(order,d,balances,plan),shortages=shortageRows.filter(function(x){return x.shortage>0;});
   if(!shortages.length){notify('Tidak ada kekurangan material yang perlu dibelikan.');return;}
@@ -225,7 +239,7 @@ function materialPlanHtml(order,d,balances){
  var sheet=(d.costSheets||[]).find(function(x){return String(x.projectId)===String(order.projectId);});
  if(!sheet)return'<div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800">HPP proyek belum dibuat. Lengkapi HPP sebelum melepas material ke produksi.</div>';
  if(!w.CSKInventoryEngine)return'';
- var plan=w.CSKInventoryEngine.calculateHppRequirements(sheet,d.materials,balances);
+ var plan=materialPlanForOrder(order,d,balances);
  if(!plan.requirements.length&&!plan.errors.length)return'<div class="mt-3 rounded-lg border p-3 text-[11px] text-slate-500">HPP belum memiliki baris material yang dapat dihitung.</div>';
  var rowsData=materialShortageRows(order,d,balances,plan);
  var rows=rowsData.map(function(item){
