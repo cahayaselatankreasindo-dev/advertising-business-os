@@ -15,6 +15,7 @@ on:
     branches:
       - main
       - feature/csk-colorful-ui-20261124
+      - feature/csk-inventory-bridge-fix-20261124
 
 jobs:
   test:
