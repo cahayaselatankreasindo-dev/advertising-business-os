@@ -861,7 +861,7 @@ function calculateInventoryValuationServer_(materials, transactions) {
     var afterQty = current.qty + direction * qty, afterValue = current.value + direction * totalCost;
     if (afterQty <= 0.000001) { afterQty = 0; afterValue = 0; }
     if (afterValue < -1.01) { afterValue = 0; estimated = true; complete = false; }
-    state[id] = {qty:Math.max(0,afterQty),value:Math.max(0,afterValue),estimated:current.estimated || estimated,complete:current.complete && complete};
+    state[id] = {qty:Math.max(0,afterQty),value:Math.max(0,afterValue),estimated:afterQty>0?(current.estimated || estimated):false,complete:afterQty>0?(current.complete && complete):true};
     transactionCosts[String(tx.id || "")] = {unitCost:unitCost,totalCost:totalCost,estimated:estimated,complete:complete};
   });
   var result = {balances:{},stockValue:{},averageCost:{},estimated:{},complete:{},transactionCosts:transactionCosts};
@@ -877,7 +877,7 @@ function calculateInventoryValuationServer_(materials, transactions) {
 }
 
 function calculateProjectNetIssueCostServer_(projectId, materialId, transactions, valuation) {
-  var project = String(projectId || ""), material = String(materialId || ""), netQty = 0, netCost = 0;
+  var project = String(projectId || ""), material = String(materialId || ""), netQty = 0, netCost = 0, estimated = false;
   var costs = valuation && valuation.transactionCosts || {};
   (transactions || []).slice().sort(function(a,b) {
     var date = String(a.date || "").localeCompare(String(b.date || ""));
@@ -891,11 +891,12 @@ function calculateProjectNetIssueCostServer_(projectId, materialId, transactions
     var unitCost = Number(snapshot.unitCost) || Number(tx.unitCost) || 0;
     var totalCost = Number(snapshot.totalCost) || Number(tx.totalCost) || 0;
     if (totalCost <= 0 && unitCost > 0) totalCost = Math.round(qty * unitCost);
+    if (snapshot.estimated || tx.costSource === "master_fallback" || tx.costSource === "legacy_master_fallback") estimated = true;
     if (tx.movement === "issue") { netQty += qty; netCost += totalCost; }
     else { netQty -= qty; netCost -= totalCost; }
   });
   netQty = Math.max(0, netQty); netCost = Math.max(0, netCost);
-  return {qty:netQty,totalCost:netCost,averageCost:netQty > 0 ? netCost / netQty : 0};
+  return {qty:netQty,totalCost:netCost,averageCost:netQty > 0 ? netCost / netQty : 0,estimated:estimated};
 }
 
 function calculateActiveProjectReservations_(ss, orders, transactions) {
@@ -1229,11 +1230,12 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
       if (String(tx.movement) === "return") {
         var projectIssueCost = calculateProjectNetIssueCostServer_(projectId, tx.materialId, priorLedger, valuationBefore);
         expectedCost = projectIssueCost.averageCost || averageBefore || masterCost;
-        expectedSource = projectIssueCost.averageCost > 0 ? "project_issue_average" : averageBefore > 0 ? "moving_average" : "master_fallback";
+        expectedSource = projectIssueCost.averageCost > 0 ? (projectIssueCost.estimated ? "master_fallback" : "project_issue_average") :
+          averageBefore > 0 ? (valuationBefore.estimated[String(tx.materialId)] ? "master_fallback" : "moving_average") : "master_fallback";
       } else if (["issue","adjustment_out"].indexOf(String(tx.movement)) >= 0 ||
           (String(tx.movement) === "adjustment_in" && averageBefore > 0)) {
         expectedCost = averageBefore || masterCost;
-        expectedSource = averageBefore > 0 ? "moving_average" : "master_fallback";
+        expectedSource = averageBefore > 0 ? (valuationBefore.estimated[String(tx.materialId)] ? "master_fallback" : "moving_average") : "master_fallback";
       } else if (String(tx.movement) === "receipt" && String(tx.purchaseOrderId || "")) {
         var costPO = purchaseOrders.find(function(po) { return String(po.id) === String(tx.purchaseOrderId); });
         var costItems = [];
