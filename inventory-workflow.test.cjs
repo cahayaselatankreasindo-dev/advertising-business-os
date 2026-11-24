@@ -186,6 +186,7 @@ assert.match(guard,/inventoryTransactions/,'owner sync includes inventory ledger
 assert.match(guard,/inventory/,'inventory navigation is Owner-only');
 assert.match(html,/id="page-inventory"/,'inventory page is mounted in Business OS');
 assert.match(html,/CSKInventoryBridge/,'inventory uses internal Business OS bridge');
+assert.match(html,/costSheets: db\.costSheets \|\| \[\], salesOrders: db\.salesOrders \|\| \[\]/,'inventory bridge supplies HPP and Sales Order data to the commitment monitor');
 assert.match(ui,/validateTransaction/,'inventory UI validates transactions before save');
 assert.match(ui,/openInventoryReceiptFromPO/,'inventory UI supports PO-linked receiving');
 assert.match(ui,/calculateOpenSalesOrderCommitments/,'inventory UI calculates cross-project active Sales Order commitments');
