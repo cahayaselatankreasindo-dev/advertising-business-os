@@ -139,6 +139,8 @@ const hppItemsIndex=map.Cost_Sheets.fields.indexOf('itemsJson');
 const changedHppItems=JSON.parse(ss.sheets.Cost_Sheets.rows[1][hppItemsIndex]);
 changedHppItems[0].qty=3;
 ss.sheets.Cost_Sheets.rows[1][hppItemsIndex]=JSON.stringify(changedHppItems);
+const changedReservation={...readyOrder,status:'in_production',materialRequirements:[{...readyOrder.materialRequirements[0],required:3}]};
+assert.throws(()=>context.validateSalesOrdersBeforeMerge_(ss,[changedReservation]),/SALES_ORDER_MATERIAL_RESERVATION_IMMUTABLE/,'reserved HPP material snapshot cannot be edited after production release');
 const reworkOrder={...readyOrder,status:'in_production'};
 assert.equal(context.validateSalesOrdersBeforeMerge_(ss,[reworkOrder]),true,'rework after QC reuses the frozen HPP reservation even if the current HPP has changed');
 assert.equal(reworkOrder.materialRequirements[0].required,2,'rework keeps the original production material snapshot');
