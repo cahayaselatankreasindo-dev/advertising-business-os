@@ -27,7 +27,7 @@ class FakeSpreadsheet {
   insertSheet(name){const sheet=new FakeSheet([]);this.sheets[name]=sheet;return sheet;}
 }
 const backend=fs.readFileSync('google_apps_script.js','utf8');
-const context={Logger:{log(){}}};vm.createContext(context);vm.runInContext(backend,context);
+const context={Logger:{log(){}},LockService:{getScriptLock(){return{waitLock(){},releaseLock(){}}}}};vm.createContext(context);vm.runInContext(backend,context);
 const map=context.FIELD_MAP;
 function rowFor(sheetName,record){
  const schema=map[sheetName];
@@ -103,5 +103,44 @@ assert.throws(()=>context.validatePurchaseOrderReceiptStatuses_(fixture(),[cance
 const receiptFirst=transaction('INV-00000011','STK-CSK-2026-00011','receipt',2,'2026-11-01',{supplier:'Supplier A'});
 const openingLater=transaction('INV-00000012','STK-CSK-2026-00012','opening',5,'2026-11-02');
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(fixture(),[receiptFirst,openingLater]),/INVENTORY_OPENING_MUST_BE_FIRST/,'opening balance cannot be entered after stock movements');
+
+
+function reservationFixture(stockQty, orderId, reservationQty, secondOrderId) {
+ const f=fixture();
+ const snapshot={id:'HPP-INV-001',projectId:project.id,projectName:project.title,items:[{itemType:'material',materialId:material.id,name:material.name,qty:reservationQty,unit:'m2'}]};
+ const quote={id:'QUO-INV-001',projectId:project.id,docNo:'QUO-CSK-2026-00001',status:'approved',total:1000000,dpPercent:0,linesJson:JSON.stringify([{itemType:'material',materialId:material.id,name:material.name,qty:reservationQty,unit:'m2'}]),sourceCostSheetSnapshotJson:JSON.stringify(snapshot)};
+ const order={id:orderId||'SO-INV-00000001',orderNo:'SO-CSK-2026-00001',quotationId:quote.id,quotationNo:quote.docNo,projectId:project.id,projectName:project.title,client:'PT Contoh',clientPhone:'',clientEmail:'',orderDate:'2026-11-20',deliveryDate:'',itemsJson:quote.linesJson,total:1000000,dpPercent:0,dpRequiredAmount:0,status:'ready_production',historyJson:'[]',notes:'',createdAt:'2026-11-20T08:00:00.000Z',updatedAt:'2026-11-20T08:00:00.000Z',sourceCostSheetSnapshotJson:JSON.stringify(snapshot)};
+ f.sheets.Commercial_Quotations=new FakeSheet([map.Commercial_Quotations.headers,rowFor('Commercial_Quotations',quote)]);
+ f.sheets.Sales_Orders=new FakeSheet([map.Sales_Orders.headers,rowFor('Sales_Orders',order)]);
+ f.sheets.Invoices=new FakeSheet([map.Invoices.headers]);
+ f.sheets.Invoice_Payments=new FakeSheet([map.Invoice_Payments.headers]);
+ f.sheets.Inventory_Reservations=new FakeSheet([map.Inventory_Reservations.headers]);
+ const openingTx=transaction('RESV-OPEN-0001','STK-CSK-2026-00100','opening',stockQty,'2026-11-01');
+ f.sheets.Inventory_Transactions.appendRow(rowFor('Inventory_Transactions',openingTx));
+ return {ss:f,order:order,quote:quote,snapshot:snapshot};
+}
+const reserveCase=reservationFixture(5,'SO-INV-00000001',4);
+const reserved=context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.order.id,{role:'owner',email:'owner@example.test'});
+assert.equal(reserved.status,'reserved','Owner can reserve material for an eligible production order');
+assert.equal(reserved.reservations.length,1);
+assert.equal(reserved.reservations[0].qty,4);
+assert.equal(reserved.reservations[0].status,'active');
+const idempotent=context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.order.id,{role:'owner',email:'owner@example.test'});
+assert.equal(idempotent.status,'already_reserved','repeated reserve requests do not duplicate active reservations');
+assert.equal(reserveCase.ss.sheets.Inventory_Reservations.getLastRow(),2,'idempotent request keeps one reservation row');
+assert.throws(()=>context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.order.id,{role:'team',email:'team@example.test'}),/FORBIDDEN_STOCK_RESERVATION/,'Team cannot reserve stock');
+
+const competing=reservationFixture(5,'SO-INV-00000002',4);
+const competingSecond={...competing.order,id:'SO-INV-00000003',orderNo:'SO-CSK-2026-00002',quotationId:'QUO-INV-00002',quotationNo:'QUO-CSK-2026-00002'};
+const competingQuote={...competing.quote,id:competingSecond.quotationId,docNo:competingSecond.quotationNo};
+competing.ss.sheets.Commercial_Quotations.appendRow(rowFor('Commercial_Quotations',competingQuote));
+competing.ss.sheets.Sales_Orders.appendRow(rowFor('Sales_Orders',competingSecond));
+assert.equal(context.reserveSalesOrderStock_(competing.ss,competing.order.id,{role:'owner',email:'owner@example.test'}).status,'reserved');
+assert.throws(()=>context.reserveSalesOrderStock_(competing.ss,competingSecond.id,{role:'owner',email:'owner@example.test'}),/RESERVATION_STOCK_INSUFFICIENT/,'active reservations reduce stock available to competing Sales Orders');
+
+const notReady=reservationFixture(5,'SO-INV-00000004',2);
+const orderStatusCol=map.Sales_Orders.fields.indexOf('status');
+notReady.ss.sheets.Sales_Orders.rows[1][orderStatusCol]='awaiting_dp';
+assert.throws(()=>context.reserveSalesOrderStock_(notReady.ss,notReady.order.id,{role:'owner',email:'owner@example.test'}),/SALES_ORDER_NOT_READY_FOR_RESERVATION/,'orders awaiting DP cannot reserve stock');
 
 console.log('CSK Inventory backend validation tests passed.');
