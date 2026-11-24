@@ -315,3 +315,13 @@ The integrated feature branch is a development candidate, not a live deployment.
 5. Only after the Owner confirms those checks, prepare the production release PR/deployment.
 
 No Apps Script deployment, production Sheets write/schema migration, Script Properties change, Supabase change, or public website deployment has been performed.
+
+## 19. Terminal reservation reconciliation hardening — 25 November 2026
+
+- PR #36 merged into the integrated development branch.
+- Inventory validation now derives terminal Sales Order states from both persisted Google Sheets records and the incoming sync snapshot. Cancelled, delivered, and closed orders therefore stop reserving stock even when the order is omitted from a later inventory-only sync payload.
+- Automatic terminal-reservation reconciliation now reads persisted Sales Orders as well as incoming changes, so stale active reservation rows can be released while retaining their audit history.
+- Added a regression case for a terminal status already persisted in Sheets before the next stock transaction.
+- PR #36 passed both CI workflows: CSK Security Tests and CSK business source regression checks. The merged commit has the same Git tree as the tested PR head.
+- The canonical Apps Script source and `google_apps_script.js` mirror remain byte-identical.
+- No production deployment, live Google Sheets write/schema migration, Supabase change, Script Properties change, or public website deployment was performed.
