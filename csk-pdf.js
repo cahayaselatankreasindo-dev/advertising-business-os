@@ -707,7 +707,6 @@ function normalizeMaterialCostReport(input) {
       varianceCost:Number.isFinite(varianceCost) ? varianceCost : null,
       variancePct:Number.isFinite(variancePct) ? variancePct : null,
       estimated:!!line.estimated,
-      actualCostComplete:line.actualCostComplete!==false,
       rowComplete:!!line.rowComplete
     };
   }) : [];
