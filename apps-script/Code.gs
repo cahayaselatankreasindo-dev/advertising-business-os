@@ -978,6 +978,7 @@ function reserveSalesOrderStock_(ss, salesOrderId, identity) {
   lock.waitLock(30000);
   try {
     ensureSheet(ss, "Inventory_Reservations", FIELD_MAP.Inventory_Reservations.headers);
+    ensureAllHeaders(ss, "Inventory_Reservations");
     var orders = readSheetData(ss, "Sales_Orders");
     var order = orders.find(function(row) { return String(row.id) === String(salesOrderId); });
     if (!order) throw new Error("SALES_ORDER_NOT_FOUND");
@@ -1092,6 +1093,7 @@ function releaseSalesOrderReservationRows_(ss, salesOrderId, reason, identity) {
   if (!String(reason || "").trim()) throw new Error("RESERVATION_RELEASE_REASON_REQUIRED");
   if (String(reason).length > 200) throw new Error("RESERVATION_RELEASE_REASON_TOO_LONG");
   ensureSheet(ss, "Inventory_Reservations", FIELD_MAP.Inventory_Reservations.headers);
+  ensureAllHeaders(ss, "Inventory_Reservations");
   var sheet = ss.getSheetByName("Inventory_Reservations");
   var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   var statusCol = headers.findIndex(function(h){ return String(h).toLowerCase() === "status"; });
@@ -1146,6 +1148,8 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
   if (!Array.isArray(incomingTransactions)) throw new Error("INVALID_INVENTORY_TRANSACTIONS");
   ensureSheet(ss, "Inventory_Transactions", FIELD_MAP.Inventory_Transactions.headers);
   ensureAllHeaders(ss, "Inventory_Transactions");
+  ensureSheet(ss, "Inventory_Reservations", FIELD_MAP.Inventory_Reservations.headers);
+  ensureAllHeaders(ss, "Inventory_Reservations");
   var existing = readSheetData(ss, "Inventory_Transactions");
   var materials = readSheetData(ss, "Materials");
   var projects = readSheetData(ss, "Projects");
@@ -1158,7 +1162,7 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
   });
   var terminalSalesOrders = {};
   (incomingSalesOrders || []).forEach(function(order) {
-    if (order && String(order.status || "").toLowerCase() === "cancelled") {
+    if (order && ["cancelled","delivered","closed"].indexOf(String(order.status || "").toLowerCase()) >= 0) {
       terminalSalesOrders[String(order.id || "")] = true;
     }
   });
@@ -1211,20 +1215,22 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     if (isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10) !== date) throw new Error("INVALID_INVENTORY_DATE");
     var projectId = String(tx.projectId || "");
     var salesOrderId = String(tx.salesOrderId || "");
+    var current = existing.find(function(row) { return String(row.id) === id; });
     if (["issue","return"].indexOf(String(tx.movement)) >= 0 && !projects.some(function(p) { return String(p.id) === projectId; })) throw new Error("INVENTORY_PROJECT_REQUIRED");
     var reservationId = String(tx.reservationId || "");
     if (salesOrderId) {
       if (String(tx.movement) !== "issue") throw new Error("INVENTORY_SALES_ORDER_LINK_ONLY_FOR_ISSUE");
       if (!reservationId) throw new Error("INVENTORY_RESERVATION_ID_REQUIRED");
-      var salesOrder = salesOrderById[salesOrderId];
-      var salesOrderStatus = String(salesOrder && salesOrder.status || "").toLowerCase();
-      if (!salesOrder || ["ready_production","in_production","quality_check","ready_delivery","delivered"].indexOf(salesOrderStatus) < 0) throw new Error("INVENTORY_SALES_ORDER_NOT_ACTIVE");
-      if (String(salesOrder.projectId || "") !== projectId) throw new Error("INVENTORY_SALES_ORDER_PROJECT_MISMATCH");
+      if (!current) {
+        var salesOrder = salesOrderById[salesOrderId];
+        var salesOrderStatus = String(salesOrder && salesOrder.status || "").toLowerCase();
+        if (!salesOrder || ["ready_production","in_production","quality_check","ready_delivery"].indexOf(salesOrderStatus) < 0) throw new Error("INVENTORY_SALES_ORDER_NOT_ACTIVE");
+        if (String(salesOrder.projectId || "") !== projectId) throw new Error("INVENTORY_SALES_ORDER_PROJECT_MISMATCH");
+      }
     } else if (reservationId) {
       throw new Error("INVENTORY_RESERVATION_LINK_REQUIRES_SALES_ORDER");
     }
     if (["adjustment_in","adjustment_out"].indexOf(String(tx.movement)) >= 0 && !String(tx.notes || "").trim()) throw new Error("INVENTORY_ADJUSTMENT_REASON_REQUIRED");
-    var current = existing.find(function(row) { return String(row.id) === id; });
     if (!current && String(tx.movement) === "receipt") {
       var poId = String(tx.purchaseOrderId || "");
       var supplier = String(tx.supplier || "").trim();
