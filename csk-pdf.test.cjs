@@ -30,6 +30,7 @@ assert.equal(pdf.formatRupiah(1250000), 'Rp 1.250.000');
 function MockPdf() {
   this.pages = 1;
   this.saved = '';
+  this.roundedRects = [];
   this.internal = {
     pageSize: { getWidth: () => 210, getHeight: () => 297 },
     getNumberOfPages: () => this.pages
@@ -42,7 +43,7 @@ MockPdf.prototype.setTextColor = function() {};
 MockPdf.prototype.setFillColor = function() {};
 MockPdf.prototype.setDrawColor = function() {};
 MockPdf.prototype.rect = function() {};
-MockPdf.prototype.roundedRect = function() {};
+MockPdf.prototype.roundedRect = function(x,y,width,height) { this.roundedRects.push({x,y,width,height}); };
 MockPdf.prototype.line = function() {};
 MockPdf.prototype.text = function() {};
 MockPdf.prototype.splitTextToSize = function(text, width) {
@@ -84,6 +85,25 @@ const longDoc = {
 const generated = pdf.generatePdf(longDoc, MockPdf);
 assert.ok(generated.pages > 1, 'long item tables paginate across A4 pages');
 assert.equal(generated.internal.getNumberOfPages(), generated.pages);
+
+const longAddress = pdf.generatePdf({
+  kind:'quotation',docNo:'QUO-CSK-2026-00100',client:'PT Alamat Panjang',
+  clientAddress:Array.from({length:140},()=> 'Jl. Industri Raya Blok A Nomor 123 Kecamatan Serpong').join(', '),
+  lines:[{name:'Pekerjaan display',qty:1,unit:'lot',unitPrice:500000}],
+  paymentTerms:'Pembayaran sesuai persetujuan tertulis.',bankDetails:'Bank Jago Syariah | 508705048143'
+},MockPdf);
+assert.ok(longAddress.roundedRects[1].height>42,'client information card expands to fit long multi-line addresses');
+
+const veryLongTerms = 'Ketentuan pembayaran dan pelaksanaan pekerjaan wajib mengikuti persetujuan tertulis para pihak. '.repeat(900);
+const paginatedTerms = pdf.generatePdf({
+  kind:'quotation',docNo:'QUO-CSK-2026-00101',client:'PT Ketentuan Panjang',
+  lines:[{name:'Pekerjaan custom',qty:1,unit:'lot',unitPrice:1000000}],
+  paymentTerms:veryLongTerms,
+  terms:veryLongTerms,
+  bankDetails:'Bank Jago Syariah | 508705048143'
+},MockPdf);
+assert.ok(paginatedTerms.pages>=3,'long payment terms and conditions continue across additional A4 pages without overflowing a single page');
+
 
 
 const html = fs.readFileSync('index.html', 'utf8');
