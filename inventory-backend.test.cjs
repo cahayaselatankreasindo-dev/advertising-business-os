@@ -134,7 +134,6 @@ reserveCase.ss.sheets.Sales_Orders.rows[1][orderStatusColumn]='in_production';
 assert.equal(context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.order.id,{role:'owner',email:'owner@example.test'}).status,'already_reserved','existing reservation remains idempotent after production starts');
 const reservedIssue=transaction('RESV-ISSUE-0001','STK-CSK-2026-00020','issue',2,'2026-11-21',{projectId:project.id,projectName:project.title});
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(reserveCase.ss,[reservedIssue],[],[]),/INVENTORY_STOCK_RESERVED/,'stock issue cannot consume quantity reserved for another production order');
-assert.equal(releasedReservationResult.releasedLines,1,'Owner can release all active reservation rows');
 const releasedReservationResult=context.releaseSalesOrderReservation_(reserveCase.ss,reserveCase.order.id,'Test release by Owner',{role:'owner',email:'owner@example.test'});
 assert.equal(releasedReservationResult.releasedLines,1,'Owner can release all active reservation rows');
 assert.equal(reserveCase.ss.sheets.Inventory_Reservations.rows[1][map.Inventory_Reservations.fields.indexOf('status')],'released','released reservation is retained in history');
