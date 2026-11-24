@@ -16,7 +16,7 @@ The internal repository is `cahayaselatankreasindo-dev/advertising-business-os`.
 
 The current application is a responsive single-page HTML application using Tailwind CDN, Chart.js, and JavaScript modules. Its current backend and data layer use Google Apps Script and Google Sheets.
 
-The development branch `feature/hpp-material-conversion-20261120` contains work for:
+The active development branch `feature/csk-colorful-ui-20261124` contains the current integrated work (including the earlier HPP base from `feature/hpp-material-conversion-20261120`):
 - CRM, clients, projects, finance, marketing spend, and business memory.
 - HPP and custom material costing for sheet, roll, profile/bar, pack conversion, area, linear length, volume, and waste.
 - Commercial quotations, invoice documents, payment records, and PDF generation.
@@ -213,5 +213,16 @@ The Owner confirmed that CSK Business OS should continue using the existing Goog
 - Four dashboard quick actions use a balanced 2×2 layout on mobile.
 - Local calendar dates are used for due-state calculations to avoid UTC date shifts. WhatsApp links use opener isolation.
 - Added dashboard regression tests and included them in the security and source regression suites. Both suites passed on commit `2fa697836080d6cab35b44c2665cec29a0b24a63`.
-- PWA manifest and service worker cache versions are aligned at `3.2.11`.
+- PWA manifest and service worker cache versions are aligned at `3.2.12`.
 - No live Google Sheets rows, Apps Script deployment, or production credentials were changed.
+
+## 16. HPP snapshot integrity — 24 November 2026
+
+- Importing a saved HPP into a Quotation stores the full source HPP snapshot, including material/service lines, quantities, units, prices, labor, other costs, margin, costing summaries, and material unit-conversion assumptions.
+- Commercial_Quotations and Sales_Orders persist the source snapshot in dedicated JSON columns. setupSheet adds these columns to the right of existing headers without replacing existing data.
+- The backend verifies a new or changed draft Quotation snapshot against the saved Cost_Sheets row. Once the Quotation is no longer a draft, its HPP source snapshot cannot be replaced or removed.
+- A Sales Order must carry the exact snapshot from its approved Quotation. If a legacy approved Quotation has no snapshot, the current project HPP is captured when the Sales Order is created. The Sales Order snapshot is immutable after creation.
+- Sales Order material planning, active-order commitments, and shortage-based Draft PO creation use the Sales Order snapshot rather than silently switching to a later project HPP.
+- Material conversion uses the unit and conversion factor recorded in the HPP snapshot. If the stock base unit in Material Master has since changed, the plan reports an error and blocks Draft PO creation until the discrepancy is reviewed.
+- Existing Sales Orders without a saved snapshot continue using the legacy current-HPP fallback; the Sales Order UI labels this state explicitly.
+- Regression coverage now spans HPP import → Quotation → Invoice → Sales Order → material demand and server-side Google Sheets persistence. All changes remain source-only; no Apps Script deployment, production Sheet migration, or merge to main is performed here.
