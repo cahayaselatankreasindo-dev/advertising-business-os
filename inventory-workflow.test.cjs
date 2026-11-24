@@ -88,6 +88,25 @@ const linkedIssue=E.validateTransaction({
 assert.equal(linkedIssue.transaction.salesOrderId,reservationOrder.id,'stock issue stores its Sales Order link');
 assert.equal(linkedIssue.transaction.reservationId,reservation.id,'stock issue stores the exact reservation row ID');
 assert.equal(linkedIssue.balances['MAT-ACR'],3,'linked material issue reduces physical stock');
+
+const linkedReturn=E.validateTransaction({
+ materialId:'MAT-ACR',movement:'return',qty:1,unit:'m2',date:'2026-11-16',
+ projectId:'PRJ-001',salesOrderId:reservationOrder.id,reservationId:reservation.id
+},{materials,projects,transactions:[reservedOpening,linkedIssue.transaction],salesOrders:[reservationOrder],inventoryReservations:[reservation]});
+assert.equal(linkedReturn.balances['MAT-ACR'],4,'linked material return restores physical stock');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'return',qty:3,unit:'m2',date:'2026-11-16',
+ projectId:'PRJ-001',salesOrderId:reservationOrder.id,reservationId:reservation.id
+},{materials,projects,transactions:[reservedOpening,linkedIssue.transaction],salesOrders:[reservationOrder],inventoryReservations:[reservation]}),/melebihi jumlah yang sudah dikeluarkan/,'return quantity cannot exceed net quantity issued from the reservation');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'return',qty:1,unit:'m2',date:'2026-11-16',projectId:'PRJ-001'
+},{materials,projects,transactions:[reservedOpening,linkedIssue.transaction],salesOrders:[reservationOrder],inventoryReservations:[reservation]}),/harus ditautkan ke Sales Order/,'returns from reserved Sales Order stock must retain their source reservation link');
+const reissueAfterReturn=E.validateTransaction({
+ materialId:'MAT-ACR',movement:'issue',qty:3,unit:'m2',date:'2026-11-17',
+ projectId:'PRJ-001',salesOrderId:reservationOrder.id,reservationId:reservation.id
+},{materials,projects,transactions:[reservedOpening,linkedIssue.transaction,linkedReturn.transaction],salesOrders:[reservationOrder],inventoryReservations:[reservation]});
+assert.equal(reissueAfterReturn.balances['MAT-ACR'],1,'returned material becomes available for picking again within the same reservation');
+
 const deliveredOrder={...reservationOrder,status:'delivered'};
 const terminalStockIssue=E.validateTransaction({
  materialId:'MAT-ACR',movement:'issue',qty:5,unit:'m2',date:'2026-11-16',projectId:'PRJ-001'
