@@ -97,8 +97,8 @@ var FIELD_MAP = {
     fields: ["id", "orderNo", "quotationId", "quotationNo", "projectId", "projectName", "client", "clientPhone", "clientEmail", "orderDate", "deliveryDate", "itemsJson", "total", "dpPercent", "dpRequiredAmount", "status", "historyJson", "notes", "createdAt", "updatedAt", "sourceCostSheetSnapshotJson"]
   },
   Inventory_Transactions: {
-    headers: ["ID", "NomorTransaksi", "MaterialID", "NamaMaterial", "JenisPergerakan", "Qty", "Satuan", "Tanggal", "ProjectID", "NamaProyek", "PurchaseOrderID", "Supplier", "Referensi", "Catatan", "CreatedAt", "CreatedBy", "SalesOrderID"],
-    fields: ["id", "transactionNo", "materialId", "materialName", "movement", "qty", "unit", "date", "projectId", "projectName", "purchaseOrderId", "supplier", "reference", "notes", "createdAt", "createdBy", "salesOrderId"]
+    headers: ["ID", "NomorTransaksi", "MaterialID", "NamaMaterial", "JenisPergerakan", "Qty", "Satuan", "Tanggal", "ProjectID", "NamaProyek", "PurchaseOrderID", "Supplier", "Referensi", "Catatan", "CreatedAt", "CreatedBy", "SalesOrderID", "ReservationID"],
+    fields: ["id", "transactionNo", "materialId", "materialName", "movement", "qty", "unit", "date", "projectId", "projectName", "purchaseOrderId", "supplier", "reference", "notes", "createdAt", "createdBy", "salesOrderId", "reservationId"]
   },
   Inventory_Reservations: {
     headers: ["ID", "NomorReservasi", "SalesOrderID", "NomorSO", "ProjectID", "NamaProyek", "MaterialID", "NamaMaterial", "Qty", "Satuan", "Status", "CreatedAt", "CreatedBy", "ReleasedAt", "ReleaseReason"],
@@ -991,6 +991,8 @@ function reserveSalesOrderStock_(ss, salesOrderId, identity) {
     validationOrder.sourceCostSheetSnapshot = snapshot;
     validateSalesOrdersBeforeMerge_(ss, [validationOrder]);
     var materials = readSheetData(ss, "Materials");
+    ensureSheet(ss, "Inventory_Transactions", FIELD_MAP.Inventory_Transactions.headers);
+    ensureAllHeaders(ss, "Inventory_Transactions");
     var ledger = readSheetData(ss, "Inventory_Transactions");
     var materialMap = {};
     materials.forEach(function(m) { materialMap[String(m.id)] = m; });
@@ -1006,7 +1008,11 @@ function reserveSalesOrderStock_(ss, salesOrderId, identity) {
     var reserved = {};
     reservations.filter(function(row) { return String(row.status) === "active"; }).forEach(function(row) {
       var key = String(row.materialId || "");
-      reserved[key] = Number(reserved[key] || 0) + Math.max(0, Number(row.qty) || 0);
+      var used = ledger.filter(function(tx) {
+        return String(tx.movement) === "issue" && String(tx.reservationId || "") === String(row.id || "");
+      }).reduce(function(sum, tx) { return sum + Math.max(0, Number(tx.qty) || 0); }, 0);
+      var remaining = Math.max(0, Number(row.qty || 0) - used);
+      reserved[key] = Number(reserved[key] || 0) + remaining;
     });
     var required = {};
     snapshot.items.forEach(function(item, index) {
@@ -1031,8 +1037,18 @@ function reserveSalesOrderStock_(ss, salesOrderId, identity) {
       if (!required[key]) required[key] = { material: material, qty: 0 };
       required[key].qty += stockQty;
     });
-    var keys = Object.keys(required);
-    if (!keys.length) throw new Error("SALES_ORDER_HPP_HAS_NO_MATERIALS");
+    var allKeys = Object.keys(required);
+    allKeys.forEach(function(key) {
+      var alreadyIssued = ledger.filter(function(tx) {
+        return String(tx.movement) === "issue" &&
+          String(tx.salesOrderId || "") === String(salesOrderId) &&
+          String(tx.materialId || "") === String(key);
+      }).reduce(function(sum, tx) { return sum + Math.max(0, Number(tx.qty) || 0); }, 0);
+      required[key].qty = Math.max(0, required[key].qty - alreadyIssued);
+    });
+    var keys = allKeys.filter(function(key) { return required[key].qty > 0.000001; });
+    if (!allKeys.length) throw new Error("SALES_ORDER_HPP_HAS_NO_MATERIALS");
+    if (!keys.length) throw new Error("SALES_ORDER_HPP_MATERIALS_ALREADY_ISSUED");
     var shortages = [];
     keys.forEach(function(key) {
       var available = Number(balances[key] || 0) - Number(reserved[key] || 0);
@@ -1128,20 +1144,40 @@ function releaseSalesOrderReservation_(ss, salesOrderId, reason, identity) {
 function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, incomingPurchaseOrders, incomingSalesOrders) {
   if (!Array.isArray(incomingTransactions)) throw new Error("INVALID_INVENTORY_TRANSACTIONS");
   ensureSheet(ss, "Inventory_Transactions", FIELD_MAP.Inventory_Transactions.headers);
+  ensureAllHeaders(ss, "Inventory_Transactions");
   var existing = readSheetData(ss, "Inventory_Transactions");
   var materials = readSheetData(ss, "Materials");
   var projects = readSheetData(ss, "Projects");
   var purchaseOrders = readSheetData(ss, "Purchase_Orders");
+  var salesOrders = readSheetData(ss, "Sales_Orders");
+  var salesOrderById = {};
+  salesOrders.forEach(function(order) { salesOrderById[String(order.id || "")] = order; });
+  (incomingSalesOrders || []).forEach(function(order) {
+    if (order && order.id) salesOrderById[String(order.id)] = order;
+  });
   var terminalSalesOrders = {};
   (incomingSalesOrders || []).forEach(function(order) {
-    if (order && ["cancelled", "delivered", "closed"].indexOf(String(order.status || "").toLowerCase()) >= 0) terminalSalesOrders[String(order.id || "")] = true;
+    if (order && ["cancelled","delivered","closed"].indexOf(String(order.status || "").toLowerCase()) >= 0) {
+      terminalSalesOrders[String(order.id || "")] = true;
+    }
   });
-  var reservedByMaterial = {};
-  readSheetData(ss, "Inventory_Reservations").filter(function(row) {
+  var activeReservations = readSheetData(ss, "Inventory_Reservations").filter(function(row) {
     return String(row.status) === "active" && !terminalSalesOrders[String(row.salesOrderId || "")];
-  }).forEach(function(row) {
+  });
+  var reservationRemainingById = {};
+  var reservedByMaterial = {};
+  activeReservations.forEach(function(row) {
+    var salesOrderId = String(row.salesOrderId || "");
     var materialId = String(row.materialId || "");
-    reservedByMaterial[materialId] = Number(reservedByMaterial[materialId] || 0) + Math.max(0, Number(row.qty) || 0);
+    var key = String(row.id || "");
+    var alreadyIssued = existing.filter(function(tx) {
+      return String(tx.movement) === "issue" && String(tx.reservationId || "") === key;
+    }).reduce(function(sum, tx) { return sum + Math.max(0, Number(tx.qty) || 0); }, 0);
+    var remaining = Math.max(0, Number(row.qty || 0) - alreadyIssued);
+    if (remaining > 0.000001) {
+      reservationRemainingById[key] = remaining;
+      reservedByMaterial[materialId] = Number(reservedByMaterial[materialId] || 0) + remaining;
+    }
   });
   (incomingPurchaseOrders || []).forEach(function(incomingPO) {
     var copy = Object.assign({}, incomingPO);
@@ -1153,7 +1189,7 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
   var seenIds = {};
   var seenNumbers = {};
   var newRows = [];
-  var immutableFields = ["transactionNo","materialId","materialName","movement","qty","unit","date","projectId","projectName","purchaseOrderId","supplier","reference","notes","createdAt","createdBy"];
+  var immutableFields = ["transactionNo","materialId","materialName","movement","qty","unit","date","projectId","projectName","purchaseOrderId","supplier","reference","notes","createdAt","createdBy","salesOrderId","reservationId"];
   incomingTransactions.forEach(function(tx) {
     if (!tx || !/^ITX-[A-Za-z0-9_-]{8,100}$/.test(String(tx.id || ""))) throw new Error("INVALID_INVENTORY_TRANSACTION_ID");
     var id = String(tx.id);
@@ -1173,7 +1209,19 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     var parsedDate = new Date(date + "T00:00:00Z");
     if (isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10) !== date) throw new Error("INVALID_INVENTORY_DATE");
     var projectId = String(tx.projectId || "");
+    var salesOrderId = String(tx.salesOrderId || "");
     if (["issue","return"].indexOf(String(tx.movement)) >= 0 && !projects.some(function(p) { return String(p.id) === projectId; })) throw new Error("INVENTORY_PROJECT_REQUIRED");
+    var reservationId = String(tx.reservationId || "");
+    if (salesOrderId) {
+      if (String(tx.movement) !== "issue") throw new Error("INVENTORY_SALES_ORDER_LINK_ONLY_FOR_ISSUE");
+      if (!reservationId) throw new Error("INVENTORY_RESERVATION_ID_REQUIRED");
+      var salesOrder = salesOrderById[salesOrderId];
+      var salesOrderStatus = String(salesOrder && salesOrder.status || "").toLowerCase();
+      if (!salesOrder || ["ready_production","in_production","quality_check","ready_delivery"].indexOf(salesOrderStatus) < 0) throw new Error("INVENTORY_SALES_ORDER_NOT_ACTIVE");
+      if (String(salesOrder.projectId || "") !== projectId) throw new Error("INVENTORY_SALES_ORDER_PROJECT_MISMATCH");
+    } else if (reservationId) {
+      throw new Error("INVENTORY_RESERVATION_LINK_REQUIRES_SALES_ORDER");
+    }
     if (["adjustment_in","adjustment_out"].indexOf(String(tx.movement)) >= 0 && !String(tx.notes || "").trim()) throw new Error("INVENTORY_ADJUSTMENT_REASON_REQUIRED");
     var current = existing.find(function(row) { return String(row.id) === id; });
     if (!current && String(tx.movement) === "receipt") {
@@ -1206,6 +1254,8 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
       newRows.push(tx);
     }
   });
+  var newIds = {};
+  newRows.forEach(function(row) { newIds[String(row.id)] = true; });
   var ledger = existing.concat(newRows).slice().sort(function(a,b) {
     var dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
     if (dateCompare) return dateCompare;
@@ -1228,14 +1278,57 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     movementSeen[materialId] = true;
     var after = before + Number(tx.qty) * direction;
     if (after < -0.000001) throw new Error("INVENTORY_INSUFFICIENT_STOCK");
-    if (newRows.some(function(row) { return String(row.id) === String(tx.id); }) &&
-        ["issue", "adjustment_out"].indexOf(String(tx.movement)) >= 0) {
+    if (newIds[String(tx.id)] && String(tx.movement) === "issue") {
+      var salesOrderId = String(tx.salesOrderId || "");
+      if (salesOrderId) {
+        var reservation = activeReservations.find(function(row) {
+          return String(row.id || "") === reservationId &&
+            String(row.salesOrderId || "") === salesOrderId &&
+            String(row.materialId || "") === materialId;
+        });
+        var reservedForOrder = Number(reservationRemainingById[reservationId] || 0);
+        if (!reservation || reservedForOrder <= 0.000001) throw new Error("INVENTORY_SALES_ORDER_RESERVATION_REQUIRED");
+        if (Number(tx.qty) > reservedForOrder + 0.000001) throw new Error("INVENTORY_ISSUE_EXCEEDS_SALES_ORDER_RESERVATION");
+        reservationRemainingById[reservationId] = Math.max(0, reservedForOrder - Number(tx.qty));
+        reservedByMaterial[materialId] = Math.max(0, Number(reservedByMaterial[materialId] || 0) - Number(tx.qty));
+      }
+    }
+    if (newIds[String(tx.id)] && ["issue","adjustment_out"].indexOf(String(tx.movement)) >= 0) {
       var reservedQty = Number(reservedByMaterial[materialId] || 0);
       if (reservedQty > 0.000001 && after < reservedQty - 0.000001) throw new Error("INVENTORY_STOCK_RESERVED");
     }
     balances[materialId] = Math.max(0, after);
   });
   return true;
+}
+
+// After a linked Sales Order issue has been synced, close each fully consumed reservation row.
+// Partial consumption remains active; the remaining quantity is derived from the immutable stock ledger.
+function reconcileConsumedReservations_(ss) {
+  ensureSheet(ss, "Inventory_Reservations", FIELD_MAP.Inventory_Reservations.headers);
+  ensureAllHeaders(ss, "Inventory_Reservations");
+  var sheet = ss.getSheetByName("Inventory_Reservations");
+  var reservations = readSheetData(ss, "Inventory_Reservations");
+  var ledger = readSheetData(ss, "Inventory_Transactions");
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var statusCol = headers.findIndex(function(h) { return String(h).trim().toLowerCase() === "status"; });
+  var releasedCol = headers.findIndex(function(h) { return String(h).trim().toLowerCase() === "releasedat"; });
+  var reasonCol = headers.findIndex(function(h) { return String(h).trim().toLowerCase() === "releasereason"; });
+  if ([statusCol,releasedCol,reasonCol].some(function(index) { return index < 0; })) throw new Error("RESERVATION_SCHEMA_INVALID");
+  var now = new Date().toISOString(), consumed = 0;
+  reservations.forEach(function(row, index) {
+    if (String(row.status) !== "active") return;
+    var issued = ledger.filter(function(tx) {
+      return String(tx.movement) === "issue" && String(tx.reservationId || "") === String(row.id || "");
+    }).reduce(function(sum, tx) { return sum + Math.max(0, Number(tx.qty) || 0); }, 0);
+    if (issued + 0.000001 < Number(row.qty || 0)) return;
+    var rowNo = index + 2;
+    sheet.getRange(rowNo, statusCol + 1).setValue("consumed");
+    sheet.getRange(rowNo, releasedCol + 1).setValue(now);
+    sheet.getRange(rowNo, reasonCol + 1).setValue("Terpakai penuh melalui transaksi pengeluaran Sales Order");
+    consumed++;
+  });
+  return consumed;
 }
 
 function doPost(e) {
@@ -1283,12 +1376,15 @@ function doPost(e) {
           if (payload.salesOrders) {
             validateSalesOrdersBeforeMerge_(ss, payload.salesOrders);
             mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); y.sourceCostSheetSnapshotJson = JSON.stringify(x.sourceCostSheetSnapshot || null); return y; }));
-            mergeSummary.ReleasedReservations = identity.role === "owner"
-              ? releaseTerminalSalesOrderReservations_(ss, payload.salesOrders, identity, true)
-              : 0;
           }
           if (payload.inventoryTransactions) {
             mergeSummary.Inventory_Transactions = mergeSheet(ss, "Inventory_Transactions", payload.inventoryTransactions);
+            mergeSummary.ConsumedReservations = reconcileConsumedReservations_(ss);
+          }
+          if (payload.salesOrders) {
+            mergeSummary.ReleasedReservations = identity.role === "owner"
+              ? releaseTerminalSalesOrderReservations_(ss, payload.salesOrders, identity, true)
+              : 0;
           }
         } finally {
           if (inventoryLock) inventoryLock.releaseLock();
