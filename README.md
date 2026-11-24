@@ -274,13 +274,13 @@ Production reservation, picking, and material cost valuation are now implemented
 ### Project material usage report
 - Sales Order detail can export a branded A4 PDF comparing frozen HPP quantities with net material issues (issues less returns), variance, and remaining HPP quantity.
 - The report is a quantity reconciliation only. It is not an actual-cost, inventory-valuation, or profit report.
-- Actual-versus-estimated HPP cost requires an approved stock valuation method and verified unit-cost capture for opening stock and receipts.
+- Sales Order detail now compares frozen HPP material estimates with recorded project issue costs under Moving Weighted Average. Supplier invoice matching and full project profit remain future work.
 
 
 ## Actual Material Costing & Inventory Valuation
 
 - Inventory uses Moving Weighted Average (WAC) for stock valuation, based on immutable transaction cost snapshots.
-- New Inventory transactions store unit cost, total cost, cost source, and valuation method. Supplier PO receipts use the PO line price; manual opening balances and receipts capture an explicit cost or a clearly marked Master Material fallback.
+- New Inventory transactions store unit cost, total cost, cost source, and valuation method. Supplier PO receipts use the approved PO line price; manual opening balances and receipts require explicit documented cost. Master fallback is reserved for historical legacy data and remains marked as estimated.
 - Material issues and stock adjustments use the current weighted-average cost. Project returns reverse the weighted-average cost recorded on the project's net issues, rather than the newer warehouse average after later receipts.
 - Production release freezes both HPP material quantities and the estimated material cost per stock unit on the Sales Order.
 - Sales Order detail compares estimated HPP material cost with actual net issue cost (issues less returns), showing cost variance.
