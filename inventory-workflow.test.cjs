@@ -243,7 +243,9 @@ assert.match(salesUI,/openPurchaseOrderQty/,'shortage planner subtracts quantiti
 assert.match(salesUI,/Buat Draft PO dari Kekurangan/,'owner can start purchasing from the shortage panel');
 assert.match(salesUI,/Reservasi lain/,'Sales Order material planner deducts stock reserved by other production projects');
 assert.match(salesUI,/Selisih vs HPP/,'Sales Order shows net material issue variance against the frozen HPP plan');
-assert.match(salesUI,/Biaya aktual belum dihitung/,'Sales Order does not misrepresent quantity variance as actual cost valuation');
+assert.match(salesUI,/calculateMaterialCostVariance/,'Sales Order compares material issue costs with frozen HPP estimates');
+assert.match(salesUI,/Biaya aktual material/,'Sales Order shows the actual material cost summary');
+assert.match(salesUI,/Moving Weighted Average/,'Sales Order identifies the inventory valuation method used for actual material cost');
 assert.match(sw,/inventory-engine\.js/,'inventory engine is cached');
 assert.match(sw,/inventory\.js/,'inventory UI is cached');
 assert.match(auth,/INVENTORY_LEDGER_SERVER_ONLY/,'backend RBAC test covers append-only inventory protection');
