@@ -15,6 +15,7 @@ assert.ok(html.includes('./custom-costing-engine.js')&&html.includes('./custom-c
 assert.ok(ui.includes("getCurrentProjectId()"),'custom costing requires a selected project');
 assert.ok(ui.includes("addLine(pendingLine)"),'calculated custom line is added through HPP bridge');
 assert.ok(ui.includes('costingDetails'),'calculation details are retained with the HPP line');
+assert.ok(ui.includes('materialSnapshot:{name:m.name||\'\',unit:m.unit||\'\',purchaseUnit:m.purchaseUnit||\'\',conversionFactor:Number(m.conversionFactor)||0'), 'custom costing captures the material unit conversion snapshot');
 assert.equal((ui.match(/selectField\('Perlakuan material','cc-source-mode'/g)||[]).length,2,'sheet and bar material modes pass selectField arguments in the correct order');
 assert.ok(ui.includes("selectField('Perlakuan pembelian','cc-source-mode'"),'pack mode passes selectField arguments in the correct order');
 assert.ok(!ui.includes("readRows('[data-cc-width]'"),'sheet costing snapshots read complete component rows');
