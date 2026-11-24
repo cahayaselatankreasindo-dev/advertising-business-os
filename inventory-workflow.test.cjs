@@ -95,6 +95,9 @@ const historicalDemand=E.calculateHppRequirements({
 },[{...materials[0],purchaseUnit:'lembar',conversionFactor:2.5}],{});
 assert.equal(historicalDemand.requirements[0].required,8,'HPP snapshot conversion factor takes precedence over the current Material Master');
 assert.equal(historicalDemand.requirements[0].name,'Akrilik Clear 3mm (snapshot)','material label follows the saved HPP snapshot');
+const changedStockUnit=E.calculateHppRequirements({items:[{materialId:'MAT-ACR',name:'Acrylic old unit',qty:2,unit:'lembar',materialSnapshot:{unit:'m2',purchaseUnit:'lembar',conversionFactor:4}}]},[{...materials[0],unit:'ft2',purchaseUnit:'lembar',conversionFactor:2.5}],{});
+assert.equal(changedStockUnit.ready,false,'a changed stock base unit cannot be compared with an old HPP snapshot');
+assert.match(changedStockUnit.errors[0],/Satuan stok Master Material berubah/);
 
 
 const commitmentMaterials=[
