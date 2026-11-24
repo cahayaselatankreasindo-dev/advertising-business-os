@@ -1,7 +1,7 @@
 // Service Worker — CSK Business OS
 // Strategi: NETWORK-FIRST untuk HTML (biar update app langsung kepakai),
 // cache-first untuk aset statis (logo, manifest, dan stylesheet aplikasi).
-const CACHE_NAME = 'csk-business-os-v3.2.25';
+const CACHE_NAME = 'csk-business-os-v3.2.27';
 const ASSETS = [
   './',
   './index.html',
