@@ -861,6 +861,7 @@ function generateMaterialCostPdf(input,jsPDF) {
   if(d.estimated)note+=' Sebagian biaya memakai fallback harga Master dan bersifat estimasi.';
   if(d.estimatedTotalCost===null)note+=' Sebagian harga estimasi HPP belum tersedia sehingga selisih total tidak dapat dihitung.';
   if(d.hasUnplannedActualMaterials)note+=' Ada pengeluaran material yang tidak tercantum pada snapshot HPP; periksa daftar material dan perbarui estimasi sebelum menetapkan selisih total.';
+  if(d.hasActualMovement&&!d.varianceComplete&&d.complete&&d.estimatedTotalCost!==null&&!d.hasUnplannedActualMaterials)note+=' Belum semua material HPP memiliki transaksi issue/return; selisih total ditahan agar material yang belum dikeluarkan tidak dianggap penghematan.';
   drawText(pdf,note,18,y+18,5.9,'normal',COLORS.muted,260);
   y+=30;
   drawText(pdf,'Disusun oleh',18,y,7,'normal',COLORS.muted);
