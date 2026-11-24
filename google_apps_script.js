@@ -1201,15 +1201,24 @@ function releaseSalesOrderReservationRows_(ss, salesOrderId, reason, identity) {
 }
 
 function releaseTerminalSalesOrderReservations_(ss, incomingOrders, identity, lockAlreadyHeld) {
-  if (!Array.isArray(incomingOrders)) return 0;
+  // Merge persisted orders with this sync's incoming snapshot. This also repairs
+  // stale reservations when a prior status update was saved but release was skipped.
+  var ordersById = {};
+  readSheetData(ss, "Sales_Orders").forEach(function(order) {
+    if (order && order.id) ordersById[String(order.id)] = order;
+  });
+  (Array.isArray(incomingOrders) ? incomingOrders : []).forEach(function(order) {
+    if (order && order.id) ordersById[String(order.id)] = order;
+  });
   var released = 0;
-  incomingOrders.forEach(function(order) {
+  Object.keys(ordersById).forEach(function(id) {
+    var order = ordersById[id];
     var status = String(order && order.status || "").toLowerCase();
     if (["cancelled", "delivered", "closed"].indexOf(status) < 0) return;
     var reason = "Otomatis dilepas karena Sales Order berstatus " + status;
     var result = lockAlreadyHeld
-      ? releaseSalesOrderReservationRows_(ss, String(order.id || ""), reason, identity)
-      : releaseSalesOrderReservation_(ss, String(order.id || ""), reason, identity);
+      ? releaseSalesOrderReservationRows_(ss, id, reason, identity)
+      : releaseSalesOrderReservation_(ss, id, reason, identity);
     released += Number(result.releasedLines || 0);
   });
   return released;
@@ -1244,9 +1253,10 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     if (order && order.id) salesOrderById[String(order.id)] = order;
   });
   var terminalSalesOrders = {};
-  (incomingSalesOrders || []).forEach(function(order) {
+  Object.keys(salesOrderById).forEach(function(id) {
+    var order = salesOrderById[id];
     if (order && ["cancelled","delivered","closed"].indexOf(String(order.status || "").toLowerCase()) >= 0) {
-      terminalSalesOrders[String(order.id || "")] = true;
+      terminalSalesOrders[id] = true;
     }
   });
   var activeReservations = readSheetData(ss, "Inventory_Reservations").filter(function(row) {
