@@ -2182,7 +2182,8 @@
     }
 
     function addHppMaterial() {
-      openCskMaterialEditor('');
+      if (window.CSKMaterialMaster) return window.CSKMaterialMaster.openEditor('');
+      showToast('Master material belum siap. Muat ulang aplikasi.',true);
     }
     function addHppLine() {
       const selected=document.getElementById('hpp-material').value, qty=Number(document.getElementById('hpp-qty').value);
