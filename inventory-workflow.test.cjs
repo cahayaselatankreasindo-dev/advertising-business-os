@@ -282,6 +282,10 @@ assert.match(html,/CSKInventoryBridge/,'inventory uses internal Business OS brid
 assert.match(ui,/validateTransaction/,'inventory UI validates transactions before save');
 assert.match(ui,/inv-unit-cost/,'inventory UI captures purchase and opening stock unit cost');
 assert.match(ui,/unitCost:/,'inventory UI passes unit-cost snapshots into the ledger');
+assert.match(ui,/input.required=manualRequired/,'manual opening and receipt costs are required in the inventory form');
+assert.match(ui,/reference.required=referenceRequired/,'manual inventory costs require a document reference in the UI');
+assert.match(ui,/Moving Weighted Average/,'inventory stock valuation is labelled with its costing method');
+assert.match(ui,/Nilai stok/,'inventory balances display the monetary value of stock');
 assert.match(backend,/INVALID_INVENTORY_COST_SNAPSHOT/,'server rejects missing or malformed inventory cost snapshots');
 assert.match(ui,/openInventoryReceiptFromPO/,'inventory UI supports PO-linked receiving');
 assert.match(ui,/calculateOpenSalesOrderCommitments/,'inventory UI calculates cross-project active Sales Order commitments');
