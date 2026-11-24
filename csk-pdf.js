@@ -725,6 +725,7 @@ function normalizeMaterialCostReport(input) {
     complete:input.complete!==false,
     estimated:!!input.estimated,
     varianceComplete:input.varianceComplete!==false,
+    hasActualMovement:input.hasActualMovement!==false,
     isFinal:!!input.isFinal,
     valuationMethod:cleanText(input.valuationMethod || 'Moving Weighted Average (WAC)'),
     lines:lines
@@ -820,7 +821,7 @@ function generateMaterialCostPdf(input,jsPDF) {
   var cards=[
     {label:'ESTIMASI HPP MATERIAL',value:d.estimatedTotalCost===null?'Belum tersedia':formatRupiah(d.estimatedTotalCost),color:COLORS.ink},
     {label:d.complete?'BIAYA AKTUAL NET KELUAR':'BIAYA AKTUAL (PARSIAL)',value:formatRupiah(d.actualTotalCost),color:COLORS.ink},
-    {label:d.varianceComplete?'SELISIH BIAYA MATERIAL': 'SELISIH BELUM LENGKAP',value:d.varianceCost===null?'Belum dapat dihitung':(d.varianceCost>0?'+':'')+formatRupiah(d.varianceCost),color:d.varianceCost>0? [185,28,28]:d.varianceCost<0?COLORS.green:COLORS.ink}
+    {label:!d.hasActualMovement?'BELUM ADA PENGELUARAN':d.varianceComplete?'SELISIH BIAYA MATERIAL':'SELISIH BELUM LENGKAP',value:!d.hasActualMovement?'Belum ada transaksi issue':d.varianceCost===null?'Belum dapat dihitung':(d.varianceCost>0?'+':'')+formatRupiah(d.varianceCost),color:d.varianceCost>0? [185,28,28]:d.varianceCost<0?COLORS.green:COLORS.ink}
   ];
   cards.forEach(function(card,index){
     var x=14+index*(cardWidth+cardGap);
@@ -850,7 +851,7 @@ function generateMaterialCostPdf(input,jsPDF) {
   pdf.roundedRect(14,y,269,22,2,2,'F');
   drawText(pdf,'CATATAN PEMBACAAN',18,y+6,6,'bold',COLORS.orange);
   drawText(pdf,'Biaya aktual adalah biaya net material yang dikeluarkan ke proyek (issue dikurangi retur), bukan bukti bahwa seluruh material telah habis terpakai.',18,y+12,6.2,'normal',COLORS.ink,260);
-  var note=d.isFinal?'Status order sudah selesai/ditutup. Pastikan seluruh sisa material telah diretur sebelum menjadikan selisih sebagai hasil final.':'Laporan masih sementara karena order belum ditutup; material yang masih berada di proyek dapat memengaruhi biaya akhir.';
+  var note=!d.hasActualMovement?'Belum ada transaksi pengeluaran atau retur material untuk proyek ini; selisih biaya belum dapat dihitung.':d.isFinal?'Status order sudah selesai/ditutup. Pastikan seluruh sisa material telah diretur sebelum menjadikan selisih sebagai hasil final.':'Laporan masih sementara karena order belum ditutup; material yang masih berada di proyek dapat memengaruhi biaya akhir.';
   if(!d.complete)note+=' Valuasi belum lengkap; sebagian transaksi belum memiliki snapshot biaya yang dapat dihitung.';
   if(d.estimated)note+=' Sebagian biaya memakai fallback harga Master dan bersifat estimasi.';
   drawText(pdf,note,18,y+18,5.9,'normal',COLORS.muted,260);
