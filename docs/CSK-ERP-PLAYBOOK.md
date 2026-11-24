@@ -403,3 +403,25 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - Draft PO suggestions depend on complete supplier and unit-price data in Material Master. Missing data blocks generation and must be corrected first.
 - Master unit price is a planning snapshot; reconfirm supplier quotations before issuing a PO.
 - Automatic reservation, pick lists, stock issue from reservations, and actual-versus-estimated HPP remain future phases.
+
+
+## 18. Commercial validation and cross-order inventory commitments — 24 November 2026
+
+### Commercial document controls
+- The standalone quotation/invoice editor rejects invalid quantity, blank or negative unit price, negative discount, discount above subtotal, tax rates outside 0–100%, and DP outside 1–99%.
+- Apps Script independently recalculates the expected subtotal, tax, and total for new or financially changed documents. Mismatched totals are rejected before sheet writes.
+- Existing unchanged legacy financial snapshots are not revalidated, preserving compatibility during transition.
+- Canonical Apps Script source and deployment mirror remain byte-for-byte identical.
+
+### Cross-Sales-Order material commitment monitoring
+- Inventory engine aggregates current HPP material demand for Sales Orders in Ready Production, In Production, Quality Control, and Ready Delivery.
+- Multiple active Sales Orders linked to one project do not duplicate that project's HPP demand.
+- Material issues reduce outstanding commitments; project returns restore the outstanding requirement.
+- Verified purchase-to-usage conversions are applied. Missing HPP and invalid conversions are surfaced as unresolved rather than treated as zero demand.
+- Inventory UI distinguishes physical stock, active material commitments, estimated free stock, and shortage.
+
+### Boundary and next phase
+- This is a monitoring estimate, not a persisted or locked reservation. It uses the latest saved project HPP; HPP edits can change the estimate.
+- No reservation ledger, automatic issue, pick list, or purchase-unit conversion at goods receiving is enabled yet.
+- GitHub Actions source-checks and test jobs pass. No main-branch merge, Apps Script production deployment, live Google Sheets migration, or public website deployment has occurred.
+- Next: implement server-enforced reservation at production release, including partial issue/return and reservation release, then material pick lists and purchase-unit receiving conversion.
