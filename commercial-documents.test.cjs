@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { calculateCommercialTotals, nextDocumentNumber, findExistingProjectForDocument, summarizeInvoicePayments } = require('./commercial-documents.js');
+const { calculateCommercialTotals, validateCommercialDocument, nextDocumentNumber, findExistingProjectForDocument, summarizeInvoicePayments } = require('./commercial-documents.js');
 const html = fs.readFileSync('index.html', 'utf8');
 const source = fs.readFileSync('commercial-documents.js', 'utf8');
 const guard = fs.readFileSync('security/guard.js', 'utf8');
@@ -19,6 +19,20 @@ assert.equal(
   'QUO-CSK-2026-00008'
 );
 assert.equal(nextDocumentNumber('invoice', [], '2026-11-09'), 'INV-CSK-2026-00001');
+const validCommercialDocument = {
+  lines: [{ name: 'Material', qty: 2, unit: 'pcs', unitPrice: 100000 }, { name: 'Jasa', qty: 1, unit: 'lot', unitPrice: 50000 }],
+  discount: 10000, taxRate: 11, dpPercent: 50
+};
+assert.deepEqual(validateCommercialDocument(validCommercialDocument), { valid: true, errors: [], subtotal: 250000 });
+assert.match(validateCommercialDocument({ ...validCommercialDocument, lines: [{ ...validCommercialDocument.lines[0], qty: -1 }] }).errors[0], /Kuantitas/);
+assert.match(validateCommercialDocument({ ...validCommercialDocument, lines: [{ ...validCommercialDocument.lines[0], qty: 0 }] }).errors[0], /Kuantitas/);
+assert.match(validateCommercialDocument({ ...validCommercialDocument, lines: [{ ...validCommercialDocument.lines[0], unitPrice: -1 }] }).errors[0], /Harga satuan/);
+assert.match(validateCommercialDocument({ ...validCommercialDocument, lines: [{ ...validCommercialDocument.lines[0], unitPrice: '' }] }).errors[0], /Harga satuan/);
+assert.match(validateCommercialDocument({ ...validCommercialDocument, discount: -1 }).errors[0], /Diskon/);
+assert.match(validateCommercialDocument({ ...validCommercialDocument, discount: 250001 }).errors[0], /melebihi subtotal/);
+assert.match(validateCommercialDocument({ ...validCommercialDocument, taxRate: 100.01 }).errors[0], /Tarif pajak/);
+assert.match(validateCommercialDocument({ ...validCommercialDocument, dpPercent: 100 }).errors[0], /Persentase DP/);
+assert.match(validateCommercialDocument({ ...validCommercialDocument, lines: [] }).errors[0], /minimal satu item/);
 const leadQueueProject = { id: 'P-LEAD', notes: 'Antrean otomatis dari Lead [LEAD-L1]' };
 assert.equal(findExistingProjectForDocument([leadQueueProject], { id: 'INV1', leadId: 'L1' }, '', 'INV1'), leadQueueProject);
 assert.equal(findExistingProjectForDocument([leadQueueProject], { id: 'INV2', leadId: 'L2' }, '', 'INV2'), null);
@@ -79,6 +93,11 @@ for (const s of [backend, mirror]) {
   assert.match(s, /quotationSnapshots: readSheetData\(ss, "Quotations"\)/);
 }
 assert.equal(backend.trimEnd(), mirror.trimEnd());
+assert.ok(backend.includes('function validateCommercialDocumentsBeforeMerge_(ss, sheetName, incomingRows)'), 'server validates commercial document financials');
+assert.ok(backend.includes('validateCommercialDocumentsBeforeMerge_(ss, "Commercial_Quotations", incomingQuotations)'), 'server validates quotation writes');
+assert.ok(backend.includes('validateCommercialDocumentsBeforeMerge_(ss, "Invoices", incomingInvoices)'), 'server validates invoice writes');
+assert.ok(backend.includes('COMMERCIAL_DISCOUNT_EXCEEDS_SUBTOTAL'), 'server rejects discounts above subtotal');
+assert.ok(backend.includes('COMMERCIAL_DOCUMENT_TOTAL_MISMATCH_'), 'server independently verifies subtotal, tax, and total snapshots');
 assert.match(guard, /'quotationSnapshots','quotations','invoices'/);
 assert.ok(guard.includes("db.invoicePayments = identity.role === 'owner'"));
 assert.doesNotMatch(guard.match(/function makeSyncPayload\(\)[\s\S]*?\n  }/)[0], /invoicePayments/, 'payment ledger is read-only in generic sync payload');
