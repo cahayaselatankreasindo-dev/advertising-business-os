@@ -268,6 +268,7 @@ async function downloadMaterialCostReport(salesOrderId){
    estimated:cost.estimated,
    varianceComplete:cost.varianceComplete,
    hasActualMovement:cost.hasActualMovement,
+   hasUnplannedActualMaterials:cost.hasUnplannedActualMaterials,
    isFinal:['delivered','closed'].indexOf(String(order.status||''))>=0,
    valuationMethod:'Moving Weighted Average (WAC)',
    lines:lines
@@ -329,7 +330,9 @@ function materialPlanHtml(order,d,balances){
   '<div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] text-slate-500">Estimasi HPP material</div><b class="text-sm">'+(materialCost.estimatedTotalCost===null?'Belum tersedia':money(materialCost.estimatedTotalCost))+'</b></div>'+
   '<div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] text-slate-500">Biaya aktual net keluar</div><b class="text-sm">'+money(materialCost.actualTotalCost)+'</b><div class="text-[10px] text-slate-500">'+(materialCost.complete?(materialCost.estimated?'Valuasi memakai fallback harga Master':'Valuasi tercatat lengkap'):'Valuasi belum lengkap')+'</div></div>'+
   '<div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] text-slate-500">Selisih biaya material (sementara)</div><b class="text-sm '+(materialCost.varianceCost===null?'text-slate-500':materialCost.varianceCost>0?'text-red-700':materialCost.varianceCost<0?'text-emerald-700':'text-slate-900')+'">'+(materialCost.varianceCost===null?'Belum dapat dihitung':(materialCost.varianceCost>0?'+':'')+money(materialCost.varianceCost))+'</b></div></div>'+
-  (materialCost.estimated?'<p class="text-[10px] text-amber-700 mb-2">Sebagian transaksi lama menggunakan fallback harga Master Material. Nilai biaya aktual tersebut bersifat estimasi, bukan bukti harga pembelian historis.</p>':'');
+  (materialCost.estimated?'<p class="text-[10px] text-amber-700 mb-2">Sebagian transaksi lama menggunakan fallback harga Master Material. Nilai biaya aktual tersebut bersifat estimasi, bukan bukti harga pembelian historis.</p>':'')+
+  (materialCost.hasActualMovement?'':'<p class="text-[10px] text-slate-500 mb-2">Belum ada transaksi pengeluaran atau retur material untuk proyek ini. Selisih biaya belum dapat dihitung.</p>')+
+  (materialCost.hasUnplannedActualMaterials?'<p class="text-[10px] text-amber-700 mb-2">Ada material yang sudah dikeluarkan ke proyek tetapi tidak tercantum dalam snapshot HPP. Periksa dan rekonsiliasi sebelum menetapkan selisih biaya.</p>':'');
  var rows=rowsData.map(function(item){
   var pendingPO=openPurchaseOrderQty(order.projectId,item.materialId,d),toBuy=Math.max(0,item.shortage-pendingPO);
   return'<tr class="border-t"><td class="py-2 pr-3"><b>'+esc(item.name)+'</b><div class="text-[10px] text-slate-400">'+esc(item.unit)+'</div></td><td class="py-2 text-right">'+qtyFormat(item.required)+'</td><td class="py-2 text-right">'+qtyFormat(item.issued)+'</td><td class="py-2 text-right font-semibold '+(item.varianceQty>0?'text-red-700':item.varianceQty<0?'text-amber-700':'text-emerald-700')+'">'+(item.varianceQty>0?'+':'')+qtyFormat(item.varianceQty)+'</td><td class="py-2 text-right">'+qtyFormat(item.remainingRequired)+'</td><td class="py-2 text-right">'+qtyFormat(item.onHand)+'</td><td class="py-2 text-right text-violet-700">'+(item.reservedByOthers>0?qtyFormat(item.reservedByOthers):'-')+'</td><td class="py-2 text-right font-semibold">'+qtyFormat(item.availableForProject)+'</td><td class="py-2 text-right font-bold '+(item.shortage>0?'text-red-700':'text-emerald-700')+'">'+(item.shortage>0?qtyFormat(item.shortage):'Cukup')+'</td><td class="py-2 text-right text-blue-700">'+(pendingPO>0?qtyFormat(pendingPO):'-')+'</td><td class="py-2 text-right font-bold '+(toBuy>0?'text-amber-700':'text-emerald-700')+'">'+(toBuy>0?qtyFormat(toBuy):'-')+'</td></tr>';
