@@ -95,7 +95,7 @@ function saveScenario({cloudConfigured=true,syncResult=true,isOwner=true,existin
   let rendered=0,syncCalls=0;
   const sandbox={
     document:{getElementById(id){return elements[id]||null;}},
-    db,hppLines,
+    db,hppLines,hppSaveInProgress:false,
     isOwnerSession(){return isOwner;},
     calculateHpp(){return{materialTotal:100000,labor:20000,other:5000,margin:30,total:125000,price:178572,profit:53572};},
     saveDB(skipCloud){saveCalls.push(skipCloud);},
