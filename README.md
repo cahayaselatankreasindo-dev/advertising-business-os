@@ -54,7 +54,9 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - Invoice hasil konversi mempertahankan snapshot baris Quotation, termasuk referensi HPP. Dokumen komersial tetap disimpan terpisah di `Commercial_Quotations` dan `Invoices`.
 - Dokumen komersial dibatasi untuk Owner di antarmuka dan backend.
 - Quotation dapat menghubungkan proyek dan mengimpor snapshot HPP tersimpan. Rincian material/jasa, tenaga kerja, dan biaya lain dipertahankan, harga dialokasikan proporsional sesuai biaya, serta totalnya direkonsiliasi dengan harga jual HPP.
-- Kuantitas dan satuan pemakaian HPP tetap terlihat pada quotation. ID dan waktu sumber HPP disimpan di setiap baris; perubahan HPP berikutnya tidak otomatis mengubah quotation/invoice yang sudah dibuat.
+- Kuantitas dan satuan pemakaian HPP tetap terlihat pada quotation. Setiap dokumen menyimpan referensi ID/waktu dan snapshot HPP lengkap, termasuk kuantitas, satuan, harga, metode costing, serta asumsi konversi material; perubahan HPP berikutnya tidak mengubah quotation/invoice yang sudah dibuat.
+- Sales Order menyalin snapshot HPP dari quotation yang disetujui. Perencanaan kebutuhan material dan Draft PO memakai snapshot tersebut, bukan HPP proyek terbaru. Faktor konversi historis dipakai selama satuan dasar stok tidak berubah; perubahan satuan stok di Master Material akan memblokir perhitungan sampai ditinjau ulang.
+- Snapshot HPP disimpan pada kolom JSON tambahan di Commercial_Quotations dan Sales_Orders. Fungsi setupSheet menambahkan kolom yang belum ada di sisi kanan tanpa menghapus kolom/data lama.
 - Ringkasan metode custom costing (misalnya potong lembar/roll, potong profil, konversi kemasan, luas, panjang, atau volume) ikut terbaca pada deskripsi quotation; detail kalkulasi lengkap tetap tersimpan pada snapshot HPP sumber.
 
 ## 🔐 Autentikasi dan Hak Akses
@@ -227,7 +229,7 @@ Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke 
 
 ## HPP Material Planning & Draft Purchasing
 
-- Sales Orders compare saved HPP material requirements with physical stock.
+- Sales Orders compare their immutable HPP material snapshot with physical stock. New Sales Orders copy the approved quotation snapshot; older orders without a snapshot retain a clearly labelled legacy fallback to the current project HPP.
 - HPP purchase-unit quantities convert to stock units only when a verified Material Master conversion factor exists.
 - The shortage view includes physical stock, existing Draft/Ordered PO coverage, and remaining purchase quantity.
 - Owner can create supplier-grouped Draft POs from uncovered shortages. Drafts are not issued automatically and require review.
