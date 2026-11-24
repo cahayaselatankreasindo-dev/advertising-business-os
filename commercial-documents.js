@@ -35,7 +35,8 @@ function buildQuotationLinesFromCostSheet(sheet){
   if(!name||!Number.isFinite(qty)||qty<=0||!Number.isFinite(unitPrice)||unitPrice<0)throw new Error('Periksa nama, kuantitas, dan biaya satuan pada item HPP ke-'+(index+1)+'.');
   var cost=qty*unitPrice;
   if(!Number.isFinite(cost))throw new Error('Biaya item HPP terlalu besar atau tidak valid.');
-  return{name:name,description:'Kebutuhan produksi: '+qty+' '+unit+(item.description?' · '+String(item.description):''),qty:qty,unit:unit,cost:cost,itemType:item.itemType==='service'?'service':'material',materialId:item.materialId||'',serviceId:item.serviceId||'',sourceCostUnitPrice:unitPrice,sourceCostSubtotal:cost,costingMethod:item.costingMethod||''};
+  var costing=item.costingDetails&&typeof item.costingDetails==='object'?item.costingDetails:null,costingSummary=costing&&typeof costing.summary==='string'?costing.summary.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim():'';
+  return{name:name,description:'Kebutuhan produksi: '+qty+' '+unit+(item.description?' · '+String(item.description):'')+(costingSummary?' · Kalkulasi: '+costingSummary:''),qty:qty,unit:unit,cost:cost,itemType:item.itemType==='service'?'service':'material',materialId:item.materialId||'',serviceId:item.serviceId||'',sourceCostUnitPrice:unitPrice,sourceCostSubtotal:cost,costingMethod:item.costingMethod||(costing&&costing.method)||'',sourceCostingSummary:costingSummary,sourceCostingMode:costing&&costing.sourceMode?String(costing.sourceMode):''};
  });
  if(labor>0)components.push({name:'Jasa tenaga kerja dan fabrikasi',description:'Biaya tenaga kerja yang dihitung dalam HPP proyek.',qty:1,unit:'Lot',cost:labor,itemType:'cost_component',sourceCostUnitPrice:labor,sourceCostSubtotal:labor});
  if(other>0)components.push({name:'Biaya operasional dan pendukung',description:'Biaya pendukung yang dihitung dalam HPP proyek.',qty:1,unit:'Lot',cost:other,itemType:'cost_component',sourceCostUnitPrice:other,sourceCostSubtotal:other});
