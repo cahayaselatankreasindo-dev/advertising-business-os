@@ -54,6 +54,7 @@ function purchaseOrderReceiptProgress(po,transactions){
 function restoreAllMaterialOptions(){
  var d=data(),select=el('inv-material'),qtyInput=el('inv-qty'),reservationInput=el('inv-reservation-id');
  if(reservationInput)reservationInput.value='';
+ var project=el('inv-project');if(project)project.disabled=false;
  if(!select)return;
  select.innerHTML='<option value="">Pilih material</option>'+d.materials.slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));}).map(function(m){return'<option value="'+esc(m.id)+'">'+esc(m.name)+' · '+esc(m.unit||'-')+'</option>';}).join('');
  if(qtyInput){qtyInput.disabled=false;qtyInput.removeAttribute('max');}
@@ -66,7 +67,8 @@ function applySalesOrderReservationSelection(salesOrderId){
  var select=el('inv-material'),qtyInput=el('inv-qty'),save=el('inv-save');
  if(!select)return;
  if(!order){restoreAllMaterialOptions();return;}
- var project=el('inv-project');if(project)project.value=String(order.projectId||'');
+ var previousMaterialId=String(select.value||'');
+ var project=el('inv-project');if(project){project.value=String(order.projectId||'');project.disabled=true;}
  var grouped={};
  (d.inventoryReservations||[]).filter(function(row){return String(row.salesOrderId)===String(salesOrderId)&&String(row.status)==='active';}).forEach(function(row){
   var used=(d.inventoryTransactions||[]).filter(function(tx){return tx.movement==='issue'&&String(tx.reservationId||'')===String(row.id||'');}).reduce(function(sum,tx){return sum+n(tx.qty);},0);
@@ -77,7 +79,7 @@ function applySalesOrderReservationSelection(salesOrderId){
  });
  var options=Object.keys(grouped).map(function(key){var item=grouped[key];return'<option value="'+esc(item.id)+'">'+esc(item.name)+' · sisa '+qty(item.remaining)+' '+esc(item.unit)+'</option>';}).join('');
  select.innerHTML=options||'<option value="">Tidak ada sisa reservasi material</option>';
- var keys=Object.keys(grouped),selected=keys.indexOf(String(select.value))>=0?String(select.value):(keys[0]||'');
+ var keys=Object.keys(grouped),selected=keys.indexOf(previousMaterialId)>=0?previousMaterialId:(keys[0]||'');
  if(selected)select.value=selected;
   var reservationInput=el('inv-reservation-id');if(reservationInput)reservationInput.value=selected?String(grouped[selected].reservationId||''):'';
  if(qtyInput){
