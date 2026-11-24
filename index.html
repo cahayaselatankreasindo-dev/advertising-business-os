@@ -2090,7 +2090,7 @@
       const id=document.getElementById('po-material').value, qty=Number(document.getElementById('po-qty').value), m=(db.materials||[]).find(x=>x.id===id);
       if(!m||!isMaterialSelectable(m)||!Number.isFinite(qty)||qty<=0)return showToast('Pilih material aktif dan kuantitas pembelian yang valid.',true);
       const purchaseUnit=m.purchaseUnit||m.unit,conversionFactor=Number(m.conversionFactor)||1,purchasePrice=Number(m.purchasePrice)||Number(m.unitPrice);
-      poLines.push({materialId:m.id,sku:m.sku||'',name:m.name,unit:purchaseUnit,purchaseUnit,usageUnit:m.unit,conversionFactor,qty,unitPrice:purchasePrice,usageUnitPrice:Number(m.unitPrice),subtotal:qty*purchasePrice}); renderPoLines();
+      poLines.push({materialId:m.id,sku:m.sku||'',name:m.name,unit:purchaseUnit,purchaseUnit,usageUnit:m.unit,conversionFactor,wasteRate:Number(m.wasteRate)||0,qty,unitPrice:purchasePrice,usageUnitPrice:Number(m.unitPrice),subtotal:qty*purchasePrice}); renderPoLines();
     }
     function editPoLine(index) {
       const line=poLines[index]; if(!line)return;
@@ -2098,7 +2098,7 @@
       const priceRaw=prompt('Harga satuan (Rp):',String(line.unitPrice)); if(priceRaw===null)return;
       const qty=Number(qtyRaw),price=Number(priceRaw);
       if(!Number.isFinite(qty)||qty<=0||!Number.isFinite(price)||price<0)return showToast('Kuantitas atau harga tidak valid.',true);
-      line.qty=qty; line.unitPrice=price; line.usageUnitPrice=price/(Number(line.conversionFactor)||1); line.subtotal=qty*price; renderPoLines();
+      line.qty=qty; line.unitPrice=price; line.usageUnitPrice=(price/(Number(line.conversionFactor)||1))*(1+(Number(line.wasteRate)||0)/100); line.subtotal=qty*price; renderPoLines();
     }
 
     function renderPoLines() {
