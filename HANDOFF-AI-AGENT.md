@@ -264,3 +264,11 @@ Release boundary:
 - Public Astro website repository untouched.
 - No Apps Script production deployment, live sheet migration, merge to main, or production release performed.
 - Next phase: actual-versus-estimated HPP, material consumption variance, labor/machine time capture, and project margin reconciliation.
+
+
+## 9. Update — 25 November 2026: printable warehouse picking list
+
+- Added a branded A4 PDF generated per active production project from the current picking list.
+- Includes project/SO references, HPP requirement, net issue, outstanding quantity, unit, physical check box, and warehouse handover signatures.
+- PDF generation is read-only. It never creates an Inventory transaction or changes stock; warehouse must record the actual issue separately.
+- CI passed after adding PDF generation and UI integration tests. Browser download/save still needs a manual check on iPhone Safari and desktop.
