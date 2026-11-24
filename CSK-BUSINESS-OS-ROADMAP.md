@@ -243,3 +243,14 @@ The Owner confirmed that CSK Business OS should continue using the existing Goog
 - The older PR #26, #30, and #24 were closed as superseded. In particular, PR #30 used a second reservation-ledger design and must not be merged beside the integrated reservation model.
 - This branch is the current integrated development/release-candidate line. It is not production.
 - Remaining release gates are a fresh full CI run on this exact branch head, desktop/iPhone/Android browser QA, and a separately approved Owner-run Apps Script schema/deployment and Google Sheets verification.
+
+## 17. Inventory, HPP, and iOS document workflow completion — 25 November 2026
+
+- PR #31 integrated the atomic Inventory_Reservations model, Owner-only reservation/release, Sales Order HPP snapshot validation, reservation-aware issue limits, and material picking controls into this development branch.
+- PR #32 was merged into the reservation-core branch before PR #31 integration. Its return workflow ties every return to the original Sales Order and reservation ID, nets issue/return quantities, and reactivates reservation balances after a valid return.
+- Material, product, and service activation now waits for verified Google Sheets sync; local activation is rolled back if cloud verification fails.
+- HPP preserves supplier purchase price, unit conversion, and waste allowance separately. Draft POs use supplier purchase units and purchase prices; receiving converts to stock units.
+- The advertising reference catalog contains 53 material families and 41 product/service families; the initial CSK material master has 101 draft SKU rows. These are reference templates, not verified live supplier prices. Do not activate unpriced or unverified materials.
+- PDF delivery uses Blob URLs and an iOS/iPad preview flow with a Save to Files fallback. The later PR #33 pagination improvements are included; the PWA manifest and service worker are aligned at version 3.2.27.
+- PR #31 head validation: CSK Security Tests run 1207 PASS; CSK business source regression checks run 1024 PASS. PR #32 head validation: Security Tests run 1146 PASS and business-source checks run 995 PASS. The integrated colorful UI branch also passed Security Tests run 1227 and business-source checks run 1037.
+- Remaining work is operational acceptance, not another competing reservation ledger: complete real-device browser/PDF QA, verify Owner/Team behavior against a test Apps Script deployment, and prepare a reviewed schema migration checklist. No production deployment, live Sheet writes, or main-branch merge has been performed.
