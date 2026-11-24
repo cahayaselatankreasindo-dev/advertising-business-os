@@ -58,12 +58,16 @@ function fixture(){
  });
 }
 function transaction(id,no,movement,qty,date,extra){
+ const extras=extra||{};
+ const defaultCostSource=['issue','return','adjustment_out'].includes(movement)?'moving_average':
+   movement==='receipt'&&extras.purchaseOrderId?'purchase_order':'master_fallback';
  return Object.assign({
   id:'ITX-'+id,transactionNo:no,materialId:material.id,materialName:material.name,
   movement:movement,qty:qty,unit:'m2',date:date,projectId:'',projectName:'',
-  purchaseOrderId:'',supplier:'',reference:'',notes:'',
+  purchaseOrderId:'',supplier:'',unitCost:100000,totalCost:Math.round(qty*100000),
+  costSource:defaultCostSource,costingMethod:'moving_average',reference:'',notes:'',
   createdAt:date+'T08:00:00.000Z',createdBy:'owner@example.test'
- },extra||{});
+ },extras);
 }
 const opening=transaction('INV-00000001','STK-CSK-2026-00001','opening',5,'2026-11-01');
 function stockedFixture(qty){
@@ -92,7 +96,7 @@ assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(ss,[{...open
 const secondOpening=transaction('INV-00000002','STK-CSK-2026-00002','opening',2,'2026-11-02');
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(ss,[opening,secondOpening]),/INVENTORY_OPENING_ALREADY_EXISTS/,'one opening balance is allowed per material');
 
-const issue=transaction('INV-00000003','STK-CSK-2026-00003','issue',6,'2026-11-03',{projectId:project.id,projectName:project.title});
+const issue=transaction('INV-00000003','STK-CSK-2026-00003','issue',6,'2026-11-03',{projectId:project.id,projectName:project.title,costSource:'master_fallback'});
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(fixture(),[issue]),/INVENTORY_INSUFFICIENT_STOCK/,'negative inventory is blocked');
 const issueNoProject=transaction('INV-00000004','STK-CSK-2026-00004','issue',1,'2026-11-03');
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(fixture(),[issueNoProject]),/INVENTORY_PROJECT_REQUIRED/,'project issue must be linked to a real project');
