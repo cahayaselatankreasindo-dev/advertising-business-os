@@ -1155,8 +1155,13 @@ function reserveSalesOrderStock_(ss, salesOrderId, identity) {
     if(String(order.status||"").toLowerCase()!=="in_production")throw new Error("SALES_ORDER_NOT_READY_FOR_RESERVATION");
     var existing=activeReservationsForSalesOrder_(ss,id);
     if(existing.length)return{alreadyReserved:true,salesOrderId:id,reservations:existing};
+    var invoices=readSheetData(ss,"Invoices"),payments=readSheetData(ss,"Invoice_Payments"),invoiceIds={};
+    invoices.forEach(function(invoice){if(String(invoice.sourceQuotationId||invoice.quotationId||"")===String(order.quotationId||""))invoiceIds[String(invoice.id)]=true;});
+    var paid=payments.filter(function(payment){return !!invoiceIds[String(payment.invoiceId)];}).reduce(function(sum,payment){return sum+Math.max(0,Number(payment.amount)||0);},0);
+    if(paid+0.000001<Math.max(0,Number(order.dpRequiredAmount)||0))throw new Error("SALES_ORDER_DP_NOT_VERIFIED");
     var snapshot=parseCostSheetSnapshotValue_(order.sourceCostSheetSnapshotJson);
     var materials=readSheetData(ss,"Materials"),transactions=readSheetData(ss,"Inventory_Transactions");
+    if(transactions.some(function(tx){return String(tx.projectId||"")===String(order.projectId||"")&&["issue","return"].indexOf(String(tx.movement||""))>=0;}))throw new Error("RESERVATION_PROJECT_HAS_EXISTING_MOVEMENTS_REQUIRES_RECONCILIATION");
     var requirements=stockRequirementsFromSalesOrderSnapshot_(snapshot,materials);
     var onHand=stockBalancesFromLedger_(materials,transactions),reserved=activeStockReservationBalances_(ss);
     requirements.forEach(function(row){
@@ -1177,13 +1182,14 @@ function reserveSalesOrderStock_(ss, salesOrderId, identity) {
     return{alreadyReserved:false,salesOrderId:id,reservations:activeReservationsForSalesOrder_(ss,id)};
   } finally { lock.releaseLock(); }
 }
-function releaseSalesOrderStock_(ss, salesOrderId, identity, reason) {
-  var lock=LockService.getScriptLock(); lock.waitLock(30000);
+function releaseSalesOrderStock_(ss, salesOrderId, identity, reason, lockAlreadyHeld) {
+  var lock=LockService.getScriptLock(); if(!lockAlreadyHeld)lock.waitLock(30000);
   try {
     ensureSheet(ss,"Stock_Reservations",FIELD_MAP.Stock_Reservations.headers);
     var id=String(salesOrderId||"").trim();
     if(!id)throw new Error("SALES_ORDER_ID_REQUIRED");
     var order=readSheetData(ss,"Sales_Orders").find(function(row){return String(row.id)===id;});
+    if(!order)throw new Error("SALES_ORDER_NOT_FOUND");
     var active=activeReservationsForSalesOrder_(ss,id);
     if(!active.length)return{released:false,salesOrderId:id,reservations:[]};
     var now=new Date(),date=Utilities.formatDate(now,Session.getScriptTimeZone(),"yyyy-MM-dd");
@@ -1198,7 +1204,7 @@ function releaseSalesOrderStock_(ss, salesOrderId, identity, reason) {
     };});
     appendStockReservationEvents_(ss,events);
     return{released:true,salesOrderId:id,reservations:activeReservationsForSalesOrder_(ss,id)};
-  } finally { lock.releaseLock(); }
+  } finally { if(!lockAlreadyHeld)lock.releaseLock(); }
 }
 
 function doPost(e) {
@@ -1222,6 +1228,9 @@ function doPost(e) {
 
     switch (action) {
       case "sync_all": {
+        var syncLock = LockService.getScriptLock();
+        syncLock.waitLock(30000);
+        try {
         if (identity.role === "team") cskAssertTeamLeadTransitions_(ss, payload.leads || []);
         var mergeSummary = {};
         if (payload.leads)          mergeSummary.Leads           = mergeSheet(ss, "Leads", payload.leads);
@@ -1240,7 +1249,7 @@ function doPost(e) {
           validateSalesOrdersBeforeMerge_(ss, payload.salesOrders);
           mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); y.sourceCostSheetSnapshotJson = JSON.stringify(x.sourceCostSheetSnapshot || null); return y; }));
         }
-        if (payload.salesOrders) payload.salesOrders.filter(function(x){ return ["cancelled","delivered","closed"].indexOf(String(x.status || "").toLowerCase()) >= 0; }).forEach(function(x){ releaseSalesOrderStock_(ss, x.id, identity, "Otomatis dilepas karena status Sales Order " + x.status); });
+        if (payload.salesOrders) payload.salesOrders.filter(function(x){ return ["cancelled","delivered","closed"].indexOf(String(x.status || "").toLowerCase()) >= 0; }).forEach(function(x){ releaseSalesOrderStock_(ss, x.id, identity, "Otomatis dilepas karena status Sales Order " + x.status, true); });
         if (payload.inventoryTransactions) {
           mergeSummary.Inventory_Transactions = mergeSheet(ss, "Inventory_Transactions", payload.inventoryTransactions);
         }
@@ -1249,6 +1258,7 @@ function doPost(e) {
         if (payload.invoices) mergeSummary.Invoices = mergeInvoicesSafely_(ss, payload.invoices);
         if (identity.role === "owner") autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge; data lama yang tidak dikirim tetap dipertahankan.", summary: mergeSummary });
+        } finally { syncLock.releaseLock(); }
       }
 
       case "reserve_sales_order_stock": {
@@ -1684,6 +1694,7 @@ function cskAssertPayloadAllowed_(identity, payload) {
   // Enforce this on the server so hiding a button cannot be bypassed from the browser.
   if (action === "delete" && role !== "owner") throw new Error("FORBIDDEN_DELETE");
   if ((action === "insert" || action === "delete") && String(payload.sheet || "") === "Invoice_Payments") throw new Error("PAYMENT_LEDGER_SERVER_ONLY");
+  if ((action === "insert" || action === "delete") && String(payload.sheet || "") === "Stock_Reservations") throw new Error("STOCK_RESERVATION_LEDGER_SERVER_ONLY");
   if (String(payload.sheet || "") === "Inventory_Transactions" && action !== "sync_all") throw new Error("INVENTORY_LEDGER_SERVER_ONLY");
   if (action === "record_invoice_payment") {
     if (role !== "owner") throw new Error("FORBIDDEN_PAYMENT_WRITE");
