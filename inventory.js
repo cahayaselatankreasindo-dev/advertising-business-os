@@ -40,7 +40,7 @@ function ensureBound(){
   if(event.target&&event.target.id==='inv-material'){var costField=el('inv-unit-cost');if(costField)delete costField.dataset.manual;updateUnitHint();}
    if(event.target&&event.target.id==='inv-unit-cost'){event.target.dataset.manual='1';}
   if(event.target&&event.target.id==='inv-po'){var costField=el('inv-unit-cost');if(costField)delete costField.dataset.manual;if(event.target.value)applyPurchaseOrderSelection(event.target.value);else restoreAllMaterialOptions();}
-  if(event.target&&event.target.id==='inv-movement'){var costField=el('inv-unit-cost');if(costField)delete costField.dataset.manual;updateMovementFields();updateUnitHint();}
+  if(event.target&&event.target.id==='inv-movement'){var costField=el('inv-unit-cost');if(costField)delete costField.dataset.manual;if(event.target.value!=='receipt'){var poField=el('inv-po'),supplierField=el('inv-supplier');if(poField)poField.value='';if(supplierField)supplierField.value='';}updateMovementFields();updateUnitHint();}
  });
  bound=true;
 }
@@ -164,7 +164,7 @@ async function saveInventoryTransaction(){
   var result=E().validateTransaction({
    materialId:el('inv-material').value,movement:el('inv-movement').value,qty:el('inv-qty').value,
    unit:material&&material.unit,date:el('inv-date').value,projectId:el('inv-project').value,
-   supplier:el('inv-supplier').value,purchaseOrderId:el('inv-po').value,unitCost:el('inv-unit-cost')&&el('inv-unit-cost').value,
+   supplier:el('inv-supplier').value,purchaseOrderId:el('inv-po').value,unitCost:el('inv-unit-cost')&&el('inv-unit-cost').dataset.manual?el('inv-unit-cost').value:'',
    reference:el('inv-reference').value,notes:el('inv-notes').value,
    createdBy:identity&&identity.email||'Owner'
   },{materials:d.materials,projects:d.projects,purchaseOrders:d.purchaseOrders,transactions:d.inventoryTransactions,salesOrders:d.salesOrders,costSheets:d.costSheets});
