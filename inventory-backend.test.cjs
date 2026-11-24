@@ -52,6 +52,7 @@ assert.equal(context.validateMaterialsBeforeMerge_(fixture(),[validMasterMateria
 const draftMasterMaterial={id:'MAT-MASTER-002',sku:'PVC-3',name:'PVC board 3 mm',category:'PVC board',unit:'lembar',purchaseUnit:'lembar',conversionFactor:1,unitPrice:0,purchasePrice:0,status:'draft'};
 assert.equal(context.validateMaterialsBeforeMerge_(fixture(),[draftMasterMaterial]),true,'draft master material may be imported without fabricated price');
 assert.throws(()=>context.validateMaterialsBeforeMerge_(fixture(),[validMasterMaterial,{...validMasterMaterial,id:'MAT-MASTER-003'}]),/DUPLICATE_MATERIAL_SKU/,'duplicate material SKUs are rejected');
+assert.throws(()=>context.validateMaterialsBeforeMerge_(fixture(),[{...validMasterMaterial,sku:material.sku}]),/DUPLICATE_MATERIAL_SKU/,'new material cannot reuse a SKU already stored in Google Sheets');
 assert.throws(()=>context.validateMaterialsBeforeMerge_(fixture(),[{...validMasterMaterial,unitPrice:25000}]),/ACTIVE_MATERIAL_USAGE_PRICE_MISMATCH/,'active material usage price must equal purchase price divided by conversion');
 assert.throws(()=>context.validateMaterialsBeforeMerge_(fixture(),[{...validMasterMaterial,priceSource:''}]),/ACTIVE_MATERIAL_PRICE_SOURCE_REQUIRED/,'active material requires a traceable price source');
 
