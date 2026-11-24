@@ -3,6 +3,25 @@
 'use strict';
 function n(v){v=Number(v);return Number.isFinite(v)?v:0;}
 function calculateCommercialTotals(lines,discount,taxRate){var s=(Array.isArray(lines)?lines:[]).reduce(function(a,x){return a+Math.max(0,n(x.qty))*Math.max(0,n(x.unitPrice));},0),d=Math.min(s,Math.max(0,n(discount))),r=Math.min(100,Math.max(0,n(taxRate))),tax=Math.round((s-d)*r/100);return{subtotal:Math.round(s),discount:Math.round(d),taxRate:r,taxAmount:tax,total:Math.round(s-d+tax)};}
+function validateCommercialDocument(document){
+ var errors=[],lines=Array.isArray(document&&document.lines)?document.lines:[];
+ if(!lines.length)errors.push('Tambahkan minimal satu item.');
+ var subtotal=0;
+ lines.forEach(function(line,index){
+  var label='baris '+(index+1),qty=Number(line&&line.qty),price=Number(line&&line.unitPrice);
+  if(!line||!String(line.name||'').trim())errors.push('Nama item pada '+label+' wajib diisi.');
+  if(!Number.isFinite(qty)||qty<=0)errors.push('Kuantitas item pada '+label+' harus berupa angka lebih dari nol.');
+  if(!line||line.unitPrice===undefined||line.unitPrice===null||String(line.unitPrice).trim()===''||!Number.isFinite(price)||price<0)errors.push('Harga satuan item pada '+label+' tidak valid. Harga harus berupa angka nol atau lebih.');
+  if(Number.isFinite(qty)&&qty>0&&Number.isFinite(price)&&price>=0)subtotal+=qty*price;
+ });
+ if(!Number.isFinite(subtotal))errors.push('Nilai subtotal terlalu besar atau tidak valid.');
+ var discount=Number(document&&document.discount),taxRate=Number(document&&document.taxRate),dpPercent=Number(document&&document.dpPercent);
+ if(!Number.isFinite(discount)||discount<0)errors.push('Diskon harus berupa angka nol atau lebih.');
+ else if(Number.isFinite(subtotal)&&discount>subtotal+0.000001)errors.push('Diskon tidak boleh melebihi subtotal.');
+ if(!Number.isFinite(taxRate)||taxRate<0||taxRate>100)errors.push('Tarif pajak harus berada di antara 0 dan 100 persen.');
+ if(!Number.isFinite(dpPercent)||dpPercent<1||dpPercent>99)errors.push('Persentase DP harus berada di antara 1 dan 99 persen.');
+ return{valid:errors.length===0,errors:errors,subtotal:Number.isFinite(subtotal)?Math.round(subtotal):0};
+}
 function localDate(d){d=d instanceof Date?d:new Date(d||Date.now());return[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
 function nextDocumentNumber(k,rows,date){var p=k==='quotation'?'QUO':'INV',y=(date||localDate()).slice(0,4),re=new RegExp('^'+p+'-CSK-'+y+'-(\\d+)$'),m=0;(rows||[]).forEach(function(x){var z=re.exec(String(x.docNo||''));if(z)m=Math.max(m,Number(z[1])||0);});return p+'-CSK-'+y+'-'+String(m+1).padStart(5,'0');}
 function findExistingProjectForDocument(projects,d,sourceQ,sourceI){
@@ -34,7 +53,7 @@ function summarizeInvoicePayments(invoice,payments){
  var balance=Math.max(0,total-paid);
  return{total:total,paid:paid,balance:balance,count:rows.length,status:total>0&&paid>=total?'paid':paid>0?'partial':'unpaid'};
 }
-if(typeof module!=='undefined'&&module.exports)module.exports={calculateCommercialTotals:calculateCommercialTotals,nextDocumentNumber:nextDocumentNumber,localDate:localDate,findExistingProjectForDocument:findExistingProjectForDocument,summarizeInvoicePayments:summarizeInvoicePayments};
+if(typeof module!=='undefined'&&module.exports)module.exports={calculateCommercialTotals:calculateCommercialTotals,validateCommercialDocument:validateCommercialDocument,nextDocumentNumber:nextDocumentNumber,localDate:localDate,findExistingProjectForDocument:findExistingProjectForDocument,summarizeInvoicePayments:summarizeInvoicePayments};
 if(!w||!w.document)return;
 var doc=null,kind='quotation',paymentDraftId='',currentPaymentInvoiceId='',pendingPaymentDrafts=Object.create(null),labels={draft:'Draft',sent:'Dikirim',approved:'Disetujui',rejected:'Ditolak',partial:'Dibayar sebagian',paid:'Lunas',unpaid:'Belum dibayar',cancelled:'Dibatalkan'};
 function el(id){return w.document.getElementById(id);}
@@ -180,13 +199,13 @@ el('cd-totals').innerHTML='Subtotal: <b>'+rp(t.subtotal)+'</b><br>Diskon: <b>'+r
 function renderEditor(){el('cd-title').textContent=(kind==='quotation'?'Quotation':'Invoice')+' · Editor';var s=el('cd-lead');s.innerHTML='<option value="">Input pelanggan manual / tanpa Lead</option>'+(db.leads||[]).map(function(x){return '<option value="'+esc(x.id)+'">'+esc(x.name||'Lead')+'</option>';}).join('');s.value=doc.leadId||'';var states=kind==='quotation'?['draft','sent','approved','rejected','cancelled']:['draft','sent','cancelled'];var savedStatus=doc.status||'draft';if(kind==='invoice'&&['partial','paid','unpaid'].indexOf(savedStatus)>=0)savedStatus='sent';el('cd-status').innerHTML=states.map(function(x){return '<option value="'+x+'">'+labels[x]+'</option>';}).join('');el('cd-status').value=states.indexOf(savedStatus)>=0?savedStatus:'draft';[['cd-client','client'],['cd-phone','clientPhone'],['cd-email','clientEmail'],['cd-contact','contactPerson'],['cd-address','clientAddress'],['cd-project','projectName'],['cd-number','docNo'],['cd-date','date'],['cd-due','dueDate'],['cd-project-deadline','projectDeadline'],['cd-discount','discount'],['cd-tax','taxRate'],['cd-dp','dpPercent'],['cd-payment','paymentTerms'],['cd-terms','terms'],['cd-notes','notes']].forEach(function(x){el(x[0]).value=doc[x[1]]==null?'':doc[x[1]];});renderMaster();renderLines();preview();}
 function openCommercialDocumentEditor(k,id,pid){if(k!=='quotation'&&k!=='invoice')return;if(typeof isOwnerSession!=='function'||!isOwnerSession())return say('Dokumen komersial hanya dapat dikelola Owner.',true);ensure();kind=k;var old=id?arr(k).find(function(x){return String(x.id)===String(id);}):null;doc=old?JSON.parse(JSON.stringify(old)):defaultDoc(k,pid);delete doc.kind;if(!Array.isArray(doc.lines))doc.lines=[];if(!doc.date)doc.date=localDate();if(!doc.dueDate)doc.dueDate=plus(doc.date,7);if(!doc.docNo)doc.docNo=nextDocumentNumber(k,arr(k),doc.date);renderEditor();el('commercial-document-modal').classList.remove('hidden');}
 function closeCommercialDocumentEditor(){if(el('commercial-document-modal'))el('commercial-document-modal').classList.add('hidden');doc=null;}
-function updateCommercialField(f,v){if(!doc)return;doc[f]=['discount','taxRate','dpPercent'].includes(f)?n(v):String(v==null?'':v).trim();preview();}
+function updateCommercialField(f,v){if(!doc)return;doc[f]=['discount','taxRate','dpPercent'].includes(f)?(String(v)===''?(f==='dpPercent'?50:0):Number(v)):String(v==null?'':v).trim();preview();}
 function selectCommercialLead(id){if(!doc)return;var l=id?getLead(id):null;doc.leadId=l?String(l.id):'';if(l){doc.client=l.name||'';doc.clientPhone=l.phone||'';doc.clientEmail=l.email||'';doc.contactPerson=l.pic||'';if(!doc.projectName)doc.projectName=l.name||'';el('cd-client').value=doc.client;el('cd-phone').value=doc.clientPhone;el('cd-email').value=doc.clientEmail;el('cd-contact').value=doc.contactPerson;el('cd-project').value=doc.projectName;}preview();}
-function updateCommercialLine(i,f,v){if(!doc||!doc.lines[i])return;doc.lines[i][f]=['qty','unitPrice'].includes(f)?n(v):String(v==null?'':v).trim();preview();}
+function updateCommercialLine(i,f,v){if(!doc||!doc.lines[i])return;doc.lines[i][f]=['qty','unitPrice'].includes(f)?(String(v).trim()===''?NaN:Number(v)):String(v==null?'':v).trim();preview();}
 function addCommercialMasterItem(){if(!doc)return;var v=el('cd-master').value;if(!v)return say('Pilih material atau jasa.',true);var p=v.split(':'),id=p.slice(1).join(':'),x=p[0]==='m'?(db.materials||[]).find(function(a){return String(a.id)===id;}):(db.services||[]).find(function(a){return String(a.id)===id;});if(!x)return say('Item master tidak ditemukan.',true);doc.lines.push({id:'L-'+Date.now(),materialId:p[0]==='m'?x.id:'',serviceId:p[0]==='s'?x.id:'',name:x.name||'Item',description:x.spec||'',qty:1,unit:x.unit||(p[0]==='s'?'Jasa':'unit'),unitPrice:n(p[0]==='m'?x.unitPrice:x.basePrice)});el('cd-master').value='';renderLines();preview();}
 function addCommercialManualLine(){if(!doc)return;doc.lines.push({id:'L-'+Date.now(),name:'Item baru',description:'',qty:1,unit:'unit',unitPrice:0});renderLines();preview();}
 function removeCommercialLine(i){if(!doc)return;doc.lines.splice(i,1);renderLines();preview();}
-function readForm(){[['cd-lead','leadId'],['cd-client','client'],['cd-phone','clientPhone'],['cd-email','clientEmail'],['cd-contact','contactPerson'],['cd-address','clientAddress'],['cd-project','projectName'],['cd-number','docNo'],['cd-status','status'],['cd-date','date'],['cd-due','dueDate'],['cd-project-deadline','projectDeadline'],['cd-payment','paymentTerms'],['cd-terms','terms'],['cd-notes','notes']].forEach(function(x){doc[x[1]]=el(x[0]).value.trim();});doc.discount=n(el('cd-discount').value);doc.taxRate=n(el('cd-tax').value);doc.dpPercent=Math.min(99,Math.max(1,n(el('cd-dp').value)||50));}
+function readForm(){[['cd-lead','leadId'],['cd-client','client'],['cd-phone','clientPhone'],['cd-email','clientEmail'],['cd-contact','contactPerson'],['cd-address','clientAddress'],['cd-project','projectName'],['cd-number','docNo'],['cd-status','status'],['cd-date','date'],['cd-due','dueDate'],['cd-project-deadline','projectDeadline'],['cd-payment','paymentTerms'],['cd-terms','terms'],['cd-notes','notes']].forEach(function(x){doc[x[1]]=el(x[0]).value.trim();});doc.discount=String(el('cd-discount').value)===''?0:Number(el('cd-discount').value);doc.taxRate=String(el('cd-tax').value)===''?0:Number(el('cd-tax').value);doc.dpPercent=String(el('cd-dp').value)===''?50:Number(el('cd-dp').value);}
 async function persistCommercialChanges(successMessage){
  if(typeof saveDB==='function')saveDB(true);
  if(!w.CSKAuth||typeof w.CSKAuth.isReady!=='function'||!w.CSKAuth.isReady()||typeof w.CSKAuth.sync!=='function'){
@@ -212,8 +231,8 @@ async function saveCommercialDocument(){
  if(!doc.docNo)return say('Nomor dokumen wajib diisi.',true);
  if(!doc.date||!doc.dueDate)return say('Tanggal dan jatuh tempo wajib diisi.',true);
   if(doc.projectDeadline&&!/^\d{4}-\d{2}-\d{2}$/.test(String(doc.projectDeadline)))return say('Deadline proyek tidak valid.',true);
- if(!doc.lines.length)return say('Tambahkan minimal satu item.',true);
- if(doc.lines.some(function(x){return !String(x.name||'').trim()||n(x.qty)<=0||n(x.unitPrice)<0;}))return say('Periksa nama item, kuantitas, dan harga.',true);
+ var validation=validateCommercialDocument(doc);
+  if(!validation.valid)return say(validation.errors[0],true);
  if(arr(kind).some(function(x){return String(x.id)!==String(doc.id)&&String(x.docNo||'').toLowerCase()===doc.docNo.toLowerCase();}))return say('Nomor dokumen sudah digunakan.',true);
  if(doc.leadId&&!getLead(doc.leadId))doc.leadId='';
  var totals=calculateCommercialTotals(doc.lines,doc.discount,doc.taxRate);
