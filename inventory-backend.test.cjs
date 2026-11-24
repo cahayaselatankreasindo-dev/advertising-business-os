@@ -58,8 +58,8 @@ function fixture(){
  });
 }
 function transaction(id,no,movement,qty,date,extra){
- var source=movement==='opening'?'opening_manual':movement==='receipt'?(extra&&extra.purchaseOrderId?'purchase_order':'manual_receipt'):movement==='adjustment_in'?'adjustment_manual':'moving_average';
- var reference=movement==='opening'?'OPENING-VALUATION-'+id:movement==='receipt'&&!(extra&&extra.purchaseOrderId)?'SUPPLIER-INVOICE-'+id:'';
+ var source=movement==='opening'?'opening_manual':movement==='receipt'?(extra&&extra.purchaseOrderId?'purchase_order':'manual_receipt'):movement==='adjustment_in'?'opening_manual':movement==='return'?'project_issue_average':'moving_average';
+ var reference=movement==='opening'?'OPENING-VALUATION-'+id:movement==='receipt'&&!(extra&&extra.purchaseOrderId)?'SUPPLIER-INVOICE-'+id:movement==='adjustment_in'?'ADJUSTMENT-VALUATION-'+id:'';
  var cost=100000;
  return Object.assign({
   id:'ITX-'+id,transactionNo:no,materialId:material.id,materialName:material.name,
