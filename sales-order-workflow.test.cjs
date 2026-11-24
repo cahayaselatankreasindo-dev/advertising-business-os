@@ -65,6 +65,7 @@ const deploy=fs.readFileSync('apps-script/Code.gs','utf8');
 const guard=fs.readFileSync('security/guard.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
 const ui=fs.readFileSync('sales-orders.js','utf8');
+const pdf=fs.readFileSync('csk-pdf.js','utf8');
 const sw=fs.readFileSync('sw.js','utf8');
 const auth=fs.readFileSync('backend-auth.test.cjs','utf8');
 assert.equal(backend,deploy,'canonical Apps Script and deployment copy must stay identical');
@@ -73,6 +74,10 @@ assert.match(backend,/validateSalesOrdersBeforeMerge_\(ss, payload\.salesOrders,
 assert.match(backend,/SALES_ORDER_DP_NOT_VERIFIED/,'backend enforces verified DP before production');
 assert.match(backend,/awaiting_material/,'backend supports orders waiting for material availability');
 assert.match(ui,/prepareInitialMaterialReservation/,'Sales Order creation automatically checks and reserves HPP materials');
+assert.match(ui,/data-so-action="usage-report"/,'Sales Order material panel exposes a quantity reconciliation PDF action');
+assert.match(ui,/downloadMaterialUsageReport/,'Sales Order builds a project-specific material usage report from the stock ledger');
+assert.match(pdf,/generateMaterialUsagePdf/,'PDF engine supports HPP versus net material issue reconciliation');
+assert.match(ui,/Snapshot HPP \(dibekukan\)/,'material report identifies the frozen HPP source when available');
 assert.match(ui,/Reservasi material otomatis dibuat/,'Sales Order history records automatic material reservation');
 assert.match(backend,/SALES_ORDER_CANNOT_CLOSE_WITH_UNPAID_INVOICE/,'backend blocks closing with unpaid invoice');
 assert.match(backend,/salesOrders: readSheetData\(ss, "Sales_Orders"\)/,'owner get_data includes Sales Orders');
