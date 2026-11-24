@@ -14,6 +14,7 @@ on:
   pull_request:
     branches:
       - main
+      - feature/csk-colorful-ui-20261124
 
 jobs:
   test:
