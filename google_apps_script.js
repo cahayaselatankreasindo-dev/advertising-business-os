@@ -1680,6 +1680,12 @@ function cskAssertPayloadAllowed_(identity, payload) {
   if (action === "delete" && role !== "owner") throw new Error("FORBIDDEN_DELETE");
   if ((action === "insert" || action === "delete") && String(payload.sheet || "") === "Invoice_Payments") throw new Error("PAYMENT_LEDGER_SERVER_ONLY");
   if (String(payload.sheet || "") === "Inventory_Transactions" && action !== "sync_all") throw new Error("INVENTORY_LEDGER_SERVER_ONLY");
+  if (action === "reserve_sales_order_stock" || action === "release_sales_order_reservation") {
+    if (role !== "owner") throw new Error("FORBIDDEN_STOCK_RESERVATION");
+    if (!String(payload.salesOrderId || "").trim()) throw new Error("SALES_ORDER_ID_REQUIRED");
+    if (action === "release_sales_order_reservation" && String(payload.reason || "").length > 200) throw new Error("RESERVATION_RELEASE_REASON_TOO_LONG");
+    return true;
+  }
   if (action === "record_invoice_payment") {
     if (role !== "owner") throw new Error("FORBIDDEN_PAYMENT_WRITE");
     if (!payload.payment || typeof payload.payment !== "object") throw new Error("PAYMENT_REQUIRED");
