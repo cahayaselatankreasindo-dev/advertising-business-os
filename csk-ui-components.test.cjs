@@ -4,6 +4,7 @@ const fs = require('node:fs');
 
 const html = fs.readFileSync('index.html', 'utf8');
 const css = fs.readFileSync('csk-ui-components.css', 'utf8');
+const sw = fs.readFileSync('sw.js', 'utf8');
 
 assert.match(html, /<link rel="stylesheet" href="\.\/csk-ui-components\.css">/,
   'the reusable component stylesheet must be loaded after the visual foundation');
@@ -39,5 +40,8 @@ for (const required of [
 
 assert.match(css, /prefers-reduced-motion/, 'reduced motion support must remain available');
 assert.match(css, /@media print/, 'print styles must remain explicit');
+assert.match(sw, /csk-business-os-v3\.2\.9/, 'PWA cache version must change when shared UI assets change');
+assert.match(sw, /'\.\/csk-visual-refresh\.css'/, 'the visual foundation must be cached for offline use');
+assert.match(sw, /'\.\/csk-ui-components\.css'/, 'the shared component styles must be cached for offline use');
 
 console.log('CSK shared UI component checks passed.');
