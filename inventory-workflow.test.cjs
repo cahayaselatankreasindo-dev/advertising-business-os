@@ -238,6 +238,11 @@ assert.match(guard,/releaseSalesOrderReservation/,'authenticated client exposes 
 assert.match(guard,/inventoryReservations = identity\.role === 'owner'/,'reservation state is read from cloud and never added to generic sync collections');
 assert.match(html,/reserveSalesOrderStock: function/,'Business OS bridge exposes reservation actions to Inventory UI');
 assert.match(ui,/renderReservationPanel/,'Inventory UI displays locked Sales Order reservations');
+assert.match(ui,/Reservasi Stok Terkunci & Picking List/,'Inventory UI combines locked reservations with a production picking list');
+assert.match(ui,/data-inv-action="pick-reservation"/,'each reserved material exposes a direct picking action');
+assert.match(ui,/openReservationPick/,'picking action opens a prefilled issue transaction for the selected Sales Order');
+assert.match(ui,/prefillReservationId/,'picking transaction preserves the exact server-issued reservation ID');
+assert.match(ui,/data-pick-qty/,'picking action caps the suggested issue quantity to the remaining reservation and physical stock');
 assert.match(ui,/inv-sales-order/,'Inventory issue form supports Sales Order-linked material consumption');
 assert.match(ui,/inv-reservation-id/,'Inventory issue form attaches the exact reservation row to each stock issue');
 assert.match(backend,/ReservationID/,'inventory ledger schema stores an immutable reservation reference');
