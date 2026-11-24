@@ -30,8 +30,9 @@ function ensureBound(){
   if(event.target&&event.target.id==='inv-search'){var value=event.target.value,position=value.length;filterText=value;if(!formOpen){renderInventory();var input=el('inv-search');if(input){input.focus();if(input.setSelectionRange)input.setSelectionRange(position,position);}}}
  });
  page.addEventListener('change',function(event){
-  if(event.target&&event.target.id==='inv-material'){updateUnitHint();}
+  if(event.target&&event.target.id==='inv-material'){if(el('inv-sales-order')&&el('inv-sales-order').value)applySalesOrderReservationSelection(el('inv-sales-order').value);else updateUnitHint();}
   if(event.target&&event.target.id==='inv-po'){if(event.target.value)applyPurchaseOrderSelection(event.target.value);else restoreAllMaterialOptions();}
+  if(event.target&&event.target.id==='inv-sales-order'){if(event.target.value)applySalesOrderReservationSelection(event.target.value);else restoreAllMaterialOptions();}
   if(event.target&&event.target.id==='inv-movement'){updateMovementFields();}
  });
  bound=true;
@@ -58,6 +59,34 @@ function restoreAllMaterialOptions(){
  var supplier=el('inv-supplier');if(supplier)supplier.value='';
  var save=el('inv-save');if(save)save.disabled=false;
  updateUnitHint();
+}
+function applySalesOrderReservationSelection(salesOrderId){
+ var d=data(),order=(d.salesOrders||[]).find(function(row){return String(row.id)===String(salesOrderId);});
+ var select=el('inv-material'),qtyInput=el('inv-qty'),save=el('inv-save');
+ if(!select)return;
+ if(!order){restoreAllMaterialOptions();return;}
+ var project=el('inv-project');if(project)project.value=String(order.projectId||'');
+ var grouped={};
+ (d.inventoryReservations||[]).filter(function(row){return String(row.salesOrderId)===String(salesOrderId)&&String(row.status)==='active';}).forEach(function(row){
+  var used=(d.inventoryTransactions||[]).filter(function(tx){return tx.movement==='issue'&&String(tx.salesOrderId||'')===String(salesOrderId)&&String(tx.materialId)===String(row.materialId)&&String(tx.createdAt||'')>=String(row.createdAt||'');}).reduce(function(sum,tx){return sum+n(tx.qty);},0);
+  var remaining=Math.max(0,n(row.qty)-used);
+  if(remaining<=0.000001)return;
+  if(!grouped[String(row.materialId)])grouped[String(row.materialId)]={id:row.materialId,name:row.materialName,unit:row.unit,remaining:0};
+  grouped[String(row.materialId)].remaining+=remaining;
+ });
+ var options=Object.keys(grouped).map(function(key){var item=grouped[key];return'<option value="'+esc(item.id)+'">'+esc(item.name)+' · sisa '+qty(item.remaining)+' '+esc(item.unit)+'</option>';}).join('');
+ select.innerHTML=options||'<option value="">Tidak ada sisa reservasi material</option>';
+ var keys=Object.keys(grouped),selected=keys.indexOf(String(select.value))>=0?String(select.value):(keys[0]||'');
+ if(selected)select.value=selected;
+ if(qtyInput){
+  var chosen=grouped[selected];
+  qtyInput.disabled=!chosen;
+  if(chosen){qtyInput.max=chosen.remaining;if(!qtyInput.value||Number(qtyInput.value)>chosen.remaining)qtyInput.value=chosen.remaining;}
+  else{qtyInput.value='';qtyInput.removeAttribute('max');}
+ }
+ if(save)save.disabled=!keys.length;
+ var hint=el('inv-unit-hint');
+ if(hint)hint.textContent=keys.length?'Pengeluaran ditautkan ke '+(order.orderNo||order.id)+'. Kuantitas dibatasi pada sisa reservasi material.':'Sales Order ini tidak memiliki sisa reservasi material untuk dikeluarkan.';
 }
 function applyPurchaseOrderSelection(poId){
  var d=data(),po=d.purchaseOrders.find(function(p){return String(p.id)===String(poId);});
