@@ -1209,7 +1209,7 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
         opening:["opening_manual","master_fallback"],
         receipt:["purchase_order","manual_receipt","master_fallback"],
         issue:["moving_average","master_fallback"],
-        return:["moving_average","master_fallback"],
+        return:["project_issue_average","moving_average","master_fallback"],
         adjustment_in:["moving_average","opening_manual","master_fallback"],
         adjustment_out:["moving_average","master_fallback"]
       };
