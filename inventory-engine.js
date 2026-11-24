@@ -156,18 +156,29 @@
     }
     var unitCost=0,costSource='';
     if(input.movement==='opening'){
-      unitCost=suppliedUnitCost||masterUnitCost;
-      costSource=suppliedUnitCost>0?'opening_manual':'master_fallback';
+      if(suppliedUnitCost<=0)throw new Error('Masukkan harga pokok saldo awal per satuan stok berdasarkan nilai persediaan yang dapat dipertanggungjawabkan.');
+      if(!String(input.reference||'').trim())throw new Error('Nomor dokumen atau dasar penilaian saldo awal wajib diisi.');
+      unitCost=suppliedUnitCost;
+      costSource='opening_manual';
     }else if(input.movement==='receipt'){
-      unitCost=poUnitCost||suppliedUnitCost||masterUnitCost;
-      costSource=poUnitCost>0?'purchase_order':suppliedUnitCost>0?'manual_receipt':'master_fallback';
+      if(poUnitCost>0){
+        unitCost=poUnitCost;
+        costSource='purchase_order';
+      }else{
+        if(suppliedUnitCost<=0)throw new Error('Masukkan harga pokok penerimaan per satuan stok berdasarkan nota atau faktur supplier.');
+        if(!String(input.reference||'').trim())throw new Error('Nomor nota, faktur, atau surat jalan wajib diisi untuk penerimaan manual.');
+        unitCost=suppliedUnitCost;
+        costSource='manual_receipt';
+      }
     }else if(input.movement==='return'){
       var projectIssueCost=calculateProjectNetIssueCost(projectId,material.id,existing,valuationBefore);
       unitCost=projectIssueCost.averageCost||averageBefore||masterUnitCost;
       costSource=projectIssueCost.averageCost>0?(projectIssueCost.estimated?'master_fallback':'project_issue_average'):averageBefore>0?(valuationBefore.estimated[String(material.id)]?'master_fallback':'moving_average'):'master_fallback';
     }else if(input.movement==='adjustment_in'&&averageBefore<=0){
-      unitCost=suppliedUnitCost||masterUnitCost;
-      costSource=suppliedUnitCost>0?'opening_manual':'master_fallback';
+      if(suppliedUnitCost<=0)throw new Error('Masukkan dasar biaya untuk penyesuaian stok masuk.');
+      if(!String(input.reference||'').trim())throw new Error('Referensi penilaian penyesuaian stok masuk wajib diisi.');
+      unitCost=suppliedUnitCost;
+      costSource='opening_manual';
     }else{
       unitCost=averageBefore||masterUnitCost;
       costSource=averageBefore>0?(valuationBefore.estimated[String(material.id)]?'master_fallback':'moving_average'):'master_fallback';
