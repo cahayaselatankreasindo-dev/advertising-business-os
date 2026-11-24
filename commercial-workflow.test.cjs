@@ -162,6 +162,31 @@ field('cd-master', 's:SRV-01');
 window.addCommercialMasterItem();
 window.updateCommercialLine(1, 'qty', 1);
 assert.equal(db.quotations.length, 0, 'unsaved quotation must not be persisted');
+
+window.updateCommercialLine(0, 'qty', -2);
+await window.saveCommercialDocument();
+assert.equal(db.quotations.length, 0, 'negative quantity must not be persisted');
+assert.equal(messages[messages.length - 1].isError, true, 'invalid quantity is rejected with a clear validation message');
+assert.match(messages[messages.length - 1].message, /Kuantitas/);
+messages.pop();
+
+window.updateCommercialLine(0, 'qty', 2);
+field('cd-discount', 900000);
+await window.saveCommercialDocument();
+assert.equal(db.quotations.length, 0, 'discount above subtotal must not be persisted');
+assert.equal(messages[messages.length - 1].isError, true);
+assert.match(messages[messages.length - 1].message, /melebihi subtotal/);
+messages.pop();
+
+field('cd-discount', 50000);
+field('cd-tax', 101);
+await window.saveCommercialDocument();
+assert.equal(db.quotations.length, 0, 'tax rate above 100 percent must not be persisted');
+assert.equal(messages[messages.length - 1].isError, true);
+assert.match(messages[messages.length - 1].message, /Tarif pajak/);
+messages.pop();
+
+field('cd-tax', 11);
 await saveCurrentDocument();
 
 assert.equal(db.quotations.length, 1);
