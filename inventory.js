@@ -151,8 +151,8 @@ function renderCommitmentPanel(report){
  return html;
 }
 function renderReservationPanel(d){
- var orders=(d.salesOrders||[]).filter(function(order){return String(order.status||'').toLowerCase()==='ready_production';});
  var reservations=d.inventoryReservations||[];
+ var orders=(d.salesOrders||[]).filter(function(order){return String(order.status||'').toLowerCase()==='ready_production'||reservations.some(function(row){return String(row.salesOrderId)===String(order.id)&&row.status==='active';});});
  var html='<section class="bg-white border border-violet-200 rounded-2xl p-4 mb-5"><div class="flex flex-wrap justify-between items-center gap-2"><div><h2 class="font-bold text-sm">Reservasi Stok Terkunci</h2><p class="text-[11px] text-slate-500 mt-1">Reservasi server-side berdasarkan snapshot HPP setiap Sales Order yang sudah siap produksi dan lolos verifikasi DP.</p></div><span class="rounded-full bg-violet-50 text-violet-700 px-2 py-1 text-[10px] font-bold">'+reservations.filter(function(row){return row.status==='active';}).length+' baris aktif</span></div>';
  if(!orders.length)html+='<div class="mt-3 border border-dashed rounded-xl p-4 text-xs text-slate-500">Belum ada Sales Order berstatus Siap Produksi.</div>';
  else html+='<div class="mt-3 space-y-2">'+orders.map(function(order){
