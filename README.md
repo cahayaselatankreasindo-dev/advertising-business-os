@@ -294,3 +294,5 @@ Production reservation, picking, and material cost valuation are now implemented
 - Missing HPP prices and incomplete inventory valuations remain explicitly unknown; they are never converted to zero-cost savings.
 - Legacy Master Material fallback is marked as estimated. The report is temporary until the order is delivered/closed and all returns are reconciled.
 - This is material-cost reporting only, not full project profit or margin. Labor, services, machine time, overhead, scrap, and other expenses remain separate.
+
+- Total material cost variance is withheld until every HPP material has issue/return activity, cost snapshots are complete, HPP cost estimates exist, and no unplanned material issue remains. Unissued materials are not treated as zero-cost savings.
