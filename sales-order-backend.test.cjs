@@ -60,9 +60,9 @@ const quote={
 };
 const project={id:'PRJ-BACKEND-001',title:'Rak Display Custom',client:'PT Contoh',value:10000000,status:'plan'};
 function fixture(stockQty){
-  const material={id:'MAT-SO-001',name:'Akrilik Clear 3mm',unit:'m2',purchaseUnit:'lembar',conversionFactor:2.9768,status:'active'};
-  const costSheet={id:'CS-SO-001',projectId:project.id,projectName:project.title,items:[{itemType:'material',materialId:material.id,name:material.name,qty:2,unit:'m2'}],updatedAt:'2026-11-20T06:00:00.000Z'};
-  const opening={id:'ITX-OPENING-001',transactionNo:'STK-CSK-2026-00001',materialId:material.id,materialName:material.name,movement:'opening',qty:stockQty===undefined?5:stockQty,unit:'m2',date:'2026-11-01',projectId:'',projectName:'',purchaseOrderId:'',supplier:'',reference:'',notes:'Saldo awal pengujian',createdAt:'2026-11-01T08:00:00.000Z',createdBy:'Owner'};
+  const material={id:'MAT-SO-001',name:'Akrilik Clear 3mm',unit:'m2',unitPrice:100000,purchaseUnit:'lembar',conversionFactor:2.9768,status:'active'};
+  const costSheet={id:'CS-SO-001',projectId:project.id,projectName:project.title,items:[{itemType:'material',materialId:material.id,name:material.name,qty:2,unit:'m2',unitPrice:200000,subtotal:400000}],updatedAt:'2026-11-20T06:00:00.000Z'};
+  const opening={id:'ITX-OPENING-001',transactionNo:'STK-CSK-2026-00001',materialId:material.id,materialName:material.name,movement:'opening',qty:stockQty===undefined?5:stockQty,unit:'m2',date:'2026-11-01',projectId:'',projectName:'',purchaseOrderId:'',supplier:'',unitCost:100000,totalCost:Math.round((stockQty===undefined?5:stockQty)*100000),costSource:'opening_manual',costingMethod:'moving_average',reference:'',notes:'Saldo awal pengujian',createdAt:'2026-11-01T08:00:00.000Z',createdBy:'Owner'};
   return new FakeSpreadsheet({
     Commercial_Quotations:new FakeSheet([map.Commercial_Quotations.headers,rowFor('Commercial_Quotations',quote)]),
     Projects:new FakeSheet([map.Projects.headers,rowFor('Projects',project)]),
@@ -126,6 +126,8 @@ const readyOrder={...waitingMaterial,status:'ready_production'};
 assert.equal(context.validateSalesOrdersBeforeMerge_(ss,[readyOrder]),true,'verified DP and sufficient stock release production');
 assert.equal(Array.isArray(readyOrder.materialRequirements),true,'backend freezes the HPP material snapshot at reservation time');
 assert.equal(readyOrder.materialRequirements[0].required,2,'backend derives reserved quantities from the authoritative HPP');
+assert.equal(readyOrder.materialRequirements[0].estimatedTotalCost,400000,'backend freezes the HPP material cost at production release');
+assert.equal(readyOrder.materialRequirements[0].estimatedUnitCost,200000,'backend stores estimated unit cost in the stock unit');
 const shortFixture=fixture(1);
 const unreservedInitial={...initial,status:'awaiting_dp',materialRequirements:[]};
 shortFixture.sheets.Sales_Orders=new FakeSheet([map.Sales_Orders.headers,rowFor('Sales_Orders',{...unreservedInitial,itemsJson:JSON.stringify(unreservedInitial.items),historyJson:JSON.stringify(unreservedInitial.history)})]);
