@@ -133,7 +133,7 @@ const orderStatusColumn=map.Sales_Orders.fields.indexOf('status');
 reserveCase.ss.sheets.Sales_Orders.rows[1][orderStatusColumn]='in_production';
 assert.equal(context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.order.id,{role:'owner',email:'owner@example.test'}).status,'already_reserved','existing reservation remains idempotent after production starts');
 assert.throws(()=>context.releaseSalesOrderReservation_(reserveCase.ss,reserveCase.order.id,'',{role:'owner',email:'owner@example.test'}),/RESERVATION_RELEASE_REASON_REQUIRED/,'manual release requires an audit reason');
-const released=context.releaseSalesOrderReservation_(reserveCase.ss,reserveCase.order.id,'Test release by Owner',{role:'owner',email:'owner@example.test'});
+const releasedReservationResult=context.releaseSalesOrderReservation_(reserveCase.ss,reserveCase.order.id,'Test release by Owner',{role:'owner',email:'owner@example.test'});
 assert.equal(released.releasedLines,1,'Owner can release all active reservation rows');
 assert.equal(reserveCase.ss.sheets.Inventory_Reservations.rows[1][map.Inventory_Reservations.fields.indexOf('status')],'released','released reservation is retained in history');
 
@@ -161,7 +161,7 @@ assert.throws(()=>context.reserveSalesOrderStock_(notReady.ss,notReady.order.id,
 const reReserve=context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.order.id,{role:'owner',email:'owner@example.test'});
 assert.equal(reReserve.status,'already_reserved');
 const released=context.releaseSalesOrderReservation_(reserveCase.ss,reserveCase.order.id,'Test release',{role:'owner',email:'owner@example.test'});
-assert.equal(released.releasedLines,1,'Owner can release all active material lines');
+assert.equal(releasedReservationResult.releasedLines,1,'Owner can release all active material lines');
 const reserveAgain=context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.order.id,{role:'owner',email:'owner@example.test'});
 assert.equal(reserveAgain.status,'reserved','released Sales Order can be reserved again when stock is still available');
 assert.notEqual(reserveAgain.reservations[0].id,reserved.reservations[0].id,'new reservation cycle receives a unique immutable ID');
