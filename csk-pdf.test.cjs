@@ -29,7 +29,10 @@ assert.equal(
 assert.equal(pdf.formatRupiah(1250000), 'Rp 1.250.000');
 function MockPdf() {
   this.pages = 1;
+  this.currentPage = 1;
   this.saved = '';
+  this.textCalls = [];
+  this.roundedRects = [];
   this.internal = {
     pageSize: { getWidth: () => 210, getHeight: () => 297 },
     getNumberOfPages: () => this.pages
@@ -42,9 +45,9 @@ MockPdf.prototype.setTextColor = function() {};
 MockPdf.prototype.setFillColor = function() {};
 MockPdf.prototype.setDrawColor = function() {};
 MockPdf.prototype.rect = function() {};
-MockPdf.prototype.roundedRect = function() {};
+MockPdf.prototype.roundedRect = function(x,y,width,height) { this.roundedRects.push({page:this.currentPage,x:x,y:y,width:width,height:height}); };
 MockPdf.prototype.line = function() {};
-MockPdf.prototype.text = function() {};
+MockPdf.prototype.text = function(value,x,y) { this.textCalls.push({page:this.currentPage,value:value,x:x,y:y}); };
 MockPdf.prototype.splitTextToSize = function(text, width) {
   const charsPerLine = Math.max(8, Math.floor(width * 1.45));
   const words = String(text).split(/\\s+/);
@@ -58,8 +61,8 @@ MockPdf.prototype.splitTextToSize = function(text, width) {
   if (line) lines.push(line);
   return lines;
 };
-MockPdf.prototype.addPage = function() { this.pages += 1; };
-MockPdf.prototype.setPage = function() {};
+MockPdf.prototype.addPage = function() { this.pages += 1; this.currentPage = this.pages; };
+MockPdf.prototype.setPage = function(page) { this.currentPage = page; };
 MockPdf.prototype.save = function(name) { this.saved = name; };
 MockPdf.prototype.output = function(type) { this.outputType=type; return new Blob(['mock-pdf'],{type:'application/pdf'}); };
 
@@ -84,6 +87,33 @@ const longDoc = {
 const generated = pdf.generatePdf(longDoc, MockPdf);
 assert.ok(generated.pages > 1, 'long item tables paginate across A4 pages');
 assert.equal(generated.internal.getNumberOfPages(), generated.pages);
+
+const longTermsDocument = {
+  kind: 'invoice',
+  docNo: 'INV-CSK-2026-00100',
+  client: 'PT Industri Nusantara',
+  clientAddress: 'Kawasan Industri Blok A-12, Jalan Produksi Utama, Tangerang Selatan, Banten. '.repeat(8),
+  projectName: 'Pekerjaan fabrikasi dan instalasi signage',
+  paymentTerms: 'Pembayaran dilakukan melalui transfer bank sesuai termin yang tercantum dalam invoice.',
+  terms: Array.from({ length: 1800 }, (_, i) => 'Ketentuan produksi pemasangan dan serah terima pekerjaan nomor ' + (i + 1)).join(' '),
+  bankDetails: 'Bank Jago Syariah | 508705048143 | a.n. Zefry Dany Adi Syahputra',
+  lines: [{ name: 'Fabrikasi signage custom', description: 'Produksi, finishing, dan instalasi sesuai spesifikasi yang disetujui.', qty: 1, unit: 'job', unitPrice: 12500000 }]
+};
+const longTermsPdf = pdf.generatePdf(longTermsDocument, MockPdf);
+assert.ok(longTermsPdf.pages > 1, 'long terms and payment details paginate without overflowing the page');
+const customerCard = longTermsPdf.roundedRects.find(rect => rect.x === 14 && rect.y === 53);
+assert.ok(customerCard && customerCard.height > 30, 'customer information card expands for long addresses');
+const detailsHeading = longTermsPdf.textCalls.find(call => {
+  const value = Array.isArray(call.value) ? call.value.join(' ') : String(call.value);
+  return value.indexOf('RINCIAN PRODUK DAN JASA') >= 0;
+});
+assert.ok(detailsHeading && detailsHeading.y > 53 + customerCard.height, 'the product table starts below the expanded information card');
+assert.ok(longTermsPdf.textCalls.every(call => call.y < 282), 'all document text remains above the footer and page boundary');
+const continuedTerms = longTermsPdf.textCalls.some(call => {
+  const value = Array.isArray(call.value) ? call.value.join(' ') : String(call.value);
+  return value.indexOf('SYARAT DAN KETENTUAN (LANJUTAN)') >= 0;
+});
+assert.ok(continuedTerms, 'long legal and payment terms receive continuation headings on later pages');
 
 
 const html = fs.readFileSync('index.html', 'utf8');
