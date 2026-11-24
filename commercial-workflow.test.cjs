@@ -365,7 +365,7 @@ const hppSheet = {
   projectId: hppProject.id,
   projectName: hppProject.title,
   items: [
-    { itemType: 'material', materialId: 'MAT-01', name: 'Akrilik 5 mm', qty: 2, unit: 'lembar', unitPrice: 100000, costingMethod: 'sheet', costingDetails: { method: 'sheet', sourceMode: 'whole', summary: '2 lembar untuk 4 komponen; yield 78.5%.' } },
+    { itemType: 'material', materialId: 'MAT-01', name: 'Akrilik 5 mm', qty: 2, unit: 'lembar', unitPrice: 100000, costingMethod: 'sheet', costingDetails: { method: 'sheet', sourceMode: 'whole', summary: '2 lembar untuk 4 komponen; yield 78.5%.' }, materialSnapshot: { unit: 'm2', purchaseUnit: 'lembar', conversionFactor: 3.2, updatedAt: '2026-11-24T09:00:00.000Z' } },
     { itemType: 'service', serviceId: 'SRV-01', name: 'Fabrikasi Display', qty: 1, unit: 'job', unitPrice: 150000 }
   ],
   labor: 100000,
@@ -386,6 +386,7 @@ assert.ok(hppQuotation, 'quotation retains the selected project link');
 assert.equal(hppQuotation.projectName, hppProject.title);
 assert.equal(hppQuotation.client, hppProject.client);
 assert.equal(hppQuotation.projectDeadline, hppProject.deadline);
+assert.deepEqual(hppQuotation.sourceCostSheetSnapshot.items[0].materialSnapshot, hppSheet.items[0].materialSnapshot, 'quotation stores the complete HPP material conversion snapshot');
 assert.equal(hppQuotation.subtotal, hppSheet.price);
 assert.equal(hppQuotation.total, hppSheet.price, 'quotation selling price equals the saved HPP price');
 assert.equal(Math.round(hppQuotation.lines.reduce((sum, line) => sum + line.qty * line.unitPrice, 0)), hppSheet.price);
