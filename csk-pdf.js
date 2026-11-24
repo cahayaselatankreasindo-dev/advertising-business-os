@@ -161,6 +161,19 @@ function drawHeader(pdf, d, continuation) {
   drawText(pdf, 'Jatuh tempo / berlaku: ' + formatDate(d.dueDate), boxX + 5, boxY + 29, 6.1, 'normal', COLORS.white, boxW - 10);
   return 53;
 }
+function measureInfoCardHeight(pdf,width,rows){
+  var total=12;
+  (rows||[]).forEach(function(row,index){
+    if(!row||!row.value)return;
+    var text=(row.label?row.label+': ':'')+row.value;
+    var size=index===0?8:7;
+    pdf.setFont('helvetica',index===0?'bold':'normal');
+    pdf.setFontSize(size);
+    var lines=pdf.splitTextToSize(cleanText(text),width-8);
+    total+=Math.max(3,lines.length*size*0.42)+1.2;
+  });
+  return Math.max(28,total+2);
+}
 function drawInfoCard(pdf, x, y, width, title, rows) {
   var cursor=y+12,layouts=[];
   (rows||[]).forEach(function(row,index){
@@ -174,7 +187,7 @@ function drawInfoCard(pdf, x, y, width, title, rows) {
     layouts.push({text:text,size:size,style:index===0?'bold':'normal',color:index===0?COLORS.ink:COLORS.muted,y:cursor});
     cursor+=height+1.2;
   });
-  var cardHeight=Math.max(28,cursor-y+2);
+  var cardHeight=measureInfoCardHeight(pdf,width,rows);
   setColor(pdf,'setFillColor',COLORS.paper);
   pdf.roundedRect(x,y,width,cardHeight,2,2,'F');
   drawText(pdf,title,x+4,y+6,6.5,'bold',COLORS.orange);
@@ -186,6 +199,7 @@ function drawInfoCard(pdf, x, y, width, title, rows) {
 function drawSummaryCard(pdf,d,y,pageHeight){
   var summary=d.paymentSummary||('Nilai kontrak: '+formatRupiah(d.contractTotal));
   var lines=pdf.splitTextToSize(cleanText(summary),174);
+  if(lines.length>4)return drawSectionWithPagination(pdf,d,'RINGKASAN PEMBAYARAN',summary,y,174,pageHeight);
   var height=Math.max(15,8+lines.length*3.2);
   if(y+height>pageHeight-30){pdf.addPage();y=drawHeader(pdf,d,true)+4;}
   setColor(pdf,'setFillColor',COLORS.paleOrange);
@@ -282,20 +296,25 @@ function generatePdf(input, jsPDF) {
     creator: 'CSK Business OS'
   });
   var y = drawHeader(pdf, d, false);
-  var clientCardHeight=drawInfoCard(pdf,14,y,88,'DITUJUKAN KEPADA',[
+  var clientRows=[
     {value:d.client||'Nama pelanggan belum diisi'},
     {value:d.contactPerson,label:'PIC'},
     {value:d.clientPhone,label:'Telepon'},
     {value:d.clientEmail,label:'Email'},
     {value:d.clientAddress,label:'Alamat'}
-  ]);
-  var projectCardHeight=drawInfoCard(pdf,108,y,88,'INFORMASI PEKERJAAN',[
+  ];
+  var projectRows=[
     {value:d.projectName||'-'},
     {value:d.projectId,label:'Project ID'},
     {value:d.projectDeadline?formatDate(d.projectDeadline):'',label:'Deadline proyek'},
     {value:d.status?d.status.toUpperCase():'',label:'Status'}
-  ]);
+  ];
+  var cardBlockHeight=Math.max(measureInfoCardHeight(pdf,88,clientRows),measureInfoCardHeight(pdf,88,projectRows));
+  if(y+cardBlockHeight+30>pageHeight-34){pdf.addPage();y=drawHeader(pdf,d,true)+5;}
+  var clientCardHeight=drawInfoCard(pdf,14,y,88,'DITUJUKAN KEPADA',clientRows);
+  var projectCardHeight=drawInfoCard(pdf,108,y,88,'INFORMASI PEKERJAAN',projectRows);
   y+=Math.max(clientCardHeight,projectCardHeight)+9;
+  if(y+30>pageHeight-34){pdf.addPage();y=drawHeader(pdf,d,true)+5;}
   drawText(pdf, 'RINCIAN PRODUK DAN JASA', 14, y, 8, 'bold', COLORS.ink);
   y += 8;
   var x = drawTableHeader(pdf, y);
