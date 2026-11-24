@@ -127,6 +127,8 @@
     if(String(input.unit||'')!==String(material.unit||''))throw new Error('Satuan harus mengikuti satuan stok material: '+(material.unit||'-')+'.');
     var date=String(input.date||'');
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Error('Tanggal transaksi tidak valid.');
+    var latestForMaterial=sortTransactions(existing.filter(function(tx){return String(tx.materialId)===String(material.id);})).slice(-1)[0];
+    if(latestForMaterial&&date<String(latestForMaterial.date||''))throw new Error('Tanggal transaksi tidak boleh lebih awal dari transaksi stok terakhir material ini. Catat transaksi secara kronologis agar valuasi rata-rata tidak berubah surut.');
     var projectId=String(input.projectId||'');
     if(['issue','return'].indexOf(input.movement)>=0&&!projects.some(function(p){return String(p.id)===projectId;}))throw new Error('Pilih proyek untuk pengeluaran atau retur material.');
     if(['adjustment_in','adjustment_out'].indexOf(input.movement)>=0&&!String(input.notes||'').trim())throw new Error('Alasan penyesuaian stok wajib diisi.');
