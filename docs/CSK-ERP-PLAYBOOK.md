@@ -425,3 +425,34 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - No reservation ledger, automatic issue, pick list, or purchase-unit conversion at goods receiving is enabled yet.
 - GitHub Actions source-checks and test jobs pass. No main-branch merge, Apps Script production deployment, live Google Sheets migration, or public website deployment has occurred.
 - Next: implement server-enforced reservation at production release, including partial issue/return and reservation release, then material pick lists and purchase-unit receiving conversion.
+
+
+## 19. Server-enforced production material reservation and picking — 25 November 2026
+
+### Delivered on the internal Business OS feature branch
+- Sales Orders can enter **Waiting for Material** after DP verification when the HPP is missing, invalid, or physical stock is insufficient.
+- A Sales Order is released to **Ready Production** only after the backend verifies DP, HPP lines, material identities, units, conversion factors, and available stock.
+- The backend stores an immutable MaterialRequirementsJSON snapshot on the Sales Order at first production release. Later HPP edits do not silently rewrite an active order's material commitment.
+- Reservations are active while the Sales Order is in Ready Production or In Production. Moving to Quality Control releases any unissued quantity. Rework from QC reactivates the original snapshot, even if the current HPP has changed.
+- The inventory page separates physical stock, reserved stock, available stock, and shortage. It also renders a project-level picking list with a prefilled issue action.
+- Picking is recorded as an append-only issue transaction linked to the project. Each issue is limited by the project's outstanding reservation and available stock.
+- Returns are linked to the project, cannot exceed prior net issues, and increase physical stock while reducing the project's net issued quantity.
+- Backend validation prevents an unreserved project issue or stock adjustment from consuming stock already committed to active production.
+- Inventory and Sales Order writes are serialized under a server lock during sync. The canonical Apps Script source and deployment mirror remain byte-for-byte identical.
+- GitHub Actions runs are triggered for source regression and security checks; final conclusions are recorded only after the runs finish.
+
+### Operational flow
+1. Verify Master Material stock units, purchase units, conversion factors, and HPP lines.
+2. Record verified opening stock and supplier receipts before releasing production.
+3. Convert an approved quotation to Sales Order and record the required DP.
+4. Release the Sales Order to production. The backend reserves the HPP material snapshot only when stock is sufficient.
+5. Warehouse follows the picking list and records each partial issue against the project.
+6. Record unused material returns against the same project.
+7. Move the order to Quality Control when production is complete. Remaining unissued reservation is released.
+8. If rework is required, return the Sales Order to In Production. The original HPP snapshot is reactivated and checked against current stock.
+
+### Boundaries and release safety
+- Reservation is a calculated commitment derived from Sales Order snapshots and the append-only stock ledger; it is not a second quantity ledger that can drift independently.
+- Purchase orders and receipts still use the material stock unit. Pack/roll purchase-unit receiving conversion, offcut tracking, FIFO/average valuation, supplier invoice matching, and actual-versus-estimated HPP reconciliation remain future work.
+- Changes are confined to the existing feature branch. No merge to main, Apps Script production deployment, Google Sheets migration, or public website deployment is performed by these source edits.
+- Before release, run CI to completion, review the full diff, verify the Sales Orders and Inventory sheet headers through the controlled schema setup, and test with a real project using verified opening stock and supplier receipts.
