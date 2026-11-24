@@ -958,7 +958,8 @@ function validatePurchaseOrderReceiptStatuses_(ss, incomingPurchaseOrders, incom
       var expected = {};
       items.forEach(function(item) {
         var materialId = String(item.materialId || "");
-        expected[materialId] = (expected[materialId] || 0) + Math.max(0,Number(item.qty) || 0);
+        expected[materialId] = (expected[materialId] || 0) + Math.max(0,Number(item.qty) || 0) * (item.purchaseUnit ? (Number(item.conversionFactor) || 0) : 1);
+        if (item.purchaseUnit && (!Number.isFinite(Number(item.conversionFactor)) || Number(item.conversionFactor) <= 0)) throw new Error("PURCHASE_ORDER_CONVERSION_INVALID");
       });
       Object.keys(expected).forEach(function(materialId) {
         var actual = received.filter(function(tx) { return String(tx.materialId) === materialId; })
@@ -1234,11 +1235,19 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
         if (!po || ["ordered","received"].indexOf(poStatus) < 0) throw new Error("INVENTORY_PURCHASE_ORDER_NOT_READY_FOR_RECEIPT");
         var poItems = [];
         try { poItems = JSON.parse(po.itemsJson || "[]"); } catch (parseError) { poItems = []; }
-        var poItem = poItems.find(function(item) { return String(item.materialId) === String(tx.materialId); });
-        if (!poItem) throw new Error("INVENTORY_MATERIAL_NOT_IN_PURCHASE_ORDER");
-        if (String(poItem.unit || "") !== String(tx.unit || "")) throw new Error("INVENTORY_PO_UNIT_MISMATCH");
-        var orderedQty = poItems.filter(function(item) { return String(item.materialId) === String(tx.materialId); })
-          .reduce(function(sum,item) { return sum + Math.max(0,Number(item.qty) || 0); },0);
+        var matchingPOItems = poItems.filter(function(item) { return String(item.materialId) === String(tx.materialId); });
+        if (!matchingPOItems.length) throw new Error("INVENTORY_MATERIAL_NOT_IN_PURCHASE_ORDER");
+        matchingPOItems.forEach(function(item) {
+          if (item.purchaseUnit) {
+            if (String(item.purchaseUnit) !== String(material.purchaseUnit || material.unit || "") || String(item.usageUnit || "") !== String(material.unit || "")) throw new Error("INVENTORY_PO_UNIT_MISMATCH");
+            if (!Number.isFinite(Number(item.conversionFactor)) || Number(item.conversionFactor) <= 0) throw new Error("PURCHASE_ORDER_CONVERSION_INVALID");
+          } else if (String(item.unit || "") !== String(tx.unit || "")) {
+            throw new Error("INVENTORY_PO_UNIT_MISMATCH");
+          }
+        });
+        var orderedQty = matchingPOItems.reduce(function(sum,item) {
+          return sum + Math.max(0,Number(item.qty) || 0) * (item.purchaseUnit ? Number(item.conversionFactor) : 1);
+        },0);
         var receivedQty = existing.concat(newRows).filter(function(row) {
           return String(row.purchaseOrderId || "") === poId && String(row.materialId) === String(tx.materialId) && String(row.movement) === "receipt";
         }).reduce(function(sum,row) { return sum + Math.max(0,Number(row.qty) || 0); },0);
