@@ -297,7 +297,7 @@
         var plan=calculateHppRequirements(sheet,materialRows,{});
         if(plan.errors.length){plan.errors.forEach(function(error){errors.push((project.projectName||projectId)+': '+error);});return;}
         if(!plan.requirements.length){errors.push('HPP proyek '+(project.projectName||projectId)+' belum memiliki kebutuhan material yang dapat dihitung.');return;}
-        requirements=plan.requirements.map(function(line){return{materialId:line.materialId,name:line.name,unit:line.unit,required:line.required};});
+        requirements=plan.requirements.map(function(line){return{materialId:line.materialId,name:line.name,unit:line.unit,required:line.required,estimatedUnitCost:line.estimatedUnitCost===undefined?null:line.estimatedUnitCost,estimatedTotalCost:line.estimatedTotalCost===undefined?null:line.estimatedTotalCost};});
         project.reservationSource='legacy-hpp';
         project.reservationOrderNo=String(project.orders[0].orderNo||project.orders[0].id||'');
       }
@@ -370,18 +370,22 @@
       };
     });
   }
-  function calculateMaterialCostVariance(requirements,projectId,transactions){
+  function calculateMaterialCostVariance(requirements,projectId,transactions,materials){
     var rows=(Array.isArray(requirements)?requirements:[]),project=String(projectId||''),actualByMaterial=Object.create(null),complete=true,estimated=false;
+    var valuation=Array.isArray(materials)?calculateInventoryValuation(materials,transactions):null;
     (Array.isArray(transactions)?transactions:[]).forEach(function(tx){
       if(String(tx.projectId||'')!==project||['issue','return'].indexOf(String(tx.movement||''))<0)return;
       var id=String(tx.materialId||''),qty=n(tx.qty),unitCost=n(tx.unitCost),totalCost=n(tx.totalCost);
+      var derived=valuation&&valuation.transactionCosts[String(tx.id||'')];
+      if(totalCost<=0&&derived&&derived.totalCost>0)totalCost=derived.totalCost;
       if(totalCost<=0&&unitCost>0)totalCost=Math.round(qty*unitCost);
       if(totalCost<=0){complete=false;return;}
       if(!actualByMaterial[id])actualByMaterial[id]={qty:0,cost:0,estimated:false};
       var sign=tx.movement==='issue'?1:-1;
       actualByMaterial[id].qty+=sign*qty;
       actualByMaterial[id].cost+=sign*totalCost;
-      if(tx.costSource==='master_fallback'||tx.costSource==='legacy_master_fallback')actualByMaterial[id].estimated=true;
+      if((derived&&derived.estimated)||tx.costSource==='master_fallback'||tx.costSource==='legacy_master_fallback')actualByMaterial[id].estimated=true;
+      if(derived&&!derived.complete)complete=false;
     });
     var result=rows.map(function(line){
       var actual=actualByMaterial[String(line.materialId)]||{qty:0,cost:0,estimated:false};
