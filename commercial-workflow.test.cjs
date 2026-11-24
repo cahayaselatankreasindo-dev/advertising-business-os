@@ -96,6 +96,7 @@ const window = {
     removeItem(key) { delete storage[key]; }
   },
   showToast(message, isError) { messages.push({ message, isError: !!isError }); },
+  confirm() { return true; },
   print() {},
   CSKAuth: {
     isReady() { return true; },
@@ -349,6 +350,56 @@ window.openCommercialDocumentEditor('invoice', standaloneInvoice.id);
 field('cd-due', '2026-11-20');
 await saveCurrentDocument();
 assert.equal(db.invoices.find(x => x.id === standaloneInvoice.id).dueDate, '2026-11-20', 'due date remains editable independently from immutable invoice identity and value');
+
+
+// 8. Import a saved HPP into a project quotation and preserve the exact selling price.
+const hppProject = {
+  id: 'P-HPP-01',
+  title: 'Display Booth Premium',
+  client: 'PT HPP Project',
+  deadline: '2026-12-30',
+  value: 1000000
+};
+const hppSheet = {
+  id: 'HPP-P-HPP-01',
+  projectId: hppProject.id,
+  projectName: hppProject.title,
+  items: [
+    { itemType: 'material', materialId: 'MAT-01', name: 'Akrilik 5 mm', qty: 2, unit: 'lembar', unitPrice: 100000 },
+    { itemType: 'service', serviceId: 'SRV-01', name: 'Fabrikasi Display', qty: 1, unit: 'job', unitPrice: 150000 }
+  ],
+  labor: 100000,
+  other: 25000,
+  total: 475000,
+  margin: 30,
+  price: 678572,
+  updatedAt: '2026-11-24T10:00:00.000Z'
+};
+db.projects.push(hppProject);
+db.costSheets = [hppSheet];
+window.openCommercialDocumentEditor('quotation');
+window.selectCommercialProject(hppProject.id);
+assert.equal(window.importHppIntoQuotation(), true, 'saved HPP can be imported into a linked quotation');
+await saveCurrentDocument();
+const hppQuotation = db.quotations.find(x => x.projectId === hppProject.id);
+assert.ok(hppQuotation, 'quotation retains the selected project link');
+assert.equal(hppQuotation.projectName, hppProject.title);
+assert.equal(hppQuotation.client, hppProject.client);
+assert.equal(hppQuotation.projectDeadline, hppProject.deadline);
+assert.equal(hppQuotation.subtotal, hppSheet.price);
+assert.equal(hppQuotation.total, hppSheet.price, 'quotation selling price equals the saved HPP price');
+assert.equal(hppQuotation.lines.reduce((sum, line) => sum + line.qty * line.unitPrice, 0), hppSheet.price);
+assert.ok(hppQuotation.lines.every(line => line.sourceCostSheetId === hppSheet.id), 'each imported line keeps its HPP source snapshot');
+assert.match(hppQuotation.lines[0].description, /2 lembar/);
+
+window.openCommercialDocumentEditor('quotation', hppQuotation.id);
+field('cd-status', 'approved');
+await saveCurrentDocument();
+await window.createInvoiceFromQuotation(hppQuotation.id);
+const hppInvoice = db.invoices.find(x => x.sourceQuotationId === hppQuotation.id);
+assert.ok(hppInvoice, 'approved HPP quotation converts to an invoice');
+assert.equal(hppInvoice.total, hppQuotation.total);
+assert.deepEqual(hppInvoice.lines, hppQuotation.lines, 'invoice preserves the quotation HPP line snapshot');
 
 const finalMessages = messages.filter(x => x.isError);
 assert.deepEqual(finalMessages.map(x => x.message), [], 'no simulated workflow step should raise a UI error');
