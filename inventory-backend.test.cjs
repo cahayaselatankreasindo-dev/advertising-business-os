@@ -137,11 +137,11 @@ assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(reserveCase.
 const releasedReservationResult=context.releaseSalesOrderReservation_(reserveCase.ss,reserveCase.order.id,'Test release by Owner',{role:'owner',email:'owner@example.test'});
 assert.equal(releasedReservationResult.releasedLines,1,'Owner can release all active reservation rows');
 assert.equal(reserveCase.ss.sheets.Inventory_Reservations.rows[1][map.Inventory_Reservations.fields.indexOf('status')],'released','released reservation is retained in history');
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(reserveCase.ss,[reservedIssue],[],[]),true,'stock issue is allowed after reservation release');
 reserveCase.ss.sheets.Sales_Orders.rows[1][orderStatusColumn]='ready_production';
 const reserveAgain=context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.order.id,{role:'owner',email:'owner@example.test'});
 assert.equal(reserveAgain.status,'reserved','released Sales Order can be reserved again when stock is still available');
 assert.notEqual(reserveAgain.reservations[0].id,reserved.reservations[0].id,'new reservation cycle receives a unique immutable ID');
-assert.equal(context.validateInventoryTransactionsBeforeMerge_(reserveCase.ss,[reservedIssue],[],[]),true,'stock issue is allowed after reservation release');
 
 const competing=reservationFixture(5,'SO-INV-00000002',4);
 const competingSecond={...competing.order,id:'SO-INV-00000003',orderNo:'SO-CSK-2026-00002',quotationId:'QUO-INV-00002',quotationNo:'QUO-CSK-2026-00002'};
