@@ -32,7 +32,7 @@ function ensureBound(){
  page.addEventListener('change',function(event){
   if(event.target&&event.target.id==='inv-material'){if(el('inv-sales-order')&&el('inv-sales-order').value)applySalesOrderReservationSelection(el('inv-sales-order').value);else updateUnitHint();}
   if(event.target&&event.target.id==='inv-po'){if(event.target.value)applyPurchaseOrderSelection(event.target.value);else restoreAllMaterialOptions();}
-  if(event.target&&event.target.id==='inv-sales-order'){if(event.target.value)applySalesOrderReservationSelection(event.target.value);else restoreAllMaterialOptions();}
+  if(event.target&&event.target.id==='inv-sales-order'){if(event.target.value)applySalesOrderReservationSelection(event.target.value);else{if(el('inv-reservation-id'))el('inv-reservation-id').value='';restoreAllMaterialOptions();}}
   if(event.target&&event.target.id==='inv-movement'){updateMovementFields();}
  });
  bound=true;
@@ -52,7 +52,8 @@ function purchaseOrderReceiptProgress(po,transactions){
  return{complete:keys.length>0&&keys.every(function(id){return(received[id]||0)+0.000001>=expected[id];}),total:total,received:done,remaining:Math.max(0,total-done)};
 }
 function restoreAllMaterialOptions(){
- var d=data(),select=el('inv-material'),qtyInput=el('inv-qty');
+ var d=data(),select=el('inv-material'),qtyInput=el('inv-qty'),reservationInput=el('inv-reservation-id');
+ if(reservationInput)reservationInput.value='';
  if(!select)return;
  select.innerHTML='<option value="">Pilih material</option>'+d.materials.slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));}).map(function(m){return'<option value="'+esc(m.id)+'">'+esc(m.name)+' · '+esc(m.unit||'-')+'</option>';}).join('');
  if(qtyInput){qtyInput.disabled=false;qtyInput.removeAttribute('max');}
