@@ -13,7 +13,7 @@ function summary(order,d){return E().summarizePayments({id:order.quotationId,tot
 function quoteFor(id,d){return d.quotations.find(function(q){return String(q.id)===String(id);})||null;}
 function invoiceForQuote(id,d){return d.invoices.filter(function(i){return String(i.sourceQuotationId||i.quotationId||'')===String(id);});}
 function statusPill(status){
- var styles={awaiting_dp:'bg-amber-100 text-amber-800',ready_production:'bg-blue-100 text-blue-800',in_production:'bg-cyan-100 text-cyan-800',quality_check:'bg-violet-100 text-violet-800',ready_delivery:'bg-indigo-100 text-indigo-800',delivered:'bg-emerald-100 text-emerald-800',closed:'bg-slate-900 text-white',cancelled:'bg-red-100 text-red-700'};
+ var styles={awaiting_dp:'bg-amber-100 text-amber-800',awaiting_material:'bg-orange-100 text-orange-800',ready_production:'bg-blue-100 text-blue-800',in_production:'bg-cyan-100 text-cyan-800',quality_check:'bg-violet-100 text-violet-800',ready_delivery:'bg-indigo-100 text-indigo-800',delivered:'bg-emerald-100 text-emerald-800',closed:'bg-slate-900 text-white',cancelled:'bg-red-100 text-red-700'};
  return'<span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold '+(styles[status]||'bg-slate-100 text-slate-700')+'">'+esc(E().statusLabel(status))+'</span>';
 }
 function ensureBound(){
@@ -160,6 +160,17 @@ function openPurchaseOrderQty(projectId,materialId,d){
   return sum+Math.max(0,ordered-received);
  },0);
 }
+function materialShortageRows(order,d,balances,plan){
+ var reservations=w.CSKInventoryEngine.calculateOpenSalesOrderCommitments(d.salesOrders||[],d.costSheets||[],d.materials||[],d.inventoryTransactions||[],balances);
+ return plan.requirements.map(function(item){
+  var row=reservations.requirements.find(function(x){return String(x.materialId)===String(item.materialId);});
+  var reservedByOthers=row?row.projects.filter(function(project){return String(project.projectId)!==String(order.projectId);}).reduce(function(sum,project){return sum+n(project.outstanding);},0):0;
+  var issued=(d.inventoryTransactions||[]).filter(function(tx){return String(tx.projectId||'')===String(order.projectId)&&String(tx.materialId)===String(item.materialId);}).reduce(function(sum,tx){if(tx.movement==='issue')return sum+n(tx.qty);if(tx.movement==='return')return sum-n(tx.qty);return sum;},0);
+  var remaining=Math.max(0,item.required-Math.max(0,issued));
+  var available=Math.max(0,n(balances[String(item.materialId)])-reservedByOthers);
+  return Object.assign({},item,{issued:Math.max(0,issued),remainingRequired:remaining,reservedByOthers:reservedByOthers,availableForProject:available,shortage:Math.max(0,remaining-available)});
+ });
+}
 async function createDraftPOFromShortage(salesOrderId){
  var b=bridge(),created=[];
  try{
@@ -171,7 +182,7 @@ async function createDraftPOFromShortage(salesOrderId){
   var balances=w.CSKInventoryEngine.calculateBalances(d.materials||[],d.inventoryTransactions||[]);
   var plan=w.CSKInventoryEngine.calculateHppRequirements(sheet,d.materials||[],balances);
   if(plan.errors.length)throw new Error('Perbaiki konversi HPP terlebih dahulu: '+plan.errors.join(' '));
-  var shortages=plan.requirements.filter(function(x){return x.shortage>0;});
+  var shortageRows=materialShortageRows(order,d,balances,plan),shortages=shortageRows.filter(function(x){return x.shortage>0;});
   if(!shortages.length){notify('Tidak ada kekurangan material yang perlu dibelikan.');return;}
   var groups={};
   shortages.forEach(function(row){
@@ -206,16 +217,17 @@ function materialPlanHtml(order,d,balances){
  if(!w.CSKInventoryEngine)return'';
  var plan=w.CSKInventoryEngine.calculateHppRequirements(sheet,d.materials,balances);
  if(!plan.requirements.length&&!plan.errors.length)return'<div class="mt-3 rounded-lg border p-3 text-[11px] text-slate-500">HPP belum memiliki baris material yang dapat dihitung.</div>';
- var rows=plan.requirements.map(function(item){
+ var rowsData=materialShortageRows(order,d,balances,plan);
+ var rows=rowsData.map(function(item){
   var pendingPO=openPurchaseOrderQty(order.projectId,item.materialId,d),toBuy=Math.max(0,item.shortage-pendingPO);
-  return'<tr class="border-t"><td class="py-2 pr-3"><b>'+esc(item.name)+'</b><div class="text-[10px] text-slate-400">'+esc(item.unit)+'</div></td><td class="py-2 text-right">'+qtyFormat(item.required)+'</td><td class="py-2 text-right">'+qtyFormat(item.onHand)+'</td><td class="py-2 text-right font-bold '+(item.shortage>0?'text-red-700':'text-emerald-700')+'">'+(item.shortage>0?qtyFormat(item.shortage):'Cukup')+'</td><td class="py-2 text-right text-blue-700">'+(pendingPO>0?qtyFormat(pendingPO):'-')+'</td><td class="py-2 text-right font-bold '+(toBuy>0?'text-amber-700':'text-emerald-700')+'">'+(toBuy>0?qtyFormat(toBuy):'-')+'</td></tr>';
+  return'<tr class="border-t"><td class="py-2 pr-3"><b>'+esc(item.name)+'</b><div class="text-[10px] text-slate-400">'+esc(item.unit)+'</div></td><td class="py-2 text-right">'+qtyFormat(item.required)+'</td><td class="py-2 text-right">'+qtyFormat(item.issued)+'</td><td class="py-2 text-right">'+qtyFormat(item.remainingRequired)+'</td><td class="py-2 text-right">'+qtyFormat(item.onHand)+'</td><td class="py-2 text-right text-violet-700">'+(item.reservedByOthers>0?qtyFormat(item.reservedByOthers):'-')+'</td><td class="py-2 text-right font-semibold">'+qtyFormat(item.availableForProject)+'</td><td class="py-2 text-right font-bold '+(item.shortage>0?'text-red-700':'text-emerald-700')+'">'+(item.shortage>0?qtyFormat(item.shortage):'Cukup')+'</td><td class="py-2 text-right text-blue-700">'+(pendingPO>0?qtyFormat(pendingPO):'-')+'</td><td class="py-2 text-right font-bold '+(toBuy>0?'text-amber-700':'text-emerald-700')+'">'+(toBuy>0?qtyFormat(toBuy):'-')+'</td></tr>';
  }).join('');
  var errorHtml=plan.errors.length?'<ul class="list-disc pl-4 mt-2 text-[10px] text-amber-800">'+plan.errors.map(function(e){return'<li>'+esc(e)+'</li>';}).join('')+'</ul>':'';
- var hasBuyableShortage=plan.requirements.some(function(x){return x.shortage>openPurchaseOrderQty(order.projectId,x.materialId,d);});
- var hasShortage=plan.requirements.some(function(x){return x.shortage>0;});
+ var hasBuyableShortage=rowsData.some(function(x){return x.shortage>openPurchaseOrderQty(order.projectId,x.materialId,d);});
+ var hasShortage=rowsData.some(function(x){return x.shortage>0;});
  var poButton=plan.errors.length===0&&hasBuyableShortage?'<button data-so-action="create-po" data-id="'+esc(order.id)+'" class="mt-3 px-3 py-2 rounded-lg bg-emerald-700 text-white text-[11px] font-bold">Buat Draft PO dari Kekurangan</button>':hasShortage&&plan.errors.length===0?'<p class="mt-3 text-[10px] text-blue-700">Kekurangan stok sudah tercakup dalam Draft/PO berjalan.</p>':'';
- var state=plan.errors.length?'<span class="text-amber-700 font-bold">Konversi perlu diperbaiki</span>':plan.ready?'<span class="text-emerald-700 font-bold">Stok saat ini mencukupi</span>':hasBuyableShortage?'<span class="text-amber-700 font-bold">Perlu pembelian</span>':'<span class="text-blue-700 font-bold">PO sedang berjalan</span>';
- return'<details class="mt-3 rounded-xl border border-slate-200 p-3"><summary class="cursor-pointer text-xs font-bold text-slate-700">Kebutuhan material dari HPP · '+plan.requirements.length+' jenis · '+state+'</summary><div class="overflow-x-auto mt-2"><table class="w-full text-[11px] min-w-[620px]"><thead class="text-slate-500"><tr><th class="text-left py-2">Material</th><th class="text-right py-2">Kebutuhan</th><th class="text-right py-2">Stok fisik</th><th class="text-right py-2">Kekurangan</th><th class="text-right py-2">Sudah dipesan</th><th class="text-right py-2">Perlu PO</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+errorHtml+poButton+'<p class="text-[10px] text-slate-400 mt-2">Perhitungan memakai konversi satuan dari Master Material. Draft PO dibuat per supplier dan belum diterbitkan. Stok yang ditampilkan adalah stok fisik, belum dikurangi reservasi order lain. Belum ada penguncian stok otomatis.</p></details>';
+ var state=plan.errors.length?'<span class="text-amber-700 font-bold">Konversi perlu diperbaiki</span>':!hasShortage?'<span class="text-emerald-700 font-bold">Kebutuhan tercukupi</span>':hasBuyableShortage?'<span class="text-amber-700 font-bold">Perlu pembelian</span>':'<span class="text-blue-700 font-bold">PO sedang berjalan</span>';
+ return'<details class="mt-3 rounded-xl border border-slate-200 p-3"><summary class="cursor-pointer text-xs font-bold text-slate-700">Kebutuhan material dari HPP · '+rowsData.length+' jenis · '+state+'</summary><div class="overflow-x-auto mt-2"><table class="w-full text-[11px] min-w-[980px]"><thead class="text-slate-500"><tr><th class="text-left py-2">Material</th><th class="text-right py-2">HPP</th><th class="text-right py-2">Sudah keluar</th><th class="text-right py-2">Sisa kebutuhan</th><th class="text-right py-2">Stok fisik</th><th class="text-right py-2">Reservasi lain</th><th class="text-right py-2">Tersedia untuk proyek</th><th class="text-right py-2">Kekurangan</th><th class="text-right py-2">Sudah dipesan</th><th class="text-right py-2">Perlu PO</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+errorHtml+poButton+'<p class="text-[10px] text-slate-400 mt-2">Perhitungan memakai snapshot HPP dan mengurangi stok yang sudah direservasi proyek lain. Draft PO tetap memerlukan pemeriksaan Owner sebelum diterbitkan.</p></details>';
 }
 function qtyFormat(value){return Number(value||0).toLocaleString('id-ID',{maximumFractionDigits:3});}
 function quoteCandidates(d){
