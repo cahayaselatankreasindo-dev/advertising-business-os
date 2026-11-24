@@ -43,7 +43,7 @@ function purchaseOrderItems(po){
 }
 function purchaseOrderReceiptProgress(po,transactions){
  var expected={};
- purchaseOrderItems(po).forEach(function(item){var id=String(item.materialId||'');expected[id]=(expected[id]||0)+n(item.qty);});
+ purchaseOrderItems(po).forEach(function(item){var id=String(item.materialId||'');expected[id]=(expected[id]||0)+n(item.qty)*(Number(item.conversionFactor)||1);});
  var received={};
  (transactions||[]).filter(function(tx){return String(tx.purchaseOrderId||'')===String(po&&po.id)&&tx.movement==='receipt';}).forEach(function(tx){var id=String(tx.materialId||'');received[id]=(received[id]||0)+n(tx.qty);});
  var keys=Object.keys(expected);
@@ -56,7 +56,7 @@ function restoreAllMaterialOptions(){
  if(reservationInput)reservationInput.value='';
  var project=el('inv-project');if(project)project.disabled=false;
  if(!select)return;
- select.innerHTML='<option value="">Pilih material</option>'+d.materials.slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));}).map(function(m){return'<option value="'+esc(m.id)+'">'+esc(m.name)+' · '+esc(m.unit||'-')+'</option>';}).join('');
+ select.innerHTML='<option value="">Pilih material</option>'+d.materials.filter(function(m){return String(m.status||'active')==='active'&&Number(m.unitPrice)>0;}).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));}).map(function(m){return'<option value="'+esc(m.id)+'">'+esc(m.sku||'')+' · '+esc(m.name)+' · '+esc(m.unit||'-')+'</option>';}).join('');
  if(qtyInput){qtyInput.disabled=false;qtyInput.removeAttribute('max');}
  var supplier=el('inv-supplier');if(supplier)supplier.value='';
  var save=el('inv-save');if(save)save.disabled=false;
@@ -103,7 +103,7 @@ function applyPurchaseOrderSelection(poId){
  var select=el('inv-material'),qtyInput=el('inv-qty'),remaining=[];
  items.forEach(function(item){
   var already=(d.inventoryTransactions||[]).filter(function(tx){return String(tx.purchaseOrderId||'')===String(po.id)&&String(tx.materialId)===String(item.materialId)&&tx.movement==='receipt';}).reduce(function(sum,tx){return sum+n(tx.qty);},0);
-  var left=Math.max(0,n(item.qty)-already);
+  var left=Math.max(0,n(item.qty)*(Number(item.conversionFactor)||1)-already);
   if(left>0){var m=d.materials.find(function(x){return String(x.id)===String(item.materialId);});if(m)remaining.push({material:m,qty:left});}
  });
  if(select){
@@ -121,7 +121,7 @@ function updateUnitHint(){
  var poId=el('inv-po')&&el('inv-po').value,qtyInput=el('inv-qty');
  if(poId&&m&&qtyInput){
   var po=d.purchaseOrders.find(function(p){return String(p.id)===String(poId);});
-  var ordered=purchaseOrderItems(po).filter(function(item){return String(item.materialId)===String(m.id);}).reduce(function(sum,item){return sum+n(item.qty);},0);
+  var ordered=purchaseOrderItems(po).filter(function(item){return String(item.materialId)===String(m.id);}).reduce(function(sum,item){return sum+n(item.qty)*(Number(item.conversionFactor)||1);},0);
   var received=(d.inventoryTransactions||[]).filter(function(tx){return String(tx.purchaseOrderId||'')===String(poId)&&String(tx.materialId)===String(m.id)&&tx.movement==='receipt';}).reduce(function(sum,tx){return sum+n(tx.qty);},0);
   var remaining=Math.max(0,ordered-received);qtyInput.max=remaining;
   if(Number(qtyInput.value)>remaining)qtyInput.value=remaining;
@@ -139,7 +139,7 @@ function updateMovementFields(){
  var submit=el('inv-save');if(submit)submit.textContent=type==='opening'?'Simpan Saldo Awal':type==='receipt'?'Catat Penerimaan':type==='issue'?'Catat Pengeluaran':type==='return'?'Catat Retur':'Simpan Penyesuaian';
 }
 function formHtml(d,defaultMovement){
- var materials=d.materials.slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+ var materials=d.materials.filter(function(m){return String(m.status||'active')==='active'&&Number(m.unitPrice)>0;}).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
  var projects=d.projects.slice().sort(function(a,b){return String(a.title||'').localeCompare(String(b.title||''));});
  var purchaseOrders=(d.purchaseOrders||[]).filter(function(p){return String(p.status||'').toLowerCase()==='ordered';});
   var salesOrders=(d.salesOrders||[]).filter(function(order){return ['ready_production','in_production','quality_check','ready_delivery'].indexOf(String(order.status||'').toLowerCase())>=0&&(d.inventoryReservations||[]).some(function(row){return String(row.salesOrderId)===String(order.id)&&String(row.status)==='active';});});
