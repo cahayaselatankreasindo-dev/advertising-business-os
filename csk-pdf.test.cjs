@@ -111,6 +111,42 @@ const generatedPicking = pdf.generatePickingListPdf({
 }, MockPdf);
 assert.ok(generatedPicking.pages > 1, 'long picking lists paginate across A4 pages');
 assert.equal(generatedPicking.internal.getNumberOfPages(), generatedPicking.pages);
+const normalizedUsage = pdf.normalizeMaterialUsageReport({
+  docNo: 'MUR-SO-CSK-2026-00042',
+  orderNo: 'SO-CSK-2026-00042',
+  projectId: 'PRJ-BOOTH-042',
+  projectName: 'Booth Slowmove Bazaar',
+  status: 'Dalam Produksi',
+  source: 'Snapshot HPP (dibekukan)',
+  date: '2026-11-25',
+  lines: [
+    { name: 'Akrilik Clear 3mm', unit: 'm2', required: 5, netIssued: 5.5, varianceQty: 0.5, remaining: 0 },
+    { name: 'Hollow 2x2', unit: 'm', required: 10, netIssued: 8, varianceQty: -2, remaining: 2 }
+  ]
+});
+assert.equal(normalizedUsage.lines.length, 2);
+assert.equal(normalizedUsage.lines[0].variancePct, 10);
+assert.equal(pdf.materialUsageFilename(normalizedUsage), 'MATERIAL-REPORT-PRJ-BOOTH-042-SO-CSK-2026-00042.pdf');
+assert.throws(() => pdf.generateMaterialUsagePdf({ lines: [] }, function() {}), /Tidak ada rincian material/);
+const generatedUsage = pdf.generateMaterialUsagePdf({
+  docNo: 'MUR-SO-CSK-2026-00042',
+  orderNo: 'SO-CSK-2026-00042',
+  projectId: 'PRJ-BOOTH-042',
+  projectName: 'Booth Slowmove Bazaar',
+  status: 'Dalam Produksi',
+  source: 'Snapshot HPP (dibekukan)',
+  date: '2026-11-25',
+  lines: Array.from({ length: 36 }, (_, i) => ({
+    name: 'Material fabrikasi booth dan display dengan spesifikasi komponen nomor ' + (i + 1),
+    unit: 'lembar',
+    required: 5,
+    netIssued: 4,
+    varianceQty: -1,
+    remaining: 1
+  }))
+}, MockPdf);
+assert.ok(generatedUsage.pages > 1, 'material usage reports paginate across A4 pages');
+assert.equal(generatedUsage.internal.getNumberOfPages(), generatedUsage.pages);
 
 
 const html = fs.readFileSync('index.html', 'utf8');
