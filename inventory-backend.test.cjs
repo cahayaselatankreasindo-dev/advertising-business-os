@@ -200,12 +200,6 @@ assert.equal(context.reconcileConsumedReservations_(consumeCase.ss),1,'fully con
 assert.equal(consumeCase.ss.sheets.Inventory_Reservations.rows[1][map.Inventory_Reservations.fields.indexOf('status')],'consumed','consumed reservation remains in the audit history');
 const overConsume=transaction('RESV-CONSUME-0003','STK-CSK-2026-00032','issue',1,'2026-11-23',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne,linkedIssueTwo,overConsume],[],[]),/INVENTORY_SALES_ORDER_RESERVATION_REQUIRED/,'a consumed reservation cannot be used again');
-const deliveredOrder={...consumeCase.order,status:'delivered'};
-consumeCase.ss.sheets.Sales_Orders.rows[1][map.Sales_Orders.fields.indexOf('status')]='delivered';
-assert.equal(context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne,linkedIssueTwo],[],[deliveredOrder]),true,'existing linked ledger rows remain syncable after the Sales Order is delivered');
-const issueAfterDelivery=transaction('RESV-CONSUME-0004','STK-CSK-2026-00033','issue',1,'2026-11-24',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
-assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[issueAfterDelivery],[],[deliveredOrder]),/INVENTORY_SALES_ORDER_NOT_ACTIVE/,'new material issues are blocked after Sales Order delivery');
-
 const linkedReturn=transaction('RESV-RETURN-0001','STK-CSK-2026-00034','return',1,'2026-11-24',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne,linkedIssueTwo,linkedReturn],[],[]),true,'return is accepted only against the exact Sales Order reservation that was issued');
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne,linkedIssueTwo,{...linkedReturn,id:'ITX-RESV-RETURN-0002',transactionNo:'STK-CSK-2026-00035',qty:5}],[],[]),/INVENTORY_RETURN_EXCEEDS_SALES_ORDER_ISSUE/,'return quantity cannot exceed net material already issued');
@@ -214,6 +208,13 @@ assert.equal(context.reconcileConsumedReservations_(consumeCase.ss),0,'a materia
 assert.equal(consumeCase.ss.sheets.Inventory_Reservations.rows[1][map.Inventory_Reservations.fields.indexOf('status')],'active','returned quantity restores the reservation to active status');
 const reissuedAfterReturn=transaction('RESV-REISSUE-0001','STK-CSK-2026-00036','issue',1,'2026-11-25',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne,linkedIssueTwo,linkedReturn,reissuedAfterReturn],[],[]),true,'returned quantity can be issued again within the restored reservation limit');
+const deliveredOrder={...consumeCase.order,status:'delivered'};
+consumeCase.ss.sheets.Sales_Orders.rows[1][map.Sales_Orders.fields.indexOf('status')]='delivered';
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne,linkedIssueTwo],[],[deliveredOrder]),true,'existing linked ledger rows remain syncable after the Sales Order is delivered');
+const issueAfterDelivery=transaction('RESV-CONSUME-0004','STK-CSK-2026-00033','issue',1,'2026-11-24',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[issueAfterDelivery],[],[deliveredOrder]),/INVENTORY_SALES_ORDER_NOT_ACTIVE/,'new material issues are blocked after Sales Order delivery');
+
+
 
 
 const competing=reservationFixture(5,'SO-INV-00000002',4);
