@@ -236,6 +236,7 @@ function selectCommercialProject(id){
  if(!doc)return;
  var p=id?getProject(id):null;
  doc.projectId=p?String(p.id):'';
+ if(el('cd-project-link'))el('cd-project-link').value=doc.projectId;
  if(p){
   doc.projectName=p.title||doc.projectName||'';
   doc.client=p.client||doc.client||'';
