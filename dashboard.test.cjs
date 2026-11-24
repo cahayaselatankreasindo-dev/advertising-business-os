@@ -4,6 +4,14 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 const html = fs.readFileSync('index.html', 'utf8');
+const dashboardStart = html.indexOf('<section id="page-dashboard"');
+const dashboardEnd = html.indexOf('</section>', dashboardStart);
+const dashboardMarkup = html.slice(dashboardStart, dashboardEnd);
+assert.match(dashboardMarkup, /onclick="openCommercialDocumentEditor\('quotation'\)"/,
+  'dashboard must offer a direct quotation quick action');
+assert.match(dashboardMarkup, /onclick="openCommercialDocumentEditor\('quotation'\)" class="pillar-finance/,
+  'quotation quick action must remain Owner-only');
+
 const start = html.indexOf('    function renderDashboard() {');
 const end = html.indexOf('    // ============== LEADS ==============', start);
 assert.ok(start >= 0 && end > start, 'dashboard renderer must remain present and bounded');
