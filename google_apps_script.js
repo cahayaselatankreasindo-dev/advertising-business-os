@@ -1200,7 +1200,7 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
       if (String(tx.movement) !== "issue") throw new Error("INVENTORY_SALES_ORDER_LINK_ONLY_FOR_ISSUE");
       var salesOrder = salesOrderById[salesOrderId];
       var salesOrderStatus = String(salesOrder && salesOrder.status || "").toLowerCase();
-      if (!salesOrder || ["ready_production","in_production","quality_check","ready_delivery"].indexOf(salesOrderStatus) < 0) throw new Error("INVENTORY_SALES_ORDER_NOT_ACTIVE");
+      if (!salesOrder || ["ready_production","in_production","quality_check","ready_delivery","delivered"].indexOf(salesOrderStatus) < 0) throw new Error("INVENTORY_SALES_ORDER_NOT_ACTIVE");
       if (String(salesOrder.projectId || "") !== projectId) throw new Error("INVENTORY_SALES_ORDER_PROJECT_MISMATCH");
     }
     if (["adjustment_in","adjustment_out"].indexOf(String(tx.movement)) >= 0 && !String(tx.notes || "").trim()) throw new Error("INVENTORY_ADJUSTMENT_REASON_REQUIRED");
@@ -1356,12 +1356,15 @@ function doPost(e) {
           if (payload.salesOrders) {
             validateSalesOrdersBeforeMerge_(ss, payload.salesOrders);
             mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); y.sourceCostSheetSnapshotJson = JSON.stringify(x.sourceCostSheetSnapshot || null); return y; }));
-            mergeSummary.ReleasedReservations = identity.role === "owner"
-              ? releaseTerminalSalesOrderReservations_(ss, payload.salesOrders, identity, true)
-              : 0;
           }
           if (payload.inventoryTransactions) {
             mergeSummary.Inventory_Transactions = mergeSheet(ss, "Inventory_Transactions", payload.inventoryTransactions);
+            mergeSummary.ConsumedReservations = reconcileConsumedReservations_(ss);
+          }
+          if (payload.salesOrders) {
+            mergeSummary.ReleasedReservations = identity.role === "owner"
+              ? releaseTerminalSalesOrderReservations_(ss, payload.salesOrders, identity, true)
+              : 0;
           }
         } finally {
           if (inventoryLock) inventoryLock.releaseLock();
