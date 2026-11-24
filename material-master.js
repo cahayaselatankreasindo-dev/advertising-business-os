@@ -32,9 +32,11 @@ function ensureModal(){
 function updatePricePreview(){
  var price=n(el('mm-purchase-price').value),factor=n(el('mm-factor').value),box=el('mm-price-preview');
  if(!price||!factor){box.textContent='Harga per satuan pakai: isi harga beli dan faktor konversi.';return;}
- box.textContent='Harga per satuan pakai: '+rupiah(price/factor)+' / '+el('mm-unit').value+' (harga beli '+rupiah(price)+' ÷ '+factor+' '+el('mm-unit').value+')';
+ var waste=n(el('mm-waste').value),base=price/factor,landed=base*(1+waste/100);
+  box.textContent='Harga HPP per satuan pakai: '+rupiah(landed)+' / '+el('mm-unit').value+' (dasar '+rupiah(base)+' + allowance '+waste+'%)';
 }
 function openEditor(id){
+ var b=bridge();if(!b||!b.isOwner())return notify('Pengubahan master material hanya dapat dilakukan oleh Owner.',true);
  var rows=getRows(),m=id?rows.find(function(x){return String(x.id)===String(id);}):null;
  ensureModal();
  var modal=el(modalId);modal.classList.remove('hidden');
@@ -43,6 +45,7 @@ function openEditor(id){
  Object.keys(fields).forEach(function(key){var node=el('mm-'+key);if(node)node.value=fields[key];});
  var referenced=!!m&&isReferenced(m.id,rows);
  el('mm-sku').disabled=referenced;
+ ['mm-unit','mm-purchase-unit','mm-factor'].forEach(function(field){el(field).disabled=referenced;});
  el('mm-status-note').textContent=m&&m.status==='template'?'Kode kelompok. Lengkapi sebagai varian SKU terpisah; kode kelompok tidak dapat diaktifkan.':referenced?'Kode dikunci karena sudah dipakai transaksi. Perubahan nama/spesifikasi tidak mengubah riwayat transaksi.':'Material tetap Draft sampai harga, supplier, sumber harga, tanggal, dan konversi valid.';
  updatePricePreview();
 }
@@ -54,20 +57,24 @@ function isReferenced(id,rows){
  (d.inventoryReservations||[]).some(function(x){return String(x.materialId)===String(id);});
 }
 async function saveForm(){
+ var b=bridge();if(!b||!b.isOwner())return notify('Pengubahan master material hanya dapat dilakukan oleh Owner.',true);
  var d=data(),rows=(d.materials||[]).slice(),id=el('mm-id').value,old=rows.find(function(x){return String(x.id)===String(id);}),sku=el('mm-sku').value.trim().toUpperCase(),name=el('mm-name').value.trim(),cat=el('mm-category').value.trim(),sub=el('mm-subcategory').value.trim(),unit=el('mm-unit').value.trim(),purchaseUnit=el('mm-purchase-unit').value.trim(),factor=n(el('mm-factor').value),price=n(el('mm-purchase-price').value),supplier=el('mm-supplier').value.trim(),source=el('mm-price-source').value.trim(),date=el('mm-price-date').value,waste=n(el('mm-waste').value);
  if(!sku||!name||!cat||!unit||!purchaseUnit||!Number.isFinite(factor)||factor<=0||!Number.isFinite(price)||price<0||!Number.isFinite(waste)||waste<0||waste>100){notify('Kode, nama, kategori, satuan, faktor konversi, dan nilai harga/waste harus valid.',true);return;}
  if(rows.some(function(x){return String(x.sku||'').toUpperCase()===sku&&String(x.id)!==String(id);})){notify('Kode material sudah digunakan. Setiap SKU harus unik.',true);return;}
  if(old&&old.status==='template'){notify('Kode kelompok tidak dapat diaktifkan. Buat atau pilih SKU varian dengan ukuran yang lengkap.',true);return;}
+ var referenced=!!old&&isReferenced(old.id,rows);
+ if(referenced&&(sku!==String(old.sku||'').toUpperCase()||unit!==String(old.unit||'')||purchaseUnit!==String(old.purchaseUnit||old.unit||'')||factor!==(Number(old.conversionFactor)||1))){notify('SKU, satuan stok, satuan beli, dan faktor konversi dikunci karena material sudah dipakai dalam transaksi. Buat SKU baru jika spesifikasinya berubah.',true);return;}
  var completePrice=price>0&&!!supplier&&!!source&&!!date;
  if(price>0&&!completePrice){notify('Untuk mengaktifkan material, lengkapi supplier, sumber harga, dan tanggal harga.',true);return;}
+ if(old&&old.status==='active'&&!completePrice){notify('Material aktif tidak dapat diubah menjadi Draft dengan mengosongkan harga. Nonaktifkan secara eksplisit melalui tombol status.',true);return;}
  var now=new Date().toISOString(),record=Object.assign({},old||{},{
-  id:old?old.id:'MAT-CSK-'+sku.replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,''),
+  id:old?old.id:'MAT-CSK-'+sku.replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,'')+'-'+Date.now(),
   sku:sku,name:name,category:cat,subcategory:sub,spec:el('mm-spec').value.trim(),color:el('mm-color').value.trim(),
   thicknessMm:el('mm-thickness').value===''?'':n(el('mm-thickness').value),widthMm:el('mm-width').value===''?'':n(el('mm-width').value),
   lengthMm:el('mm-length').value===''?'':n(el('mm-length').value),rollLengthM:el('mm-roll-length').value===''?'':n(el('mm-roll-length').value),
-  unit:unit,purchaseUnit:purchaseUnit,conversionFactor:factor,purchasePrice:price,unitPrice:price>0?price/factor:0,
+  unit:unit,purchaseUnit:purchaseUnit,conversionFactor:factor,purchasePrice:price,unitPrice:price>0?(price/factor)*(1+waste/100):0,
   supplierName:supplier,supplierId:old&&old.supplierId||'',priceSource:source,priceDate:date,costingMethod:old&&old.costingMethod||'direct_unit',
-  minimumOrder:old&&old.minimumOrder||1,wasteRate:waste,status:completePrice?'active':'draft',notes:el('mm-notes').value.trim(),updatedAt:now
+  minimumOrder:old&&old.minimumOrder||1,wasteRate:waste,status:completePrice?'active':(old&&old.status==='inactive'?'inactive':'draft'),notes:el('mm-notes').value.trim(),updatedAt:now
  });
  if(old&&old.status==='inactive'&&completePrice)record.status='active';
  if(old&&old.status==='template')record.status='template';
@@ -122,5 +129,5 @@ function bind(root){
  bound=true;
 }
 function init(){render();}
-w.CSKMaterialMaster={render:init,openEditor:openEditor};
+w.CSKMaterialMaster={render:init,openEditor:openEditor,toggleStatus:toggleStatus};
 })(typeof window!=='undefined'?window:null);
