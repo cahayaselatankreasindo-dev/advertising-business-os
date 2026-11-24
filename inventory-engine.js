@@ -109,11 +109,13 @@
       if(!material){errors.push('Item '+(item.name||('#'+(index+1)))+' tidak ditemukan di Master Material.');return;}
       var qty=Number(item.qty),lineUnit=String(item.unit||'').trim().toLowerCase();
       if(!Number.isFinite(qty)||qty<=0){errors.push('Kuantitas HPP untuk '+material.name+' tidak valid.');return;}
-      var stockUnit=String(material.unit||'').trim(),purchaseUnit=String(material.purchaseUnit||'').trim();
+      var snapshot=item.materialSnapshot&&typeof item.materialSnapshot==='object'?item.materialSnapshot:null;
+      var stockUnit=String(snapshot&&snapshot.unit||material.unit||'').trim(),purchaseUnit=String(snapshot&&snapshot.purchaseUnit||material.purchaseUnit||'').trim();
       var stockQty=0;
       if(lineUnit===stockUnit.toLowerCase())stockQty=qty;
       else if(lineUnit===purchaseUnit.toLowerCase()){
-        var factor=Number(material.conversionFactor);
+        var hasSnapshotFactor=snapshot&&Object.prototype.hasOwnProperty.call(snapshot,'conversionFactor');
+        var factor=hasSnapshotFactor?Number(snapshot.conversionFactor):Number(material.conversionFactor);
         if(!Number.isFinite(factor)||factor<=0){errors.push('Faktor konversi '+material.name+' belum valid.');return;}
         stockQty=qty*factor;
       }else{
@@ -121,7 +123,7 @@
         return;
       }
       var key=String(material.id);
-      if(!grouped[key])grouped[key]={materialId:material.id,name:material.name,unit:stockUnit,required:0,onHand:n((balances||{})[key])};
+      if(!grouped[key])grouped[key]={materialId:material.id,name:String(snapshot&&snapshot.name||material.name||item.name||''),unit:stockUnit,required:0,onHand:n((balances||{})[key])};
       grouped[key].required+=stockQty;
     });
     var requirements=Object.keys(grouped).map(function(key){
@@ -131,27 +133,38 @@
   }
   function calculateOpenSalesOrderCommitments(salesOrders,costSheets,materials,transactions,balances){
     var activeStatuses={ready_production:true,in_production:true,quality_check:true,ready_delivery:true};
-    var orders=Array.isArray(salesOrders)?salesOrders:[];
-    var sheets=Array.isArray(costSheets)?costSheets:[];
-    var materialRows=Array.isArray(materials)?materials:[];
-    var ledger=Array.isArray(transactions)?transactions:[];
+    var orders=Array.isArray(salesOrders)?salesOrders:[],sheets=Array.isArray(costSheets)?costSheets:[],materialRows=Array.isArray(materials)?materials:[],ledger=Array.isArray(transactions)?transactions:[];
     var activeProjects=Object.create(null),activeOrderCount=0,errors=[],grouped=Object.create(null);
     orders.forEach(function(order){
       var status=String(order&&order.status||'').toLowerCase(),projectId=String(order&&order.projectId||'');
       if(!activeStatuses[status]||!projectId)return;
       activeOrderCount++;
-      if(!activeProjects[projectId])activeProjects[projectId]={projectId:projectId,projectName:String(order.projectName||''),orderCount:0};
+      if(!activeProjects[projectId])activeProjects[projectId]={projectId:projectId,projectName:String(order.projectName||''),orderCount:0,orders:[]};
       activeProjects[projectId].orderCount++;
+      activeProjects[projectId].orders.push(order);
       if(!activeProjects[projectId].projectName)activeProjects[projectId].projectName=String(order.projectName||'');
     });
     var projectIds=Object.keys(activeProjects);
     projectIds.forEach(function(projectId){
-      var project=activeProjects[projectId];
-      var sheet=sheets.find(function(row){return String(row.projectId)===projectId;});
-      if(!sheet){errors.push('HPP belum tersedia untuk proyek '+(project.projectName||projectId)+'.');return;}
-      var plan=calculateHppRequirements(sheet,materialRows,{});
-      if(plan.errors.length){plan.errors.forEach(function(error){errors.push((project.projectName||projectId)+': '+error);});return;}
-      if(!plan.requirements.length){errors.push('HPP proyek '+(project.projectName||projectId)+' belum memiliki kebutuhan material yang dapat dihitung.');return;}
+      var project=activeProjects[projectId],requiredByMaterial=Object.create(null);
+      function addSheetPlan(sheet,label){
+        if(!sheet){errors.push('HPP belum tersedia untuk proyek '+(project.projectName||projectId)+(label?' · '+label:'')+'.');return;}
+        var plan=calculateHppRequirements(sheet,materialRows,{});
+        if(plan.errors.length){plan.errors.forEach(function(error){errors.push((project.projectName||projectId)+(label?' · '+label:'')+': '+error);});return;}
+        if(!plan.requirements.length){errors.push('HPP proyek '+(project.projectName||projectId)+(label?' · '+label:'')+' belum memiliki kebutuhan material yang dapat dihitung.');return;}
+        plan.requirements.forEach(function(requirement){
+          var materialId=String(requirement.materialId);
+          if(!requiredByMaterial[materialId])requiredByMaterial[materialId]={materialId:requirement.materialId,name:requirement.name,unit:requirement.unit,required:0};
+          requiredByMaterial[materialId].required+=requirement.required;
+        });
+      }
+      var snapshotOrders=project.orders.filter(function(order){return order.sourceCostSheetSnapshot&&typeof order.sourceCostSheetSnapshot==='object';});
+      var legacyOrders=project.orders.filter(function(order){return !order.sourceCostSheetSnapshot||typeof order.sourceCostSheetSnapshot!=='object';});
+      snapshotOrders.forEach(function(order){addSheetPlan(order.sourceCostSheetSnapshot,order.orderNo||order.id||'snapshot HPP');});
+      if(legacyOrders.length){
+        var currentSheet=sheets.find(function(row){return String(row.projectId)===projectId;});
+        addSheetPlan(currentSheet,legacyOrders.length+' Sales Order lama tanpa snapshot');
+      }
       var issued=Object.create(null);
       ledger.forEach(function(tx){
         if(String(tx.projectId||'')!==projectId)return;
@@ -159,20 +172,11 @@
         if(tx.movement==='issue')issued[materialId]=(issued[materialId]||0)+n(tx.qty);
         else if(tx.movement==='return')issued[materialId]=(issued[materialId]||0)-n(tx.qty);
       });
-      plan.requirements.forEach(function(requirement){
-        var materialId=String(requirement.materialId);
-        var netIssued=Math.max(0,issued[materialId]||0);
-        var outstanding=Math.max(0,requirement.required-netIssued);
-        if(!grouped[materialId])grouped[materialId]={
-          materialId:requirement.materialId,name:requirement.name,unit:requirement.unit,
-          onHand:n((balances||{})[materialId]),committed:0,projects:[]
-        };
+      Object.keys(requiredByMaterial).forEach(function(materialId){
+        var requirement=requiredByMaterial[materialId],netIssued=Math.max(0,issued[materialId]||0),outstanding=Math.max(0,requirement.required-netIssued);
+        if(!grouped[materialId])grouped[materialId]={materialId:requirement.materialId,name:requirement.name,unit:requirement.unit,onHand:n((balances||{})[materialId]),committed:0,projects:[]};
         grouped[materialId].committed+=outstanding;
-        grouped[materialId].projects.push({
-          projectId:projectId,projectName:project.projectName||projectId,
-          orderCount:project.orderCount,required:requirement.required,
-          netIssued:netIssued,outstanding:outstanding
-        });
+        grouped[materialId].projects.push({projectId:projectId,projectName:project.projectName||projectId,orderCount:project.orderCount,required:requirement.required,netIssued:netIssued,outstanding:outstanding});
       });
     });
     var requirements=Object.keys(grouped).map(function(materialId){
@@ -182,10 +186,7 @@
       row.projects.sort(function(a,b){return String(a.projectName).localeCompare(String(b.projectName));});
       return row;
     }).sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
-    return{
-      activeOrderCount:activeOrderCount,activeProjectCount:projectIds.length,
-      requirements:requirements,errors:errors,ready:errors.length===0
-    };
+    return{activeOrderCount:activeOrderCount,activeProjectCount:projectIds.length,requirements:requirements,errors:errors,ready:errors.length===0};
   }
   function getBalance(materialId,balances){return n((balances||{})[String(materialId)]);}
   function movementLabel(value){return MOVEMENTS[value]?MOVEMENTS[value].label:String(value||'-');}
