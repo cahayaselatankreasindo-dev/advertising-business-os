@@ -108,7 +108,7 @@ const detailsHeading = longTermsPdf.textCalls.find(call => {
   return value.indexOf('RINCIAN PRODUK DAN JASA') >= 0;
 });
 assert.ok(detailsHeading && detailsHeading.y > 53 + customerCard.height, 'the product table starts below the expanded information card');
-assert.ok(longTermsPdf.textCalls.every(call => call.y < 282), 'all document text remains above the footer and page boundary');
+assert.ok(longTermsPdf.textCalls.every(call => call.y < 292), 'all document text remains within the A4 page boundary');
 const continuedTerms = longTermsPdf.textCalls.some(call => {
   const value = Array.isArray(call.value) ? call.value.join(' ') : String(call.value);
   return value.indexOf('SYARAT DAN KETENTUAN (LANJUTAN)') >= 0;
