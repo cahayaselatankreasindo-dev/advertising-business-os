@@ -876,6 +876,28 @@ function calculateInventoryValuationServer_(materials, transactions) {
   return result;
 }
 
+function calculateProjectNetIssueCostServer_(projectId, materialId, transactions, valuation) {
+  var project = String(projectId || ""), material = String(materialId || ""), netQty = 0, netCost = 0;
+  var costs = valuation && valuation.transactionCosts || {};
+  (transactions || []).slice().sort(function(a,b) {
+    var date = String(a.date || "").localeCompare(String(b.date || ""));
+    if (date) return date;
+    var created = String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+    return created || String(a.id || "").localeCompare(String(b.id || ""));
+  }).forEach(function(tx) {
+    if (String(tx.projectId || "") !== project || String(tx.materialId || "") !== material ||
+        ["issue","return"].indexOf(String(tx.movement || "")) < 0) return;
+    var qty = Number(tx.qty) || 0, snapshot = costs[String(tx.id || "")] || {};
+    var unitCost = Number(snapshot.unitCost) || Number(tx.unitCost) || 0;
+    var totalCost = Number(snapshot.totalCost) || Number(tx.totalCost) || 0;
+    if (totalCost <= 0 && unitCost > 0) totalCost = Math.round(qty * unitCost);
+    if (tx.movement === "issue") { netQty += qty; netCost += totalCost; }
+    else { netQty -= qty; netCost -= totalCost; }
+  });
+  netQty = Math.max(0, netQty); netCost = Math.max(0, netCost);
+  return {qty:netQty,totalCost:netCost,averageCost:netQty > 0 ? netCost / netQty : 0};
+}
+
 function calculateActiveProjectReservations_(ss, orders, transactions) {
   var activeStatuses = {ready_production:true,in_production:true};
   var materials = readSheetData(ss, "Materials");
@@ -1200,7 +1222,11 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
       var averageBefore = Number(valuationBefore.averageCost[String(tx.materialId)] || 0);
       var masterCost = Number(material.unitPrice) || 0;
       var expectedCost = unitCost, expectedSource = String(tx.costSource || "");
-      if (["issue","return","adjustment_out"].indexOf(String(tx.movement)) >= 0 ||
+      if (String(tx.movement) === "return") {
+        var projectIssueCost = calculateProjectNetIssueCostServer_(projectId, tx.materialId, priorLedger, valuationBefore);
+        expectedCost = projectIssueCost.averageCost || averageBefore || masterCost;
+        expectedSource = projectIssueCost.averageCost > 0 ? "project_issue_average" : averageBefore > 0 ? "moving_average" : "master_fallback";
+      } else if (["issue","adjustment_out"].indexOf(String(tx.movement)) >= 0 ||
           (String(tx.movement) === "adjustment_in" && averageBefore > 0)) {
         expectedCost = averageBefore || masterCost;
         expectedSource = averageBefore > 0 ? "moving_average" : "master_fallback";
