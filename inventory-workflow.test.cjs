@@ -156,6 +156,9 @@ const historicalDemand=E.calculateHppRequirements({
 },[{...materials[0],purchaseUnit:'lembar',conversionFactor:2.5}],{});
 assert.equal(historicalDemand.requirements[0].required,8,'HPP snapshot conversion factor takes precedence over the current Material Master');
 assert.equal(historicalDemand.requirements[0].name,'Akrilik Clear 3mm (snapshot)','material label follows the saved HPP snapshot');
+const changedStockUnit=E.calculateHppRequirements({items:[{materialId:'MAT-ACR',name:'Acrylic old unit',qty:2,unit:'lembar',materialSnapshot:{unit:'m2',purchaseUnit:'lembar',conversionFactor:4}}]},[{...materials[0],unit:'ft2',purchaseUnit:'lembar',conversionFactor:2.5}],{});
+assert.equal(changedStockUnit.ready,false,'a changed stock base unit cannot be compared with an old HPP snapshot');
+assert.match(changedStockUnit.errors[0],/Satuan stok Master Material berubah/);
 
 
 const commitmentMaterials=[
@@ -284,6 +287,8 @@ assert.match(ui,/Komitmen Material Sales Order/,'inventory page shows the active
 assert.match(ui,/Estimasi bebas/,'inventory page distinguishes physical stock from estimated free stock');
 assert.match(ui,/Setiap pengeluaran ditautkan ke Sales Order dan ID reservasi yang tepat/,'inventory UI explains exact Sales Order and reservation linkage for each picking transaction');
 assert.match(salesUI,/calculateHppRequirements/,'Sales Order material plan uses HPP and verified unit conversion');
+assert.match(salesUI,/order\.sourceCostSheetSnapshot/,'Sales Order material plan and draft PO use the saved HPP snapshot');
+assert.match(fs.readFileSync('inventory-engine.js','utf8'),/snapshot\.conversionFactor/,'inventory demand uses saved HPP conversion factors instead of current master values');
 assert.match(salesUI,/createDraftPOFromShortage/,'Sales Order can create supplier-grouped draft POs from HPP shortages');
 assert.match(salesUI,/openPurchaseOrderQty/,'shortage planner subtracts quantities already covered by draft or ordered POs');
 assert.match(salesUI,/Buat Draft PO dari Kekurangan/,'owner can start purchasing from the shortage panel');

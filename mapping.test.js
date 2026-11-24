@@ -648,9 +648,16 @@ eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat 
 
 
  // ---------- 9d. Commercial Document Center: storage, relations, and Owner-only access ----------
+ const commercialHppSnapshot = {
+   id:'HPP-PC1', projectId:'PC1', projectName:'Booth',
+   items:[{itemType:'material',materialId:'MAT-PC1',name:'Akrilik',qty:2,unit:'lembar',unitPrice:100000,materialSnapshot:{unit:'m2',purchaseUnit:'lembar',conversionFactor:3.2}}],
+   materialTotal:200000,labor:0,other:0,margin:0,total:200000,price:200000,profit:0,updatedAt:'2026-11-09T01:00:00.000Z'
+ };
+ const commercialLines = [{id:'QL1',name:'Backdrop',qty:2,unit:'unit',unitPrice:150000}];
  const commercialWrite = callDoPost({
    action: 'sync_all',
-   quotations: [{ id:'CQ1', projectId:'', leadId:'L1', projectName:'Booth', client:'PT Buyer', clientPhone:'081', clientEmail:'buyer@example.test', clientAddress:'Jakarta', contactPerson:'Ayu', docNo:'QUO-CSK-2026-00001', date:'2026-11-09', dueDate:'2026-11-23', lines:[{id:'QL1',name:'Backdrop',qty:2,unit:'unit',unitPrice:150000}], subtotal:300000, discount:10000, taxRate:11, taxAmount:31900, total:321900, dpPercent:50, terms:'Syarat quote', paymentTerms:'50% DP', notes:'Catatan quote', status:'draft', convertedInvoiceId:'CI1', createdAt:'2026-11-09T01:00:00.000Z', updatedAt:'2026-11-09T01:00:00.000Z' }],
+   costSheets: [commercialHppSnapshot],
+   quotations: [{ id:'CQ1', projectId:'PC1', leadId:'L1', projectName:'Booth', client:'PT Buyer', clientPhone:'081', clientEmail:'buyer@example.test', clientAddress:'Jakarta', contactPerson:'Ayu', docNo:'QUO-CSK-2026-00001', date:'2026-11-09', dueDate:'2026-11-23', lines:commercialLines, sourceCostSheetSnapshot:commercialHppSnapshot, subtotal:300000, discount:10000, taxRate:11, taxAmount:31900, total:321900, dpPercent:50, terms:'Syarat quote', paymentTerms:'50% DP', notes:'Catatan quote', status:'approved', convertedInvoiceId:'CI1', createdAt:'2026-11-09T01:00:00.000Z', updatedAt:'2026-11-09T01:00:00.000Z' }],
    invoices: [{ id:'CI1', projectId:'', leadId:'L1', quotationId:'CQ1', sourceQuotationId:'CQ1', projectName:'Booth', client:'PT Buyer', clientPhone:'081', clientEmail:'buyer@example.test', clientAddress:'Jakarta', contactPerson:'Ayu', docNo:'INV-CSK-2026-00001', date:'2026-11-09', dueDate:'2026-11-16', lines:[{id:'IL1',name:'Backdrop',qty:2,unit:'unit',unitPrice:150000}], subtotal:300000, discount:0, taxRate:0, taxAmount:0, total:300000, dpPercent:50, paymentTerms:'Transfer', terms:'Syarat invoice', notes:'Catatan invoice', status:'draft', createdAt:'2026-11-09T01:00:00.000Z', updatedAt:'2026-11-09T01:00:00.000Z' }],
    projects: [{ id:'PC1', title:'Booth', client:'PT Buyer', value:300000, suggestedPrice:300000, status:'plan', deadline:'2026-11-16', notes:'From invoice', sopChecklist:'Brief:0', pic:'', sourceQuotationId:'CQ1', sourceInvoiceId:'CI1' }]
  }, OWNER_SESSION);
@@ -665,6 +672,7 @@ eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat 
  const projectHeaders = sheets['Projects'].rows[0].map(String);
  eq(quoteRow[quoteHeaders.indexOf('NomorDokumen')], 'QUO-CSK-2026-00001', 'Quotation number persisted');
  eq(JSON.parse(quoteRow[quoteHeaders.indexOf('LinesJSON')])[0].name, 'Backdrop', 'Quotation item JSON persisted');
+ eq(JSON.parse(quoteRow[quoteHeaders.indexOf('SourceCostSheetSnapshotJSON')]).id, 'HPP-PC1', 'Quotation HPP source snapshot persisted separately');
  eq(invoiceRow[invoiceHeaders.indexOf('NomorDokumen')], 'INV-CSK-2026-00001', 'Invoice number persisted');
  eq(invoiceRow[invoiceHeaders.indexOf('SourceQuotationID')], 'CQ1', 'Invoice source quotation persisted');
  eq(projectDocRow[projectHeaders.indexOf('SourceInvoiceID')], 'CI1', 'Project source invoice persisted');
@@ -674,6 +682,7 @@ eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat 
  eq(ownerCommercialData.data.invoices[0].id, 'CI1', 'Owner reads invoice');
  eq(Array.isArray(ownerCommercialData.data.invoicePayments), true, 'Owner reads invoice payment ledger');
  eq(ownerCommercialData.data.quotations[0].lines[0].name, 'Backdrop', 'Quotation line JSON decodes');
+ eq(ownerCommercialData.data.quotations[0].sourceCostSheetSnapshot.id, 'HPP-PC1', 'Owner reads the saved HPP source snapshot');
  eq(ownerCommercialData.data.invoices[0].quotationId, 'CQ1', 'Invoice quotation relation reads');
  eq(ownerCommercialData.data.projects.find(x => x.id === 'PC1').sourceInvoiceId, 'CI1', 'Project invoice relation reads');
  const TEAM_SESSION_COMMERCIAL = 'C'.repeat(43);
@@ -681,6 +690,7 @@ eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat 
  eq(teamCommercialLogin.status, 'success', 'Team can start a fresh session for access tests');
  const teamCommercialData = callDoGet(TEAM_SESSION_COMMERCIAL);
  eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'quotations'), false, 'Team cannot read quotations');
+ eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'salesOrders'), false, 'Team cannot read Sales Orders');
  eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'invoices'), false, 'Team cannot read invoices');
  eq(Object.prototype.hasOwnProperty.call(teamCommercialData.data, 'invoicePayments'), false, 'Team cannot read invoice payment ledger');
  const beforeTeamCommercial = sheets['Invoices'].rows.length;
@@ -688,6 +698,22 @@ eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat 
  eq(callDoPost({ action:'sync_all', quotations:[{id:'TEAM-Q',docNo:'QUO-TEAM'}] }, TEAM_SESSION_COMMERCIAL).status, 'error', 'Team cannot sync quotations');
  eq(sheets['Invoices'].rows.length, beforeTeamCommercial, 'Team invoice write denied');
  eq(callDoPost({ action:'delete', sheet:'Invoices', id:'CI1' }, TEAM_SESSION_COMMERCIAL).status, 'error', 'Team cannot delete invoices');
+ const salesOrderSnapshot = {
+   id:'SO-PC1-0001',orderNo:'SO-CSK-2026-00001',quotationId:'CQ1',quotationNo:'QUO-CSK-2026-00001',
+   projectId:'PC1',projectName:'Booth',client:'PT Buyer',clientPhone:'081',clientEmail:'buyer@example.test',
+   orderDate:'2026-11-09',deliveryDate:'2026-11-16',items:commercialLines,total:321900,dpPercent:50,dpRequiredAmount:160950,
+   status:'awaiting_dp',history:[{date:'2026-11-09T01:00:00.000Z',status:'awaiting_dp',note:'Sales Order dibuat dari quotation yang telah disetujui.'}],
+   notes:'',createdAt:'2026-11-09T01:00:00.000Z',updatedAt:'2026-11-09T01:00:00.000Z',
+   sourceCostSheetSnapshot:commercialHppSnapshot
+ };
+ const salesOrderWrite = callDoPost({ action:'sync_all', salesOrders:[salesOrderSnapshot] }, OWNER_SESSION);
+ eq(salesOrderWrite.status, 'success', 'Owner can create Sales Order with the approved quotation HPP snapshot');
+ const salesOrderHeaders = sheets['Sales_Orders'].rows[0].map(String);
+ const salesOrderRow = sheets['Sales_Orders'].rows.find(r => String(r[0]) === 'SO-PC1-0001');
+ eq(JSON.parse(salesOrderRow[salesOrderHeaders.indexOf('SourceCostSheetSnapshotJSON')]).id, 'HPP-PC1', 'Sales Order HPP snapshot persisted');
+ const ownerSalesOrderData = callDoGet(OWNER_SESSION);
+ eq(ownerSalesOrderData.data.salesOrders[0].sourceCostSheetSnapshot.id, 'HPP-PC1', 'Owner reads Sales Order HPP snapshot');
+
 
  // ---------- 9e. Invoice payment ledger -> Finance: DP, cicilan, pelunasan, idempotency ----------
  const payment1 = { id:'PAY-CI1-DP-001', invoiceId:'CI1', paymentDate:'2026-11-10', paymentType:'dp', amount:100000, method:'transfer', reference:'TRX-DP-001', notes:'DP pertama' };

@@ -170,4 +170,7 @@ assert.ok(source.includes(".join('\\n')"), 'WhatsApp copy uses actual newline es
 assert.match(guard, /Commercial_Quotations:'quotations',Invoices:'invoices'/, 'commercial document deletes can be verified from cloud read-back');
 assert.ok(backend.includes('function assertUniqueCommercialDocumentNumbers_(ss, sheetName, incomingRows)'));
 assert.ok(backend.includes('mergeCommercialQuotationsSafely_(ss, payload.quotations)'));
+assert.ok(backend.includes('sourceCostSheetSnapshotJson'), 'backend persists HPP source snapshots with commercial quotations and Sales Orders');
+assert.ok(backend.includes('COMMERCIAL_HPP_SNAPSHOT_NOT_CURRENT'), 'backend verifies a new quotation HPP snapshot against the saved HPP sheet');
+assert.ok(backend.includes('SALES_ORDER_HPP_SNAPSHOT_MISMATCH'), 'backend checks Sales Order HPP snapshots against the approved quotation');
 assert.ok(backend.includes('assertUniqueCommercialDocumentNumbers_(ss, "Invoices", incomingInvoices)'));

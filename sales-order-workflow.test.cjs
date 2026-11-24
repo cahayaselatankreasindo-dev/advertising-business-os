@@ -90,6 +90,8 @@ assert.match(backend,/SALES_ORDER_DP_NOT_VERIFIED/,'backend enforces verified DP
 assert.match(backend,/SALES_ORDER_STOCK_RESERVATION_REQUIRED/,'backend blocks production start until HPP material reservations exist');
 assert.match(ui,/Stok material belum dikunci/,'Sales Order UI guides the Owner to reserve material before starting production');
 assert.match(backend,/SALES_ORDER_CANNOT_CLOSE_WITH_UNPAID_INVOICE/,'backend blocks closing with unpaid invoice');
+assert.match(backend,/SALES_ORDER_HPP_SNAPSHOT_MISMATCH/,'backend binds the Sales Order to the approved quotation HPP snapshot');
+assert.match(backend,/sourceCostSheetSnapshotJson/,'backend persists immutable HPP source snapshots');
 assert.match(backend,/salesOrders: readSheetData\(ss, "Sales_Orders"\)/,'owner get_data includes Sales Orders');
 assert.match(guard,/salesOrders/,'owner sync includes Sales Orders');
 assert.match(guard,/sales-orders/,'Sales Order page is Owner-only in client navigation');
