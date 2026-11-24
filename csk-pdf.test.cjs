@@ -176,6 +176,8 @@ const normalizedCost = pdf.normalizeMaterialCostReport({
 assert.equal(normalizedCost.lines.length,2);
 assert.equal(normalizedCost.lines[1].estimatedCost,null,'missing HPP cost remains unknown in the PDF data model');
 assert.equal(normalizedCost.lines[1].varianceCost,null,'incomplete line variance is not presented as zero');
+const notIssuedPdfLine=pdf.normalizeMaterialCostReport({hasActualMovement:true,lines:[{name:'Not yet issued',estimatedCost:5000,actualCost:0,varianceCost:null,hasMaterialMovement:false}]});
+assert.equal(notIssuedPdfLine.lines[0].hasMaterialMovement,false,'PDF preserves that an HPP material has not yet been issued');
 const noIssueCostPdf=pdf.normalizeMaterialCostReport({hasActualMovement:false,lines:[{name:'Material',estimatedCost:1000,actualCost:0,varianceCost:null}]});
 assert.equal(noIssueCostPdf.hasActualMovement,false,'PDF data model distinguishes no material issue from a zero-cost variance');
 assert.equal(pdf.materialCostFilename(normalizedCost),'MATERIAL-COST-PRJ-BOOTH-042-SO-CSK-2026-00042.pdf');
