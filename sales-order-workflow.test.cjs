@@ -76,6 +76,8 @@ assert.match(backend,/Sales_Orders:\s*\{/,'Sales Orders schema exists in backend
 assert.match(backend,/validateSalesOrdersBeforeMerge_\(ss, payload\.salesOrders\)/,'server validates Sales Order writes');
 assert.match(backend,/SALES_ORDER_DP_NOT_VERIFIED/,'backend enforces verified DP before production');
 assert.match(backend,/SALES_ORDER_CANNOT_CLOSE_WITH_UNPAID_INVOICE/,'backend blocks closing with unpaid invoice');
+assert.match(backend,/SALES_ORDER_HPP_SNAPSHOT_MISMATCH/,'backend binds the Sales Order to the approved quotation HPP snapshot');
+assert.match(backend,/sourceCostSheetSnapshotJson/,'backend persists immutable HPP source snapshots');
 assert.match(backend,/salesOrders: readSheetData\(ss, "Sales_Orders"\)/,'owner get_data includes Sales Orders');
 assert.match(guard,/salesOrders/,'owner sync includes Sales Orders');
 assert.match(guard,/sales-orders/,'Sales Order page is Owner-only in client navigation');
