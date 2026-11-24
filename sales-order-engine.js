@@ -5,7 +5,8 @@
   if(root)root.CSKSalesOrderEngine=api;
 })(typeof globalThis!=='undefined'?globalThis:null,function(){
   var TRANSITIONS={
-    awaiting_dp:['ready_production','cancelled'],
+    awaiting_dp:['awaiting_material','ready_production','cancelled'],
+    awaiting_material:['ready_production','cancelled'],
     ready_production:['in_production','cancelled'],
     in_production:['quality_check'],
     quality_check:['in_production','ready_delivery'],
@@ -16,6 +17,7 @@
   };
   var LABELS={
     awaiting_dp:'Menunggu DP',
+    awaiting_material:'Menunggu Material',
     ready_production:'Siap Produksi',
     in_production:'Dalam Produksi',
     quality_check:'Quality Control',
