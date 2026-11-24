@@ -926,6 +926,28 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders) {
     var status = String(order.status);
     if (status !== "awaiting_dp" && status !== "cancelled" && paid < dpRequired) throw new Error("SALES_ORDER_DP_NOT_VERIFIED");
     if (status === "closed" && (invoiceTotal <= 0 || paid < invoiceTotal)) throw new Error("SALES_ORDER_CANNOT_CLOSE_WITH_UNPAID_INVOICE");
+    if (status === "in_production" && String(existing && existing.status || "") !== "in_production") {
+      var productionSnapshot = incomingHppSnapshot || parseCostSheetSnapshotValue_(existing && existing.sourceCostSheetSnapshotJson);
+      var productionItems = productionSnapshot && Array.isArray(productionSnapshot.items) ? productionSnapshot.items : [];
+      var requiredMaterialIds = Object.create(null);
+      productionItems.forEach(function(item) {
+        if (!item || item.serviceId || item.itemType === "service") return;
+        if (item.itemType === "material" && !item.materialId) throw new Error("SALES_ORDER_HPP_MATERIAL_ID_REQUIRED");
+        if (item.materialId) requiredMaterialIds[String(item.materialId)] = true;
+      });
+      var requiredMaterialKeys = Object.keys(requiredMaterialIds);
+      if (requiredMaterialKeys.length) {
+        ensureSheet(ss, "Inventory_Reservations", FIELD_MAP.Inventory_Reservations.headers);
+        var activeReservationRows = readSheetData(ss, "Inventory_Reservations").filter(function(row) {
+          return String(row.salesOrderId || "") === id && String(row.status || "") === "active";
+        });
+        var activeMaterialIds = Object.create(null);
+        activeReservationRows.forEach(function(row) { activeMaterialIds[String(row.materialId || "")] = true; });
+        if (requiredMaterialKeys.some(function(materialId) { return !activeMaterialIds[materialId]; })) {
+          throw new Error("SALES_ORDER_STOCK_RESERVATION_REQUIRED");
+        }
+      }
+    }
   });
   return true;
 }
