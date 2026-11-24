@@ -365,12 +365,174 @@ async function downloadDocument(input) {
   }
 }
 
+
+function normalizePickingList(input) {
+  input = input || {};
+  var lines = Array.isArray(input.lines) ? input.lines.map(function(line) {
+    return {
+      name: cleanText(line.name || line.materialName || 'Material'),
+      unit: cleanText(line.unit || '-'),
+      required: Math.max(0, number(line.required)),
+      issued: Math.max(0, number(line.issued)),
+      outstanding: Math.max(0, number(line.outstanding))
+    };
+  }).filter(function(line) { return line.outstanding > 0; }) : [];
+  return {
+    title: cleanText(input.title || 'MATERIAL PICKING LIST'),
+    docNo: cleanText(input.docNo || input.orderNo || 'DRAFT'),
+    orderNo: cleanText(input.orderNo || '-'),
+    projectId: cleanText(input.projectId || ''),
+    projectName: cleanText(input.projectName || '-'),
+    date: input.date || '',
+    preparedBy: cleanText(input.preparedBy || ''),
+    lines: lines
+  };
+}
+function pickingListFilename(input) {
+  var d = normalizePickingList(input);
+  var project = (d.projectId || d.projectName || 'PROJECT').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 28);
+  var order = (d.orderNo || 'DRAFT').replace(/[^a-zA-Z0-9_-]+/g, '-');
+  return 'PICKLIST-' + project + '-' + order + '.pdf';
+}
+function drawPickingHeader(pdf, d, continuation) {
+  var pageWidth = pdf.internal.pageSize.getWidth();
+  setColor(pdf, 'setFillColor', COLORS.orange);
+  pdf.rect(0, 0, pageWidth, 4, 'F');
+  drawText(pdf, COMPANY.name, 14, 16, 13, 'bold', COLORS.ink);
+  drawText(pdf, COMPANY.tagline, 14, 22, 6.8, 'bold', COLORS.orange);
+  drawText(pdf, COMPANY.contact, 14, 30, 6.6, 'normal', COLORS.muted);
+  setColor(pdf, 'setFillColor', COLORS.ink);
+  pdf.roundedRect(139, 10, 57, 27, 2, 2, 'F');
+  drawText(pdf, continuation ? 'PICKING LIST - LANJUTAN' : d.title, 143, 18, 7.2, 'bold', COLORS.white, 49);
+  drawText(pdf, d.docNo, 143, 26, 8.2, 'bold', COLORS.white, 49);
+  drawText(pdf, 'Tanggal: ' + formatDate(d.date), 143, 32, 6.2, 'normal', COLORS.white, 49);
+  pdf.setDrawColor.apply(pdf, COLORS.line);
+  pdf.line(14, 42, 196, 42);
+  return 49;
+}
+function drawPickingTableHeader(pdf, y) {
+  var x = [14, 23, 96, 112, 133, 153, 174, 196];
+  var labels = ['No', 'Material', 'Satuan', 'Rencana HPP', 'Sudah keluar', 'Sisa diambil', 'Cek'];
+  setColor(pdf, 'setFillColor', COLORS.ink);
+  pdf.rect(14, y - 6, 182, 10, 'F');
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(6.5);
+  setColor(pdf, 'setTextColor', COLORS.white);
+  pdf.text(labels[0], x[0] + 2, y);
+  pdf.text(labels[1], x[1] + 2, y);
+  pdf.text(labels[2], x[2] + 2, y);
+  pdf.text(labels[3], x[4] - 2, y, { align: 'right' });
+  pdf.text(labels[4], x[5] - 2, y, { align: 'right' });
+  pdf.text(labels[5], x[6] - 2, y, { align: 'right' });
+  pdf.text(labels[6], x[7] - 5, y, { align: 'right' });
+  return x;
+}
+function drawPickingRow(pdf, line, index, y, x) {
+  var nameLines = pdf.splitTextToSize(line.name || 'Material', 69);
+  var height = Math.max(11, 4 + nameLines.length * 4);
+  pdf.setDrawColor.apply(pdf, COLORS.line);
+  pdf.line(14, y + height, 196, y + height);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7);
+  setColor(pdf, 'setTextColor', COLORS.muted);
+  pdf.text(String(index + 1), x[0] + 2, y + 4);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(7.2);
+  setColor(pdf, 'setTextColor', COLORS.ink);
+  pdf.text(nameLines, x[1] + 2, y + 4);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7);
+  pdf.text(line.unit || '-', x[2] + 2, y + 4);
+  pdf.text(String(line.required), x[4] - 2, y + 4, { align: 'right' });
+  pdf.text(String(line.issued), x[5] - 2, y + 4, { align: 'right' });
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(String(line.outstanding), x[6] - 2, y + 4, { align: 'right' });
+  pdf.setDrawColor(100, 116, 139);
+  pdf.rect(x[7] - 9, y + 1, 4, 4);
+  return height;
+}
+function generatePickingListPdf(input, jsPDF) {
+  var d = normalizePickingList(input);
+  if (!d.lines.length) throw new Error('Tidak ada material yang menunggu pengambilan.');
+  var pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+  var pageHeight = pdf.internal.pageSize.getHeight();
+  pdf.setProperties({
+    title: 'Material Picking List - ' + d.orderNo,
+    subject: 'Daftar pengambilan material produksi CSK',
+    author: COMPANY.name,
+    creator: 'CSK Business OS'
+  });
+  var y = drawPickingHeader(pdf, d, false);
+  setColor(pdf, 'setFillColor', COLORS.paper);
+  pdf.roundedRect(14, y, 182, 22, 2, 2, 'F');
+  drawText(pdf, 'PROYEK', 18, y + 6, 6, 'bold', COLORS.orange);
+  drawText(pdf, d.projectName, 18, y + 12, 9, 'bold', COLORS.ink, 105);
+  drawText(pdf, 'PROJECT ID: ' + (d.projectId || '-'), 18, y + 18, 6.2, 'normal', COLORS.muted, 105);
+  drawText(pdf, 'SALES ORDER', 137, y + 6, 6, 'bold', COLORS.orange);
+  drawText(pdf, d.orderNo, 137, y + 13, 7.2, 'bold', COLORS.ink, 54);
+  y += 31;
+  drawText(pdf, 'PETUNJUK GUDANG', 14, y + 3, 6.3, 'bold', COLORS.orange);
+  drawText(pdf, 'Ambil material sesuai sisa reservasi. Periksa jenis, satuan, dan kuantitas fisik sebelum diserahkan ke tim produksi.', 14, y + 8, 6.8, 'normal', COLORS.muted, 180);
+  y += 16;
+  var x = drawPickingTableHeader(pdf, y);
+  y += 5;
+  d.lines.forEach(function(line, index) {
+    var rowHeight = Math.max(11, 4 + pdf.splitTextToSize(line.name || 'Material', 69).length * 4);
+    if (y + rowHeight > pageHeight - 42) {
+      pdf.addPage();
+      y = drawPickingHeader(pdf, d, true) + 4;
+      x = drawPickingTableHeader(pdf, y);
+      y += 5;
+    }
+    y += drawPickingRow(pdf, line, index, y, x);
+  });
+  if (y + 36 > pageHeight - 24) {
+    pdf.addPage();
+    y = drawPickingHeader(pdf, d, true) + 8;
+  } else {
+    y += 9;
+  }
+  setColor(pdf, 'setFillColor', COLORS.paleOrange);
+  pdf.roundedRect(14, y, 182, 13, 2, 2, 'F');
+  drawText(pdf, 'Konfirmasi: jumlah yang diambil harus dicatat melalui transaksi Pengeluaran Material pada Inventory CSK.', 18, y + 8, 6.8, 'bold', COLORS.ink, 174);
+  y += 23;
+  var leftX = 18, rightX = 118;
+  drawText(pdf, 'Disiapkan oleh', leftX, y, 7, 'normal', COLORS.muted);
+  drawText(pdf, 'Diterima tim produksi', rightX, y, 7, 'normal', COLORS.muted);
+  if (d.preparedBy) drawText(pdf, d.preparedBy, leftX, y + 5, 7, 'bold', COLORS.ink);
+  pdf.setDrawColor.apply(pdf, COLORS.line);
+  pdf.line(leftX, y + 25, 88, y + 25);
+  pdf.line(rightX, y + 25, 188, y + 25);
+  drawText(pdf, 'Nama & tanda tangan', leftX, y + 30, 6, 'normal', COLORS.muted);
+  drawText(pdf, 'Nama & tanda tangan', rightX, y + 30, 6, 'normal', COLORS.muted);
+  addFooter(pdf);
+  return pdf;
+}
+async function downloadPickingList(input) {
+  try {
+    var d = normalizePickingList(input);
+    var jsPDF = await loadJsPdf();
+    var pdf = generatePickingListPdf(d, jsPDF);
+    var filename = pickingListFilename(d);
+    pdf.save(filename);
+    notify('Picking List PDF berhasil dibuat: ' + filename, false);
+    return { ok: true, filename: filename };
+  } catch (error) {
+    notify('Picking List PDF belum berhasil dibuat. ' + String(error && error.message || error), true);
+    return { ok: false, error: String(error && error.message || error) };
+  }
+}
+
 var api = {
   normalizeDocument: normalizeDocument,
   makeFilename: makeFilename,
   formatRupiah: formatRupiah,
   downloadDocument: downloadDocument,
-  generatePdf: generatePdf
+  generatePdf: generatePdf,
+  normalizePickingList: normalizePickingList,
+  pickingListFilename: pickingListFilename,
+  generatePickingListPdf: generatePickingListPdf,
+  downloadPickingList: downloadPickingList
 };
 if (w) w.CSKPDF = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
