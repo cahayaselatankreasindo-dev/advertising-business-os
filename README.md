@@ -50,7 +50,8 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - Percobaan pembayaran yang belum terverifikasi mempertahankan ID dan payload sementara pada sesi tab agar retry memakai transaksi yang sama; data sementara dihapus setelah verifikasi berhasil.
 - Invoice tidak otomatis dicatat sebagai kas masuk; Finance hanya mencatat pembayaran yang benar-benar diterima.
 - Backend menolak perubahan nilai total atau pembatalan Invoice yang sudah memiliki pembayaran, serta melindungi jurnal Finance terkait dari penghapusan generik.
-- HPP quotation snapshots tetap berada di tab `Quotations`; dokumen komersial disimpan terpisah di `Commercial_Quotations` dan `Invoices`.
+- Rincian HPP proyek tersimpan di tab `Quotations` dan dapat diimpor ke editor Quotation melalui proyek terkait. Import mempertahankan material, jasa, kuantitas, satuan, metode kalkulasi, serta referensi snapshot HPP; alokasi harga jual mengikuti margin HPP dan direkonsiliasi ke total penawaran.
+- Invoice hasil konversi mempertahankan snapshot baris Quotation, termasuk referensi HPP. Dokumen komersial tetap disimpan terpisah di `Commercial_Quotations` dan `Invoices`.
 - Dokumen komersial dibatasi untuk Owner di antarmuka dan backend.
 - Quotation dapat menghubungkan proyek dan mengimpor snapshot HPP tersimpan. Rincian material/jasa, tenaga kerja, dan biaya lain dipertahankan, harga dialokasikan proporsional sesuai biaya, serta totalnya direkonsiliasi dengan harga jual HPP.
 - Kuantitas dan satuan pemakaian HPP tetap terlihat pada quotation. ID dan waktu sumber HPP disimpan di setiap baris; perubahan HPP berikutnya tidak otomatis mengubah quotation/invoice yang sudah dibuat.
@@ -210,7 +211,7 @@ Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke 
 - Workflow: Awaiting DP → Ready Production → In Production → Quality Control → Ready Delivery → Delivered → Closed. QC can send work back to production for rework.
 - Closing is blocked until all linked invoices are fully paid.
 - Sales Orders are Owner-only. Team accounts do not receive the Sales Order collection.
-- Inventory reservation, material pick lists, automatic purchasing from shortages, and offcut tracking are planned next phases.
+- Inventory commitment monitoring, material demand calculation, supplier-grouped Draft PO creation, and PO-linked goods receiving are available. Locked stock reservation, material pick/issue workflow, and offcut tracking remain future phases.
 
 
 ## Inventory & Stock Ledger
@@ -221,7 +222,7 @@ Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke 
 - The ledger is append-only. Corrections require a documented adjustment; stock cannot go negative.
 - PO-linked receipts are checked against ordered materials, units, and cumulative PO quantities.
 - New POs can only be marked Received when all ordered quantities have been recorded in Inventory; cancellation is blocked after a receipt. Historical POs remain compatible with the first sync.
-- Stock reservation from HPP/Sales Orders, pick lists, reorder suggestions, purchase-unit conversion, offcut tracking, and stock valuation are subsequent phases.
+- Purchase-unit conversion is applied when a verified Material Master conversion factor exists. Active Sales Order commitments are shown separately from physical stock. Locked reservations, partial pick/issue/return workflows, reorder suggestions, offcut tracking, and stock valuation remain subsequent phases.
 
 
 ## HPP Material Planning & Draft Purchasing
@@ -230,7 +231,7 @@ Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke 
 - HPP purchase-unit quantities convert to stock units only when a verified Material Master conversion factor exists.
 - The shortage view includes physical stock, existing Draft/Ordered PO coverage, and remaining purchase quantity.
 - Owner can create supplier-grouped Draft POs from uncovered shortages. Drafts are not issued automatically and require review.
-- Stock reservation across active Sales Orders and material pick lists are not yet enabled; the view reports physical stock only.
+- The Inventory page reports physical stock, active project commitments, estimated free stock, and shortages separately. This is an advisory calculation; it does not lock stock or prevent another order from using the same physical balance.
 
 ## Commercial Document Validation & Inventory Commitments — 24 November 2026
 
