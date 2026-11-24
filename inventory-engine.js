@@ -387,7 +387,7 @@
     });
   }
   function calculateMaterialCostVariance(requirements,projectId,transactions,materials){
-    var rows=(Array.isArray(requirements)?requirements:[]),project=String(projectId||''),actualByMaterial=Object.create(null),actualComplete=true,estimated=false;
+    var rows=(Array.isArray(requirements)?requirements:[]),project=String(projectId||''),actualByMaterial=Object.create(null),actualComplete=true,estimated=false,hasActualMovement=false;
     var valuation=Array.isArray(materials)?calculateInventoryValuation(materials,transactions):null;
     (Array.isArray(transactions)?transactions:[]).forEach(function(tx){
       if(String(tx.projectId||'')!==project||['issue','return'].indexOf(String(tx.movement||''))<0)return;
