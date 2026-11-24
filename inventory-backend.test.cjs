@@ -83,6 +83,8 @@ function stockedFixture(qty){
  return ss;
 }
 let reservedStock=stockedFixture(5);
+const backdatedMovement=transaction('INV-BACKDATED-0001','STK-CSK-2026-00043','receipt',1,'2026-10-31',{supplier:'Supplier A'});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[backdatedMovement]),/INVENTORY_TRANSACTION_BACKDATED/,'backend rejects backdated stock transactions that would alter historical weighted-average costs');
 const reservedIssue=transaction('INV-RESERVED-ISSUE1','STK-CSK-2026-00021','issue',2,'2026-11-03',{projectId:project.id,projectName:project.title,costSource:'moving_average'});
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(reservedStock,[reservedIssue],[],[reservationOrder]),true,'project may issue material within its own reservation');
 const issueAtWrongCost=transaction('INV-RESERVED-BADCOST','STK-CSK-2026-00025','issue',2,'2026-11-03',{
