@@ -289,6 +289,12 @@ assert.match(ui,/Nilai stok/,'inventory balances display the monetary value of s
 assert.match(backend,/INVALID_INVENTORY_COST_SNAPSHOT/,'server rejects missing or malformed inventory cost snapshots');
 assert.match(ui,/openInventoryReceiptFromPO/,'inventory UI supports PO-linked receiving');
 assert.match(ui,/calculateOpenSalesOrderCommitments/,'inventory UI calculates cross-project active Sales Order commitments');
+assert.match(ui,/calculateInventoryValuation/,'inventory UI calculates moving-average stock valuation');
+assert.match(ui,/Nilai persediaan · WAC/,'inventory dashboard shows indicative inventory value');
+assert.match(ui,/Biaya rata-rata \/ unit/,'inventory dashboard shows moving-average unit cost');
+assert.match(ui,/Sumber biaya/,'inventory ledger exposes the source of each cost snapshot');
+assert.match(backend,/opening:\["opening_manual"\]/,'backend requires a documented cost basis for opening balances');
+assert.match(backend,/receipt:\["purchase_order","manual_receipt"\]/,'backend rejects undocumented fallback pricing for new supplier receipts');
 assert.match(ui,/Reservasi Material & Picking List/,'inventory page shows locked material reservations and production picking list');
 assert.match(ui,/Stok tersedia/,'inventory page distinguishes physical stock from stock available after reservations');
 assert.match(ui,/data-inv-action="pick"/,'inventory picking list can prefill a project-linked stock issue');
@@ -301,8 +307,9 @@ assert.match(salesUI,/Buat Draft PO dari Kekurangan/,'owner can start purchasing
 assert.match(salesUI,/Reservasi lain/,'Sales Order material planner deducts stock reserved by other production projects');
 assert.match(salesUI,/Selisih vs HPP/,'Sales Order shows net material issue variance against the frozen HPP plan');
 assert.match(salesUI,/calculateMaterialCostVariance/,'Sales Order compares material issue costs with frozen HPP estimates');
-assert.match(salesUI,/Biaya aktual material/,'Sales Order shows the actual material cost summary');
-assert.match(salesUI,/Moving Weighted Average/,'Sales Order identifies the inventory valuation method used for actual material cost');
+assert.match(salesUI,/Biaya material tercatat/,'Sales Order shows recorded material cost without claiming supplier invoice reconciliation is complete');
+assert.match(salesUI,/Moving Weighted Average/,'Sales Order identifies the inventory valuation method used for recorded material cost');
+assert.match(salesUI,/belum menggantikan rekonsiliasi faktur supplier/,'Sales Order discloses that PO pricing is not supplier invoice matching');
 assert.match(sw,/inventory-engine\.js/,'inventory engine is cached');
 assert.match(sw,/inventory\.js/,'inventory UI is cached');
 assert.match(auth,/INVENTORY_LEDGER_SERVER_ONLY/,'backend RBAC test covers append-only inventory protection');
