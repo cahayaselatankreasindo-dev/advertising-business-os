@@ -50,7 +50,8 @@ async function createSalesOrderFromQuotation(quotationId){
    d=data();q=quoteFor(quotationId,d);project=d.projects.find(function(p){return String(p.id)===String(q&&q.projectId||'');});
   }
   if(!project)throw new Error('Proyek belum terhubung dengan quotation.');
-  var built=E().buildOrder(q,project,d.salesOrders,{date:E().localDate()});
+  var currentHpp=(d.costSheets||[]).find(function(x){return String(x.projectId)===String(q.projectId||project.id);})||null;
+  var built=E().buildOrder(q,project,d.salesOrders,{date:E().localDate(),sourceCostSheetSnapshot:q.sourceCostSheetSnapshot||currentHpp});
   if(built.existing){notify('Sales Order sudah tersedia.');renderSalesOrders();return built.order;}
   d.salesOrders.unshift(built.order);
   await persist();
@@ -105,8 +106,8 @@ async function createDraftPOFromShortage(salesOrderId){
   if(!b||!b.isOwner())throw new Error('Draft Purchase Order hanya dapat dibuat oleh Owner.');
   var d=data(),order=d.salesOrders.find(function(x){return String(x.id)===String(salesOrderId);});
   if(!order)throw new Error('Sales Order tidak ditemukan.');
-  var sheet=(d.costSheets||[]).find(function(x){return String(x.projectId)===String(order.projectId);});
-  if(!sheet)throw new Error('HPP proyek belum tersedia.');
+  var sheet=order.sourceCostSheetSnapshot||(d.costSheets||[]).find(function(x){return String(x.projectId)===String(order.projectId);});
+  if(!sheet)throw new Error('Snapshot HPP Sales Order belum tersedia. Lengkapi HPP dan buat ulang Sales Order dari quotation yang sesuai.');
   var balances=w.CSKInventoryEngine.calculateBalances(d.materials||[],d.inventoryTransactions||[]);
   var plan=w.CSKInventoryEngine.calculateHppRequirements(sheet,d.materials||[],balances);
   if(plan.errors.length)throw new Error('Perbaiki konversi HPP terlebih dahulu: '+plan.errors.join(' '));
@@ -140,8 +141,8 @@ async function createDraftPOFromShortage(salesOrderId){
  }catch(error){notify(error.message||String(error),true);}
 }
 function materialPlanHtml(order,d,balances){
- var sheet=(d.costSheets||[]).find(function(x){return String(x.projectId)===String(order.projectId);});
- if(!sheet)return'<div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800">HPP proyek belum dibuat. Lengkapi HPP sebelum melepas material ke produksi.</div>';
+ var sheet=order.sourceCostSheetSnapshot||(d.costSheets||[]).find(function(x){return String(x.projectId)===String(order.projectId);});
+ if(!sheet)return'<div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800">Snapshot HPP belum tersedia. Lengkapi HPP sebelum membuat Sales Order baru.</div>';
  if(!w.CSKInventoryEngine)return'';
  var plan=w.CSKInventoryEngine.calculateHppRequirements(sheet,d.materials,balances);
  if(!plan.requirements.length&&!plan.errors.length)return'<div class="mt-3 rounded-lg border p-3 text-[11px] text-slate-500">HPP belum memiliki baris material yang dapat dihitung.</div>';
@@ -154,7 +155,8 @@ function materialPlanHtml(order,d,balances){
  var hasShortage=plan.requirements.some(function(x){return x.shortage>0;});
  var poButton=plan.errors.length===0&&hasBuyableShortage?'<button data-so-action="create-po" data-id="'+esc(order.id)+'" class="mt-3 px-3 py-2 rounded-lg bg-emerald-700 text-white text-[11px] font-bold">Buat Draft PO dari Kekurangan</button>':hasShortage&&plan.errors.length===0?'<p class="mt-3 text-[10px] text-blue-700">Kekurangan stok sudah tercakup dalam Draft/PO berjalan.</p>':'';
  var state=plan.errors.length?'<span class="text-amber-700 font-bold">Konversi perlu diperbaiki</span>':plan.ready?'<span class="text-emerald-700 font-bold">Stok saat ini mencukupi</span>':hasBuyableShortage?'<span class="text-amber-700 font-bold">Perlu pembelian</span>':'<span class="text-blue-700 font-bold">PO sedang berjalan</span>';
- return'<details class="mt-3 rounded-xl border border-slate-200 p-3"><summary class="cursor-pointer text-xs font-bold text-slate-700">Kebutuhan material dari HPP · '+plan.requirements.length+' jenis · '+state+'</summary><div class="overflow-x-auto mt-2"><table class="w-full text-[11px] min-w-[620px]"><thead class="text-slate-500"><tr><th class="text-left py-2">Material</th><th class="text-right py-2">Kebutuhan</th><th class="text-right py-2">Stok fisik</th><th class="text-right py-2">Kekurangan</th><th class="text-right py-2">Sudah dipesan</th><th class="text-right py-2">Perlu PO</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+errorHtml+poButton+'<p class="text-[10px] text-slate-400 mt-2">Perhitungan memakai konversi satuan dari Master Material. Draft PO dibuat per supplier dan belum diterbitkan. Stok yang ditampilkan adalah stok fisik, belum dikurangi reservasi order lain. Belum ada penguncian stok otomatis.</p></details>';
+ var snapshotLabel=order.sourceCostSheetSnapshot?'Snapshot HPP '+String(order.sourceCostSheetSnapshot.updatedAt||'').slice(0,10):'HPP aktif (Sales Order lama)';
+ return'<details class="mt-3 rounded-xl border border-slate-200 p-3"><summary class="cursor-pointer text-xs font-bold text-slate-700">Kebutuhan material · '+snapshotLabel+' · '+plan.requirements.length+' jenis · '+state+'</summary><div class="overflow-x-auto mt-2"><table class="w-full text-[11px] min-w-[620px]"><thead class="text-slate-500"><tr><th class="text-left py-2">Material</th><th class="text-right py-2">Kebutuhan</th><th class="text-right py-2">Stok fisik</th><th class="text-right py-2">Kekurangan</th><th class="text-right py-2">Sudah dipesan</th><th class="text-right py-2">Perlu PO</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+errorHtml+poButton+'<p class="text-[10px] text-slate-400 mt-2">Perhitungan memakai konversi satuan dari Master Material. Draft PO dibuat per supplier dan belum diterbitkan. Stok yang ditampilkan adalah stok fisik, belum dikurangi reservasi order lain. Belum ada penguncian stok otomatis.</p></details>';
 }
 function qtyFormat(value){return Number(value||0).toLocaleString('id-ID',{maximumFractionDigits:3});}
 function quoteCandidates(d){
