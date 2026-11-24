@@ -106,6 +106,22 @@ assert.equal(partiallyIssuedVariance.rows[1].hasMaterialMovement,false,'HPP mate
 assert.equal(partiallyIssuedVariance.rows[1].varianceCost,null);
 assert.equal(partiallyIssuedVariance.varianceComplete,false,'project-level cost variance waits until every HPP material has issue/return activity');
 assert.equal(partiallyIssuedVariance.varianceCost,null);
+const extraMaterial={id:'MAT-EXTRA',name:'Material di luar HPP',unit:'pcs',unitPrice:50000};
+const unplannedLedger=[
+ {...tx('UNPLAN-OPEN-1','STK-CSK-2026-00121','opening',10,'2026-11-01'),unitCost:100000,totalCost:1000000,costSource:'opening_manual',costingMethod:'moving_average',reference:'OPEN-UNPLAN-1'},
+ {...tx('UNPLAN-ISSUE-1','STK-CSK-2026-00122','issue',2,'2026-11-02',{projectId:'PRJ-UNPLAN'}),unitCost:100000,totalCost:200000,costSource:'moving_average',costingMethod:'moving_average'},
+ {...tx('UNPLAN-OPEN-2','STK-CSK-2026-00123','opening',5,'2026-11-01'),materialId:'MAT-EXTRA',materialName:extraMaterial.name,unit:'pcs',unitCost:50000,totalCost:250000,costSource:'opening_manual',costingMethod:'moving_average',reference:'OPEN-UNPLAN-2'},
+ {...tx('UNPLAN-ISSUE-2','STK-CSK-2026-00124','issue',1,'2026-11-02',{projectId:'PRJ-UNPLAN'}),materialId:'MAT-EXTRA',materialName:extraMaterial.name,unit:'pcs',unitCost:50000,totalCost:50000,costSource:'moving_average',costingMethod:'moving_average'}
+];
+const unplannedCost=E.calculateMaterialCostVariance([
+ {materialId:'MAT-ACR',name:'Akrilik Clear 3mm',unit:'m2',required:2,estimatedTotalCost:200000}
+],'PRJ-UNPLAN',unplannedLedger,materials.concat([extraMaterial]));
+assert.equal(unplannedCost.hasUnplannedActualMaterials,true,'unplanned material issues are detected');
+assert.equal(unplannedCost.actualTotalCost,250000,'actual cost totals include unplanned material issues rather than hiding them');
+assert.equal(unplannedCost.estimatedTotalCost,200000,'HPP estimate total remains limited to planned materials');
+assert.equal(unplannedCost.varianceCost,null,'unplanned material issues suppress the project-level variance');
+assert.equal(unplannedCost.rows[1].unplanned,true);
+assert.equal(unplannedCost.rows[1].estimatedCost,null);
 const returnCostMaterials=[{id:'MAT-RET',name:'Material Retur',unit:'m2',unitPrice:999}];
 const returnCostProjects=[{id:'PRJ-RET',title:'Project Return Cost'}];
 const returnCostLedger=[
