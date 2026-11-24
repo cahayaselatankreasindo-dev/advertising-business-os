@@ -239,7 +239,7 @@ Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke 
 - Missing HPP or invalid unit conversions are surfaced as unresolved. This is monitoring only, not a locked stock reservation.
 - GitHub Actions source-checks and tests pass on the internal feature branch.
 
-Next: server-enforced reservation at production release, partial pick/issue/return, and purchase-unit conversion at receiving. No live deployment, migration, or merge to main has been performed.
+Production reservation, picking, and material cost valuation are now implemented on the internal feature branch. Controlled Google Sheets schema setup, owner review, live Apps Script deployment, and production migration remain separate release steps.
 
 
 ## Production Material Reservation & Picking
@@ -275,3 +275,15 @@ Next: server-enforced reservation at production release, partial pick/issue/retu
 - Sales Order detail can export a branded A4 PDF comparing frozen HPP quantities with net material issues (issues less returns), variance, and remaining HPP quantity.
 - The report is a quantity reconciliation only. It is not an actual-cost, inventory-valuation, or profit report.
 - Actual-versus-estimated HPP cost requires an approved stock valuation method and verified unit-cost capture for opening stock and receipts.
+
+
+## Actual Material Costing & Inventory Valuation
+
+- Inventory uses Moving Weighted Average (WAC) for stock valuation, based on immutable transaction cost snapshots.
+- New Inventory transactions store unit cost, total cost, cost source, and valuation method. Supplier PO receipts use the PO line price; manual opening balances and receipts capture an explicit cost or a clearly marked Master Material fallback.
+- Material issues and stock adjustments use the current weighted-average cost. Project returns reverse the weighted-average cost recorded on the project's net issues, rather than the newer warehouse average after later receipts.
+- Production release freezes both HPP material quantities and the estimated material cost per stock unit on the Sales Order.
+- Sales Order detail compares estimated HPP material cost with actual net issue cost (issues less returns), showing cost variance.
+- Historical ledger rows without cost snapshots can be replayed using current Master Material price as an estimated fallback. These values are visibly marked as estimates and must be reconciled against original purchase documents.
+- Actual material cost is not the full project HPP or net profit. Labor, service, overhead, machine time, and scrap valuation are separate accounting workstreams.
+- Cost fields are appended to the Inventory ledger schema; existing columns remain in place. No production deployment, live Sheets migration, merge to main, or public website change has occurred.
