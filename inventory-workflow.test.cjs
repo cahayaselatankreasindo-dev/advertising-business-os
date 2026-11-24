@@ -247,6 +247,8 @@ assert.match(ui,/maximumFractionDigits:4/,'stock quantities display the precisio
 assert.match(ui,/step="0\.0001"/,'picking form accepts converted stock quantities to four decimal places');
 assert.match(ui,/inv-sales-order/,'Inventory issue form supports Sales Order-linked material consumption');
 assert.match(ui,/inv-reservation-id/,'Inventory issue form attaches the exact reservation row to each stock issue');
+assert.match(ui,/returning\?Math\.max\(0,netIssued\):remaining/,'return form limits quantity to net material issued from the selected reservation');
+assert.match(ui,/Retur ditautkan ke/,'return UI confirms that the material return is linked to the originating Sales Order');
 assert.match(backend,/ReservationID/,'inventory ledger schema stores an immutable reservation reference');
 assert.match(ui,/data-inv-action="reserve-so"/,'Owner can lock stock from the Inventory page');
 assert.match(ui,/data-inv-action="release-so"/,'Owner can release an active stock reservation');
