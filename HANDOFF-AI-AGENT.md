@@ -279,7 +279,7 @@ Release boundary:
 - Sales Order detail now offers a branded, multi-page A4 PDF comparing HPP plan quantities with net project issues (issue less return), variance, and remaining HPP.
 - The report labels whether it uses the frozen production snapshot or current unfrozen HPP.
 - This is a quantity report only. Do not present net issued quantity as proven consumed quantity or as actual cost.
-- Actual cost reconciliation remains blocked until the Owner approves an inventory valuation method and verified cost capture for opening stock, supplier receipts, returns, and adjustments.
+- Actual material cost comparison is now available using Moving Weighted Average and frozen HPP cost snapshots. Supplier invoice matching, landed-cost allocation, and complete project profit remain future work.
 - CI: CSK Security Tests run 900 PASS; CSK business source regression checks run 773 PASS.
 
 
@@ -298,3 +298,10 @@ Verification on latest observed PR head: CSK Security Tests PASS and CSK busines
 Release boundary:
 - No merge to main, Apps Script production deployment, live Google Sheets migration, or public website deployment.
 - Before production use, Owner must verify opening stock unit costs, supplier PO line prices, manual receipt costs, and schema migration in a controlled copy.
+
+
+## 12. Update — 25 November 2026: chronological valuation guard
+
+- Client and Apps Script now reject a new stock movement dated earlier than the latest recorded movement for that material. This prevents a backdated receipt or issue from silently rewriting moving-average costs already assigned to other transactions and projects.
+- Apps Script sorts multiple incoming new movements chronologically before validation so offline batches are checked in a deterministic order.
+- CI covers both client and backend rejection of backdated movements.
