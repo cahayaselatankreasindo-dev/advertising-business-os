@@ -35,6 +35,10 @@ assert.throws(()=>E.transition(created.order,'ready_production',underpaid,'Owner
 
 const dpPaid=E.summarizePayments(quote,invoices,[{id:'PAY-1',invoiceId:'INV-TEST-001',amount:5000000}]);
 assert.equal(dpPaid.depositSatisfied,true);
+const waitingMaterial=E.transition(created.order,'awaiting_material',dpPaid,'owner@example.test','2026-11-20T06:30:00.000Z','HPP belum tersedia');
+assert.equal(waitingMaterial.status,'awaiting_material');
+assert.equal(E.statusLabel(waitingMaterial.status),'Menunggu Material');
+assert.equal(E.availableActions(waitingMaterial,dpPaid).some(x=>x.status==='ready_production'),true,'material-ready order can be released after stock becomes available');
 assert.equal(E.availableActions(created.order,dpPaid).some(x=>x.status==='ready_production'),true);
 let order=E.transition(created.order,'ready_production',dpPaid,'owner@example.test','2026-11-20T07:00:00.000Z');
 order=E.transition(order,'in_production',dpPaid,'owner@example.test');
@@ -65,8 +69,11 @@ const sw=fs.readFileSync('sw.js','utf8');
 const auth=fs.readFileSync('backend-auth.test.cjs','utf8');
 assert.equal(backend,deploy,'canonical Apps Script and deployment copy must stay identical');
 assert.match(backend,/Sales_Orders:\s*\{/,'Sales Orders schema exists in backend');
-assert.match(backend,/validateSalesOrdersBeforeMerge_\(ss, payload\.salesOrders\)/,'server validates Sales Order writes');
+assert.match(backend,/validateSalesOrdersBeforeMerge_\(ss, payload\.salesOrders, payload\.inventoryTransactions/,'server validates Sales Order writes with inventory balances');
 assert.match(backend,/SALES_ORDER_DP_NOT_VERIFIED/,'backend enforces verified DP before production');
+assert.match(backend,/awaiting_material/,'backend supports orders waiting for material availability');
+assert.match(ui,/prepareInitialMaterialReservation/,'Sales Order creation automatically checks and reserves HPP materials');
+assert.match(ui,/Reservasi material otomatis dibuat/,'Sales Order history records automatic material reservation');
 assert.match(backend,/SALES_ORDER_CANNOT_CLOSE_WITH_UNPAID_INVOICE/,'backend blocks closing with unpaid invoice');
 assert.match(backend,/salesOrders: readSheetData\(ss, "Sales_Orders"\)/,'owner get_data includes Sales Orders');
 assert.match(guard,/salesOrders/,'owner sync includes Sales Orders');
