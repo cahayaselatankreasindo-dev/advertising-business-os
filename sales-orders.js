@@ -121,16 +121,14 @@ async function createDraftPOFromShortage(salesOrderId){
   shortages.forEach(function(row){
    var material=d.materials.find(function(m){return String(m.id)===String(row.materialId);});
    if(!material)throw new Error('Material '+row.name+' tidak ditemukan.');
-   var supplier=String(material.supplierName||'').trim(),purchasePrice=Number(material.purchasePrice),conversionFactor=Number(material.conversionFactor),purchaseUnit=String(material.purchaseUnit||material.unit||'').trim();
+   var supplier=String(material.supplierName||'').trim(),purchasePrice=E().purchasePriceForUnit(material),conversionFactor=Number(material.conversionFactor),purchaseUnit=String(material.purchaseUnit||material.unit||'').trim();
    if(!supplier)throw new Error('Supplier belum diisi untuk '+material.name+'. Lengkapi Master Material sebelum membuat PO.');
    if(!Number.isFinite(purchasePrice)||purchasePrice<=0||!Number.isFinite(conversionFactor)||conversionFactor<=0||!purchaseUnit)throw new Error('Harga beli, satuan pembelian, atau faktor konversi belum valid untuk '+material.name+'.');
    if(!material.priceDate||!material.priceSource)throw new Error('Sumber dan tanggal harga belum dicatat untuk '+material.name+'. Perbarui Master Material sebelum membuat PO.');
    var openQty=openPurchaseOrderQty(order.projectId,material.id,d);
    var buyStockQty=Math.max(0,row.shortage-openQty);
    if(buyStockQty<=0)return;
-   var purchaseQty=buyStockQty/conversionFactor;
-   if(/^(lembar|sheet|batang|roll|pcs|pc|pack|pak|box|dus|set|unit|botol|tube|cartridge|kaleng|ream|rim)$/i.test(purchaseUnit))purchaseQty=Math.ceil(purchaseQty-0.0000001);
-   purchaseQty=Math.round(purchaseQty*10000)/10000;
+   var purchaseQty=E().purchaseQuantityForStock(buyStockQty,material);
    if(purchaseQty<=0)return;
    if(!groups[supplier])groups[supplier]=[];
    groups[supplier].push({materialId:material.id,name:material.name,unit:purchaseUnit,qty:purchaseQty,purchaseUnit:purchaseUnit,usageUnit:material.unit,conversionFactor:conversionFactor,unitPrice:purchasePrice,subtotal:purchaseQty*purchasePrice,priceSnapshot:{purchasePrice:purchasePrice,purchaseUnit:purchaseUnit,usageUnit:material.unit,conversionFactor:conversionFactor,baseUsageUnitPrice:purchasePrice/conversionFactor,hppUsageUnitPrice:material.unitPrice,priceSource:material.priceSource,priceDate:material.priceDate}});
