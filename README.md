@@ -230,3 +230,14 @@ Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke 
 - The shortage view includes physical stock, existing Draft/Ordered PO coverage, and remaining purchase quantity.
 - Owner can create supplier-grouped Draft POs from uncovered shortages. Drafts are not issued automatically and require review.
 - Stock reservation across active Sales Orders and material pick lists are not yet enabled; the view reports physical stock only.
+
+## Commercial Document Validation & Inventory Commitments — 24 November 2026
+
+- Quotation and invoice saves reject invalid quantities, blank/negative prices, invalid discounts, discount above subtotal, tax outside 0–100%, and DP outside 1–99%.
+- Apps Script independently recalculates and validates new/financially changed commercial document totals before accepting writes. Unchanged legacy financial snapshots remain compatible.
+- Inventory now shows physical stock separately from estimated free stock after active Sales Order material commitments.
+- Active commitments include Ready Production, In Production, Quality Control, and Ready Delivery. Project HPP requirements are aggregated once per project; project issues and returns reduce or restore outstanding demand.
+- Missing HPP or invalid unit conversions are surfaced as unresolved. This is monitoring only, not a locked stock reservation.
+- GitHub Actions source-checks and tests pass on the internal feature branch.
+
+Next: server-enforced reservation at production release, partial pick/issue/return, and purchase-unit conversion at receiving. No live deployment, migration, or merge to main has been performed.
