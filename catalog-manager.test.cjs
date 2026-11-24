@@ -14,7 +14,9 @@ assert.ok(html.includes("openCskCatalogManager('material')"), 'material referenc
 assert.ok(html.includes("openCskCatalogManager('service')"), 'service reference catalog can be opened');
 assert.ok(manager.includes("typeof db!=='undefined'"), 'catalog manager accesses the shared global lexical database safely');
 assert.ok(manager.includes('async function saveMaterialFromCatalog()'), 'material activation waits for verified cloud sync');
-assert.ok(manager.includes('function saveServiceFromCatalog()'), 'service activation handler exists');
+assert.ok(manager.includes('async function saveServiceFromCatalog()'), 'service and product activation waits for verified cloud sync');
+assert.ok(manager.includes('await w.CSKAuth.sync(true)'), 'service and product activation verifies Google Sheets read-back');
+assert.ok(manager.includes('database.services=services.filter(function(item){return item.id!==record.id;});'), 'failed service sync rolls back local activation');
 assert.ok(manager.includes("price<=0"), 'zero-priced materials cannot be activated');
 assert.ok(manager.includes("!supplier||!source||!date"), 'material activation requires supplier, price source, and price date');
 assert.ok(manager.includes('unitPrice=baseUnitPrice'), 'stored usage-unit price remains the base converted purchase price');
