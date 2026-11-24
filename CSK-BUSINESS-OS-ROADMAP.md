@@ -234,3 +234,12 @@ The Owner confirmed that CSK Business OS should continue using the existing Goog
 - This branch is the current integrated UI/operations staging line. The older PR #27 target was updated to the inventory-bridge development branch for review; GitHub currently reports branch divergence, so no merge is attempted until reconciliation is complete.
 - The current branch remains isolated from `main`, the public website, production Apps Script deployment, live Google Sheets, and Supabase.
 - Remaining release gates: rerun the full CI suite on this exact integrated head, reconcile any branch-only changes without force-pushing, and complete desktop/iPhone browser QA plus owner-supervised Apps Script/Sheets migration review.
+
+## 16. Development integration status — 25 November 2026
+
+- PR #33 (commercial PDF layout/pagination) merged and passed the post-merge security and business-source regression workflows.
+- PR #29 (inventory material-commitment bridge) merged into the colorful UI staging branch.
+- PR #27 (colorful UI and operational workflow integration) merged into this development branch after the PR base was aligned and CI passed on its head.
+- The older PR #26, #30, and #24 were closed as superseded. In particular, PR #30 used a second reservation-ledger design and must not be merged beside the integrated reservation model.
+- This branch is the current integrated development/release-candidate line. It is not production.
+- Remaining release gates are a fresh full CI run on this exact branch head, desktop/iPhone/Android browser QA, and a separately approved Owner-run Apps Script schema/deployment and Google Sheets verification.
