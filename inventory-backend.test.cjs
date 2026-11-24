@@ -146,6 +146,20 @@ const secondCycle=context.reserveSalesOrderStock_(reReserveCase.ss,reReserveCase
 assert.equal(secondCycle.status,'reserved','a released ready-production order can be reserved again');
 assert.notEqual(secondCycle.reservations[0].id,firstCycle.reservations[0].id,'new reservation cycle receives a unique immutable ID');
 
+const consumeCase=reservationFixture(5,'SO-INV-00000008',4);
+const consumeReservation=context.reserveSalesOrderStock_(consumeCase.ss,consumeCase.order.id,{role:'owner',email:'owner@example.test'}).reservations[0];
+const linkedIssueOne=transaction('RESV-CONSUME-0001','STK-CSK-2026-00030','issue',2,'2026-11-21',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne],[],[]),true,'stock issue linked to its exact active reservation is allowed');
+consumeCase.ss.sheets.Inventory_Transactions.appendRow(rowFor('Inventory_Transactions',linkedIssueOne));
+assert.equal(context.reconcileConsumedReservations_(consumeCase.ss),0,'partial consumption keeps the reservation active');
+const linkedIssueTwo=transaction('RESV-CONSUME-0002','STK-CSK-2026-00031','issue',2,'2026-11-22',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne,linkedIssueTwo],[],[]),true,'multiple issue transactions consume the same reservation up to its remaining quantity');
+consumeCase.ss.sheets.Inventory_Transactions.appendRow(rowFor('Inventory_Transactions',linkedIssueTwo));
+assert.equal(context.reconcileConsumedReservations_(consumeCase.ss),1,'fully consumed reservation is marked consumed');
+assert.equal(consumeCase.ss.sheets.Inventory_Reservations.rows[1][map.Inventory_Reservations.fields.indexOf('status')],'consumed','consumed reservation remains in the audit history');
+const overConsume=transaction('RESV-CONSUME-0003','STK-CSK-2026-00032','issue',1,'2026-11-23',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne,linkedIssueTwo,overConsume],[],[]),/INVENTORY_SALES_ORDER_RESERVATION_REQUIRED/,'a consumed reservation cannot be used again');
+
 const competing=reservationFixture(5,'SO-INV-00000002',4);
 const competingSecond={...competing.order,id:'SO-INV-00000003',orderNo:'SO-CSK-2026-00002',quotationId:'QUO-INV-00002',quotationNo:'QUO-CSK-2026-00002'};
 const competingQuote={...competing.quote,id:competingSecond.quotationId,docNo:competingSecond.quotationNo};
