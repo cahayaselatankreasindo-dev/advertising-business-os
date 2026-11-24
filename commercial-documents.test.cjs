@@ -55,7 +55,7 @@ assert.equal(Math.round(hppLines.reduce((sum, line) => sum + line.qty * line.uni
 assert.equal(hppLines[0].qty, 2, 'original HPP quantity is preserved');
 assert.equal(hppLines[0].unit, 'lembar', 'original HPP unit is preserved');
 assert.match(hppLines[0].description, /2 lembar/, 'original HPP consumption quantity remains visible in the quotation description');
-assert.match(hppLines[0].description, /Kalkulasi: 2 lembar for 4 komponen; yield 78\.5%\./, 'custom costing summary remains readable in the quotation description');
+assert.match(hppLines[0].description, /Kalkulasi: 2 lembar untuk 4 komponen; yield 78\.5%\./, 'custom costing summary remains readable in the quotation description');
 assert.equal(hppLines[0].sourceCostingSummary, '2 lembar untuk 4 komponen; yield 78.5%.');
 assert.equal(hppLines[0].sourceCostingMode, 'whole');
 assert.equal(hppLines[0].sourceCostingMethod, 'sheet');
