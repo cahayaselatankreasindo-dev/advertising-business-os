@@ -1343,6 +1343,8 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     if (newIds[String(tx.id)] && String(tx.movement) === "issue") {
       var salesOrderId = String(tx.salesOrderId || "");
       if (salesOrderId) {
+        var linkedOrder = salesOrderById[salesOrderId];
+        if (String(linkedOrder && linkedOrder.status || "").toLowerCase() === "delivered") throw new Error("INVENTORY_SALES_ORDER_NOT_ACTIVE");
         var reservation = activeReservations.find(function(row) {
           return String(row.id || "") === reservationId &&
             String(row.salesOrderId || "") === salesOrderId &&
