@@ -10,6 +10,7 @@ on:
       - feature/hpp-material-conversion-20261120
       - feature/csk-colorful-ui-20261124
       - feature/csk-inventory-bridge-fix-20261124
+      - feature/csk-stock-reservation-core-20261125
   pull_request:
     branches:
       - main
