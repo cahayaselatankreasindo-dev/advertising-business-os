@@ -100,6 +100,10 @@ var FIELD_MAP = {
     headers: ["ID", "NomorTransaksi", "MaterialID", "NamaMaterial", "JenisPergerakan", "Qty", "Satuan", "Tanggal", "ProjectID", "NamaProyek", "PurchaseOrderID", "Supplier", "Referensi", "Catatan", "CreatedAt", "CreatedBy"],
     fields: ["id", "transactionNo", "materialId", "materialName", "movement", "qty", "unit", "date", "projectId", "projectName", "purchaseOrderId", "supplier", "reference", "notes", "createdAt", "createdBy"]
   },
+  Stock_Reservations: {
+    headers: ["ID", "NomorEvent", "JenisEvent", "SalesOrderID", "NomorSO", "ProjectID", "NamaProyek", "MaterialID", "NamaMaterial", "Qty", "Satuan", "Tanggal", "Catatan", "CreatedAt", "CreatedBy"],
+    fields: ["id", "eventNo", "eventType", "salesOrderId", "orderNo", "projectId", "projectName", "materialId", "materialName", "qty", "unit", "date", "notes", "createdAt", "createdBy"]
+  },
   Quotations: {
     headers: ["ID", "ProjectID", "NamaProyek", "Klien", "Deadline", "Catatan", "LinesJSON", "Total", "SourceCostSheetID", "SourceCostSheetUpdatedAt", "DPPersen", "Status", "CreatedAt", "UpdatedAt"],
     fields: ["id", "projectId", "projectName", "client", "deadline", "notes", "linesJson", "total", "sourceCostSheetId", "sourceCostSheetUpdatedAt", "dpPercent", "status", "createdAt", "updatedAt"]
@@ -466,6 +470,7 @@ function doGet(e) {
       purchaseOrders: readSheetData(ss, "Purchase_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
       salesOrders: readSheetData(ss, "Sales_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } try { x.history = JSON.parse(x.historyJson || "[]"); } catch(e) { x.history = []; } x.sourceCostSheetSnapshot = parseCostSheetSnapshotValue_(x.sourceCostSheetSnapshotJson); return x; }),
       inventoryTransactions: readSheetData(ss, "Inventory_Transactions"),
+      stockReservations: identity.role === "owner" ? readSheetData(ss, "Stock_Reservations") : [],
       quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
       quotations: readSheetData(ss, "Commercial_Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } x.sourceCostSheetSnapshot = parseCostSheetSnapshotValue_(x.sourceCostSheetSnapshotJson); return x; }),
       invoices: readSheetData(ss, "Invoices").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
@@ -1058,9 +1063,142 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     movementSeen[materialId] = true;
     var after = before + Number(tx.qty) * direction;
     if (after < -0.000001) throw new Error("INVENTORY_INSUFFICIENT_STOCK");
+    var isNewIncoming = newRows.some(function(row){ return String(row.id) === String(tx.id); });
+    if (isNewIncoming && ["issue","adjustment_out"].indexOf(String(tx.movement)) >= 0) {
+      var reservedByMaterial = activeStockReservationBalances_(ss);
+      if (after + 0.000001 < Number(reservedByMaterial[materialId] || 0)) throw new Error("INVENTORY_STOCK_RESERVED");
+    }
     balances[materialId] = Math.max(0, after);
   });
   return true;
+}
+
+// Stock reservation is a server-owned append-only event ledger. All allocation decisions
+// run under ScriptLock so concurrent requests cannot reserve the same physical quantity.
+function activeStockReservationBalances_(ss) {
+  var rows = readSheetData(ss, "Stock_Reservations");
+  var balances = {};
+  rows.forEach(function(row) {
+    var key = String(row.materialId || "");
+    var qty = Math.max(0, Number(row.qty) || 0);
+    var direction = String(row.eventType || "") === "reserve" ? 1 : (String(row.eventType || "") === "release" ? -1 : 0);
+    if (key && direction) balances[key] = Math.max(0, Number(balances[key] || 0) + qty * direction);
+  });
+  return balances;
+}
+function activeReservationsForSalesOrder_(ss, salesOrderId) {
+  var rows = readSheetData(ss, "Stock_Reservations").filter(function(row) { return String(row.salesOrderId) === String(salesOrderId); });
+  var grouped = {};
+  rows.forEach(function(row) {
+    var key = String(row.materialId || "");
+    if (!grouped[key]) grouped[key] = { materialId:key, materialName:String(row.materialName || ""), unit:String(row.unit || ""), qty:0 };
+    grouped[key].qty += (String(row.eventType) === "reserve" ? 1 : (String(row.eventType) === "release" ? -1 : 0)) * Math.max(0, Number(row.qty) || 0);
+  });
+  return Object.keys(grouped).map(function(key) { var row=grouped[key]; row.qty=Math.max(0,row.qty); return row; }).filter(function(row){ return row.qty > 0.000001; });
+}
+function stockBalancesFromLedger_(materials, transactions) {
+  var directions = {opening:1,receipt:1,return:1,issue:-1,adjustment_in:1,adjustment_out:-1};
+  var balances = {};
+  (transactions || []).slice().sort(function(a,b){ return String(a.date||"").localeCompare(String(b.date||"")) || String(a.createdAt||"").localeCompare(String(b.createdAt||"")); }).forEach(function(tx) {
+    var id=String(tx.materialId||""); balances[id]=Math.max(0,Number(balances[id]||0)+Math.max(0,Number(tx.qty)||0)*(directions[String(tx.movement)]||0));
+  });
+  return balances;
+}
+function stockRequirementsFromSalesOrderSnapshot_(snapshot, materials) {
+  if (!snapshot || !Array.isArray(snapshot.items) || !snapshot.items.length) throw new Error("SALES_ORDER_HPP_SNAPSHOT_REQUIRED");
+  var grouped = {};
+  snapshot.items.forEach(function(item,index) {
+    if (item.serviceId || item.itemType === "service" || !item.materialId) return;
+    var material = (materials || []).find(function(row){ return String(row.id) === String(item.materialId); });
+    if (!material || String(material.status || "").toLowerCase() === "inactive") throw new Error("RESERVATION_MATERIAL_NOT_AVAILABLE");
+    var qty = Number(item.qty);
+    if (!Number.isFinite(qty) || qty <= 0) throw new Error("RESERVATION_INVALID_HPP_QUANTITY");
+    var ms = item.materialSnapshot && typeof item.materialSnapshot === "object" ? item.materialSnapshot : {};
+    var stockUnit = String(ms.unit || material.unit || "").trim();
+    var purchaseUnit = String(ms.purchaseUnit || material.purchaseUnit || "").trim();
+    var lineUnit = String(item.unit || "").trim();
+    var stockQty = 0;
+    if (lineUnit.toLowerCase() === stockUnit.toLowerCase()) stockQty = qty;
+    else if (lineUnit.toLowerCase() === purchaseUnit.toLowerCase()) {
+      var factor = Number(Object.prototype.hasOwnProperty.call(ms,"conversionFactor") ? ms.conversionFactor : material.conversionFactor);
+      if (!Number.isFinite(factor) || factor <= 0) throw new Error("RESERVATION_CONVERSION_FACTOR_INVALID");
+      stockQty = qty * factor;
+    } else throw new Error("RESERVATION_UNIT_MISMATCH");
+    var key=String(material.id);
+    if (!grouped[key]) grouped[key]={materialId:key,materialName:String(ms.name||material.name||item.name||""),unit:stockUnit,qty:0};
+    grouped[key].qty += stockQty;
+  });
+  var result=Object.keys(grouped).map(function(key){return grouped[key];});
+  if (!result.length) throw new Error("SALES_ORDER_HPP_HAS_NO_MATERIAL_REQUIREMENTS");
+  return result;
+}
+function nextStockReservationEventNo_(rows,date) {
+  var year=String(date).slice(0,4),pattern=new RegExp("^RSV-CSK-"+year+"-(\\\\d+)$"),max=0;
+  (rows||[]).forEach(function(row){var m=pattern.exec(String(row.eventNo||""));if(m)max=Math.max(max,Number(m[1])||0);});
+  return "RSV-CSK-"+year+"-"+String(max+1).padStart(5,"0");
+}
+function appendStockReservationEvents_(ss, events) {
+  ensureSheet(ss,"Stock_Reservations",FIELD_MAP.Stock_Reservations.headers);
+  var existing=readSheetData(ss,"Stock_Reservations");
+  var seen={}; existing.forEach(function(row){seen[String(row.id)]=true;});
+  events.forEach(function(event){if(!event.id||seen[String(event.id)])throw new Error("DUPLICATE_STOCK_RESERVATION_EVENT");seen[String(event.id)]=true;});
+  return mergeSheet(ss,"Stock_Reservations",events);
+}
+function reserveSalesOrderStock_(ss, salesOrderId, identity) {
+  var lock=LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    ensureSheet(ss,"Stock_Reservations",FIELD_MAP.Stock_Reservations.headers);
+    var id=String(salesOrderId||"").trim();
+    if(!id)throw new Error("SALES_ORDER_ID_REQUIRED");
+    var order=readSheetData(ss,"Sales_Orders").find(function(row){return String(row.id)===id;});
+    if(!order)throw new Error("SALES_ORDER_NOT_FOUND");
+    if(String(order.status||"").toLowerCase()!=="in_production")throw new Error("SALES_ORDER_NOT_READY_FOR_RESERVATION");
+    var existing=activeReservationsForSalesOrder_(ss,id);
+    if(existing.length)return{alreadyReserved:true,salesOrderId:id,reservations:existing};
+    var snapshot=parseCostSheetSnapshotValue_(order.sourceCostSheetSnapshotJson);
+    var materials=readSheetData(ss,"Materials"),transactions=readSheetData(ss,"Inventory_Transactions");
+    var requirements=stockRequirementsFromSalesOrderSnapshot_(snapshot,materials);
+    var onHand=stockBalancesFromLedger_(materials,transactions),reserved=activeStockReservationBalances_(ss);
+    requirements.forEach(function(row){
+      var free=Number(onHand[row.materialId]||0)-Number(reserved[row.materialId]||0);
+      if(free+0.000001<row.qty)throw new Error("INSUFFICIENT_FREE_STOCK:"+row.materialName+":"+free+":"+row.qty);
+    });
+    var now=new Date(),date=Utilities.formatDate(now,Session.getScriptTimeZone(),"yyyy-MM-dd");
+    var events= requirements.map(function(row,index){return{
+      id:"RSE-"+Utilities.getUuid().replace(/-/g,""),eventNo:"",eventType:"reserve",
+      salesOrderId:id,orderNo:String(order.orderNo||""),projectId:String(order.projectId||""),
+      projectName:String(order.projectName||""),materialId:row.materialId,materialName:row.materialName,
+      qty:row.qty,unit:row.unit,date:date,notes:"Reservasi awal berdasarkan snapshot HPP Sales Order",
+      createdAt:now.toISOString(),createdBy:String(identity.email||"Owner")
+    };});
+    var all=readSheetData(ss,"Stock_Reservations"),next=nextStockReservationEventNo_(all,date);
+    events.forEach(function(event,index){event.eventNo="RSV-CSK-"+date.slice(0,4)+"-"+String(Number(next.split("-").pop())+index).padStart(5,"0");});
+    appendStockReservationEvents_(ss,events);
+    return{alreadyReserved:false,salesOrderId:id,reservations:activeReservationsForSalesOrder_(ss,id)};
+  } finally { lock.releaseLock(); }
+}
+function releaseSalesOrderStock_(ss, salesOrderId, identity, reason) {
+  var lock=LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    ensureSheet(ss,"Stock_Reservations",FIELD_MAP.Stock_Reservations.headers);
+    var id=String(salesOrderId||"").trim();
+    if(!id)throw new Error("SALES_ORDER_ID_REQUIRED");
+    var order=readSheetData(ss,"Sales_Orders").find(function(row){return String(row.id)===id;});
+    var active=activeReservationsForSalesOrder_(ss,id);
+    if(!active.length)return{released:false,salesOrderId:id,reservations:[]};
+    var now=new Date(),date=Utilities.formatDate(now,Session.getScriptTimeZone(),"yyyy-MM-dd");
+    var rows=readSheetData(ss,"Stock_Reservations"),next=nextStockReservationEventNo_(rows,date);
+    var start=Number(next.split("-").pop());
+    var events=active.map(function(row,index){return{
+      id:"RSE-"+Utilities.getUuid().replace(/-/g,""),eventNo:"RSV-CSK-"+date.slice(0,4)+"-"+String(start+index).padStart(5,"0"),
+      eventType:"release",salesOrderId:id,orderNo:String(order&&order.orderNo||""),projectId:String(order&&order.projectId||""),
+      projectName:String(order&&order.projectName||""),materialId:row.materialId,materialName:row.materialName,
+      qty:row.qty,unit:row.unit,date:date,notes:String(reason||"Reservasi dilepas").slice(0,500),
+      createdAt:now.toISOString(),createdBy:String(identity&&identity.email||"System")
+    };});
+    appendStockReservationEvents_(ss,events);
+    return{released:true,salesOrderId:id,reservations:activeReservationsForSalesOrder_(ss,id)};
+  } finally { lock.releaseLock(); }
 }
 
 function doPost(e) {
@@ -1102,6 +1240,7 @@ function doPost(e) {
           validateSalesOrdersBeforeMerge_(ss, payload.salesOrders);
           mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); y.sourceCostSheetSnapshotJson = JSON.stringify(x.sourceCostSheetSnapshot || null); return y; }));
         }
+        if (payload.salesOrders) payload.salesOrders.filter(function(x){ return ["cancelled","delivered","closed"].indexOf(String(x.status || "").toLowerCase()) >= 0; }).forEach(function(x){ releaseSalesOrderStock_(ss, x.id, identity, "Otomatis dilepas karena status Sales Order " + x.status); });
         if (payload.inventoryTransactions) {
           mergeSummary.Inventory_Transactions = mergeSheet(ss, "Inventory_Transactions", payload.inventoryTransactions);
         }
@@ -1110,6 +1249,16 @@ function doPost(e) {
         if (payload.invoices) mergeSummary.Invoices = mergeInvoicesSafely_(ss, payload.invoices);
         if (identity.role === "owner") autoTriggerPillars(ss);
         return jsonResponse({ status: "success", message: "Data di-merge; data lama yang tidak dikirim tetap dipertahankan.", summary: mergeSummary });
+      }
+
+      case "reserve_sales_order_stock": {
+        var reserveResult = reserveSalesOrderStock_(ss, payload.salesOrderId, identity);
+        return jsonResponse({ status: "success", result: reserveResult });
+      }
+
+      case "release_sales_order_stock": {
+        var releaseResult = releaseSalesOrderStock_(ss, payload.salesOrderId, identity, String(payload.reason || "Reservasi dilepas oleh Owner"));
+        return jsonResponse({ status: "success", result: releaseResult });
       }
 
       case "record_invoice_payment": {
@@ -1529,6 +1678,7 @@ function cskAssertPayloadAllowed_(identity, payload) {
   var role = identity && identity.role;
   var action = String(payload.action || "").toLowerCase();
   if (role !== "owner" && role !== "team") throw new Error("FORBIDDEN");
+  if (["reserve_sales_order_stock","release_sales_order_stock"].indexOf(action) >= 0 && role !== "owner") throw new Error("FORBIDDEN_STOCK_RESERVATION");
 
   // Team members may create and update shared operational records, but deletion is Owner-only.
   // Enforce this on the server so hiding a button cannot be bypassed from the browser.
