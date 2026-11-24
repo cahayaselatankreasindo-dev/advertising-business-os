@@ -70,6 +70,12 @@ function transaction(id,no,movement,qty,date,extra){
 }
 
 const opening=transaction('INV-00000001','STK-CSK-2026-00001','opening',5,'2026-11-01');
+const undocumentedOpening=transaction('INV-OPEN-UNVERIFIED','STK-CSK-2026-00040','opening',5,'2026-11-01',{costSource:'master_fallback',reference:''});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(fixture(),[undocumentedOpening]),/INVALID_INVENTORY_COST_SNAPSHOT/,'backend rejects opening stock valued only from the current Master planning price');
+const openingWithoutReference=transaction('INV-OPEN-NOREF','STK-CSK-2026-00041','opening',5,'2026-11-01',{reference:''});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(fixture(),[openingWithoutReference]),/INVENTORY_COST_REFERENCE_REQUIRED/,'opening valuation requires a source document or valuation basis');
+const undocumentedReceipt=transaction('INV-RECEIPT-UNVERIFIED','STK-CSK-2026-00042','receipt',1,'2026-11-03',{supplier:'Supplier A',costSource:'master_fallback'});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(fixture(),[undocumentedReceipt]),/INVALID_INVENTORY_COST_SNAPSHOT/,'new supplier receipts cannot silently use the Master planning price as actual cost');
 function stockedFixture(qty){
  const ss=fixture();
  const balance=transaction('INV-STOCK-OPEN1','STK-CSK-2026-00020','opening',qty,'2026-11-01');
