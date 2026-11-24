@@ -1149,12 +1149,14 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
   (incomingSalesOrders || []).forEach(function(order) {
     if (order && order.id) salesOrderById[String(order.id)] = order;
   });
-  var cancelledSalesOrders = {};
+  var terminalSalesOrders = {};
   (incomingSalesOrders || []).forEach(function(order) {
-    if (order && String(order.status || "").toLowerCase() === "cancelled") cancelledSalesOrders[String(order.id || "")] = true;
+    if (order && ["cancelled","delivered","closed"].indexOf(String(order.status || "").toLowerCase()) >= 0) {
+      terminalSalesOrders[String(order.id || "")] = true;
+    }
   });
   var activeReservations = readSheetData(ss, "Inventory_Reservations").filter(function(row) {
-    return String(row.status) === "active" && !cancelledSalesOrders[String(row.salesOrderId || "")];
+    return String(row.status) === "active" && !terminalSalesOrders[String(row.salesOrderId || "")];
   });
   var reservationRemainingById = {};
   var reservedByMaterial = {};
@@ -1209,7 +1211,7 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
       if (!reservationId) throw new Error("INVENTORY_RESERVATION_ID_REQUIRED");
       var salesOrder = salesOrderById[salesOrderId];
       var salesOrderStatus = String(salesOrder && salesOrder.status || "").toLowerCase();
-      if (!salesOrder || ["ready_production","in_production","quality_check","ready_delivery","delivered"].indexOf(salesOrderStatus) < 0) throw new Error("INVENTORY_SALES_ORDER_NOT_ACTIVE");
+      if (!salesOrder || ["ready_production","in_production","quality_check","ready_delivery"].indexOf(salesOrderStatus) < 0) throw new Error("INVENTORY_SALES_ORDER_NOT_ACTIVE");
       if (String(salesOrder.projectId || "") !== projectId) throw new Error("INVENTORY_SALES_ORDER_PROJECT_MISMATCH");
     } else if (reservationId) {
       throw new Error("INVENTORY_RESERVATION_LINK_REQUIRES_SALES_ORDER");
