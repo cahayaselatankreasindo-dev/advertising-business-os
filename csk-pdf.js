@@ -794,7 +794,8 @@ function drawMaterialCostRow(pdf,line,index,y,x) {
   pdf.text(String(line.estimatedQty),x[4]-2,y+4,{align:'right'});
   pdf.text(String(line.actualQty),x[5]-2,y+4,{align:'right'});
   pdf.text(line.estimatedCost===null?'-':formatRupiah(line.estimatedCost),x[6]-2,y+4,{align:'right'});
-  pdf.text(line.actualCostComplete===false?'Belum lengkap':formatRupiah(line.actualCost),x[7]-2,y+4,{align:'right'});
+  var actualText=!line.hasActualMovement&&line.actualQty<=0?'-':line.actualCostComplete===false?'Belum lengkap':formatRupiah(line.actualCost);
+  pdf.text(actualText,x[7]-2,y+4,{align:'right'});
   pdf.setFont('helvetica','bold');
   var variance=line.varianceCost===null?'-':(line.varianceCost>0?'+':'')+formatRupiah(line.varianceCost);
   pdf.text(variance,x[8]-2,y+4,{align:'right'});
