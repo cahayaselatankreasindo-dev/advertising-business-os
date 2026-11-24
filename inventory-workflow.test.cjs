@@ -243,6 +243,8 @@ assert.match(ui,/data-inv-action="pick-reservation"/,'each reserved material exp
 assert.match(ui,/openReservationPick/,'picking action opens a prefilled issue transaction for the selected Sales Order');
 assert.match(ui,/prefillReservationId/,'picking transaction preserves the exact server-issued reservation ID');
 assert.match(ui,/data-pick-qty/,'picking action caps the suggested issue quantity to the remaining reservation and physical stock');
+assert.match(ui,/maximumFractionDigits:4/,'stock quantities display the precision required by material conversion factors');
+assert.match(ui,/step="0\.0001"/,'picking form accepts converted stock quantities to four decimal places');
 assert.match(ui,/inv-sales-order/,'Inventory issue form supports Sales Order-linked material consumption');
 assert.match(ui,/inv-reservation-id/,'Inventory issue form attaches the exact reservation row to each stock issue');
 assert.match(backend,/ReservationID/,'inventory ledger schema stores an immutable reservation reference');
