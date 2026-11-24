@@ -236,8 +236,8 @@ const FIELD_MAP = sandbox.FIELD_MAP;
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
-    ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoice_Payments','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Sales_Orders','Inventory_Transactions','Services'].sort(),
-    'FIELD_MAP mencakup 16 tab');
+    ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Inventory_Reservations','Invoice_Payments','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Sales_Orders','Inventory_Transactions','Services'].sort(),
+    'FIELD_MAP mencakup 17 tab');
   eq(FIELD_MAP.Purchase_Orders.headers,
     ['ID','ProjectID','NamaProyek','Supplier','Tanggal','ItemsJSON','Total','Status','CreatedAt','UpdatedAt','InventoryControlVersion'],
     'Purchase Orders menambahkan versi kontrol penerimaan tanpa mengubah kolom lama');
@@ -245,11 +245,17 @@ if (FIELD_MAP) {
     ['id','projectId','projectName','supplier','date','itemsJson','total','status','createdAt','updatedAt','inventoryControlVersion'],
     'Purchase Orders inventory control version terpetakan');
   eq(FIELD_MAP.Inventory_Transactions.headers,
-    ['ID','NomorTransaksi','MaterialID','NamaMaterial','JenisPergerakan','Qty','Satuan','Tanggal','ProjectID','NamaProyek','PurchaseOrderID','Supplier','Referensi','Catatan','CreatedAt','CreatedBy'],
-    'FIELD_MAP.Inventory_Transactions mempertahankan append-only stock ledger');
+    ['ID','NomorTransaksi','MaterialID','NamaMaterial','JenisPergerakan','Qty','Satuan','Tanggal','ProjectID','NamaProyek','PurchaseOrderID','Supplier','Referensi','Catatan','CreatedAt','CreatedBy','SalesOrderID','ReservationID'],
+    'FIELD_MAP.Inventory_Transactions mempertahankan append-only stock ledger dan relasi Sales Order');
   eq(FIELD_MAP.Inventory_Transactions.fields,
-    ['id','transactionNo','materialId','materialName','movement','qty','unit','date','projectId','projectName','purchaseOrderId','supplier','reference','notes','createdAt','createdBy'],
-    'FIELD_MAP.Inventory_Transactions fields terpetakan lengkap');
+    ['id','transactionNo','materialId','materialName','movement','qty','unit','date','projectId','projectName','purchaseOrderId','supplier','reference','notes','createdAt','createdBy','salesOrderId','reservationId'],
+    'FIELD_MAP.Inventory_Transactions fields terpetakan lengkap termasuk salesOrderId');
+  eq(FIELD_MAP.Inventory_Reservations.headers,
+    ['ID','NomorReservasi','SalesOrderID','NomorSO','ProjectID','NamaProyek','MaterialID','NamaMaterial','Qty','Satuan','Status','CreatedAt','CreatedBy','ReleasedAt','ReleaseReason'],
+    'FIELD_MAP.Inventory_Reservations headers terpetakan lengkap');
+  eq(FIELD_MAP.Inventory_Reservations.fields,
+    ['id','reservationNo','salesOrderId','orderNo','projectId','projectName','materialId','materialName','qty','unit','status','createdAt','createdBy','releasedAt','releaseReason'],
+    'FIELD_MAP.Inventory_Reservations fields terpetakan lengkap');
   eq(FIELD_MAP.Sales_Orders.headers,
     ['ID','NomorSO','QuotationID','NomorQuotation','ProjectID','NamaProyek','Klien','WhatsAppKlien','EmailKlien','TanggalOrder','TanggalPengiriman','ItemsJSON','Total','DPPersen','DPWajib','Status','RiwayatJSON','Catatan','CreatedAt','UpdatedAt','SourceCostSheetSnapshotJSON'],
     'FIELD_MAP.Sales_Orders mempertahankan snapshot order dan riwayat');

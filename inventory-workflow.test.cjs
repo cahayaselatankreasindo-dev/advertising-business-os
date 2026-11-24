@@ -67,6 +67,67 @@ assert.throws(()=>E.validateTransaction({
  purchaseOrderId:'PO-001'
 },{materials,projects,purchaseOrders:[{...po,status:'draft'}],transactions:[]}),/berstatus Dipesan/);
 
+const hollowMaterial={id:'MAT-HOLLOW-6M',name:'Hollow hitam 2 × 2 cm, tebal 1 mm',sku:'H-H-2X2-1',unit:'m',purchaseUnit:'batang',conversionFactor:6,unitPrice:20000,purchasePrice:120000,status:'active'};
+const hollowPO={id:'PO-HOLLOW-001',supplier:'Supplier Hollow',status:'ordered',items:[{materialId:hollowMaterial.id,sku:hollowMaterial.sku,name:hollowMaterial.name,qty:2,unit:'batang',purchaseUnit:'batang',usageUnit:'m',conversionFactor:6,unitPrice:120000,usageUnitPrice:20000}]};
+const hollowReceipt=E.validateTransaction({
+ materialId:hollowMaterial.id,movement:'receipt',qty:6,unit:'m',date:'2026-11-20',purchaseOrderId:hollowPO.id
+},{materials:[hollowMaterial],projects,purchaseOrders:[hollowPO],transactions:[]});
+assert.equal(hollowReceipt.transaction.qty,6,'one 6m bar is received into stock as six meters');
+assert.equal(hollowReceipt.transaction.unit,'m','stock ledger always stores usage units');
+assert.throws(()=>E.validateTransaction({
+ materialId:hollowMaterial.id,movement:'receipt',qty:7,unit:'m',date:'2026-11-21',purchaseOrderId:hollowPO.id
+},{materials:[hollowMaterial],projects,purchaseOrders:[hollowPO],transactions:[hollowReceipt.transaction]}),/melebihi sisa/,'receipt cannot exceed two purchased bars after conversion');
+
+const reservationOrder={id:'SO-INV-UI-0001',projectId:'PRJ-001',status:'in_production'};
+const reservation={id:'RSV-UI-0001',salesOrderId:reservationOrder.id,materialId:'MAT-ACR',qty:4,unit:'m2',status:'active'};
+const reservedOpening=tx('00000020','STK-CSK-2026-00020','opening',5,'2026-11-01');
+const linkedIssue=E.validateTransaction({
+ materialId:'MAT-ACR',movement:'issue',qty:2,unit:'m2',date:'2026-11-15',
+ projectId:'PRJ-001',salesOrderId:reservationOrder.id,reservationId:reservation.id
+},{materials,projects,transactions:[reservedOpening],salesOrders:[reservationOrder],inventoryReservations:[reservation]});
+assert.equal(linkedIssue.transaction.salesOrderId,reservationOrder.id,'stock issue stores its Sales Order link');
+assert.equal(linkedIssue.transaction.reservationId,reservation.id,'stock issue stores the exact reservation row ID');
+assert.equal(linkedIssue.balances['MAT-ACR'],3,'linked material issue reduces physical stock');
+
+const linkedReturn=E.validateTransaction({
+ materialId:'MAT-ACR',movement:'return',qty:1,unit:'m2',date:'2026-11-16',
+ projectId:'PRJ-001',salesOrderId:reservationOrder.id,reservationId:reservation.id
+},{materials,projects,transactions:[reservedOpening,linkedIssue.transaction],salesOrders:[reservationOrder],inventoryReservations:[reservation]});
+assert.equal(linkedReturn.balances['MAT-ACR'],4,'linked material return restores physical stock');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'return',qty:3,unit:'m2',date:'2026-11-16',
+ projectId:'PRJ-001',salesOrderId:reservationOrder.id,reservationId:reservation.id
+},{materials,projects,transactions:[reservedOpening,linkedIssue.transaction],salesOrders:[reservationOrder],inventoryReservations:[reservation]}),/melebihi jumlah yang sudah dikeluarkan/,'return quantity cannot exceed net quantity issued from the reservation');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'return',qty:1,unit:'m2',date:'2026-11-16',projectId:'PRJ-001'
+},{materials,projects,transactions:[reservedOpening,linkedIssue.transaction],salesOrders:[reservationOrder],inventoryReservations:[reservation]}),/harus ditautkan ke Sales Order/,'returns from reserved Sales Order stock must retain their source reservation link');
+const reissueAfterReturn=E.validateTransaction({
+ materialId:'MAT-ACR',movement:'issue',qty:3,unit:'m2',date:'2026-11-17',
+ projectId:'PRJ-001',salesOrderId:reservationOrder.id,reservationId:reservation.id
+},{materials,projects,transactions:[reservedOpening,linkedIssue.transaction,linkedReturn.transaction],salesOrders:[reservationOrder],inventoryReservations:[reservation]});
+assert.equal(reissueAfterReturn.balances['MAT-ACR'],1,'returned material becomes available for picking again within the same reservation');
+
+const deliveredOrder={...reservationOrder,status:'delivered'};
+const terminalStockIssue=E.validateTransaction({
+ materialId:'MAT-ACR',movement:'issue',qty:5,unit:'m2',date:'2026-11-16',projectId:'PRJ-001'
+},{materials,projects,transactions:[reservedOpening],salesOrders:[deliveredOrder],inventoryReservations:[reservation]});
+assert.equal(terminalStockIssue.balances['MAT-ACR'],0,'stale reservations for delivered Sales Orders do not block stock availability');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'issue',qty:1,unit:'m2',date:'2026-11-16',projectId:'PRJ-001',
+ salesOrderId:deliveredOrder.id,reservationId:reservation.id
+},{materials,projects,transactions:[reservedOpening],salesOrders:[deliveredOrder],inventoryReservations:[reservation]}),/Sales Order tidak berada/,'new linked issues are blocked after Sales Order delivery');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'issue',qty:2,unit:'m2',date:'2026-11-15',projectId:'PRJ-001'
+},{materials,projects,transactions:[reservedOpening],inventoryReservations:[reservation]}),/dikunci oleh Sales Order/,'unlinked issue cannot consume reserved stock');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'issue',qty:5,unit:'m2',date:'2026-11-15',
+ projectId:'PRJ-001',salesOrderId:reservationOrder.id,reservationId:reservation.id
+},{materials,projects,transactions:[reservedOpening],salesOrders:[reservationOrder],inventoryReservations:[reservation]}),/melebihi sisa reservasi/,'linked issue cannot exceed the reserved quantity');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'issue',qty:1,unit:'m2',date:'2026-11-15',
+ projectId:'PRJ-001',salesOrderId:reservationOrder.id,reservationId:'RSV-WRONG'
+},{materials,projects,transactions:[reservedOpening],salesOrders:[reservationOrder],inventoryReservations:[reservation]}),/belum memiliki reservasi yang dapat digunakan/,'linked issue must reference an active reservation row');
+
 const demand=E.calculateHppRequirements({
  projectId:'PRJ-001',
  items:[
@@ -169,6 +230,7 @@ const deploy=fs.readFileSync('apps-script/Code.gs','utf8');
 const guard=fs.readFileSync('security/guard.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
 const ui=fs.readFileSync('inventory.js','utf8');
+const inventoryEngineSource=fs.readFileSync('inventory-engine.js','utf8');
 const salesUI=fs.readFileSync('sales-orders.js','utf8');
 const sw=fs.readFileSync('sw.js','utf8');
 const auth=fs.readFileSync('backend-auth.test.cjs','utf8');
@@ -182,8 +244,36 @@ assert.match(backend,/validatePurchaseOrderReceiptStatuses_/,'backend validates 
 assert.match(backend,/PURCHASE_ORDER_RECEIPT_INCOMPLETE/,'new versioned POs cannot be marked received before all items are received');
 assert.match(backend,/inventoryControlVersion/,'legacy Purchase Orders remain compatible while new POs require receipt control');
 assert.match(backend,/INVENTORY_LEDGER_SERVER_ONLY/,'direct insert and delete are blocked');
+assert.match(backend,/reserveSalesOrderStock_/,'backend provides an atomic Sales Order stock reservation action');
+assert.match(backend,/LockService\.getScriptLock\(\)/,'stock reservation is protected by a script lock');
+assert.match(backend,/RESERVATION_STOCK_INSUFFICIENT/,'stock reservation rejects competing orders when free stock is insufficient');
+assert.match(backend,/Inventory_Reservations/,'reservation records use a dedicated server-owned sheet');
+assert.match(backend,/releaseSalesOrderReservation_/,'Owner can release an active Sales Order reservation');
+assert.match(backend,/releaseTerminalSalesOrderReservations_\(ss, payload\.salesOrders, identity, true\)/,'terminal Sales Order status automatically releases active reservations');
+assert.match(backend,/reconcileConsumedReservations_\(ss\)/,'fully consumed reservations are closed after stock issues sync');
 assert.match(guard,/inventoryTransactions/,'owner sync includes inventory ledger');
 assert.match(guard,/inventory/,'inventory navigation is Owner-only');
+assert.match(guard,/reserveSalesOrderStock/,'authenticated client exposes verified reserve action');
+assert.match(guard,/releaseSalesOrderReservation/,'authenticated client exposes verified release action');
+assert.match(guard,/inventoryReservations = identity\.role === 'owner'/,'reservation state is read from cloud and never added to generic sync collections');
+assert.match(html,/reserveSalesOrderStock: function/,'Business OS bridge exposes reservation actions to Inventory UI');
+assert.match(ui,/renderReservationPanel/,'Inventory UI displays locked Sales Order reservations');
+assert.match(ui,/Reservasi Stok Terkunci & Picking List/,'Inventory UI combines locked reservations with a production picking list');
+assert.match(ui,/data-inv-action="pick-reservation"/,'each reserved material exposes a direct picking action');
+assert.match(ui,/openReservationPick/,'picking action opens a prefilled issue transaction for the selected Sales Order');
+assert.match(ui,/prefillReservationId/,'picking transaction preserves the exact server-issued reservation ID');
+assert.match(ui,/data-pick-qty/,'picking action caps the suggested issue quantity to the remaining reservation and physical stock');
+assert.match(ui,/maximumFractionDigits:4/,'stock quantities display the precision required by material conversion factors');
+assert.match(ui,/step="0\.0001"/,'picking form accepts converted stock quantities to four decimal places');
+assert.match(ui,/inv-sales-order/,'Inventory issue form supports Sales Order-linked material consumption');
+assert.match(ui,/inv-reservation-id/,'Inventory issue form attaches the exact reservation row to each stock issue');
+assert.match(inventoryEngineSource,/if\(\['issue','return','adjustment_out'\]\.indexOf\(input\.movement\)>=0\)/,'reservation stock invariant is also enforced for returns');
+assert.match(ui,/returning\?Math\.max\(0,netIssued\):remaining/,'return form limits quantity to net material issued from the selected reservation');
+assert.match(ui,/Retur ditautkan ke/,'return UI confirms that the material return is linked to the originating Sales Order');
+assert.match(backend,/ReservationID/,'inventory ledger schema stores an immutable reservation reference');
+assert.match(ui,/data-inv-action="reserve-so"/,'Owner can lock stock from the Inventory page');
+assert.match(ui,/data-inv-action="release-so"/,'Owner can release an active stock reservation');
+assert.match(ui,/canRelease=String\(order\.status\|\|'\'\)\.toLowerCase\(\)==='ready_production'/,'manual reservation release is limited to orders that have not started production');
 assert.match(html,/id="page-inventory"/,'inventory page is mounted in Business OS');
 assert.match(html,/CSKInventoryBridge/,'inventory uses internal Business OS bridge');
 assert.match(html,/costSheets: db\.costSheets \|\| \[\], salesOrders: db\.salesOrders \|\| \[\]/,'inventory bridge supplies HPP and Sales Order data to the commitment monitor');
@@ -192,7 +282,7 @@ assert.match(ui,/openInventoryReceiptFromPO/,'inventory UI supports PO-linked re
 assert.match(ui,/calculateOpenSalesOrderCommitments/,'inventory UI calculates cross-project active Sales Order commitments');
 assert.match(ui,/Komitmen Material Sales Order/,'inventory page shows the active production material commitment panel');
 assert.match(ui,/Estimasi bebas/,'inventory page distinguishes physical stock from estimated free stock');
-assert.match(ui,/monitoring, bukan reservasi stok yang terkunci/,'inventory UI clearly labels commitments as advisory, not locked reservations');
+assert.match(ui,/Setiap pengeluaran ditautkan ke Sales Order dan ID reservasi yang tepat/,'inventory UI explains exact Sales Order and reservation linkage for each picking transaction');
 assert.match(salesUI,/calculateHppRequirements/,'Sales Order material plan uses HPP and verified unit conversion');
 assert.match(salesUI,/createDraftPOFromShortage/,'Sales Order can create supplier-grouped draft POs from HPP shortages');
 assert.match(salesUI,/openPurchaseOrderQty/,'shortage planner subtracts quantities already covered by draft or ordered POs');

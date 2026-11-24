@@ -14,6 +14,23 @@
     if(!Number.isFinite(n)||n<0)throw new Error(label+' tidak boleh negatif.');
     return n;
   }
+  function getBaseUsageUnitPrice(material){
+    if(!material||typeof material!=='object')throw new Error('Data material tidak tersedia.');
+    const unit=String(material.unit||'').trim();
+    const purchaseUnit=String(material.purchaseUnit||unit).trim();
+    const purchasePrice=Number(material.purchasePrice);
+    const rawFactor=material.conversionFactor;
+    const factor=rawFactor===undefined||rawFactor===null||rawFactor===''?1:Number(rawFactor);
+    const unitPrice=Number(material.unitPrice);
+    const waste=Number(material.wasteRate)||0;
+    if(!Number.isFinite(waste)||waste<0||waste>100)throw new Error('Waste master harus 0 sampai 100 persen.');
+    if(Number.isFinite(purchasePrice)&&purchasePrice>0){
+      if(!Number.isFinite(factor)||factor<=0||!unit||!purchaseUnit)throw new Error('Faktor konversi material belum valid.');
+      return purchasePrice/factor;
+    }
+    if(purchaseUnit!==unit||!Number.isFinite(unitPrice)||unitPrice<=0)throw new Error('Harga dasar per satuan pakai belum tersedia.');
+    return unitPrice/(1+waste/100);
+  }
   function wasteAdjustedQty(qty,waste){
     const q=positive(qty,'Kuantitas');
     const w=nonNegative(waste||0,'Waste');
@@ -183,5 +200,5 @@
     const volumeM3=w*h*d*qty/1000000000*(1+waste/100);
     return {lineQty:volumeM3,lineUnit:'m3',lineUnitPrice:positive(input.unitPrice,'Harga per m3'),totalCost:volumeM3*Number(input.unitPrice),volumeM3};
   }
-  return {calculateSheetCutList,calculateBarCutList,calculatePackCost,calculateAreaCost,calculateLinearCost,calculateVolumeCost};
+  return {getBaseUsageUnitPrice,calculateSheetCutList,calculateBarCutList,calculatePackCost,calculateAreaCost,calculateLinearCost,calculateVolumeCost};
 });

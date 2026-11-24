@@ -25,6 +25,20 @@
     cancelled:'Dibatalkan'
   };
   function n(value){var x=Number(value);return Number.isFinite(x)?x:0;}
+  function purchaseQuantityForStock(stockQty,material){
+    var required=Number(stockQty),factor=Number(material&&material.conversionFactor),unit=String(material&&material.purchaseUnit||material&&material.unit||'').trim();
+    if(!Number.isFinite(required)||required<0||!Number.isFinite(factor)||factor<=0||!unit)throw new Error('Kuantitas stok, satuan beli, atau faktor konversi material tidak valid.');
+    var quantity=required/factor;
+    if(/^(lembar|sheet|batang|roll|pcs|pc|pack|pak|box|dus|set|unit|botol|tube|cartridge|kaleng|ream|rim)$/i.test(unit))quantity=Math.ceil(quantity-0.0000001);
+    return Math.round(quantity*10000)/10000;
+  }
+  function purchasePriceForUnit(material){
+    var price=Number(material&&material.purchasePrice),factor=Number(material&&material.conversionFactor);
+    if(Number.isFinite(price)&&price>0)return price;
+    var usagePrice=Number(material&&material.unitPrice),waste=Number(material&&material.wasteRate)||0;
+    if(Number.isFinite(usagePrice)&&usagePrice>0&&Number.isFinite(factor)&&factor>0)return usagePrice/(1+waste/100)*factor;
+    return 0;
+  }
   function localDate(value){
     var d=value instanceof Date?value:new Date(value||Date.now());
     return[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
@@ -139,6 +153,7 @@
   function statusLabel(status){return LABELS[status]||String(status||'-');}
   return{
     TRANSITIONS:TRANSITIONS,LABELS:LABELS,calculateDeposit:calculateDeposit,
+    purchaseQuantityForStock:purchaseQuantityForStock,purchasePriceForUnit:purchasePriceForUnit,
     summarizePayments:summarizePayments,nextOrderNumber:nextOrderNumber,
     buildOrder:buildOrder,canTransition:canTransition,transition:transition,
     availableActions:availableActions,statusLabel:statusLabel,localDate:localDate

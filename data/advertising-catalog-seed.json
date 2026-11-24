@@ -1,12 +1,12 @@
 {
-  "catalogVersion": 1,
+  "catalogVersion": 2,
   "catalogName": "CSK Advertising & Fabrication Reference Catalog",
   "currency": "IDR",
   "status": "REFERENCE_TEMPLATE_NOT_YET_PRICED",
   "purpose": "Template katalog bahan baku dan jasa untuk diaktifkan setelah spesifikasi, supplier, satuan beli, dan harga aktual diverifikasi oleh CSK.",
   "pricingPolicy": "Harga tidak diisi dengan angka perkiraan. Setiap SKU hasil aktivasi wajib memiliki sumber harga, supplier atau bukti pembelian, tanggal berlaku, satuan beli, satuan pakai, dan faktor konversi yang benar.",
   "activationPolicy": "Template tidak boleh langsung masuk ke quotation sebagai item berharga nol. Owner harus melengkapi harga aktual dan mengaktifkan SKU terlebih dahulu.",
-  "specificationNote": "Ukuran, ketebalan, gramatur, warna, dan panjang standar di bawah adalah opsi referensi umum. Ketersediaan aktual wajib dikonfirmasi ke supplier CSK sebelum SKU diaktifkan.",
+  "specificationNote": "Spesifikasi referensi bersifat panduan; ukuran, grade, kompatibilitas, legalitas kayu, dan ketersediaan harus dikonfirmasi ke supplier. Harga tidak dibuat-buat dan wajib diisi berdasarkan bukti harga aktual.",
   "materialFamilies": [
     {
       "familyCode": "PAP-HVS",
@@ -578,7 +578,7 @@
       "familyCode": "WOOD-SOLID",
       "category": "Kayu dan panel",
       "familyName": "Kayu Solid",
-      "description": "Kayu solid untuk rangka, kaki, list, dan komponen custom. Harga bergantung grade, kadar air, dan dimensi.",
+      "description": "Kayu solid untuk rangka, furnitur display, signage, booth, dan pekerjaan custom. Spesies, grade, kadar air, asal, dan legalitas kayu wajib diverifikasi dari supplier.",
       "purchaseUnit": "m3, batang, atau meter (sesuai supplier)",
       "usageUnit": "m3 atau meter",
       "costingMethod": "dimension_or_volume",
@@ -591,8 +591,23 @@
           "Sungkai",
           "Kamper",
           "Mindi",
-          "Albasia",
-          "Merbau"
+          "Albasia / Sengon",
+          "Merbau",
+          "Bengkirai",
+          "Ulin / Kayu Besi",
+          "Sonokeling",
+          "Trembesi",
+          "Nyatoh",
+          "Keruing",
+          "Kruing",
+          "Akasia",
+          "Jabon",
+          "Kayu Kelapa",
+          "Matoa",
+          "Ramin",
+          "Jati Belanda / Pinus Pallet",
+          "Kayu Lapis Laminasi",
+          "Jenis lain sesuai supplier"
         ],
         "grade": [
           "A",
@@ -623,8 +638,11 @@
           "Extruded (verifikasi supplier)"
         ],
         "thicknessMm": [
+          0.8,
           1,
+          1.5,
           2,
+          2.5,
           3,
           4,
           5,
@@ -633,8 +651,10 @@
           10,
           12,
           15,
+          18,
           20,
-          25
+          25,
+          30
         ],
         "sheetSizes": [
           {
@@ -712,13 +732,19 @@
           "Warna khusus"
         ],
         "thicknessMm": [
+          1.5,
           2,
+          2.5,
           3,
           4,
           5,
           6,
           8,
-          10
+          10,
+          12,
+          15,
+          18,
+          20
         ],
         "sheetSizes": [
           {
@@ -784,12 +810,19 @@
           "Frosted Color"
         ],
         "thicknessMm": [
+          1.5,
           2,
+          2.5,
           3,
           4,
           5,
           6,
-          8
+          8,
+          10,
+          12,
+          15,
+          18,
+          20
         ],
         "sheetSizes": [
           {
@@ -1379,6 +1412,562 @@
           230
         ]
       }
+    },
+    {
+      "familyCode": "PVC-SHEET",
+      "category": "Panel plastik dan komposit",
+      "familyName": "PVC Sheet Roll / PVC Flexible Sheet",
+      "description": "PVC sheet fleksibel untuk cover, pelapis, dekorasi, dan kebutuhan display. Verifikasi lebar, tebal, warna, panjang roll, dan jenis PVC dari supplier.",
+      "purchaseUnit": "roll",
+      "usageUnit": "m2",
+      "costingMethod": "roll_width_length",
+      "attributes": {
+        "thicknessMm": [
+          0.2,
+          0.22,
+          0.25,
+          0.28,
+          0.3,
+          0.35,
+          0.4,
+          0.5,
+          0.7,
+          1
+        ],
+        "rollWidthsMm": [
+          900,
+          1000,
+          1220,
+          1250,
+          1400,
+          1500,
+          1600
+        ],
+        "rollLengthsM": [
+          10,
+          20,
+          25,
+          30,
+          50
+        ],
+        "colors": [
+          "Putih",
+          "Hitam",
+          "Bening",
+          "Abu-abu",
+          "Warna custom"
+        ],
+        "finish": [
+          "Glossy",
+          "Matte"
+        ]
+      }
+    },
+    {
+      "familyCode": "HPL",
+      "category": "Kayu dan panel",
+      "familyName": "HPL / Decorative Laminate",
+      "description": "High Pressure Laminate untuk finishing panel, furnitur display, booth, dan interior komersial.",
+      "purchaseUnit": "lembar",
+      "usageUnit": "m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "thicknessMm": [
+          0.6,
+          0.7,
+          0.8,
+          1
+        ],
+        "sheetSizes": [
+          {
+            "code": "1220x2440",
+            "widthMm": 1220,
+            "lengthMm": 2440
+          }
+        ],
+        "finish": [
+          "Solid Color",
+          "Woodgrain",
+          "Stone",
+          "Metallic",
+          "Texture",
+          "Glossy",
+          "Matte"
+        ],
+        "colors": [
+          "Putih",
+          "Hitam",
+          "Abu-abu",
+          "Cokelat",
+          "Warna custom"
+        ]
+      }
+    },
+    {
+      "familyCode": "WPC",
+      "category": "Kayu dan panel",
+      "familyName": "WPC Board / Decking / Wall Panel",
+      "description": "Wood Plastic Composite untuk cladding, decking, panel dekoratif, dan display. Profil dan dimensi wajib mengikuti data produk supplier.",
+      "purchaseUnit": "batang atau panel",
+      "usageUnit": "m atau m2",
+      "costingMethod": "bar_length_cutlist",
+      "attributes": {
+        "types": [
+          "Decking Hollow",
+          "Decking Solid",
+          "Wall Panel",
+          "Fluted Panel",
+          "Board"
+        ],
+        "standardLengthMm": [
+          2900,
+          3000,
+          3600,
+          4000,
+          5800,
+          6000
+        ],
+        "widthMm": [
+          100,
+          120,
+          140,
+          150,
+          160,
+          200
+        ],
+        "thicknessMm": [
+          10,
+          15,
+          20,
+          25,
+          30
+        ],
+        "colors": [
+          "Teak",
+          "Walnut",
+          "Grey",
+          "Charcoal",
+          "Custom"
+        ]
+      }
+    },
+    {
+      "familyCode": "ACR-ROD",
+      "category": "Akrilik",
+      "familyName": "Acrylic Rod / Tube",
+      "description": "Batang dan pipa akrilik untuk display, penyangga, aksesoris, dan fabrikasi khusus.",
+      "purchaseUnit": "batang",
+      "usageUnit": "m",
+      "costingMethod": "bar_length_cutlist",
+      "attributes": {
+        "types": [
+          "Rod Solid",
+          "Tube Hollow"
+        ],
+        "diameterMm": [
+          3,
+          4,
+          5,
+          6,
+          8,
+          10,
+          12,
+          15,
+          20,
+          25,
+          30,
+          40,
+          50,
+          60,
+          80,
+          100
+        ],
+        "standardLengthMm": [
+          1000,
+          1500,
+          2000
+        ],
+        "colors": [
+          "Clear",
+          "White",
+          "Black",
+          "Color"
+        ]
+      }
+    },
+    {
+      "familyCode": "AL-SHEET",
+      "category": "Logam dan profil",
+      "familyName": "Aluminium Sheet / Coil",
+      "description": "Lembaran dan coil aluminium untuk panel, signage, casing, dan komponen fabrikasi.",
+      "purchaseUnit": "lembar atau roll",
+      "usageUnit": "m2",
+      "costingMethod": "sheet_cutlist",
+      "attributes": {
+        "thicknessMm": [
+          0.3,
+          0.4,
+          0.5,
+          0.6,
+          0.8,
+          1,
+          1.2,
+          1.5,
+          2,
+          3,
+          4,
+          5
+        ],
+        "sheetSizes": [
+          {
+            "code": "1220x2440",
+            "widthMm": 1220,
+            "lengthMm": 2440
+          },
+          {
+            "code": "1000x2000",
+            "widthMm": 1000,
+            "lengthMm": 2000
+          },
+          {
+            "code": "1500x3000",
+            "widthMm": 1500,
+            "lengthMm": 3000
+          }
+        ],
+        "alloy": [
+          "1100",
+          "3003",
+          "5052",
+          "6061",
+          "Ikuti supplier"
+        ],
+        "finish": [
+          "Mill Finish",
+          "Anodized",
+          "Brushed",
+          "Mirror",
+          "Powder Coated"
+        ]
+      }
+    },
+    {
+      "familyCode": "PVC-EDGE",
+      "category": "Kayu dan panel",
+      "familyName": "PVC Edge Banding",
+      "description": "Pita edging untuk finishing sisi MDF, plywood, blockboard, dan panel furnitur.",
+      "purchaseUnit": "roll",
+      "usageUnit": "m",
+      "costingMethod": "roll_width_length",
+      "attributes": {
+        "thicknessMm": [
+          0.4,
+          0.5,
+          0.8,
+          1,
+          1.5,
+          2
+        ],
+        "widthMm": [
+          19,
+          22,
+          28,
+          35,
+          40,
+          45,
+          50
+        ],
+        "rollLengthsM": [
+          25,
+          50,
+          100,
+          200
+        ],
+        "colors": [
+          "White",
+          "Black",
+          "Grey",
+          "Woodgrain",
+          "Custom"
+        ]
+      }
+    },
+    {
+      "familyCode": "PRINT-INK",
+      "category": "Tinta dan consumables printing",
+      "familyName": "Tinta Digital / UV / Eco-Solvent",
+      "description": "Tinta printer untuk digital, eco-solvent, solvent, UV, latex, dan sublimasi. Kecocokan tinta dengan mesin dan printhead wajib diverifikasi.",
+      "purchaseUnit": "botol atau liter",
+      "usageUnit": "ml",
+      "costingMethod": "package_to_usage",
+      "attributes": {
+        "types": [
+          "Eco-Solvent",
+          "Solvent",
+          "Mild Solvent",
+          "UV Ink",
+          "Latex Ink",
+          "Dye Sublimation",
+          "Dye",
+          "Pigment"
+        ],
+        "colors": [
+          "Cyan",
+          "Magenta",
+          "Yellow",
+          "Black",
+          "Light Cyan",
+          "Light Magenta",
+          "White",
+          "Varnish",
+          "Clear"
+        ],
+        "packageSizes": [
+          "100 ml",
+          "250 ml",
+          "500 ml",
+          "1 liter",
+          "5 liter"
+        ],
+        "compatibility": [
+          "Konfirmasi model printer dan printhead"
+        ]
+      }
+    },
+    {
+      "familyCode": "DTF-CONS",
+      "category": "Tinta dan consumables printing",
+      "familyName": "DTF / Heat Transfer Consumables",
+      "description": "Film DTF, hot melt powder, heat transfer vinyl, dan bahan transfer untuk apparel serta merchandise.",
+      "purchaseUnit": "roll, pack, atau kg",
+      "usageUnit": "m atau m2 atau kg",
+      "costingMethod": "package_to_usage",
+      "attributes": {
+        "types": [
+          "DTF PET Film",
+          "Hot Melt Powder",
+          "PU Heat Transfer Vinyl",
+          "Printable HTV",
+          "Sublimation Paper"
+        ],
+        "filmThicknessMicron": [
+          50,
+          60,
+          75,
+          100
+        ],
+        "rollWidthsMm": [
+          300,
+          330,
+          600
+        ],
+        "rollLengthsM": [
+          50,
+          100
+        ],
+        "colors": [
+          "White",
+          "Clear",
+          "Color",
+          "CMYK"
+        ]
+      }
+    },
+    {
+      "familyCode": "FABRIC",
+      "category": "Media printing roll",
+      "familyName": "Fabric / Textile Display Media",
+      "description": "Kain polyester, backlit textile, flag fabric, dan bahan display tekstil untuk event dan signage.",
+      "purchaseUnit": "roll atau meter",
+      "usageUnit": "m2",
+      "costingMethod": "roll_width_length",
+      "attributes": {
+        "types": [
+          "Polyester Fabric",
+          "Backlit Textile",
+          "Flag Fabric",
+          "Display Fabric",
+          "Canvas Textile"
+        ],
+        "weightGsm": [
+          90,
+          110,
+          130,
+          150,
+          180,
+          200,
+          230,
+          260
+        ],
+        "rollWidthsMm": [
+          914,
+          1270,
+          1520,
+          1800,
+          2500,
+          3200
+        ],
+        "rollLengthsM": [
+          30,
+          50,
+          100
+        ],
+        "finish": [
+          "Matte",
+          "Backlit",
+          "Blockout"
+        ]
+      }
+    },
+    {
+      "familyCode": "FOAM",
+      "category": "Panel plastik dan komposit",
+      "familyName": "EVA / XPE / Foam Sheet",
+      "description": "Lembaran foam untuk display, huruf timbul, packaging, padding, dan komponen dekoratif.",
+      "purchaseUnit": "lembar atau roll",
+      "usageUnit": "m2",
+      "costingMethod": "sheet_or_area",
+      "attributes": {
+        "types": [
+          "EVA Foam",
+          "XPE Foam",
+          "PE Foam",
+          "PU Foam"
+        ],
+        "thicknessMm": [
+          1,
+          2,
+          3,
+          5,
+          8,
+          10,
+          15,
+          20,
+          25,
+          30,
+          40,
+          50
+        ],
+        "sheetSizes": [
+          {
+            "code": "1000x2000",
+            "widthMm": 1000,
+            "lengthMm": 2000
+          },
+          {
+            "code": "1200x2400",
+            "widthMm": 1200,
+            "lengthMm": 2400
+          }
+        ],
+        "densityKgM3": [
+          20,
+          25,
+          30,
+          35,
+          45,
+          60,
+          80
+        ],
+        "colors": [
+          "White",
+          "Black",
+          "Grey",
+          "Color"
+        ]
+      }
+    },
+    {
+      "familyCode": "MAGNET",
+      "category": "Sticker dan bahan perekat",
+      "familyName": "Magnetic Sheet / Flexible Magnet",
+      "description": "Lembaran magnet fleksibel untuk signage, label, display, dan media promosi magnetik.",
+      "purchaseUnit": "roll atau lembar",
+      "usageUnit": "m2",
+      "costingMethod": "roll_width_length",
+      "attributes": {
+        "thicknessMm": [
+          0.3,
+          0.4,
+          0.5,
+          0.7,
+          0.8,
+          1,
+          1.5,
+          2
+        ],
+        "rollWidthsMm": [
+          300,
+          600,
+          620,
+          1000
+        ],
+        "rollLengthsM": [
+          5,
+          10,
+          15,
+          20,
+          30
+        ],
+        "finish": [
+          "Printable White",
+          "Plain Brown",
+          "Adhesive Backed"
+        ]
+      }
+    },
+    {
+      "familyCode": "VINYL-CUT",
+      "category": "Sticker dan bahan perekat",
+      "familyName": "Cutting Vinyl / Plotter Film",
+      "description": "Film vinyl berwarna untuk cutting sticker, lettering, branding, dan dekorasi kendaraan.",
+      "purchaseUnit": "roll",
+      "usageUnit": "m2",
+      "costingMethod": "roll_width_length",
+      "attributes": {
+        "thicknessMicron": [
+          60,
+          70,
+          80,
+          90,
+          100
+        ],
+        "rollWidthsMm": [
+          300,
+          610,
+          1000,
+          1220
+        ],
+        "rollLengthsM": [
+          10,
+          25,
+          50
+        ],
+        "types": [
+          "Monomeric",
+          "Polymeric",
+          "Cast",
+          "Reflective",
+          "Fluorescent",
+          "Metallic",
+          "Frosted"
+        ],
+        "colors": [
+          "White",
+          "Black",
+          "Red",
+          "Blue",
+          "Yellow",
+          "Green",
+          "Silver",
+          "Gold",
+          "Custom"
+        ],
+        "finish": [
+          "Glossy",
+          "Matte"
+        ]
+      }
     }
   ],
   "serviceFamilies": [
@@ -1935,7 +2524,7 @@
     }
   ],
   "catalogCounts": {
-    "materialFamilies": 41,
+    "materialFamilies": 53,
     "productAndServiceFamilies": 41
   }
 }

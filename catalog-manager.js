@@ -43,11 +43,11 @@ function ensureModal(){
   });
   modal.addEventListener('change',function(event){
     if(event.target.matches('[data-cm-attribute]'))updateVariantPreview();
-    if(event.target.id==='cm-purchase-price'||event.target.id==='cm-conversion-factor')updatePurchasePricePreview();
+    if(event.target.id==='cm-purchase-price'||event.target.id==='cm-conversion-factor'||event.target.id==='cm-waste-rate')updatePurchasePricePreview();
   });
   modal.addEventListener('input',function(event){
     if(event.target.id==='cm-search')renderFamilyList();
-    if(event.target.id==='cm-purchase-price'||event.target.id==='cm-conversion-factor')updatePurchasePricePreview();
+    if(event.target.id==='cm-purchase-price'||event.target.id==='cm-conversion-factor'||event.target.id==='cm-waste-rate')updatePurchasePricePreview();
   });
   w.document.body.appendChild(modal);
 }
@@ -147,9 +147,12 @@ function updatePurchasePricePreview(){
   var price=Number(el('cm-purchase-price')&&el('cm-purchase-price').value),factor=Number(el('cm-conversion-factor')&&el('cm-conversion-factor').value);
   var box=el('cm-price-preview');if(!box)return;
   if(!Number.isFinite(price)||price<=0||!Number.isFinite(factor)||factor<=0){box.textContent='Harga per satuan pakai: masukkan harga beli dan faktor konversi yang valid.';return;}
-  box.textContent='Harga per satuan pakai: '+rupiah(price/factor)+' ('+rupiah(price)+' / '+factor+')';
+  var waste=Number(el('cm-waste-rate')&&el('cm-waste-rate').value||0);
+  if(!Number.isFinite(waste)||waste<0||waste>100){box.textContent='Waste allowance harus antara 0 dan 100%.';return;}
+  var base=price/factor,landed=base*(1+waste/100);
+  box.textContent='Harga dasar per satuan pakai: '+rupiah(base)+' | HPP setelah waste '+waste+'%: '+rupiah(landed)+' ('+rupiah(price)+' / '+factor+')';
 }
-function saveMaterialFromCatalog(){
+async function saveMaterialFromCatalog(){
   if(!ownerOnly())return;
   var family=getSelectedFamily();if(!family)return;
   var sku=el('cm-sku').value.trim().toUpperCase(),name=el('cm-name').value.trim(),supplier=el('cm-supplier').value.trim(),source=el('cm-price-source').value.trim(),price=Number(el('cm-purchase-price').value),factor=Number(el('cm-conversion-factor').value),unit=el('cm-usage-unit').value.trim(),purchaseUnit=el('cm-purchase-unit').value.trim(),date=el('cm-price-date').value,waste=Number(el('cm-waste-rate').value);
@@ -157,7 +160,7 @@ function saveMaterialFromCatalog(){
   var database=getDb();if(!database){say('Database aplikasi belum siap.',true);return;}
   var materials=Array.isArray(database.materials)?database.materials:(database.materials=[]);
   if(materials.some(function(item){return String(item.sku||'').toUpperCase()===sku;})){say('SKU sudah terdaftar. Gunakan SKU yang berbeda atau edit material yang ada.',true);return;}
-  var familyAttributes=parseSelectedAttributes(),variant=buildVariant(family),purchasePrice=Math.round(price),unitPrice=purchasePrice/factor,now=new Date().toISOString();
+  var familyAttributes=parseSelectedAttributes(),variant=buildVariant(family),purchasePrice=Math.round(price),baseUnitPrice=purchasePrice/factor,unitPrice=baseUnitPrice*(1+waste/100),now=new Date().toISOString();
   var record={
     id:'MAT-'+Date.now()+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),
     sku:sku,name:name,category:family.category,subcategory:family.familyName,
@@ -169,12 +172,21 @@ function saveMaterialFromCatalog(){
     minimumOrder:1,wasteRate:waste,priceSource:source,priceDate:date,status:'active',notes:'Diaktifkan dari katalog referensi CSK.',updatedAt:now
   };
   materials.push(record);
-  if(typeof w.saveDB==='function')w.saveDB();
+  try{
+    if(typeof w.saveDB==='function')w.saveDB();
+    if(!w.CSKAuth||typeof w.CSKAuth.sync!=='function')throw new Error('Layanan sinkronisasi belum siap. Material belum diaktifkan.');
+    var verified=await w.CSKAuth.sync(true);
+    if(!verified)throw new Error('Sinkronisasi ke Google Sheets belum terverifikasi. Aktivasi dibatalkan, silakan periksa koneksi lalu coba lagi.');
+  }catch(error){
+    database.materials=materials.filter(function(item){return item.id!==record.id;});
+    if(typeof w.saveDB==='function')w.saveDB();
+    say(String(error&&error.message||error),true);return;
+  }
   if(typeof w.renderHpp==='function')w.renderHpp();
-  say('Material '+sku+' berhasil diaktifkan. Harga pakai '+rupiah(unitPrice)+'/'+unit+'.');
+  say('Material '+sku+' aktif dan tersinkron terverifikasi. HPP pakai '+rupiah(unitPrice)+'/'+unit+'.');
   closeCskCatalogManager();
 }
-function saveServiceFromCatalog(){
+async function saveServiceFromCatalog(){
   if(!ownerOnly())return;
   var family=getSelectedFamily();if(!family)return;
   var name=el('cm-service-name').value.trim(),sku=el('cm-service-sku').value.trim().toUpperCase(),unit=el('cm-service-unit').value,basePrice=Number(el('cm-service-price').value),costPrice=Number(el('cm-service-cost').value),supplier=el('cm-service-supplier').value.trim(),spec=el('cm-service-spec').value.trim();
@@ -182,10 +194,20 @@ function saveServiceFromCatalog(){
   var database=getDb();if(!database){say('Database aplikasi belum siap.',true);return;}
   var services=Array.isArray(database.services)?database.services:(database.services=[]);
   if(services.some(function(item){return String(item.sku||'').toUpperCase()===sku;})){say('SKU jasa sudah terdaftar.',true);return;}
-  services.push({id:'SVC-'+Date.now()+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),sku:sku,name:name,category:family.category,recordType:family.recordType==='product_template'?'product':'service',spec:spec,unit:unit,basePrice:Math.round(basePrice),costPrice:Math.round(costPrice),costingMethod:family.serviceCode,supplierName:supplier,status:'active',updatedAt:new Date().toISOString()});
-  if(typeof w.saveDB==='function')w.saveDB();
+  var record={id:'SVC-'+Date.now()+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),sku:sku,name:name,category:family.category,recordType:family.recordType==='product_template'?'product':'service',spec:spec,unit:unit,basePrice:Math.round(basePrice),costPrice:Math.round(costPrice),costingMethod:family.serviceCode,supplierName:supplier,status:'active',updatedAt:new Date().toISOString()};
+  services.push(record);
+  try{
+    if(typeof w.saveDB==='function')w.saveDB();
+    if(!w.CSKAuth||typeof w.CSKAuth.sync!=='function')throw new Error('Layanan sinkronisasi belum siap. Produk atau jasa belum diaktifkan.');
+    var verified=await w.CSKAuth.sync(true);
+    if(!verified)throw new Error('Sinkronisasi produk dan jasa ke Google Sheets belum terverifikasi. Aktivasi dibatalkan, silakan periksa koneksi lalu coba lagi.');
+  }catch(error){
+    database.services=services.filter(function(item){return item.id!==record.id;});
+    if(typeof w.saveDB==='function')w.saveDB();
+    say(String(error&&error.message||error),true);return;
+  }
   if(typeof w.renderServices==='function')w.renderServices();
-  say('Jasa '+sku+' berhasil ditambahkan ke katalog.');
+  say((record.recordType==='product'?'Produk ':'Jasa ')+sku+' aktif dan tersinkron terverifikasi.');
   closeCskCatalogManager();
 }
 function openCskCatalogManager(mode){
