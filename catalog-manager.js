@@ -160,7 +160,7 @@ async function saveMaterialFromCatalog(){
   var database=getDb();if(!database){say('Database aplikasi belum siap.',true);return;}
   var materials=Array.isArray(database.materials)?database.materials:(database.materials=[]);
   if(materials.some(function(item){return String(item.sku||'').toUpperCase()===sku;})){say('SKU sudah terdaftar. Gunakan SKU yang berbeda atau edit material yang ada.',true);return;}
-  var familyAttributes=parseSelectedAttributes(),variant=buildVariant(family),purchasePrice=Math.round(price),baseUnitPrice=purchasePrice/factor,unitPrice=baseUnitPrice*(1+waste/100),now=new Date().toISOString();
+  var familyAttributes=parseSelectedAttributes(),variant=buildVariant(family),purchasePrice=Math.round(price),baseUnitPrice=purchasePrice/factor,unitPrice=baseUnitPrice,now=new Date().toISOString();
   var record={
     id:'MAT-'+Date.now()+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),
     sku:sku,name:name,category:family.category,subcategory:family.familyName,
