@@ -305,3 +305,16 @@ Release boundary:
 - Client and Apps Script now reject a new stock movement dated earlier than the latest recorded movement for that material. This prevents a backdated receipt or issue from silently rewriting moving-average costs already assigned to other transactions and projects.
 - Apps Script sorts multiple incoming new movements chronologically before validation so offline batches are checked in a deterministic order.
 - CI covers both client and backend rejection of backdated movements.
+
+
+## 9. Update — 25 November 2026: Material cost reconciliation PDF
+
+Delivered on `feature/hpp-material-conversion-20261120`:
+- Added Owner-only Sales Order action to download an actual-versus-estimated material cost report.
+- New PDF API: `CSKPDF.normalizeMaterialCostReport`, `materialCostFilename`, `generateMaterialCostPdf`, and `downloadMaterialCostReport`.
+- Uses landscape A4, branded project/SO header, HPP estimate, actual net issue cost, cost variance, per-material breakdown, valuation status, explanatory notes, and signature fields.
+- Missing cost estimates remain null; incomplete actual valuation suppresses variance. Legacy Master fallback is visibly estimated.
+- Report is provisional until delivery/closure and return reconciliation; it is not full project profitability.
+- Tests cover normalization, unknown values, landscape page dimensions, pagination, and the Sales Order download action.
+
+Release boundary remains unchanged: no merge to main, no live Apps Script deployment, no Google Sheets migration, and no public website change.
