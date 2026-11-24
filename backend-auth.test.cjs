@@ -169,6 +169,7 @@ assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, { action: 're
 assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, { action: 'release_sales_order_reservation' }), /SALES_ORDER_ID_REQUIRED/, 'reservation release requires a Sales Order ID');
 assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, { action: 'release_sales_order_reservation', salesOrderId: 'SO-INV-00000001' }), /RESERVATION_RELEASE_REASON_REQUIRED/, 'reservation release requires an audit reason');
 assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, { action: 'insert', sheet: 'Inventory_Reservations', data: { id: 'RSV-FORGED-0001' } }), /INVENTORY_RESERVATIONS_SERVER_ONLY/, 'reservation ledger cannot be forged through generic insert');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, { action: 'sync_all', inventoryReservations: [] }), /INVENTORY_RESERVATIONS_SERVER_ONLY/, 'reservation ledger cannot be overwritten through generic sync');
 assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, { action: 'delete', sheet: 'Inventory_Reservations', id: 'RSV-TEST-0001' }), /INVENTORY_RESERVATIONS_SERVER_ONLY/, 'reservation ledger cannot be deleted through generic actions');
 assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
   action: 'delete', sheet: 'Inventory_Transactions', id: 'ITX-TEST-0001'
