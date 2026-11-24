@@ -272,3 +272,12 @@ Release boundary:
 - Includes project/SO references, HPP requirement, net issue, outstanding quantity, unit, physical check box, and warehouse handover signatures.
 - PDF generation is read-only. It never creates an Inventory transaction or changes stock; warehouse must record the actual issue separately.
 - CI passed after adding PDF generation and UI integration tests. Browser download/save still needs a manual check on iPhone Safari and desktop.
+
+
+## 10. Update — 25 November 2026: project material usage report
+
+- Sales Order detail now offers a branded, multi-page A4 PDF comparing HPP plan quantities with net project issues (issue less return), variance, and remaining HPP.
+- The report labels whether it uses the frozen production snapshot or current unfrozen HPP.
+- This is a quantity report only. Do not present net issued quantity as proven consumed quantity or as actual cost.
+- Actual cost reconciliation remains blocked until the Owner approves an inventory valuation method and verified cost capture for opening stock, supplier receipts, returns, and adjustments.
+- CI: CSK Security Tests run 900 PASS; CSK business source regression checks run 773 PASS.
