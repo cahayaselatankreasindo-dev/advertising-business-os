@@ -54,7 +54,6 @@ function fixture(){
   Purchase_Orders:new FakeSheet([map.Purchase_Orders.headers,rowFor('Purchase_Orders',po)]),
   Sales_Orders:new FakeSheet([map.Sales_Orders.headers]),
   Inventory_Transactions:new FakeSheet([map.Inventory_Transactions.headers]),
-  Sales_Orders:new FakeSheet([map.Sales_Orders.headers]),
   Cost_Sheets:new FakeSheet([map.Cost_Sheets.headers])
  });
 }
