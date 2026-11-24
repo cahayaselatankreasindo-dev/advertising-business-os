@@ -114,7 +114,7 @@ function saveScenario({cloudConfigured=true,syncResult=true,isOwner=true,existin
   assert.equal(success.rendered,1);
   assert.match(success.messages[0].message,/terverifikasi di Google Sheets/);
   const failed=await saveScenario({cloudConfigured:true,syncResult:false});
-  assert.deepEqual(failed.db.costSheets[0],failed.oldSheet,'failed cloud verification restores the prior HPP snapshot');
+  assert.equal(JSON.stringify(failed.db.costSheets[0]),JSON.stringify(failed.oldSheet),'failed cloud verification restores the prior HPP snapshot');
   assert.equal(failed.project.hpp,111,'failed cloud verification restores project HPP fields');
   assert.equal(failed.project.suggestedPrice,222);
   assert.equal(failed.saveCalls.length,2,'rollback is persisted locally after cloud verification fails');
