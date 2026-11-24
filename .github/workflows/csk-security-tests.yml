@@ -54,6 +54,7 @@ jobs:
           node --check deal-conversion.test.cjs
           node --check csk-visual-refresh.test.cjs
           node --check csk-ui-components.test.cjs
+          node --check dashboard.test.cjs
       - name: Mapping and RBAC integration tests
         run: node mapping.test.js
       - name: Commercial Document Center tests
@@ -72,6 +73,8 @@ jobs:
         run: node commercial-workflow.test.cjs
       - name: Backend security policy tests
         run: node backend-auth.test.cjs
+      - name: Dashboard prioritisation and status tests
+        run: node dashboard.test.cjs
       - name: CRM follow-up and project monitoring tests
         run: node crm-upgrade.test.cjs
       - name: Deal Won idempotency and cash accounting tests
