@@ -39,7 +39,7 @@ const hppSheet = {
   projectId: 'P-HPP-01',
   projectName: 'Display Booth Premium',
   items: [
-    { itemType: 'material', materialId: 'MAT-01', name: 'Akrilik 5 mm', qty: 2, unit: 'lembar', unitPrice: 100000, costingMethod: 'sheet', costingDetails: { method: 'sheet', sourceMode: 'whole', summary: '<b>2 lembar</b> untuk 4 komponen; yield 78.5%.', result: { placements: [{ sheet: 1 }] } } },
+    { itemType: 'material', materialId: 'MAT-01', name: 'Akrilik 5 mm', qty: 2, unit: 'lembar', unitPrice: 100000, costingMethod: 'sheet', costingDetails: { method: 'sheet', sourceMode: 'whole', summary: '<b>2 lembar</b> untuk 4 komponen; yield 78.5%.', result: { placements: [{ sheet: 1 }] } }, materialSnapshot: { unit: 'm2', purchaseUnit: 'lembar', conversionFactor: 3.2 } },
     { itemType: 'service', serviceId: 'SRV-01', name: 'Fabrikasi Display', qty: 1, unit: 'job', unitPrice: 150000 }
   ],
   labor: 100000,
@@ -59,6 +59,7 @@ assert.match(hppLines[0].description, /Kalkulasi: 2 lembar untuk 4 komponen; yie
 assert.equal(hppLines[0].sourceCostingSummary, '2 lembar untuk 4 komponen; yield 78.5%.');
 assert.equal(hppLines[0].sourceCostingMode, 'whole');
 assert.equal(hppLines[0].sourceCostingMethod, 'sheet');
+assert.equal(hppLines[0].materialSnapshot.conversionFactor, 3.2, 'quotation line preserves the HPP unit conversion factor');
 assert.ok(hppLines.every(line => line.sourceCostSheetId === hppSheet.id));
 assert.ok(hppLines.every(line => line.marginPercent === 30));
 assert.throws(() => buildQuotationLinesFromCostSheet({ ...hppSheet, price: hppSheet.price + 1 }), /Harga penawaran HPP/);
