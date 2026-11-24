@@ -76,7 +76,7 @@ assert.match(backend,/Sales_Orders:\s*\{/,'Sales Orders schema exists in backend
 assert.match(backend,/validateSalesOrdersBeforeMerge_\(ss, payload\.salesOrders\)/,'server validates Sales Order writes');
 assert.match(backend,/SALES_ORDER_DP_NOT_VERIFIED/,'backend enforces verified DP before production');
 assert.match(backend,/SALES_ORDER_STOCK_RESERVATION_REQUIRED/,'backend blocks production start until HPP material reservations exist');
-assert.match(ui,/Kunci Stok material terlebih dahulu/,'Sales Order UI guides the Owner to reserve material before starting production');
+assert.match(ui,/Stok material belum dikunci/,'Sales Order UI guides the Owner to reserve material before starting production');
 assert.match(backend,/SALES_ORDER_CANNOT_CLOSE_WITH_UNPAID_INVOICE/,'backend blocks closing with unpaid invoice');
 assert.match(backend,/salesOrders: readSheetData\(ss, "Sales_Orders"\)/,'owner get_data includes Sales Orders');
 assert.match(guard,/salesOrders/,'owner sync includes Sales Orders');
