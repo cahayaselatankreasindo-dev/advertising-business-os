@@ -1497,9 +1497,10 @@
     function isMaterialSelectable(material) {
       const status=String(material && material.status || 'active');
       const factor=Number(material && material.conversionFactor)||1;
-      return !!material && status==='active' && Number(material.unitPrice)>0 && Number(material.purchasePrice)>0 &&
-        factor>0 && !!String(material.unit||'').trim() && !!String(material.purchaseUnit||'').trim() &&
-        !!String(material.supplierName||'').trim() && !!String(material.priceSource||'').trim() && !!String(material.priceDate||'').trim();
+      const legacyManual=String(material && material.sku || '').indexOf('MAT-MANUAL-')===0 && purchaseUnit===unit && factor===1 && Number(material && material.unitPrice)>0;
+      return !!material && status==='active' && Number(material.unitPrice)>0 && purchasePrice>0 &&
+        factor>0 && !!unit && !!purchaseUnit &&
+        (legacyManual || (!!String(material.supplierName||'').trim() && !!String(material.priceSource||'').trim() && !!String(material.priceDate||'').trim()));
     }
 
     function showToast(msg, isError) {
