@@ -82,7 +82,7 @@
       if(afterQty< -0.000001)throw new Error('Stok tidak mencukupi saat menghitung valuasi '+(material.name||id)+'.');
       if(afterQty<=0.000001){afterQty=0;afterValue=0;}
       if(afterValue< -1.01){complete=false;estimated=true;afterValue=0;}
-      current={qty:Math.max(0,afterQty),value:Math.max(0,afterValue),estimated:current.estimated||estimated,complete:current.complete&&complete};
+      current={qty:Math.max(0,afterQty),value:Math.max(0,afterValue),estimated:afterQty>0?(current.estimated||estimated):false,complete:afterQty>0?(current.complete&&complete):true};
       state[id]=current;
       transactionCosts[String(tx.id||'')]={
         unitCost:unitCost,totalCost:totalCost,estimated:estimated,complete:complete,
@@ -99,7 +99,7 @@
     return{balances:balances,stockValue:stockValue,averageCost:averageCost,estimated:estimated,complete:valuationComplete,byMaterial:valuationByMaterial,transactionCosts:transactionCosts};
   }
   function calculateProjectNetIssueCost(projectId,materialId,transactions,valuation){
-    var project=String(projectId||''),material=String(materialId||''),netQty=0,netCost=0;
+    var project=String(projectId||''),material=String(materialId||''),netQty=0,netCost=0,estimated=false;
     var costs=valuation&&valuation.transactionCosts||{};
     sortTransactions(transactions).forEach(function(tx){
       if(String(tx.projectId||'')!==project||String(tx.materialId||'')!==material||['issue','return'].indexOf(String(tx.movement||''))<0)return;
@@ -163,13 +163,13 @@
     }else if(input.movement==='return'){
       var projectIssueCost=calculateProjectNetIssueCost(projectId,material.id,existing,valuationBefore);
       unitCost=projectIssueCost.averageCost||averageBefore||masterUnitCost;
-      costSource=projectIssueCost.averageCost>0?'project_issue_average':averageBefore>0?'moving_average':'master_fallback';
+      costSource=projectIssueCost.averageCost>0?(projectIssueCost.estimated?'master_fallback':'project_issue_average'):averageBefore>0?(valuationBefore.estimated[String(material.id)]?'master_fallback':'moving_average'):'master_fallback';
     }else if(input.movement==='adjustment_in'&&averageBefore<=0){
       unitCost=suppliedUnitCost||masterUnitCost;
       costSource=suppliedUnitCost>0?'opening_manual':'master_fallback';
     }else{
       unitCost=averageBefore||masterUnitCost;
-      costSource=averageBefore>0?'moving_average':'master_fallback';
+      costSource=averageBefore>0?(valuationBefore.estimated[String(material.id)]?'master_fallback':'moving_average'):'master_fallback';
     }
     if(!Number.isFinite(unitCost)||unitCost<=0)throw new Error('Harga pokok per satuan stok belum tersedia. Isi harga pokok Master Material atau harga transaksi terlebih dahulu.');
     unitCost=Math.round(unitCost*10000)/10000;
