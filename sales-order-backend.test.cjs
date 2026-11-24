@@ -122,7 +122,12 @@ ss.sheets.Invoice_Payments.appendRow(rowFor('Invoice_Payments',{
 assert.equal(context.validateSalesOrdersBeforeMerge_(ss,[{...initial,status:'ready_production'}]),true,'verified DP and sufficient stock release production');
 assert.equal(Array.isArray(initial.materialRequirements),true,'backend freezes the HPP material snapshot at reservation time');
 assert.equal(initial.materialRequirements[0].required,2,'backend derives reserved quantities from the authoritative HPP');
-assert.throws(()=>context.validateSalesOrdersBeforeMerge_(fixture(1),[{...initial,status:'ready_production'}]),/SALES_ORDER_INSUFFICIENT_MATERIAL_STOCK/,'backend blocks production reservation when physical stock is insufficient');
+const shortFixture=fixture(1);
+const unreservedInitial={...initial,status:'awaiting_dp',materialRequirements:[]};
+shortFixture.sheets.Sales_Orders=new FakeSheet([map.Sales_Orders.headers,rowFor('Sales_Orders',{...unreservedInitial,itemsJson:JSON.stringify(unreservedInitial.items),historyJson:JSON.stringify(unreservedInitial.history)})]);
+shortFixture.sheets.Invoices.appendRow(rowFor('Invoices',{id:'INV-BACKEND-001',projectId:project.id,quotationId:quote.id,sourceQuotationId:quote.id,docNo:'INV-CSK-2026-00001',total:10000000,status:'sent'}));
+shortFixture.sheets.Invoice_Payments.appendRow(rowFor('Invoice_Payments',{id:'PAY-BACKEND-001',invoiceId:'INV-BACKEND-001',invoiceNo:'INV-CSK-2026-00001',paymentDate:'2026-11-20',paymentType:'dp',amount:5000000,method:'transfer'}));
+assert.throws(()=>context.validateSalesOrdersBeforeMerge_(shortFixture,[{...unreservedInitial,status:'ready_production'}]),/SALES_ORDER_INSUFFICIENT_MATERIAL_STOCK/,'backend blocks production reservation when physical stock is insufficient');
 assert.throws(()=>context.validateSalesOrdersBeforeMerge_(ss,[{...initial,status:'quality_check'}]),/INVALID_SALES_ORDER_STATUS_TRANSITION/,'backend blocks skipped production stages');
 
 const delivered={...initial,status:'delivered'};
