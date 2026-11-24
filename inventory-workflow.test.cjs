@@ -141,6 +141,10 @@ const reservedOrders=[{id:'SO-RESERVED-001',orderNo:'SO-CSK-2026-00001',projectI
 assert.throws(()=>E.validateTransaction({materialId:'MAT-ACR',movement:'issue',qty:4.5,unit:'m2',date:'2026-11-04',projectId:'PRJ-001'},{materials,projects,transactions:reservationLedger,salesOrders:reservedOrders,costSheets:[]}),/melebihi sisa reservasi/,'project issue cannot exceed its active HPP reservation');
 const picked=E.validateTransaction({materialId:'MAT-ACR',movement:'issue',qty:4,unit:'m2',date:'2026-11-04',projectId:'PRJ-001'},{materials,projects,transactions:reservationLedger,salesOrders:reservedOrders,costSheets:[]});
 assert.equal(picked.balances['MAT-ACR'],5.25,'valid picking reduces physical stock');
+const variance=E.calculateMaterialUsageVariance(reservationSnapshot,'PRJ-001',reservationLedger);
+assert.equal(variance[0].netIssuedQty,0.75,'material variance nets project returns against issued quantity');
+assert.equal(variance[0].varianceQty,-4.25,'material variance compares net project issue against frozen HPP quantity');
+assert.equal(variance[0].state,'under','remaining material requirement is reported as under-plan until production consumption is complete');
 assert.throws(()=>E.validateTransaction({materialId:'MAT-ACR',movement:'issue',qty:6,unit:'m2',date:'2026-11-04',projectId:'PRJ-003'},{materials,projects:projects.concat([{id:'PRJ-003',title:'Awaiting DP'}]),transactions:reservationLedger,salesOrders:reservedOrders,costSheets:[]}),/sudah direservasi proyek lain/,'an unreserved project cannot consume stock held for another production project');
 assert.throws(()=>E.validateTransaction({materialId:'MAT-ACR',movement:'return',qty:1,unit:'m2',date:'2026-11-04',projectId:'PRJ-001'},{materials,projects,transactions:reservationLedger,salesOrders:reservedOrders,costSheets:[]}),/Retur melebihi material/,'project return cannot exceed previously issued material');
 
@@ -195,6 +199,8 @@ assert.match(salesUI,/createDraftPOFromShortage/,'Sales Order can create supplie
 assert.match(salesUI,/openPurchaseOrderQty/,'shortage planner subtracts quantities already covered by draft or ordered POs');
 assert.match(salesUI,/Buat Draft PO dari Kekurangan/,'owner can start purchasing from the shortage panel');
 assert.match(salesUI,/Reservasi lain/,'Sales Order material planner deducts stock reserved by other production projects');
+assert.match(salesUI,/Selisih vs HPP/,'Sales Order shows net material issue variance against the frozen HPP plan');
+assert.match(salesUI,/Biaya aktual belum dihitung/,'Sales Order does not misrepresent quantity variance as actual cost valuation');
 assert.match(sw,/inventory-engine\.js/,'inventory engine is cached');
 assert.match(sw,/inventory\.js/,'inventory UI is cached');
 assert.match(auth,/INVENTORY_LEDGER_SERVER_ONLY/,'backend RBAC test covers append-only inventory protection');
