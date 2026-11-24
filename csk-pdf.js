@@ -703,6 +703,7 @@ function normalizeMaterialCostReport(input) {
       estimatedCost:Number.isFinite(estimatedCost) ? Math.max(0,estimatedCost) : null,
       actualCost:Math.max(0,number(line.actualCost)),
       actualCostComplete:line.actualCostComplete!==false,
+      hasMaterialMovement:!!line.hasMaterialMovement,
       hasActualMovement:input.hasActualMovement!==false,
       varianceCost:Number.isFinite(varianceCost) ? varianceCost : null,
       variancePct:Number.isFinite(variancePct) ? variancePct : null,
@@ -793,7 +794,7 @@ function drawMaterialCostRow(pdf,line,index,y,x) {
   pdf.text(String(line.estimatedQty),x[4]-2,y+4,{align:'right'});
   pdf.text(String(line.actualQty),x[5]-2,y+4,{align:'right'});
   pdf.text(line.estimatedCost===null?'-':formatRupiah(line.estimatedCost),x[6]-2,y+4,{align:'right'});
-  var actualText=!line.hasActualMovement&&line.actualQty<=0?'-':line.actualCostComplete===false?'Belum lengkap':formatRupiah(line.actualCost);
+  var actualText=!line.hasMaterialMovement?'-':line.actualCostComplete===false?'Belum lengkap':formatRupiah(line.actualCost);
   pdf.text(actualText,x[7]-2,y+4,{align:'right'});
   pdf.setFont('helvetica','bold');
   var variance=line.varianceCost===null?'-':(line.varianceCost>0?'+':'')+formatRupiah(line.varianceCost);
