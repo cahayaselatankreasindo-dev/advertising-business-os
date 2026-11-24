@@ -251,10 +251,10 @@ if (FIELD_MAP) {
     ['id','transactionNo','materialId','materialName','movement','qty','unit','date','projectId','projectName','purchaseOrderId','supplier','reference','notes','createdAt','createdBy'],
     'FIELD_MAP.Inventory_Transactions fields terpetakan lengkap');
   eq(FIELD_MAP.Sales_Orders.headers,
-    ['ID','NomorSO','QuotationID','NomorQuotation','ProjectID','NamaProyek','Klien','WhatsAppKlien','EmailKlien','TanggalOrder','TanggalPengiriman','ItemsJSON','Total','DPPersen','DPWajib','Status','RiwayatJSON','Catatan','CreatedAt','UpdatedAt'],
+    ['ID','NomorSO','QuotationID','NomorQuotation','ProjectID','NamaProyek','Klien','WhatsAppKlien','EmailKlien','TanggalOrder','TanggalPengiriman','ItemsJSON','Total','DPPersen','DPWajib','Status','RiwayatJSON','Catatan','CreatedAt','UpdatedAt','SourceCostSheetSnapshotJSON'],
     'FIELD_MAP.Sales_Orders mempertahankan snapshot order dan riwayat');
   eq(FIELD_MAP.Sales_Orders.fields,
-    ['id','orderNo','quotationId','quotationNo','projectId','projectName','client','clientPhone','clientEmail','orderDate','deliveryDate','itemsJson','total','dpPercent','dpRequiredAmount','status','historyJson','notes','createdAt','updatedAt'],
+    ['id','orderNo','quotationId','quotationNo','projectId','projectName','client','clientPhone','clientEmail','orderDate','deliveryDate','itemsJson','total','dpPercent','dpRequiredAmount','status','historyJson','notes','createdAt','updatedAt','sourceCostSheetSnapshotJson'],
     'FIELD_MAP.Sales_Orders fields terpetakan lengkap');
   eq(FIELD_MAP.Leads.headers.slice(-3),
     ['NextFollowUp','LastContactAt','FollowUpNote'],
@@ -284,7 +284,7 @@ if (FIELD_MAP) {
     ['sku','unit','costingMethod','costPrice','supplierId','supplierName','status','notes','recordType'],
     'FIELD_MAP.Services memuat satuan, biaya dasar, dan supplier');
   eq(FIELD_MAP.Commercial_Quotations.fields,
-    ['id','projectId','leadId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','terms','paymentTerms','notes','status','convertedInvoiceId','createdAt','updatedAt','projectDeadline'],
+    ['id','projectId','leadId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','terms','paymentTerms','notes','status','convertedInvoiceId','createdAt','updatedAt','projectDeadline','sourceCostSheetSnapshotJson'],
     'FIELD_MAP.Commercial_Quotations.fields lengkap');
   eq(FIELD_MAP.Invoices.fields,
     ['id','projectId','leadId','quotationId','sourceQuotationId','projectName','client','clientPhone','clientEmail','clientAddress','contactPerson','docNo','date','dueDate','linesJson','subtotal','discount','taxRate','taxAmount','total','dpPercent','paymentTerms','terms','notes','status','createdAt','updatedAt','projectDeadline'],
