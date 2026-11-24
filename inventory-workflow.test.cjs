@@ -121,7 +121,7 @@ const commitments=E.calculateOpenSalesOrderCommitments(
 );
 assert.equal(commitments.activeOrderCount,2,'only ready-production and in-production Sales Orders hold material reservations; QC releases them');
 assert.equal(commitments.activeProjectCount,2,'multiple active Sales Orders for one project do not duplicate the project HPP');
-assert.equal(commitments.pickingList.length,2,'picking list contains only outstanding requirements for actively reserved projects');
+assert.equal(commitments.pickingList.length,3,'picking list contains outstanding requirements per active project and material');
 assert.equal(commitments.ready,true);
 const acrylicCommitment=commitments.requirements.find(x=>x.materialId==='MAT-ACR');
 assert.ok(Math.abs(acrylicCommitment.committed-5.25)<1e-9,'purchase-unit conversion and net issue/return movements determine remaining material commitment');
