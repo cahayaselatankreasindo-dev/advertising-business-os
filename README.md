@@ -263,3 +263,9 @@ Next: server-enforced reservation at production release, partial pick/issue/retu
 - Inventory shows physical stock, reserved stock, free stock, and a project/material picking list.
 - Picking issues are prefilled from the list and capped by remaining reservation and physical stock. Returns cannot exceed previous issues; other projects cannot consume reserved stock.
 - Server-side checks and a serialized sync critical section prevent double allocation. Reservation snapshots are immutable after production release.
+
+
+### Printable warehouse picking list
+- Inventory can generate a branded, multi-page A4 Material Picking List PDF for each active production project.
+- The PDF shows frozen HPP quantity, quantity already issued, and remaining quantity to pick, with warehouse check and handover signature fields.
+- Downloading the PDF does not move stock; every physical issue must still be recorded in the append-only Inventory ledger.
