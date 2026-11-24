@@ -42,6 +42,29 @@ assert.equal(created.transaction.unitCost,100000,'project issue uses the current
 assert.equal(created.transaction.totalCost,100000,'issue cost snapshot is stored on the append-only ledger');
 assert.equal(created.transaction.costingMethod,'moving_average');
 
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'opening',qty:2,unit:'m2',date:'2026-11-15',reference:'OPEN-001'
+},{materials,projects,transactions:[]}),/Masukkan harga pokok saldo awal/,'opening stock requires an explicitly verified cost');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'opening',qty:2,unit:'m2',date:'2026-11-15',unitCost:90000
+},{materials,projects,transactions:[]}),/dokumen atau dasar penilaian/,'opening valuation requires a source reference');
+const openingManual=E.validateTransaction({
+ materialId:'MAT-ACR',movement:'opening',qty:2,unit:'m2',date:'2026-11-15',unitCost:90000,reference:'OPEN-VALUATION-001'
+},{materials,projects,transactions:[]});
+assert.equal(openingManual.transaction.costSource,'opening_manual');
+assert.equal(openingManual.transaction.totalCost,180000);
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'receipt',qty:1,unit:'m2',date:'2026-11-15',supplier:'Supplier A'
+},{materials,projects,transactions:[]}),/Masukkan harga pokok penerimaan/,'manual receipts require verified supplier invoice cost');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'receipt',qty:1,unit:'m2',date:'2026-11-15',supplier:'Supplier A',unitCost:120000
+},{materials,projects,transactions:[]}),/Nomor nota, faktur/,'manual receipts require a supplier document reference');
+const manualReceipt=E.validateTransaction({
+ materialId:'MAT-ACR',movement:'receipt',qty:1,unit:'m2',date:'2026-11-15',supplier:'Supplier A',unitCost:120000,reference:'FAKTUR-001'
+},{materials,projects,transactions:[]});
+assert.equal(manualReceipt.transaction.costSource,'manual_receipt');
+assert.equal(manualReceipt.transaction.totalCost,120000);
+
 const valuationMaterials=[{id:'MAT-WAC',name:'Material WAC',unit:'m2',unitPrice:999}];
 const valuationLedger=[
  {id:'WAC-OPEN',materialId:'MAT-WAC',movement:'opening',qty:10,unit:'m2',date:'2026-11-01',unitCost:100,totalCost:1000,costSource:'opening_manual',costingMethod:'moving_average'},
@@ -101,6 +124,8 @@ const poReceipt=E.validateTransaction({
  purchaseOrderId:'PO-001'
 },{materials,projects,purchaseOrders:[po],transactions:[]});
 assert.equal(poReceipt.transaction.purchaseOrderId,'PO-001');
+assert.equal(poReceipt.transaction.costSource,'purchase_order');
+assert.equal(poReceipt.transaction.unitCost,100000);
 assert.throws(()=>E.validateTransaction({
  materialId:'MAT-ACR',movement:'receipt',qty:5,unit:'m2',date:'2026-11-20',
  purchaseOrderId:'PO-001'
