@@ -181,6 +181,11 @@ assert.equal(context.reconcileConsumedReservations_(consumeCase.ss),1,'fully con
 assert.equal(consumeCase.ss.sheets.Inventory_Reservations.rows[1][map.Inventory_Reservations.fields.indexOf('status')],'consumed','consumed reservation remains in the audit history');
 const overConsume=transaction('RESV-CONSUME-0003','STK-CSK-2026-00032','issue',1,'2026-11-23',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne,linkedIssueTwo,overConsume],[],[]),/INVENTORY_SALES_ORDER_RESERVATION_REQUIRED/,'a consumed reservation cannot be used again');
+const deliveredOrder={...consumeCase.order,status:'delivered'};
+consumeCase.ss.sheets.Sales_Orders.rows[1][map.Sales_Orders.fields.indexOf('status')]='delivered';
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne,linkedIssueTwo],[],[deliveredOrder]),true,'existing linked ledger rows remain syncable after the Sales Order is delivered');
+const issueAfterDelivery=transaction('RESV-CONSUME-0004','STK-CSK-2026-00033','issue',1,'2026-11-24',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[issueAfterDelivery],[],[deliveredOrder]),/INVENTORY_SALES_ORDER_NOT_ACTIVE/,'new material issues are blocked after Sales Order delivery');
 
 const competing=reservationFixture(5,'SO-INV-00000002',4);
 const competingSecond={...competing.order,id:'SO-INV-00000003',orderNo:'SO-CSK-2026-00002',quotationId:'QUO-INV-00002',quotationNo:'QUO-CSK-2026-00002'};
@@ -199,6 +204,13 @@ const terminalIssue=transaction('RESV-ISSUE-0002','STK-CSK-2026-00021','issue',2
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(terminal.ss,[terminalIssue],[],[{id:terminal.order.id,status:'cancelled'}]),true,'same-sync cancellation releases its reservation for inventory issue validation');
 assert.equal(context.releaseTerminalSalesOrderReservations_(terminal.ss,[{id:terminal.order.id,status:'cancelled'}],{role:'owner',email:'owner@example.test'}),1,'cancelled Sales Orders automatically release their reservations');
 assert.equal(terminal.ss.sheets.Inventory_Reservations.rows[1][map.Inventory_Reservations.fields.indexOf('status')],'released','automatic release keeps reservation audit history');
+
+const deliveredTerminal=reservationFixture(5,'SO-INV-00000009',4);
+assert.equal(context.reserveSalesOrderStock_(deliveredTerminal.ss,deliveredTerminal.order.id,{role:'owner',email:'owner@example.test'}).status,'reserved');
+const deliveredGenericIssue=transaction('RESV-ISSUE-0003','STK-CSK-2026-00022','issue',2,'2026-11-22',{projectId:project.id,projectName:project.title});
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(deliveredTerminal.ss,[deliveredGenericIssue],[],[{id:deliveredTerminal.order.id,status:'delivered'}]),true,'delivered Sales Order reservations no longer block unrelated stock issues');
+assert.equal(context.releaseTerminalSalesOrderReservations_(deliveredTerminal.ss,[{id:deliveredTerminal.order.id,status:'delivered'}],{role:'owner',email:'owner@example.test'}),1,'delivered Sales Orders automatically release unused reservations');
+
 
 const notReady=reservationFixture(5,'SO-INV-00000004',2);
 const orderStatusCol=map.Sales_Orders.fields.indexOf('status');
