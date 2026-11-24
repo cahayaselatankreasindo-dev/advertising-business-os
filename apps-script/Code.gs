@@ -1106,13 +1106,14 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     var projectId = String(tx.projectId || "");
     if (["issue","return"].indexOf(String(tx.movement)) >= 0 && !projects.some(function(p) { return String(p.id) === projectId; })) throw new Error("INVENTORY_PROJECT_REQUIRED");
     if (["adjustment_in","adjustment_out"].indexOf(String(tx.movement)) >= 0 && !String(tx.notes || "").trim()) throw new Error("INVENTORY_ADJUSTMENT_REASON_REQUIRED");
+    var current = existing.find(function(row) { return String(row.id) === id; });
     var priorLedger = existing.concat(newRows);
-    if (String(tx.movement) === "return") {
+    if (!current && String(tx.movement) === "return") {
       var netIssued = priorLedger.filter(function(row) { return String(row.projectId || "") === projectId && String(row.materialId) === String(tx.materialId); })
         .reduce(function(sum,row) { if (row.movement === "issue") return sum + Number(row.qty || 0); if (row.movement === "return") return sum - Number(row.qty || 0); return sum; },0);
       if (qty > Math.max(0,netIssued) + 0.000001) throw new Error("INVENTORY_RETURN_EXCEEDS_PROJECT_ISSUE");
     }
-    if (String(tx.movement) === "issue") {
+    if (!current && String(tx.movement) === "issue") {
       var hasActiveOrder = salesOrders.some(function(order) { return String(order.projectId) === projectId && ["ready_production","in_production"].indexOf(String(order.status || "")) >= 0; });
       if (hasActiveOrder) {
         var reservationState = calculateActiveProjectReservations_(ss, salesOrders, priorLedger);
@@ -1123,7 +1124,6 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
         if (qty > Number(reservationLine.outstanding || 0) + 0.000001) throw new Error("INVENTORY_ISSUE_EXCEEDS_PROJECT_RESERVATION");
       }
     }
-    var current = existing.find(function(row) { return String(row.id) === id; });
     if (!current && String(tx.movement) === "receipt") {
       var poId = String(tx.purchaseOrderId || "");
       var supplier = String(tx.supplier || "").trim();
