@@ -3403,10 +3403,16 @@
         if (!window.CSKAuth || !window.CSKAuth.isReady || !window.CSKAuth.isReady()) throw new Error("Login dan koneksi Google Sheets harus aktif sebelum mencatat stok.");
         var verified = await window.CSKAuth.sync(true);
         if (!verified) throw new Error("Transaksi stok belum terverifikasi di Google Sheets. Periksa koneksi lalu sinkronkan kembali.");
+        try {
+          var latest = await window.CSKAuth.getData();
+          var cloud = latest && latest.data ? latest.data : {};
+          if (Array.isArray(cloud.inventoryTransactions)) db.inventoryTransactions = cloud.inventoryTransactions;
+          if (Array.isArray(cloud.inventoryReservations)) db.inventoryReservations = cloud.inventoryReservations;
+        } catch (refreshError) {
+          console.warn("Inventory read-back refresh failed:", refreshError);
+        }
         return true;
       },
-      reserveSalesOrderStock: function (salesOrderId) { if (!window.CSKAuth || !window.CSKAuth.reserveSalesOrderStock) throw new Error('Fitur reservasi stok belum siap.'); return window.CSKAuth.reserveSalesOrderStock(salesOrderId); },
-      releaseSalesOrderReservation: function (salesOrderId, reason) { if (!window.CSKAuth || !window.CSKAuth.releaseSalesOrderReservation) throw new Error('Fitur pelepasan reservasi belum siap.'); return window.CSKAuth.releaseSalesOrderReservation(salesOrderId, reason); },
       toast: function (message, isError) { showToast(message, !!isError); }
     };
 
