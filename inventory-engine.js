@@ -130,28 +130,56 @@
     return{hasHpp:true,requirements:requirements,errors:errors,ready:errors.length===0&&requirements.length>0&&requirements.every(function(row){return row.ready;}),materialCount:requirements.length};
   }
   function calculateOpenSalesOrderCommitments(salesOrders,costSheets,materials,transactions,balances){
-    var activeStatuses={ready_production:true,in_production:true,quality_check:true,ready_delivery:true};
+    // A reservation is active only while the project is queued for or executing production.
+    // QC and delivery release any unissued balance back to available stock.
+    var activeStatuses={ready_production:true,in_production:true};
     var orders=Array.isArray(salesOrders)?salesOrders:[];
     var sheets=Array.isArray(costSheets)?costSheets:[];
     var materialRows=Array.isArray(materials)?materials:[];
     var ledger=Array.isArray(transactions)?transactions:[];
-    var activeProjects=Object.create(null),activeOrderCount=0,errors=[],grouped=Object.create(null);
+    var activeProjects=Object.create(null),activeOrderCount=0,errors=[],grouped=Object.create(null),pickingList=[];
     orders.forEach(function(order){
       var status=String(order&&order.status||'').toLowerCase(),projectId=String(order&&order.projectId||'');
       if(!activeStatuses[status]||!projectId)return;
       activeOrderCount++;
-      if(!activeProjects[projectId])activeProjects[projectId]={projectId:projectId,projectName:String(order.projectName||''),orderCount:0};
+      if(!activeProjects[projectId])activeProjects[projectId]={projectId:projectId,projectName:String(order.projectName||''),orderCount:0,orders:[],requirements:null};
       activeProjects[projectId].orderCount++;
+      activeProjects[projectId].orders.push(order);
       if(!activeProjects[projectId].projectName)activeProjects[projectId].projectName=String(order.projectName||'');
     });
     var projectIds=Object.keys(activeProjects);
     projectIds.forEach(function(projectId){
       var project=activeProjects[projectId];
-      var sheet=sheets.find(function(row){return String(row.projectId)===projectId;});
-      if(!sheet){errors.push('HPP belum tersedia untuk proyek '+(project.projectName||projectId)+'.');return;}
-      var plan=calculateHppRequirements(sheet,materialRows,{});
-      if(plan.errors.length){plan.errors.forEach(function(error){errors.push((project.projectName||projectId)+': '+error);});return;}
-      if(!plan.requirements.length){errors.push('HPP proyek '+(project.projectName||projectId)+' belum memiliki kebutuhan material yang dapat dihitung.');return;}
+      var snapshotOrder=project.orders.find(function(order){return Array.isArray(order.materialRequirements)&&order.materialRequirements.length;});
+      var requirements=[];
+      if(snapshotOrder){
+        requirements=snapshotOrder.materialRequirements.map(function(line){
+          var material=materialRows.find(function(row){return String(row.id)===String(line.materialId);});
+          var required=n(line.required);
+          if(!material){errors.push('Material reservasi tidak ditemukan untuk proyek '+(project.projectName||projectId)+': '+String(line.materialId||'-')+'.');return null;}
+          if(String(line.unit||'')!==String(material.unit||'')){errors.push('Satuan snapshot reservasi tidak cocok untuk '+material.name+'.');return null;}
+          if(!Number.isFinite(Number(line.required))||required<=0){errors.push('Kuantitas reservasi tidak valid untuk '+material.name+'.');return null;}
+          return{materialId:material.id,name:String(line.name||material.name||''),unit:material.unit,required:required};
+        }).filter(Boolean);
+        project.reservationSource='snapshot';
+        project.reservationOrderNo=String(snapshotOrder.orderNo||snapshotOrder.id||'');
+        project.orders.forEach(function(order){
+          if(Array.isArray(order.materialRequirements)&&order.materialRequirements.length){
+            var other=order.materialRequirements.map(function(line){return[String(line.materialId),n(line.required),String(line.unit||'')];}).sort();
+            var base=requirements.map(function(line){return[String(line.materialId),n(line.required),String(line.unit||'')];}).sort();
+            if(JSON.stringify(other)!==JSON.stringify(base))errors.push('Snapshot kebutuhan material antar Sales Order pada proyek '+(project.projectName||projectId)+' berbeda.');
+          }
+        });
+      }else{
+        var sheet=sheets.find(function(row){return String(row.projectId)===projectId;});
+        if(!sheet){errors.push('HPP belum tersedia untuk proyek '+(project.projectName||projectId)+'.');return;}
+        var plan=calculateHppRequirements(sheet,materialRows,{});
+        if(plan.errors.length){plan.errors.forEach(function(error){errors.push((project.projectName||projectId)+': '+error);});return;}
+        if(!plan.requirements.length){errors.push('HPP proyek '+(project.projectName||projectId)+' belum memiliki kebutuhan material yang dapat dihitung.');return;}
+        requirements=plan.requirements.map(function(line){return{materialId:line.materialId,name:line.name,unit:line.unit,required:line.required};});
+        project.reservationSource='legacy-hpp';
+        project.reservationOrderNo=String(project.orders[0].orderNo||project.orders[0].id||'');
+      }
       var issued=Object.create(null);
       ledger.forEach(function(tx){
         if(String(tx.projectId||'')!==projectId)return;
@@ -159,7 +187,7 @@
         if(tx.movement==='issue')issued[materialId]=(issued[materialId]||0)+n(tx.qty);
         else if(tx.movement==='return')issued[materialId]=(issued[materialId]||0)-n(tx.qty);
       });
-      plan.requirements.forEach(function(requirement){
+      requirements.forEach(function(requirement){
         var materialId=String(requirement.materialId);
         var netIssued=Math.max(0,issued[materialId]||0);
         var outstanding=Math.max(0,requirement.required-netIssued);
@@ -168,10 +196,18 @@
           onHand:n((balances||{})[materialId]),committed:0,projects:[]
         };
         grouped[materialId].committed+=outstanding;
-        grouped[materialId].projects.push({
+        var projectLine={
           projectId:projectId,projectName:project.projectName||projectId,
-          orderCount:project.orderCount,required:requirement.required,
-          netIssued:netIssued,outstanding:outstanding
+          orderCount:project.orderCount,orderNo:project.reservationOrderNo||'',
+          required:requirement.required,netIssued:netIssued,outstanding:outstanding,
+          reservationSource:project.reservationSource
+        };
+        grouped[materialId].projects.push(projectLine);
+        if(outstanding>0)pickingList.push({
+          projectId:projectId,projectName:project.projectName||projectId,
+          orderNo:project.reservationOrderNo||'',materialId:requirement.materialId,
+          name:requirement.name,unit:requirement.unit,required:requirement.required,
+          issued:netIssued,outstanding:outstanding,reservationSource:project.reservationSource
         });
       });
     });
@@ -182,9 +218,15 @@
       row.projects.sort(function(a,b){return String(a.projectName).localeCompare(String(b.projectName));});
       return row;
     }).sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
+    pickingList.sort(function(a,b){
+      var projectCompare=String(a.projectName).localeCompare(String(b.projectName));
+      return projectCompare||String(a.name).localeCompare(String(b.name));
+    });
+    var hasShortage=requirements.some(function(row){return row.shortage>0;});
     return{
       activeOrderCount:activeOrderCount,activeProjectCount:projectIds.length,
-      requirements:requirements,errors:errors,ready:errors.length===0
+      requirements:requirements,pickingList:pickingList,errors:errors,
+      ready:errors.length===0&&!hasShortage,hasShortage:hasShortage
     };
   }
   function getBalance(materialId,balances){return n((balances||{})[String(materialId)]);}
