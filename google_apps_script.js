@@ -1222,7 +1222,7 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     if (newRows.some(function(row) { return String(row.id) === String(tx.id); }) &&
         ["issue", "adjustment_out"].indexOf(String(tx.movement)) >= 0) {
       var reservedQty = Number(reservedByMaterial[materialId] || 0);
-      if (Number(tx.qty) > before - reservedQty + 0.000001) throw new Error("INVENTORY_STOCK_RESERVED");
+      if (reservedQty > 0.000001 && Number(tx.qty) > before - reservedQty + 0.000001) throw new Error("INVENTORY_STOCK_RESERVED");
     }
     var after = before + Number(tx.qty) * direction;
     if (after < -0.000001) throw new Error("INVENTORY_INSUFFICIENT_STOCK");
