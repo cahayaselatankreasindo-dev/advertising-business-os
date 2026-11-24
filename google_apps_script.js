@@ -1040,7 +1040,15 @@ function reserveSalesOrderStock_(ss, salesOrderId, identity) {
       balances[key] = Number(balances[key] || 0) + Number(tx.qty || 0) * Number(direction[tx.movement] || 0);
     });
     var reserved = {};
-    reservations.filter(function(row) { return String(row.status) === "active"; }).forEach(function(row) {
+    var terminalOrders = {};
+    orders.forEach(function(row) {
+      if (["cancelled","delivered","closed"].indexOf(String(row.status || "").toLowerCase()) >= 0) {
+        terminalOrders[String(row.id || "")] = true;
+      }
+    });
+    reservations.filter(function(row) {
+      return String(row.status) === "active" && !terminalOrders[String(row.salesOrderId || "")];
+    }).forEach(function(row) {
       var key = String(row.materialId || "");
       var used = ledger.filter(function(tx) {
         return String(tx.movement) === "issue" && String(tx.reservationId || "") === String(row.id || "");
