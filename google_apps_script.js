@@ -1070,47 +1070,54 @@ function reserveSalesOrderStock_(ss, salesOrderId, identity) {
   }
 }
 
-function releaseTerminalSalesOrderReservations_(ss, incomingOrders, identity) {
+function releaseSalesOrderReservationRows_(ss, salesOrderId, reason, identity) {
+  if (!identity || identity.role !== "owner") throw new Error("FORBIDDEN_STOCK_RESERVATION");
+  if (!String(reason || "").trim()) throw new Error("RESERVATION_RELEASE_REASON_REQUIRED");
+  if (String(reason).length > 200) throw new Error("RESERVATION_RELEASE_REASON_TOO_LONG");
+  ensureSheet(ss, "Inventory_Reservations", FIELD_MAP.Inventory_Reservations.headers);
+  var sheet = ss.getSheetByName("Inventory_Reservations");
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var statusCol = headers.findIndex(function(h){ return String(h).toLowerCase() === "status"; });
+  var releasedCol = headers.findIndex(function(h){ return String(h).toLowerCase() === "releasedat"; });
+  var reasonCol = headers.findIndex(function(h){ return String(h).toLowerCase() === "releasereason"; });
+  var idCol = headers.findIndex(function(h){ return String(h).toLowerCase() === "salesorderid"; });
+  if ([statusCol,releasedCol,reasonCol,idCol].some(function(x){return x < 0;})) throw new Error("RESERVATION_SCHEMA_INVALID");
+  var now = new Date().toISOString(), changed = 0;
+  if (sheet.getLastRow() > 1) {
+    var values = sheet.getRange(2,1,sheet.getLastRow()-1,sheet.getLastColumn()).getValues();
+    values.forEach(function(row,index) {
+      if (String(row[idCol]) === String(salesOrderId) && String(row[statusCol]) === "active") {
+        var rowNo = index + 2;
+        sheet.getRange(rowNo,statusCol+1).setValue("released");
+        sheet.getRange(rowNo,releasedCol+1).setValue(now);
+        sheet.getRange(rowNo,reasonCol+1).setValue(String(reason).slice(0,200));
+        changed++;
+      }
+    });
+  }
+  return { status: changed ? "released" : "not_active", salesOrderId: salesOrderId, releasedLines: changed };
+}
+
+function releaseTerminalSalesOrderReservations_(ss, incomingOrders, identity, lockAlreadyHeld) {
   if (!Array.isArray(incomingOrders)) return 0;
   var released = 0;
   incomingOrders.forEach(function(order) {
     var status = String(order && order.status || "").toLowerCase();
     if (["cancelled", "delivered", "closed"].indexOf(status) < 0) return;
-    var result = releaseSalesOrderReservation_(ss, String(order.id || ""), "Otomatis dilepas karena Sales Order berstatus " + status, identity);
+    var reason = "Otomatis dilepas karena Sales Order berstatus " + status;
+    var result = lockAlreadyHeld
+      ? releaseSalesOrderReservationRows_(ss, String(order.id || ""), reason, identity)
+      : releaseSalesOrderReservation_(ss, String(order.id || ""), reason, identity);
     released += Number(result.releasedLines || 0);
   });
   return released;
 }
 
 function releaseSalesOrderReservation_(ss, salesOrderId, reason, identity) {
-  if (!identity || identity.role !== "owner") throw new Error("FORBIDDEN_STOCK_RESERVATION");
-  if (!String(reason || "").trim()) throw new Error("RESERVATION_RELEASE_REASON_REQUIRED");
-  if (String(reason).length > 200) throw new Error("RESERVATION_RELEASE_REASON_TOO_LONG");
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
-    ensureSheet(ss, "Inventory_Reservations", FIELD_MAP.Inventory_Reservations.headers);
-    var sheet = ss.getSheetByName("Inventory_Reservations");
-    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    var statusCol = headers.findIndex(function(h){ return String(h).toLowerCase() === "status"; });
-    var releasedCol = headers.findIndex(function(h){ return String(h).toLowerCase() === "releasedat"; });
-    var reasonCol = headers.findIndex(function(h){ return String(h).toLowerCase() === "releasereason"; });
-    var idCol = headers.findIndex(function(h){ return String(h).toLowerCase() === "salesorderid"; });
-    if ([statusCol,releasedCol,reasonCol,idCol].some(function(x){return x < 0;})) throw new Error("RESERVATION_SCHEMA_INVALID");
-    var now = new Date().toISOString(), changed = 0;
-    if (sheet.getLastRow() > 1) {
-      var values = sheet.getRange(2,1,sheet.getLastRow()-1,sheet.getLastColumn()).getValues();
-      values.forEach(function(row,index) {
-        if (String(row[idCol]) === String(salesOrderId) && String(row[statusCol]) === "active") {
-          var rowNo = index + 2;
-          sheet.getRange(rowNo,statusCol+1).setValue("released");
-          sheet.getRange(rowNo,releasedCol+1).setValue(now);
-          sheet.getRange(rowNo,reasonCol+1).setValue(String(reason || "Dilepas oleh Owner").slice(0,200));
-          changed++;
-        }
-      });
-    }
-    return { status: changed ? "released" : "not_active", salesOrderId: salesOrderId, releasedLines: changed };
+    return releaseSalesOrderReservationRows_(ss, salesOrderId, reason, identity);
   } finally {
     lock.releaseLock();
   }
@@ -1260,21 +1267,31 @@ function doPost(e) {
         if (payload.finance)        mergeSummary.Finance         = mergeFinanceSafely_(ss, payload.finance);
         if (payload.memory)         mergeSummary.Memory          = mergeSheet(ss, "Memory", payload.memory);
         if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
-        if (payload.materials)      mergeSummary.Materials       = mergeSheet(ss, "Materials", payload.materials);
         if (payload.costSheets) mergeSummary.Cost_Sheets = mergeSheet(ss, "Cost_Sheets", payload.costSheets.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
         if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
-        if (payload.purchaseOrders) validatePurchaseOrderReceiptStatuses_(ss, payload.purchaseOrders, payload.inventoryTransactions || []);
-        if (payload.inventoryTransactions) validateInventoryTransactionsBeforeMerge_(ss, payload.inventoryTransactions, payload.purchaseOrders || [], payload.salesOrders || []);
-        if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
-        if (payload.salesOrders) {
-          validateSalesOrdersBeforeMerge_(ss, payload.salesOrders);
-          mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); y.sourceCostSheetSnapshotJson = JSON.stringify(x.sourceCostSheetSnapshot || null); return y; }));
-          mergeSummary.ReleasedReservations = identity.role === "owner"
-            ? releaseTerminalSalesOrderReservations_(ss, payload.salesOrders, identity)
-            : 0;
-        }
-        if (payload.inventoryTransactions) {
-          mergeSummary.Inventory_Transactions = mergeSheet(ss, "Inventory_Transactions", payload.inventoryTransactions);
+        var inventoryLock = null;
+        try {
+          var hasInventoryWrites = !!(payload.materials || payload.purchaseOrders || payload.salesOrders || payload.inventoryTransactions);
+          if (hasInventoryWrites) {
+            inventoryLock = LockService.getScriptLock();
+            inventoryLock.waitLock(30000);
+          }
+          if (payload.materials) mergeSummary.Materials = mergeSheet(ss, "Materials", payload.materials);
+          if (payload.purchaseOrders) validatePurchaseOrderReceiptStatuses_(ss, payload.purchaseOrders, payload.inventoryTransactions || []);
+          if (payload.inventoryTransactions) validateInventoryTransactionsBeforeMerge_(ss, payload.inventoryTransactions, payload.purchaseOrders || [], payload.salesOrders || []);
+          if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
+          if (payload.salesOrders) {
+            validateSalesOrdersBeforeMerge_(ss, payload.salesOrders);
+            mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); y.sourceCostSheetSnapshotJson = JSON.stringify(x.sourceCostSheetSnapshot || null); return y; }));
+            mergeSummary.ReleasedReservations = identity.role === "owner"
+              ? releaseTerminalSalesOrderReservations_(ss, payload.salesOrders, identity, true)
+              : 0;
+          }
+          if (payload.inventoryTransactions) {
+            mergeSummary.Inventory_Transactions = mergeSheet(ss, "Inventory_Transactions", payload.inventoryTransactions);
+          }
+        } finally {
+          if (inventoryLock) inventoryLock.releaseLock();
         }
         if (payload.quotationSnapshots) mergeSummary.Quotations = mergeSheet(ss, "Quotations", payload.quotationSnapshots.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
         if (payload.quotations) mergeSummary.Commercial_Quotations = mergeCommercialQuotationsSafely_(ss, payload.quotations);
