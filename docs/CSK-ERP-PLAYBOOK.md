@@ -484,3 +484,16 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - The current reservation unit is the Material Master stock/usage unit. Verified purchase-to-usage conversion is applied when the HPP snapshot is created.
 - Actual-versus-estimated HPP reconciliation, production work orders, machine/labor time capture, finished-goods stock, and scrap/offcut accounting remain future phases.
 - Changes remain inside `advertising-business-os`; the public Astro website repository is untouched. No live Apps Script deployment, production schema migration, merge to main, or production release has been performed.
+
+
+## 19. Warehouse picking document — 25 November 2026
+
+### Delivered on the internal Business OS feature branch
+- Added a project-specific Material Picking List PDF action to the Inventory reservation panel.
+- The PDF contains CSK branding, project and Sales Order references, generation date, material name, stock unit, frozen HPP requirement, net quantity already issued, remaining quantity to pick, and a physical check column.
+- Long lists paginate across A4 pages and include warehouse handover signature fields.
+- The document is generated from the current server-synced reservation and append-only ledger data. It does not create or change a stock transaction. Warehouse must still record each actual issue in Inventory.
+- Added automated tests for filtering fully issued items, deterministic filenames, empty-list rejection, and multi-page A4 layout.
+
+### Operational note
+The PDF is a picking instruction, not proof of material issue. The Inventory issue transaction remains the source of truth for physical stock movement.
