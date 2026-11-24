@@ -1008,7 +1008,11 @@ function reserveSalesOrderStock_(ss, salesOrderId, identity) {
     var reserved = {};
     reservations.filter(function(row) { return String(row.status) === "active"; }).forEach(function(row) {
       var key = String(row.materialId || "");
-      reserved[key] = Number(reserved[key] || 0) + Math.max(0, Number(row.qty) || 0);
+      var used = ledger.filter(function(tx) {
+        return String(tx.movement) === "issue" && String(tx.reservationId || "") === String(row.id || "");
+      }).reduce(function(sum, tx) { return sum + Math.max(0, Number(tx.qty) || 0); }, 0);
+      var remaining = Math.max(0, Number(row.qty || 0) - used);
+      reserved[key] = Number(reserved[key] || 0) + remaining;
     });
     var required = {};
     snapshot.items.forEach(function(item, index) {
