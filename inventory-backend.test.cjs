@@ -151,6 +151,7 @@ const consumeReservation=context.reserveSalesOrderStock_(consumeCase.ss,consumeC
 const linkedIssueOne=transaction('RESV-CONSUME-0001','STK-CSK-2026-00030','issue',2,'2026-11-21',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne],[],[]),true,'stock issue linked to its exact active reservation is allowed');
 consumeCase.ss.sheets.Inventory_Transactions.appendRow(rowFor('Inventory_Transactions',linkedIssueOne));
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[{...linkedIssueOne,reservationId:'RSV-FORGED-0001'}],[],[]),/INVENTORY_TRANSACTION_IMMUTABLE/,'reservation references on stock ledger entries cannot be edited');
 assert.equal(context.reconcileConsumedReservations_(consumeCase.ss),0,'partial consumption keeps the reservation active');
 const linkedIssueTwo=transaction('RESV-CONSUME-0002','STK-CSK-2026-00031','issue',2,'2026-11-22',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne,linkedIssueTwo],[],[]),true,'multiple issue transactions consume the same reservation up to its remaining quantity');
