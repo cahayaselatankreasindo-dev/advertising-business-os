@@ -25,6 +25,18 @@ const balances=E.calculateBalances(materials,ledger);
 assert.equal(balances['MAT-ACR'],4);
 assert.equal(E.getBalance('MAT-ACR',balances),4);
 assert.equal(E.getBalance('MAT-HOL',balances),0);
+
+const pricedMaterial={id:'MAT-PRICE',name:'Akrilik Lembaran',unit:'m2',unitPrice:100000,purchaseUnit:'lembar',conversionFactor:3};
+const pricedHpp=E.calculateHppRequirements({items:[{
+ itemType:'material',materialId:'MAT-PRICE',qty:2,unit:'lembar',unitPrice:300000,subtotal:600000
+}]},[pricedMaterial],{});
+assert.equal(pricedHpp.requirements[0].required,6,'HPP purchase-unit quantity converts into six stock square metres');
+assert.equal(pricedHpp.requirements[0].estimatedTotalCost,600000,'estimated material cost preserves the HPP line subtotal');
+assert.equal(pricedHpp.requirements[0].estimatedUnitCost,100000,'estimated unit cost is normalized to the material stock unit');
+const unpricedHpp=E.calculateHppRequirements({items:[{
+ itemType:'material',materialId:'MAT-PRICE',qty:2,unit:'lembar'
+}]},[pricedMaterial],{});
+assert.equal(unpricedHpp.requirements[0].estimatedTotalCost,null,'missing HPP price is not silently treated as zero cost');
 assert.equal(E.nextTransactionNumber(ledger,'2026-11-20'),'STK-CSK-2026-00006');
 
 assert.throws(()=>E.calculateBalances(materials,[receipt,{...opening,date:'2026-11-06',createdAt:'2026-11-06T08:00:00.000Z'}]),/transaksi stok pertama/,'opening balance must be the first ledger movement');
@@ -104,6 +116,19 @@ const returnCostVariance=E.calculateMaterialCostVariance(
  'PRJ-RET',returnCostLedger.concat([returnedAtIssueCost.transaction])
 );
 assert.equal(returnCostVariance.actualTotalCost,300,'project actual material cost nets returns at their original issue value');
+
+const legacyCostMaterial=[{id:'MAT-LEGACY',name:'Legacy Stock',unit:'pcs',unitPrice:2500}];
+const legacyCostLedger=[
+ {id:'LEGACY-OPEN',materialId:'MAT-LEGACY',movement:'opening',qty:10,unit:'pcs',date:'2026-11-01'},
+ {id:'LEGACY-ISSUE',materialId:'MAT-LEGACY',movement:'issue',qty:3,unit:'pcs',date:'2026-11-02',projectId:'PRJ-LEGACY'}
+];
+const legacyCostVariance=E.calculateMaterialCostVariance(
+ [{materialId:'MAT-LEGACY',name:'Legacy Stock',unit:'pcs',required:5,estimatedTotalCost:12500}],
+ 'PRJ-LEGACY',legacyCostLedger,legacyCostMaterial
+);
+assert.equal(legacyCostVariance.actualTotalCost,7500,'legacy issues are valued using the replayed moving average when the Master Material cost is available');
+assert.equal(legacyCostVariance.estimated,true,'legacy master fallback is clearly marked as estimated');
+assert.equal(legacyCostVariance.complete,true,'fallback valuation is complete but explicitly estimated');
 
 assert.throws(()=>E.validateTransaction({
  materialId:'MAT-ACR',movement:'issue',qty:1,unit:'m2',date:'2026-11-15',projectId:''
