@@ -3364,6 +3364,14 @@
       },
       isOwner: function () { return isOwnerSession(); },
       getIdentity: function () { return window.CSKAuth && window.CSKAuth.getIdentity ? window.CSKAuth.getIdentity() : null; },
+      reserveSalesOrderStock: function (salesOrderId) {
+        if (!window.CSKAuth || !window.CSKAuth.reserveSalesOrderStock) return Promise.reject(new Error('Layanan reservasi stok belum siap.'));
+        return window.CSKAuth.reserveSalesOrderStock(salesOrderId);
+      },
+      releaseSalesOrderReservation: function (salesOrderId, reason) {
+        if (!window.CSKAuth || !window.CSKAuth.releaseSalesOrderReservation) return Promise.reject(new Error('Layanan pelepasan reservasi belum siap.'));
+        return window.CSKAuth.releaseSalesOrderReservation(salesOrderId, reason);
+      },
       save: async function () {
         saveDB(true);
         if (!window.CSKAuth || !window.CSKAuth.isReady || !window.CSKAuth.isReady()) throw new Error("Login dan koneksi Google Sheets harus aktif sebelum mencatat stok.");
