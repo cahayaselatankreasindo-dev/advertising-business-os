@@ -36,7 +36,7 @@ function buildQuotationLinesFromCostSheet(sheet){
   var cost=qty*unitPrice;
   if(!Number.isFinite(cost))throw new Error('Biaya item HPP terlalu besar atau tidak valid.');
   var costing=item.costingDetails&&typeof item.costingDetails==='object'?item.costingDetails:null,costingSummary=costing&&typeof costing.summary==='string'?costing.summary.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim():'';
-  return{name:name,description:'Kebutuhan produksi: '+qty+' '+unit+(item.description?' · '+String(item.description):'')+(costingSummary?' · Kalkulasi: '+costingSummary:''),qty:qty,unit:unit,cost:cost,itemType:item.itemType==='service'?'service':'material',materialId:item.materialId||'',serviceId:item.serviceId||'',sourceCostUnitPrice:unitPrice,sourceCostSubtotal:cost,costingMethod:item.costingMethod||(costing&&costing.method)||'',sourceCostingSummary:costingSummary,sourceCostingMode:costing&&costing.sourceMode?String(costing.sourceMode):''};
+  return{name:name,description:'Kebutuhan produksi: '+qty+' '+unit+(item.description?' · '+String(item.description):'')+(costingSummary?' · Kalkulasi: '+costingSummary:''),qty:qty,unit:unit,cost:cost,itemType:item.itemType==='service'?'service':'material',materialId:item.materialId||'',serviceId:item.serviceId||'',sourceCostUnitPrice:unitPrice,sourceCostSubtotal:cost,materialSnapshot:item.materialSnapshot&&typeof item.materialSnapshot==='object'?JSON.parse(JSON.stringify(item.materialSnapshot)):null,costingMethod:item.costingMethod||(costing&&costing.method)||'',sourceCostingSummary:costingSummary,sourceCostingMode:costing&&costing.sourceMode?String(costing.sourceMode):''};
  });
  if(labor>0)components.push({name:'Jasa tenaga kerja dan fabrikasi',description:'Biaya tenaga kerja yang dihitung dalam HPP proyek.',qty:1,unit:'Lot',cost:labor,itemType:'cost_component',sourceCostUnitPrice:labor,sourceCostSubtotal:labor});
  if(other>0)components.push({name:'Biaya operasional dan pendukung',description:'Biaya pendukung yang dihitung dalam HPP proyek.',qty:1,unit:'Lot',cost:other,itemType:'cost_component',sourceCostUnitPrice:other,sourceCostSubtotal:other});
@@ -51,7 +51,7 @@ function buildQuotationLinesFromCostSheet(sheet){
  var allocatedTotal=allocated.reduce(function(sum,value){return sum+value;},0);
  if(allocatedTotal!==sellingTotal)throw new Error('Alokasi harga penawaran HPP gagal direkonsiliasi.');
  return components.map(function(item,index){
-  return{id:'HPP-LINE-'+(index+1),itemType:item.itemType,materialId:item.materialId||'',serviceId:item.serviceId||'',name:item.name,description:item.description,qty:item.qty,unit:item.unit,unitPrice:allocated[index]/item.qty,sourceCostSheetId:String(sheet.id||''),sourceCostSheetUpdatedAt:String(sheet.updatedAt||''),sourceCostUnitPrice:item.sourceCostUnitPrice,sourceCostSubtotal:item.sourceCostSubtotal,sourceHppQty:item.qty,sourceHppUnit:item.unit,sourceCostingMethod:item.costingMethod||'',sourceCostingSummary:item.sourceCostingSummary||'',sourceCostingMode:item.sourceCostingMode||'',marginPercent:margin,pricingSource:'hpp'};
+  return{id:'HPP-LINE-'+(index+1),itemType:item.itemType,materialId:item.materialId||'',serviceId:item.serviceId||'',name:item.name,description:item.description,qty:item.qty,unit:item.unit,unitPrice:allocated[index]/item.qty,sourceCostSheetId:String(sheet.id||''),sourceCostSheetUpdatedAt:String(sheet.updatedAt||''),sourceCostUnitPrice:item.sourceCostUnitPrice,sourceCostSubtotal:item.sourceCostSubtotal,sourceHppQty:item.qty,sourceHppUnit:item.unit,sourceCostingMethod:item.costingMethod||'',sourceCostingSummary:item.sourceCostingSummary||'',sourceCostingMode:item.sourceCostingMode||'',materialSnapshot:item.materialSnapshot||null,marginPercent:margin,pricingSource:'hpp'};
  });
 }
 function localDate(d){d=d instanceof Date?d:new Date(d||Date.now());return[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
@@ -271,6 +271,7 @@ function importHppIntoQuotation(){
  doc.client=project.client||doc.client||'';
  if(!doc.projectDeadline&&project.deadline)doc.projectDeadline=String(project.deadline).slice(0,10);
  doc.lines=lines;
+ doc.sourceCostSheetSnapshot=JSON.parse(JSON.stringify(sheet));
  el('cd-project').value=doc.projectName;
  el('cd-client').value=doc.client;
  el('cd-project-deadline').value=doc.projectDeadline||'';
