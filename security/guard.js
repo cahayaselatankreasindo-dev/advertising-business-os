@@ -563,6 +563,8 @@
     if (action === 'release_sales_order_reservation' && !String(reason || '').trim()) throw new Error('RESERVATION_RELEASE_REASON_REQUIRED');
     var synced = await syncNow(true);
     if (!synced) throw new Error('SALES_ORDER_SYNC_REQUIRED_BEFORE_RESERVATION');
+    var previousRows = Array.isArray(db.inventoryReservations) ? db.inventoryReservations : [];
+    var previousActiveCount = previousRows.filter(function(row) { return String(row.salesOrderId) === id && String(row.status) === 'active'; }).length;
     await post({ action: action, salesOrderId: id, reason: String(reason || '') });
     var response = await get('get_data');
     var cloud = response.data || {};
@@ -581,7 +583,11 @@
     saveScoped();
     if (typeof renderAll === 'function') renderAll();
     if (typeof updateCloudIndicator === 'function') updateCloudIndicator();
-    return { status: action === 'reserve_sales_order_stock' ? 'reserved' : (active.length ? 'active' : 'released'), reservations: active };
+    return {
+      status: action === 'reserve_sales_order_stock' ? 'reserved' : (active.length ? 'active' : 'released'),
+      reservations: active,
+      releasedLines: action === 'release_sales_order_reservation' ? Math.max(0, previousActiveCount - active.length) : 0
+    };
   }
   async function reserveSalesOrderStock(salesOrderId) {
     return changeSalesOrderReservation('reserve_sales_order_stock', salesOrderId, '');
