@@ -1,6 +1,6 @@
 (function(w){
 'use strict';
-var mountId='inventory-app',formOpen=false,filterText='',bound=false,prefillPurchaseOrderId='';
+var mountId='inventory-app',formOpen=false,filterText='',bound=false,prefillPurchaseOrderId='',prefillSalesOrderId='',prefillMaterialId='',prefillReservationId='',prefillPickQty='';
 function bridge(){return w.CSKInventoryBridge||null;}
 function el(id){return w.document.getElementById(id);}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
@@ -17,11 +17,12 @@ function ensureBound(){
  page.addEventListener('click',function(event){
   var b=event.target.closest('[data-inv-action]');if(!b)return;
   var action=b.dataset.invAction;
-  if(action==='open'){formOpen=true;renderInventory();}
-  if(action==='close'){formOpen=false;prefillPurchaseOrderId='';renderInventory();}
-  if(action==='movement'){formOpen=true;prefillPurchaseOrderId='';renderInventory(b.dataset.movement);}
+  if(action==='open'){formOpen=true;prefillPurchaseOrderId='';clearPickingPrefill();renderInventory();}
+  if(action==='close'){formOpen=false;prefillPurchaseOrderId='';clearPickingPrefill();renderInventory();}
+  if(action==='movement'){formOpen=true;prefillPurchaseOrderId='';clearPickingPrefill();renderInventory(b.dataset.movement);}
   if(action==='reserve-so'){reserveSalesOrderStock(b.dataset.salesOrderId);}
   if(action==='release-so'){releaseSalesOrderReservation(b.dataset.salesOrderId);}
+   if(action==='pick-reservation'){openReservationPick(b.dataset.salesOrderId,b.dataset.materialId,b.dataset.reservationId,b.dataset.pickQty);}
  });
  page.addEventListener('submit',function(event){
   if(event.target&&event.target.id==='inventory-entry-form'){event.preventDefault();saveInventoryTransaction();}
@@ -36,6 +37,38 @@ function ensureBound(){
   if(event.target&&event.target.id==='inv-movement'){updateMovementFields();}
  });
  bound=true;
+}
+function clearPickingPrefill(){
+ prefillSalesOrderId='';prefillMaterialId='';prefillReservationId='';prefillPickQty='';
+}
+function openReservationPick(salesOrderId,materialId,reservationId,pickQty){
+ prefillPurchaseOrderId='';
+ prefillSalesOrderId=String(salesOrderId||'');
+ prefillMaterialId=String(materialId||'');
+ prefillReservationId=String(reservationId||'');
+ prefillPickQty=String(pickQty||'');
+ formOpen=true;
+ renderInventory('issue');
+}
+function applyPickingPrefill(){
+ if(!prefillSalesOrderId)return;
+ var salesOrder=el('inv-sales-order');
+ if(!salesOrder){clearPickingPrefill();return;}
+ salesOrder.value=prefillSalesOrderId;
+ applySalesOrderReservationSelection(prefillSalesOrderId);
+ var material=el('inv-material');
+ if(material&&prefillMaterialId){
+  material.value=prefillMaterialId;
+  applySalesOrderReservationSelection(prefillSalesOrderId);
+ }
+ var reservation=el('inv-reservation-id');
+ if(reservation&&prefillReservationId)reservation.value=prefillReservationId;
+ var quantity=el('inv-qty');
+ if(quantity&&prefillPickQty){
+  var requested=Number(prefillPickQty),maximum=Number(quantity.max||prefillPickQty);
+  if(Number.isFinite(requested)&&requested>0)quantity.value=String(Math.min(requested,maximum));
+ }
+ clearPickingPrefill();
 }
 function materialReady(m){
  var unit=String(m&&m.unit||''),purchaseUnit=String(m&&m.purchaseUnit||unit),factor=n(m&&m.conversionFactor);
@@ -174,7 +207,7 @@ async function saveInventoryTransaction(){
   var changedPO=null,previousPOState=null,poComplete=false;
   if(result.transaction.purchaseOrderId){changedPO=d.purchaseOrders.find(function(p){return String(p.id)===String(result.transaction.purchaseOrderId);});if(changedPO){previousPOState={status:changedPO.status,updatedAt:changedPO.updatedAt};poComplete=purchaseOrderReceiptProgress(changedPO,d.inventoryTransactions).complete;if(poComplete){changedPO.status='received';changedPO.updatedAt=new Date().toISOString();}}}
   try{await b.save();}catch(syncError){var rollbackIndex=d.inventoryTransactions.findIndex(function(x){return String(x.id)===String(added.id);});if(rollbackIndex>=0)d.inventoryTransactions.splice(rollbackIndex,1);if(changedPO&&previousPOState){changedPO.status=previousPOState.status;changedPO.updatedAt=previousPOState.updatedAt;}throw syncError;}
-  formOpen=false;prefillPurchaseOrderId='';renderInventory();
+  formOpen=false;prefillPurchaseOrderId='';clearPickingPrefill();renderInventory();
   notify(result.transaction.transactionNo+' berhasil dicatat dan diverifikasi. Stok '+result.transaction.materialName+' sekarang '+qty(result.balances[result.transaction.materialId])+' '+result.transaction.unit+(poComplete?'. Seluruh item PO telah diterima; status PO diperbarui.':'.'));
  }catch(error){if(added&&d&&Array.isArray(d.inventoryTransactions)){var rollbackIndex=d.inventoryTransactions.findIndex(function(x){return String(x.id)===String(added.id);});if(rollbackIndex>=0)d.inventoryTransactions.splice(rollbackIndex,1);}notify(error.message||String(error),true);}
  finally{var current=el('inv-save');if(current){current.disabled=false;updateMovementFields();}}
@@ -196,24 +229,36 @@ function renderCommitmentPanel(report){
  return html;
 }
 function renderReservationPanel(d){
- var reservations=d.inventoryReservations||[];
+ var reservations=d.inventoryReservations||[],balances=calculate(d);
  var orders=(d.salesOrders||[]).filter(function(order){return String(order.status||'').toLowerCase()==='ready_production'||reservations.some(function(row){return String(row.salesOrderId)===String(order.id)&&row.status==='active';});});
- var html='<section class="bg-white border border-violet-200 rounded-2xl p-4 mb-5"><div class="flex flex-wrap justify-between items-center gap-2"><div><h2 class="font-bold text-sm">Reservasi Stok Terkunci</h2><p class="text-[11px] text-slate-500 mt-1">Reservasi server-side berdasarkan snapshot HPP setiap Sales Order yang sudah siap produksi dan lolos verifikasi DP.</p></div><span class="rounded-full bg-violet-50 text-violet-700 px-2 py-1 text-[10px] font-bold">'+reservations.filter(function(row){return row.status==='active';}).length+' baris aktif</span></div>';
+ var html='<section class="bg-white border border-violet-200 rounded-2xl p-4 mb-5"><div class="flex flex-wrap justify-between items-center gap-2"><div><h2 class="font-bold text-sm">Reservasi Stok Terkunci & Picking List</h2><p class="text-[11px] text-slate-500 mt-1">Stok yang dikunci per Sales Order. Ambil material langsung dari daftar sesuai kebutuhan produksi.</p></div><span class="rounded-full bg-violet-50 text-violet-700 px-2 py-1 text-[10px] font-bold">'+reservations.filter(function(row){return row.status==='active';}).length+' baris aktif</span></div>';
  if(!orders.length)html+='<div class="mt-3 border border-dashed rounded-xl p-4 text-xs text-slate-500">Belum ada Sales Order berstatus Siap Produksi.</div>';
- else html+='<div class="mt-3 space-y-2">'+orders.map(function(order){
+ else html+='<div class="mt-3 space-y-3">'+orders.map(function(order){
   var orderHistory=reservations.filter(function(row){return String(row.salesOrderId)===String(order.id);});
   var active=orderHistory.filter(function(row){return row.status==='active';});
   var fullyConsumed=orderHistory.length>0&&orderHistory.every(function(row){return row.status==='consumed';});
-  var summary=active.map(function(row){var used=(d.inventoryTransactions||[]).filter(function(tx){return tx.movement==='issue'&&String(tx.reservationId||'')===String(row.id||'');}).reduce(function(sum,tx){return sum+n(tx.qty);},0);var remaining=Math.max(0,n(row.qty)-used);return esc(row.materialName)+': '+qty(remaining)+' '+esc(row.unit)+' tersisa';}).join(' · ');
+  var picking=active.map(function(row){
+   var issued=(d.inventoryTransactions||[]).filter(function(tx){return tx.movement==='issue'&&String(tx.reservationId||'')===String(row.id||'');}).reduce(function(sum,tx){return sum+n(tx.qty);},0);
+   var remaining=Math.max(0,n(row.qty)-issued),onHand=E().getBalance(row.materialId,balances),pickQty=Math.min(remaining,Math.max(0,onHand));
+   return{row:row,issued:issued,remaining:remaining,onHand:onHand,pickQty:pickQty};
+  });
+  var summary=picking.map(function(line){return esc(line.row.materialName)+': '+qty(line.remaining)+' '+esc(line.row.unit)+' tersisa';}).join(' · ');
   var action=active.length
    ? '<button data-inv-action="release-so" data-sales-order-id="'+esc(order.id)+'" class="px-3 py-2 rounded-lg border border-red-200 text-red-700 text-[10px] font-bold">Lepas Reservasi</button>'
    : fullyConsumed
     ? '<span class="text-[10px] font-semibold text-emerald-700">Semua material telah digunakan</span>'
     : '<button data-inv-action="reserve-so" data-sales-order-id="'+esc(order.id)+'" class="px-3 py-2 rounded-lg bg-violet-700 text-white text-[10px] font-bold">Kunci Stok</button>';
   var state=active.length?'<span class="text-emerald-700 font-semibold">Terkunci</span> · '+summary:fullyConsumed?'<span class="text-emerald-700 font-semibold">Sudah digunakan</span>':'<span class="text-amber-700">Belum direservasi</span> · '+esc(order.client||'');
-  return '<div class="flex flex-wrap items-center justify-between gap-3 border rounded-xl p-3"><div class="min-w-0"><div class="font-bold text-xs">'+esc(order.orderNo||order.id)+' · '+esc(order.projectName||'Proyek')+'</div><div class="text-[10px] text-slate-500 mt-1">'+state+'</div></div>'+(bridge()&&bridge().isOwner()?action:'')+'</div>';
+  var pickingHtml='';
+  if(active.length){
+   pickingHtml='<div class="mt-3 overflow-x-auto"><table class="w-full min-w-[650px] text-[10px]"><thead class="bg-violet-50 text-violet-900"><tr><th class="text-left p-2">Material</th><th class="text-right p-2">Reservasi</th><th class="text-right p-2">Sudah keluar</th><th class="text-right p-2">Sisa</th><th class="text-right p-2">Stok fisik</th><th class="text-right p-2">Aksi</th></tr></thead><tbody>'+picking.map(function(line){
+    var row=line.row,disabled=line.remaining<=0.000001||line.pickQty<=0.000001;
+    return'<tr class="border-t"><td class="p-2"><b>'+esc(row.materialName)+'</b><div class="text-[9px] text-slate-400">'+esc(row.materialId)+'</div></td><td class="p-2 text-right">'+qty(row.qty)+' '+esc(row.unit)+'</td><td class="p-2 text-right">'+qty(line.issued)+' '+esc(row.unit)+'</td><td class="p-2 text-right font-bold text-amber-700">'+qty(line.remaining)+' '+esc(row.unit)+'</td><td class="p-2 text-right">'+qty(line.onHand)+' '+esc(row.unit)+'</td><td class="p-2 text-right"><button '+(disabled?'disabled':'data-inv-action="pick-reservation" data-sales-order-id="'+esc(order.id)+'" data-material-id="'+esc(row.materialId)+'" data-reservation-id="'+esc(row.id)+'" data-pick-qty="'+String(line.pickQty)+'"')+' class="px-3 py-2 rounded-lg '+(disabled?'bg-slate-100 text-slate-400':'bg-slate-900 text-white')+' text-[10px] font-bold">'+(line.remaining<=0.000001?'Selesai':line.pickQty<=0.000001?'Stok kosong':'Keluarkan')+'</button></td></tr>';
+   }).join('')+'</tbody></table></div>';
+  }
+  return'<div class="border rounded-xl p-3"><div class="flex flex-wrap items-center justify-between gap-3"><div class="min-w-0"><div class="font-bold text-xs">'+esc(order.orderNo||order.id)+' · '+esc(order.projectName||'Proyek')+'</div><div class="text-[10px] text-slate-500 mt-1">'+state+'</div></div>'+(bridge()&&bridge().isOwner()?action:'')+'</div>'+pickingHtml+'</div>';
  }).join('')+'</div>';
- html+='<p class="text-[10px] text-slate-400 mt-3">Reservasi dicatat di Google Sheets dan diproses oleh backend. Pembatalan, penyelesaian, atau penutupan Sales Order melepas reservasi aktif secara otomatis. Owner juga dapat melepasnya secara manual untuk koreksi.</p></section>';
+ html+='<p class="text-[10px] text-slate-400 mt-3">Setiap pengeluaran ditautkan ke Sales Order dan ID reservasi yang tepat. Pengeluaran bertahap mengurangi sisa reservasi; setelah seluruh kuantitas diambil, baris reservasi otomatis berstatus sudah digunakan. Riwayat ledger tidak dapat diedit atau dihapus.</p></section>';
  return html;
 }
 async function reserveSalesOrderStock(salesOrderId){
@@ -250,6 +295,7 @@ function renderInventory(defaultMovement){
   updateUnitHint();
   updateMovementFields();
   if(formOpen&&prefillPurchaseOrderId)applyPurchaseOrderSelection(prefillPurchaseOrderId);
+  if(formOpen&&prefillSalesOrderId)applyPickingPrefill();
  }catch(error){page.innerHTML='<div class="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">'+esc(error.message||String(error))+'</div>';}
 }
 w.renderInventory=renderInventory;
