@@ -318,3 +318,7 @@ Delivered on `feature/hpp-material-conversion-20261120`:
 - Tests cover normalization, unknown values, landscape page dimensions, pagination, and the Sales Order download action.
 
 Release boundary remains unchanged: no merge to main, no live Apps Script deployment, no Google Sheets migration, and no public website change.
+
+
+### Cost variance safety rule
+The project-level cost variance is only computed when each HPP material has an issue/return movement, actual valuation is complete, every HPP cost estimate is known, and there are no unplanned actual material issues. Materials not yet issued show no per-line variance; incomplete costs do not become zero. The report remains provisional until order closure and return reconciliation.
