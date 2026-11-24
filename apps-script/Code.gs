@@ -783,18 +783,34 @@ function calculateHppMaterialRequirements_(ss, projectId) {
       return;
     }
     var key = String(material.id);
-    if (!grouped[key]) grouped[key] = {materialId:material.id,name:String(material.name || ""),unit:stockUnit,required:0};
+    var lineCost = Number(item.subtotal) || 0;
+    if (lineCost <= 0 && Number(item.unitPrice) > 0) lineCost = qty * Number(item.unitPrice);
+    if (!grouped[key]) grouped[key] = {materialId:material.id,name:String(material.name || ""),unit:stockUnit,required:0,estimatedTotalCost:0,estimatedCostKnown:true};
     grouped[key].required += stockQty;
+    if (lineCost > 0) grouped[key].estimatedTotalCost += lineCost;
+    else grouped[key].estimatedCostKnown = false;
   });
-  var requirements = Object.keys(grouped).map(function(key) { return grouped[key]; })
-    .sort(function(a,b) { return String(a.name).localeCompare(String(b.name)); });
+  var requirements = Object.keys(grouped).map(function(key) {
+    var row = grouped[key];
+    row.estimatedTotalCost = row.estimatedCostKnown ? Math.round(row.estimatedTotalCost) : null;
+    row.estimatedUnitCost = row.estimatedCostKnown && row.required > 0 ? row.estimatedTotalCost / row.required : null;
+    delete row.estimatedCostKnown;
+    return row;
+  }).sort(function(a,b) { return String(a.name).localeCompare(String(b.name)); });
   if (!requirements.length && !errors.length) errors.push("HPP belum memiliki baris material.");
   return {requirements:requirements,errors:errors};
 }
 
 function normalizeMaterialRequirementSnapshot_(rows) {
   return (Array.isArray(rows) ? rows : []).map(function(row) {
-    return {materialId:String(row.materialId || ""),name:String(row.name || ""),unit:String(row.unit || ""),required:Number(row.required)};
+    var estimatedUnitCost = row.estimatedUnitCost === null || row.estimatedUnitCost === undefined || row.estimatedUnitCost === "" ? null : Number(row.estimatedUnitCost);
+    var estimatedTotalCost = row.estimatedTotalCost === null || row.estimatedTotalCost === undefined || row.estimatedTotalCost === "" ? null : Number(row.estimatedTotalCost);
+    return {
+      materialId:String(row.materialId || ""),name:String(row.name || ""),unit:String(row.unit || ""),
+      required:Number(row.required),
+      estimatedUnitCost:Number.isFinite(estimatedUnitCost) ? estimatedUnitCost : null,
+      estimatedTotalCost:Number.isFinite(estimatedTotalCost) ? estimatedTotalCost : null
+    };
   }).sort(function(a,b) { return a.materialId.localeCompare(b.materialId); });
 }
 
