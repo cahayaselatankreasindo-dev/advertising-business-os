@@ -388,7 +388,9 @@ assert.equal(hppQuotation.client, hppProject.client);
 assert.equal(hppQuotation.projectDeadline, hppProject.deadline);
 assert.equal(hppQuotation.subtotal, hppSheet.price);
 assert.equal(hppQuotation.total, hppSheet.price, 'quotation selling price equals the saved HPP price');
-assert.equal(hppQuotation.lines.reduce((sum, line) => sum + line.qty * line.unitPrice, 0), hppSheet.price);
+assert.equal(Math.round(hppQuotation.lines.reduce((sum, line) => sum + line.qty * line.unitPrice, 0)), hppSheet.price);
+assert.equal(hppQuotation.lines[0].qty, 2, 'quotation keeps original HPP consumption quantity');
+assert.equal(hppQuotation.lines[0].unit, 'lembar', 'quotation keeps original HPP consumption unit');
 assert.ok(hppQuotation.lines.every(line => line.sourceCostSheetId === hppSheet.id), 'each imported line keeps its HPP source snapshot');
 assert.match(hppQuotation.lines[0].description, /2 lembar/);
 
