@@ -38,9 +38,10 @@ function ensureBound(){
  bound=true;
 }
 function materialReady(m){
- return !!m&&String(m.status||'active')==='active'&&n(m.unitPrice)>0&&n(m.purchasePrice)>0&&n(m.conversionFactor)>0&&
-  !!String(m.unit||'').trim()&&!!String(m.purchaseUnit||'').trim()&&!!String(m.supplierName||'').trim()&&
-  !!String(m.priceSource||'').trim()&&!!String(m.priceDate||'').trim();
+ var unit=String(m&&m.unit||''),purchaseUnit=String(m&&m.purchaseUnit||unit),factor=n(m&&m.conversionFactor);
+ var legacyManual=String(m&&m.sku||'').indexOf('MAT-MANUAL-')===0&&purchaseUnit===unit&&factor===1&&n(m&&m.unitPrice)>0;
+ return !!m&&String(m.status||'active')==='active'&&n(m.unitPrice)>0&&n(m.purchasePrice)>0&&factor>0&&
+  !!unit&&!!purchaseUnit&&(legacyManual||(!!String(m.supplierName||'').trim()&&!!String(m.priceSource||'').trim()&&!!String(m.priceDate||'').trim()));
 }
 function purchaseOrderItems(po){
  if(Array.isArray(po&&po.items))return po.items;
