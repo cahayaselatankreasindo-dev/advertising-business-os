@@ -246,7 +246,7 @@ function setupSheet() {
     { name: "Memory",         headers: ["ID", "Tanggal", "Kategori", "Judul", "Isi"] }
   ];
 
-  legacySheets.forEach(s => ensureSheet(ss, s.name, s.headers));
+  legacySheets.forEach(s => ensureSheet(ss, s.name, s.headers, true));
 
   // Tambah kolom SOP_Checklist ke tab Projects (jika belum ada)
   ensureColumn(ss, "Projects", "SOP_Checklist");
@@ -256,25 +256,25 @@ function setupSheet() {
 
   // Tab baru: Marketing_Spend (Pilar Pemasaran)
   const marketingHeaders = ["ID", "Tanggal", "Platform", "Kampanye", "Budget", "Terpakai", "LeadsDihasilkan", "Catatan"];
-  ensureSheet(ss, "Marketing_Spend", marketingHeaders);
-  ensureSheet(ss, "Materials", FIELD_MAP.Materials.headers);
-  ensureSheet(ss, "Cost_Sheets", FIELD_MAP.Cost_Sheets.headers);
-  ensureSheet(ss, "Services", FIELD_MAP.Services.headers);
-  ensureSheet(ss, "Purchase_Orders", FIELD_MAP.Purchase_Orders.headers);
-  ensureSheet(ss, "Sales_Orders", FIELD_MAP.Sales_Orders.headers);
-  ensureSheet(ss, "Inventory_Transactions", FIELD_MAP.Inventory_Transactions.headers);
-  ensureSheet(ss, "Inventory_Reservations", FIELD_MAP.Inventory_Reservations.headers);
-  ensureSheet(ss, "Quotations", FIELD_MAP.Quotations.headers);
-  ensureSheet(ss, "Commercial_Quotations", FIELD_MAP.Commercial_Quotations.headers);
-  ensureSheet(ss, "Invoices", FIELD_MAP.Invoices.headers);
-  ensureSheet(ss, "Invoice_Payments", FIELD_MAP.Invoice_Payments.headers);
+  ensureSheet(ss, "Marketing_Spend", marketingHeaders, true);
+  ensureSheet(ss, "Materials", FIELD_MAP.Materials.headers, true);
+  ensureSheet(ss, "Cost_Sheets", FIELD_MAP.Cost_Sheets.headers, true);
+  ensureSheet(ss, "Services", FIELD_MAP.Services.headers, true);
+  ensureSheet(ss, "Purchase_Orders", FIELD_MAP.Purchase_Orders.headers, true);
+  ensureSheet(ss, "Sales_Orders", FIELD_MAP.Sales_Orders.headers, true);
+  ensureSheet(ss, "Inventory_Transactions", FIELD_MAP.Inventory_Transactions.headers, true);
+  ensureSheet(ss, "Inventory_Reservations", FIELD_MAP.Inventory_Reservations.headers, true);
+  ensureSheet(ss, "Quotations", FIELD_MAP.Quotations.headers, true);
+  ensureSheet(ss, "Commercial_Quotations", FIELD_MAP.Commercial_Quotations.headers, true);
+  ensureSheet(ss, "Invoices", FIELD_MAP.Invoices.headers, true);
+  ensureSheet(ss, "Invoice_Payments", FIELD_MAP.Invoice_Payments.headers, true);
 
   // Validasi header tanpa menghapus kolom; kolom kontrak yang belum ada ditambahkan di kanan.
   Object.keys(FIELD_MAP).forEach(function (name) {
     dedupeHeaders(ss, name);
   });
   Object.keys(FIELD_MAP).forEach(function (name) {
-    ensureAllHeaders(ss, name);
+    ensureAllHeaders(ss, name, true);
   });
 
   // Hapus sheet kosong bawaan Google (Sheet1 / Sheet 1) bila masih ada
@@ -284,10 +284,15 @@ function setupSheet() {
   }
 }
 
-function ensureSheet(ss, sheetName, headers) {
+function ensureSheet(ss, sheetName, headers, allowSchemaMutation) {
   let sheet = ss.getSheetByName(sheetName);
-  if (!sheet) sheet = ss.insertSheet(sheetName);
+  if (!sheet) {
+    if (!allowSchemaMutation) throw new Error("SCHEMA_SETUP_REQUIRED:SHEET_MISSING:" + sheetName);
+    sheet = ss.insertSheet(sheetName);
+  }
   if (sheet.getLastRow() === 0) {
+    if (!allowSchemaMutation) throw new Error("SCHEMA_SETUP_REQUIRED:HEADER_MISSING:" + sheetName);
+    if (!Array.isArray(headers) || !headers.length) throw new Error("SCHEMA_SETUP_REQUIRED:HEADERS_REQUIRED:" + sheetName);
     sheet.appendRow(headers);
     sheet.getRange(1, 1, 1, headers.length)
       .setFontWeight("bold")
@@ -295,6 +300,7 @@ function ensureSheet(ss, sheetName, headers) {
       .setFontColor("#FFFFFF");
     sheet.setFrozenRows(1);
   }
+  if (!allowSchemaMutation) assertSheetContractReady_(ss, sheetName);
   return sheet;
 }
 
@@ -318,25 +324,37 @@ function ensureColumn(ss, sheetName, columnName) {
  * Pencocokan TIDAK case-sensitive (TANGGAL == Tanggal == tanggal).
  * Aman untuk sheet yang sudah berisi data (migrasi skema).
  */
-function ensureAllHeaders(ss, sheetName) {
+function ensureAllHeaders(ss, sheetName, allowAppend) {
   var map = FIELD_MAP[sheetName];
   if (!map) return;
   var sheet = ss.getSheetByName(sheetName);
-  if (!sheet || sheet.getLastRow() === 0) return;
+  if (!sheet) {
+    if (!allowAppend) throw new Error("SCHEMA_SETUP_REQUIRED:SHEET_MISSING:" + sheetName);
+    return;
+  }
+  if (sheet.getLastRow() === 0 || sheet.getLastColumn() === 0) {
+    if (!allowAppend) throw new Error("SCHEMA_SETUP_REQUIRED:HEADER_MISSING:" + sheetName);
+    return;
+  }
 
+  dedupeHeaders(ss, sheetName);
   var current = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
     .map(function (h) { return String(h).trim().toLowerCase(); });
+  var missing = map.headers.filter(function (h) {
+    return current.indexOf(h.toLowerCase()) === -1;
+  });
+  if (missing.length && !allowAppend) {
+    throw new Error("SCHEMA_SETUP_REQUIRED:HEADERS_MISSING:" + sheetName + ":" + missing.join(","));
+  }
 
-  map.headers.forEach(function (h) {
-    if (current.indexOf(h.toLowerCase()) === -1) {
-      var col = sheet.getLastColumn() + 1;
-      sheet.getRange(1, col).setValue(h);
-      sheet.getRange(1, col)
-        .setFontWeight("bold")
-        .setBackground("#1C2333")
-        .setFontColor("#FFFFFF");
-      current.push(h.toLowerCase());
-    }
+  missing.forEach(function (h) {
+    var col = sheet.getLastColumn() + 1;
+    sheet.getRange(1, col).setValue(h);
+    sheet.getRange(1, col)
+      .setFontWeight("bold")
+      .setBackground("#1C2333")
+      .setFontColor("#FFFFFF");
+    current.push(h.toLowerCase());
   });
 }
 
@@ -374,6 +392,26 @@ function dedupeHeaders(ss, sheetName) {
   }
   Logger.log("dedupeHeaders[" + sheetName + "]: valid; tidak ada kolom yang dihapus.");
   return 0;
+}
+
+function assertSheetContractReady_(ss, sheetName) {
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) throw new Error("SCHEMA_SETUP_REQUIRED:SHEET_MISSING:" + sheetName);
+  if (sheet.getLastRow() === 0 || sheet.getLastColumn() === 0) {
+    throw new Error("SCHEMA_SETUP_REQUIRED:HEADER_MISSING:" + sheetName);
+  }
+  if (FIELD_MAP[sheetName]) ensureAllHeaders(ss, sheetName, false);
+  return sheet;
+}
+
+function assertSyncSchemaReady_(ss, identity) {
+  var requiredSheets = identity && identity.role === "owner"
+    ? Object.keys(FIELD_MAP)
+    : ["Leads", "Clients", "Projects"];
+  requiredSheets.forEach(function (sheetName) {
+    assertSheetContractReady_(ss, sheetName);
+  });
+  return true;
 }
 
 function findRowById(sheet, id) {
@@ -1494,6 +1532,9 @@ function doPost(e) {
 
     switch (action) {
       case "sync_all": {
+        // Schema migration is an explicit setup operation. Sync must be read/write-only
+        // against an already prepared contract and must fail before any record is changed.
+        assertSyncSchemaReady_(ss, identity);
         if (identity.role === "team") cskAssertTeamLeadTransitions_(ss, payload.leads || []);
         var mergeSummary = {};
         if (payload.leads)          mergeSummary.Leads           = mergeSheet(ss, "Leads", payload.leads);
@@ -2148,17 +2189,8 @@ function insertRecord(ss, sheetName, recordObj, keyOrder) {
 }
 
 function overwriteSheet(ss, sheetName, items, keys) {
-  // Tab kontrak: header dipaksa sesuai FIELD_MAP agar kolom tak pernah bergeser.
-  let sheet = ss.getSheetByName(sheetName);
-  if (!sheet) {
-    sheet = ss.insertSheet(sheetName);
-    if (FIELD_MAP[sheetName]) {
-      sheet.appendRow(FIELD_MAP[sheetName].headers);
-      sheet.getRange(1, 1, 1, FIELD_MAP[sheetName].headers.length)
-        .setFontWeight("bold").setBackground("#1C2333").setFontColor("#FFFFFF");
-      sheet.setFrozenRows(1);
-    }
-  }
+  // Rebuilds are allowed only against an already initialized sheet contract.
+  let sheet = assertSheetContractReady_(ss, sheetName);
   if (sheet.getLastRow() > 1) {
     sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
   }
@@ -2237,24 +2269,9 @@ function installDailyOutreachTrigger() {
  */
 function mergeSheet(ss, sheetName, items) {
   var map = FIELD_MAP[sheetName];
-  var sheet = ss.getSheetByName(sheetName);
-
-  if (!sheet) {
-    sheet = ss.insertSheet(sheetName);
-    if (map) {
-      sheet.appendRow(map.headers);
-      sheet.getRange(1, 1, 1, map.headers.length)
-        .setFontWeight("bold").setBackground("#1C2333").setFontColor("#FFFFFF");
-      sheet.setFrozenRows(1);
-    }
-  }
-
-  // Validasi header terlebih dahulu; header ambigu menghentikan proses tanpa menghapus data.
-  // Kolom kontrak yang belum ada ditambahkan di kanan.
-  if (map) {
-    dedupeHeaders(ss, sheetName);
-    ensureAllHeaders(ss, sheetName);
-  }
+  // A normal data merge never creates tabs or appends schema columns.
+  // Only setupSheet(), run deliberately on an approved TEST copy, may migrate schema.
+  var sheet = assertSheetContractReady_(ss, sheetName);
 
   items = items || [];
   var result = { inserted: 0, updated: 0, skipped: 0, total: items.length };
