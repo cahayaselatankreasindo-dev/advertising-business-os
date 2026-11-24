@@ -120,7 +120,7 @@ function extractBackendFunction(name) {
 const roleSandbox = {
   FIELD_MAP: {
     Leads: {}, Clients: {}, Projects: {}, Invoices: {},
-    Commercial_Quotations: {}, Finance: {}, Invoice_Payments: {}, Sales_Orders: {}, Inventory_Transactions: {}
+    Commercial_Quotations: {}, Finance: {}, Invoice_Payments: {}, Sales_Orders: {}, Inventory_Transactions: {}, Inventory_Reservations: {}
   }
 };
 vm.runInNewContext(
@@ -167,6 +167,9 @@ assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
 assert.equal(roleSandbox.authorizePayload({ role: 'owner' }, { action: 'reserve_sales_order_stock', salesOrderId: 'SO-INV-00000001' }), true, 'Owner may request guarded Sales Order stock reservation');
 assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, { action: 'reserve_sales_order_stock', salesOrderId: 'SO-INV-00000001' }), /FORBIDDEN_STOCK_RESERVATION/, 'Team cannot reserve stock');
 assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, { action: 'release_sales_order_reservation' }), /SALES_ORDER_ID_REQUIRED/, 'reservation release requires a Sales Order ID');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, { action: 'release_sales_order_reservation', salesOrderId: 'SO-INV-00000001' }), /RESERVATION_RELEASE_REASON_REQUIRED/, 'reservation release requires an audit reason');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, { action: 'insert', sheet: 'Inventory_Reservations', data: { id: 'RSV-FORGED-0001' } }), /INVENTORY_RESERVATIONS_SERVER_ONLY/, 'reservation ledger cannot be forged through generic insert');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, { action: 'delete', sheet: 'Inventory_Reservations', id: 'RSV-TEST-0001' }), /INVENTORY_RESERVATIONS_SERVER_ONLY/, 'reservation ledger cannot be deleted through generic actions');
 assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
   action: 'delete', sheet: 'Inventory_Transactions', id: 'ITX-TEST-0001'
 }), /INVENTORY_LEDGER_SERVER_ONLY/, 'Inventory ledger rows cannot be deleted');
@@ -190,7 +193,7 @@ assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
 }), /PAYMENT_LEDGER_SERVER_ONLY/, 'payment ledger cannot be overwritten by generic sync');
 const roleData = {
   leads: [1], clients: [2], projects: [3],
-  quotations: [4], invoices: [5], invoicePayments: [6], salesOrders: [8], inventoryTransactions: [9], finance: [7]
+  quotations: [4], invoices: [5], invoicePayments: [6], salesOrders: [8], inventoryTransactions: [9], inventoryReservations: [10], finance: [7]
 };
 const teamData = roleSandbox.filterData(roleData, 'team');
 assert.deepEqual(Object.keys(teamData).sort(), ['clients', 'lastSynced', 'leads', 'projects']);
@@ -199,6 +202,7 @@ assert.equal(teamData.quotations, undefined, 'Team does not receive commercial q
 assert.equal(teamData.invoicePayments, undefined, 'Team does not receive payment ledger');
 assert.equal(teamData.salesOrders, undefined, 'Team does not receive Sales Orders');
 assert.equal(teamData.inventoryTransactions, undefined, 'Team does not receive Inventory Transactions');
+assert.equal(teamData.inventoryReservations, undefined, 'Team does not receive stock reservations');
 assert.equal(roleSandbox.filterData(roleData, 'owner'), roleData, 'Owner receives the full authorized dataset');
 
 
