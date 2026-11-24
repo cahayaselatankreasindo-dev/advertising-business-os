@@ -523,6 +523,171 @@ async function downloadPickingList(input) {
   }
 }
 
+
+function normalizeMaterialUsageReport(input) {
+  input = input || {};
+  var lines = Array.isArray(input.lines) ? input.lines.map(function(line) {
+    var required = Math.max(0, number(line.required));
+    var netIssued = Math.max(0, number(line.netIssued));
+    var variance = number(line.varianceQty);
+    return {
+      name: cleanText(line.name || 'Material'),
+      unit: cleanText(line.unit || '-'),
+      required: required,
+      netIssued: netIssued,
+      varianceQty: variance,
+      variancePct: required > 0 ? variance / required * 100 : 0,
+      remaining: Math.max(0, number(line.remaining))
+    };
+  }) : [];
+  return {
+    title: cleanText(input.title || 'LAPORAN PENGELUARAN MATERIAL'),
+    docNo: cleanText(input.docNo || 'DRAFT'),
+    orderNo: cleanText(input.orderNo || '-'),
+    projectId: cleanText(input.projectId || ''),
+    projectName: cleanText(input.projectName || '-'),
+    status: cleanText(input.status || ''),
+    source: cleanText(input.source || 'HPP'),
+    date: input.date || '',
+    lines: lines
+  };
+}
+function materialUsageFilename(input) {
+  var d = normalizeMaterialUsageReport(input);
+  var project = (d.projectId || d.projectName || 'PROJECT').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 28);
+  var order = (d.orderNo || 'DRAFT').replace(/[^a-zA-Z0-9_-]+/g, '-');
+  return 'MATERIAL-REPORT-' + project + '-' + order + '.pdf';
+}
+function drawUsageHeader(pdf, d, continuation) {
+  var pageWidth = pdf.internal.pageSize.getWidth();
+  setColor(pdf, 'setFillColor', COLORS.orange);
+  pdf.rect(0, 0, pageWidth, 4, 'F');
+  drawText(pdf, COMPANY.name, 14, 16, 13, 'bold', COLORS.ink);
+  drawText(pdf, COMPANY.tagline, 14, 22, 6.8, 'bold', COLORS.orange);
+  drawText(pdf, COMPANY.contact, 14, 30, 6.6, 'normal', COLORS.muted);
+  setColor(pdf, 'setFillColor', COLORS.ink);
+  pdf.roundedRect(139, 10, 57, 27, 2, 2, 'F');
+  drawText(pdf, continuation ? 'LAPORAN MATERIAL - LANJUTAN' : d.title, 143, 18, 7.1, 'bold', COLORS.white, 49);
+  drawText(pdf, d.docNo, 143, 26, 8.2, 'bold', COLORS.white, 49);
+  drawText(pdf, 'Tanggal: ' + formatDate(d.date), 143, 32, 6.2, 'normal', COLORS.white, 49);
+  pdf.setDrawColor.apply(pdf, COLORS.line);
+  pdf.line(14, 42, 196, 42);
+  return 49;
+}
+function drawUsageTableHeader(pdf, y) {
+  var x = [14, 23, 90, 110, 132, 154, 174, 196];
+  var labels = ['No', 'Material', 'Satuan', 'HPP', 'Net keluar', 'Selisih', 'Sisa HPP'];
+  setColor(pdf, 'setFillColor', COLORS.ink);
+  pdf.rect(14, y - 6, 182, 10, 'F');
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(6.5);
+  setColor(pdf, 'setTextColor', COLORS.white);
+  pdf.text(labels[0], x[0] + 2, y);
+  pdf.text(labels[1], x[1] + 2, y);
+  pdf.text(labels[2], x[2] + 2, y);
+  pdf.text(labels[3], x[4] - 2, y, { align: 'right' });
+  pdf.text(labels[4], x[5] - 2, y, { align: 'right' });
+  pdf.text(labels[5], x[6] - 2, y, { align: 'right' });
+  pdf.text(labels[6], x[7] - 2, y, { align: 'right' });
+  return x;
+}
+function drawUsageRow(pdf, line, index, y, x) {
+  var nameLines = pdf.splitTextToSize(line.name || 'Material', 63);
+  var height = Math.max(11, 4 + nameLines.length * 4);
+  pdf.setDrawColor.apply(pdf, COLORS.line);
+  pdf.line(14, y + height, 196, y + height);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7);
+  setColor(pdf, 'setTextColor', COLORS.muted);
+  pdf.text(String(index + 1), x[0] + 2, y + 4);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(7.1);
+  setColor(pdf, 'setTextColor', COLORS.ink);
+  pdf.text(nameLines, x[1] + 2, y + 4);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7);
+  pdf.text(line.unit || '-', x[2] + 2, y + 4);
+  pdf.text(String(line.required), x[4] - 2, y + 4, { align: 'right' });
+  pdf.text(String(line.netIssued), x[5] - 2, y + 4, { align: 'right' });
+  pdf.setFont('helvetica', 'bold');
+  var varianceText = (line.varianceQty > 0 ? '+' : '') + String(line.varianceQty);
+  pdf.text(varianceText, x[6] - 2, y + 4, { align: 'right' });
+  pdf.text(String(line.remaining), x[7] - 2, y + 4, { align: 'right' });
+  return height;
+}
+function generateMaterialUsagePdf(input, jsPDF) {
+  var d = normalizeMaterialUsageReport(input);
+  if (!d.lines.length) throw new Error('Tidak ada rincian material untuk dilaporkan.');
+  var pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+  var pageHeight = pdf.internal.pageSize.getHeight();
+  pdf.setProperties({
+    title: 'Laporan Pengeluaran Material - ' + d.orderNo,
+    subject: 'Rekonsiliasi kuantitas HPP dan pengeluaran material CSK',
+    author: COMPANY.name,
+    creator: 'CSK Business OS'
+  });
+  var y = drawUsageHeader(pdf, d, false);
+  setColor(pdf, 'setFillColor', COLORS.paper);
+  pdf.roundedRect(14, y, 182, 24, 2, 2, 'F');
+  drawText(pdf, 'PROYEK', 18, y + 6, 6, 'bold', COLORS.orange);
+  drawText(pdf, d.projectName, 18, y + 12, 9, 'bold', COLORS.ink, 105);
+  drawText(pdf, 'PROJECT ID: ' + (d.projectId || '-'), 18, y + 19, 6.2, 'normal', COLORS.muted, 105);
+  drawText(pdf, 'SALES ORDER', 137, y + 6, 6, 'bold', COLORS.orange);
+  drawText(pdf, d.orderNo, 137, y + 13, 7.2, 'bold', COLORS.ink, 54);
+  drawText(pdf, 'Status: ' + (d.status || '-'), 137, y + 20, 6.2, 'normal', COLORS.muted, 54);
+  y += 32;
+  drawText(pdf, 'REKONSILIASI KUANTITAS MATERIAL', 14, y + 3, 7.5, 'bold', COLORS.ink);
+  drawText(pdf, 'Sumber rencana: ' + d.source + ' · ' + d.lines.length + ' jenis material', 14, y + 9, 6.5, 'normal', COLORS.muted);
+  y += 17;
+  var x = drawUsageTableHeader(pdf, y);
+  y += 5;
+  d.lines.forEach(function(line, index) {
+    var rowHeight = Math.max(11, 4 + pdf.splitTextToSize(line.name || 'Material', 63).length * 4);
+    if (y + rowHeight > pageHeight - 55) {
+      pdf.addPage();
+      y = drawUsageHeader(pdf, d, true) + 4;
+      x = drawUsageTableHeader(pdf, y);
+      y += 5;
+    }
+    y += drawUsageRow(pdf, line, index, y, x);
+  });
+  if (y + 48 > pageHeight - 24) {
+    pdf.addPage();
+    y = drawUsageHeader(pdf, d, true) + 8;
+  } else {
+    y += 9;
+  }
+  setColor(pdf, 'setFillColor', COLORS.paleOrange);
+  pdf.roundedRect(14, y, 182, 22, 2, 2, 'F');
+  drawText(pdf, 'CATATAN PEMBACAAN', 18, y + 6, 6.2, 'bold', COLORS.orange);
+  drawText(pdf, 'Net keluar = pengeluaran ke proyek dikurangi retur material. Selisih = net keluar dikurangi rencana HPP. Sisa HPP = kebutuhan HPP yang belum dikeluarkan.', 18, y + 12, 6.5, 'normal', COLORS.ink, 174);
+  drawText(pdf, 'Laporan ini merekonsiliasi kuantitas, bukan biaya aktual atau bukti bahwa material telah habis terpakai.', 18, y + 18, 6.2, 'bold', COLORS.ink, 174);
+  y += 31;
+  drawText(pdf, 'Disusun oleh', 18, y, 7, 'normal', COLORS.muted);
+  drawText(pdf, 'Diverifikasi produksi / gudang', 118, y, 7, 'normal', COLORS.muted);
+  pdf.setDrawColor.apply(pdf, COLORS.line);
+  pdf.line(18, y + 24, 88, y + 24);
+  pdf.line(118, y + 24, 188, y + 24);
+  drawText(pdf, 'Nama & tanda tangan', 18, y + 29, 6, 'normal', COLORS.muted);
+  drawText(pdf, 'Nama & tanda tangan', 118, y + 29, 6, 'normal', COLORS.muted);
+  addFooter(pdf);
+  return pdf;
+}
+async function downloadMaterialUsageReport(input) {
+  try {
+    var d = normalizeMaterialUsageReport(input);
+    var jsPDF = await loadJsPdf();
+    var pdf = generateMaterialUsagePdf(d, jsPDF);
+    var filename = materialUsageFilename(d);
+    pdf.save(filename);
+    notify('Laporan pengeluaran material PDF berhasil dibuat: ' + filename, false);
+    return { ok: true, filename: filename };
+  } catch (error) {
+    notify('Laporan material PDF belum berhasil dibuat. ' + String(error && error.message || error), true);
+    return { ok: false, error: String(error && error.message || error) };
+  }
+}
+
 var api = {
   normalizeDocument: normalizeDocument,
   makeFilename: makeFilename,
@@ -532,7 +697,11 @@ var api = {
   normalizePickingList: normalizePickingList,
   pickingListFilename: pickingListFilename,
   generatePickingListPdf: generatePickingListPdf,
-  downloadPickingList: downloadPickingList
+  downloadPickingList: downloadPickingList,
+  normalizeMaterialUsageReport: normalizeMaterialUsageReport,
+  materialUsageFilename: materialUsageFilename,
+  generateMaterialUsagePdf: generateMaterialUsagePdf,
+  downloadMaterialUsageReport: downloadMaterialUsageReport
 };
 if (w) w.CSKPDF = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
