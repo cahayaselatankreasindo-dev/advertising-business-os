@@ -8,7 +8,7 @@ function n(v){var x=Number(v);return Number.isFinite(x)?x:0;}
 function rupiah(v){return 'Rp '+Math.round(n(v)).toLocaleString('id-ID');}
 function notify(message,isError){var b=bridge();if(b&&b.toast)b.toast(message,!!isError);}
 function data(){var b=bridge();if(!b)throw new Error('Koneksi master material belum siap.');return b.getData();}
-function active(m){var buy=n(m&&m.purchasePrice),factor=n(m&&m.conversionFactor)||1;return !!m&&String(m.status||'active')==='active'&&n(m.unitPrice)>0&&buy>0&&factor>0&&!!String(m.unit||'').trim()&&!!String(m.purchaseUnit||m.unit||'').trim()&&!!String(m.supplierName||'').trim()&&!!String(m.priceSource||'').trim()&&!!String(m.priceDate||'').trim();}
+function active(m){var unit=String(m&&m.unit||''),purchaseUnit=String(m&&m.purchaseUnit||unit),buy=n(m&&m.purchasePrice)||(purchaseUnit===unit?n(m&&m.unitPrice):0),factor=n(m&&m.conversionFactor)||1;return !!m&&String(m.status||'active')==='active'&&n(m.unitPrice)>0&&buy>0&&factor>0&&!!unit&&!!purchaseUnit&&!!String(m.supplierName||'').trim()&&!!String(m.priceSource||'').trim()&&!!String(m.priceDate||'').trim();}
 function statusLabel(m){var s=String(m.status||'active');return s==='active'?(active(m)?'Aktif':'Perlu verifikasi'):s==='template'?'Kode kelompok':s==='inactive'?'Nonaktif':'Draft';}
 function statusClass(m){var s=String(m.status||'active');return s==='active'?(active(m)?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-700'):s==='template'?'bg-slate-100 text-slate-600':s==='inactive'?'bg-rose-50 text-rose-700':'bg-amber-50 text-amber-700';}
 function getRows(){var d=data();return Array.isArray(d.materials)?d.materials:[];}
