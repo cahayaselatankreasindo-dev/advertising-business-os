@@ -456,3 +456,31 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - Purchase orders and receipts still use the material stock unit. Pack/roll purchase-unit receiving conversion, offcut tracking, FIFO/average valuation, supplier invoice matching, and actual-versus-estimated HPP reconciliation remain future work.
 - Changes are confined to the existing feature branch. No merge to main, Apps Script production deployment, Google Sheets migration, or public website deployment is performed by these source edits.
 - Before release, run CI to completion, review the full diff, verify the Sales Orders and Inventory sheet headers through the controlled schema setup, and test with a real project using verified opening stock and supplier receipts.
+
+
+## 18. Production material reservations and picking — 25 November 2026
+
+### Delivered on the internal Business OS feature branch
+- Added a `Menunggu Material` Sales Order status for orders whose DP is satisfied (or zero-DP) but whose HPP/material plan or available stock is not ready.
+- When an order moves to `Siap Produksi`, the system creates a frozen material requirement snapshot from the project's HPP and checks stock availability after reservations held by other production projects.
+- The snapshot is stored in the new `Sales_Orders.MaterialRequirementsJSON` column. It is immutable after the first production release; rework after Quality Control reuses the same snapshot even if the current HPP is edited later.
+- Reservations are derived from Sales Order status plus the frozen snapshot and the project's net issue/return transactions. A project reserves material while the order is `Siap Produksi` or `Dalam Produksi`. Entering `Quality Control` releases the unissued balance; rework into production reactivates the original reservation.
+- Inventory now shows physical stock, active reservation, free stock after reservations, reservation shortages, and a project/material picking list.
+- The picking list opens a prefilled project issue transaction. The issue quantity is limited to the remaining reservation and available physical stock.
+- Project issues cannot exceed the HPP reservation. Returns cannot exceed the quantity previously issued. An unreserved project cannot consume stock held for other active production projects. Stock adjustments cannot reduce stock below active reservations.
+- Server-side validation recomputes reservations and stock balances under a script lock before committing Sales Order and inventory changes, preventing concurrent syncs from double-allocating the same stock.
+- Sales Order material snapshots are validated against the authoritative HPP at first reservation. Existing active legacy orders without a snapshot continue to use current HPP for monitoring until a supported reservation transition creates a snapshot.
+
+### Reservation rules
+1. Physical stock is the quantity in the append-only Inventory ledger.
+2. Reserved stock is the outstanding HPP quantity for projects in `Siap Produksi` or `Dalam Produksi`, less net material already issued to the project.
+3. Available stock is physical stock minus all active project reservations.
+4. Picking material reduces physical stock and the project's outstanding reservation by the same quantity.
+5. A return increases physical stock and restores the project's outstanding reservation while production is active.
+6. Quality Control releases any unissued reservation. Rework must pass the stock availability check before returning to production.
+
+### Architecture and limitations
+- No separate mutable reservation table was added. The frozen requirement snapshot lives on the Sales Order, and active reservation balances are derived from status plus Inventory transactions. This avoids a second source of truth.
+- The current reservation unit is the Material Master stock/usage unit. Verified purchase-to-usage conversion is applied when the HPP snapshot is created.
+- Actual-versus-estimated HPP reconciliation, production work orders, machine/labor time capture, finished-goods stock, and scrap/offcut accounting remain future phases.
+- Changes remain inside `advertising-business-os`; the public Astro website repository is untouched. No live Apps Script deployment, production schema migration, merge to main, or production release has been performed.
