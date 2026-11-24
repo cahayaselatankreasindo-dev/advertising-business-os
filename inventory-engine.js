@@ -389,7 +389,8 @@
   function calculateMaterialCostVariance(requirements,projectId,transactions,materials){
     var rows=Array.isArray(requirements)?requirements:[],project=String(projectId||'');
     var actualByMaterial=Object.create(null),actualComplete=true,estimated=false,hasActualMovement=false;
-    var valuation=Array.isArray(materials)?calculateInventoryValuation(materials,transactions):null;
+    var materialRows=Array.isArray(materials)?materials:[];
+    var valuation=materialRows.length?calculateInventoryValuation(materialRows,transactions):null;
     (Array.isArray(transactions)?transactions:[]).forEach(function(tx){
       if(String(tx.projectId||'')!==project||['issue','return'].indexOf(String(tx.movement||''))<0)return;
       hasActualMovement=true;
@@ -414,7 +415,7 @@
     });
     var requirementIds=Object.create(null);
     rows.forEach(function(line){requirementIds[String(line.materialId)]=true;});
-    var unplannedIds=Object.keys(actualByMaterial).filter(function(id){return !requirementIds[id];});
+    var unplannedIds=Object.keys(actualByMaterial).filter(function(id){return !requirementIds[id];}).sort();
     var result=rows.map(function(line){
       var actual=actualByMaterial[String(line.materialId)]||{qty:0,cost:0,estimated:false,complete:true};
       var estimate=line.estimatedTotalCost===null||line.estimatedTotalCost===undefined||line.estimatedTotalCost===''?null:Number.isFinite(Number(line.estimatedTotalCost))?Number(line.estimatedTotalCost):null;
@@ -428,13 +429,27 @@
         estimatedCost:estimate,actualCost:Math.max(0,Math.round(actual.cost)),
         varianceCost:rowComplete?Math.round(actual.cost-estimate):null,
         variancePct:rowComplete&&estimate>0?(actual.cost-estimate)/estimate*100:null,
-        estimated:actual.estimated,actualCostComplete:actualCostComplete,hasMaterialMovement:hasMaterialMovement,rowComplete:rowComplete
+        estimated:actual.estimated,actualCostComplete:actualCostComplete,
+        hasMaterialMovement:hasMaterialMovement,rowComplete:rowComplete,unplanned:false
       };
     });
-    var estimatesComplete=result.every(function(row){return row.estimatedCost!==null;});
-    var allHppMaterialsReconciled=result.length>0&&result.every(function(row){return row.hasMaterialMovement;});
+    unplannedIds.forEach(function(id){
+      var actual=actualByMaterial[id],material=materialRows.find(function(row){return String(row.id)===id;})||{};
+      if(actual.estimated)estimated=true;
+      result.push({
+        materialId:id,name:material.name||id,unit:material.unit||'',
+        estimatedQty:0,actualQty:Math.max(0,actual.qty),
+        estimatedCost:null,actualCost:Math.max(0,Math.round(actual.cost)),
+        varianceCost:null,variancePct:null,estimated:actual.estimated,
+        actualCostComplete:actual.complete!==false,hasMaterialMovement:true,
+        rowComplete:false,unplanned:true
+      });
+    });
+    var plannedResult=result.filter(function(row){return !row.unplanned;});
+    var estimatesComplete=plannedResult.length>0&&plannedResult.every(function(row){return row.estimatedCost!==null;});
+    var allHppMaterialsReconciled=plannedResult.length>0&&plannedResult.every(function(row){return row.hasMaterialMovement;});
     var varianceComplete=actualComplete&&hasActualMovement&&estimatesComplete&&unplannedIds.length===0&&allHppMaterialsReconciled;
-    var estimatedTotalCost=estimatesComplete?Math.round(result.reduce(function(sum,row){return sum+row.estimatedCost;},0)):null;
+    var estimatedTotalCost=estimatesComplete?Math.round(plannedResult.reduce(function(sum,row){return sum+row.estimatedCost;},0)):null;
     var actualTotalCost=Math.round(result.reduce(function(sum,row){return sum+row.actualCost;},0));
     return{
       rows:result,estimatedTotalCost:estimatedTotalCost,actualTotalCost:actualTotalCost,
