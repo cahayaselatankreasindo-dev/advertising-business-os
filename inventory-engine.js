@@ -69,9 +69,11 @@
     if(String(input.unit||'')!==String(material.unit||''))throw new Error('Satuan harus mengikuti satuan stok material: '+(material.unit||'-')+'.');
     var date=String(input.date||'');
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Error('Tanggal transaksi tidak valid.');
-    var projectId=String(input.projectId||''),salesOrderId=String(input.salesOrderId||'');
+    var projectId=String(input.projectId||''),salesOrderId=String(input.salesOrderId||''),reservationId=String(input.reservationId||'');
     if(['issue','return'].indexOf(input.movement)>=0&&!projects.some(function(p){return String(p.id)===projectId;}))throw new Error('Pilih proyek untuk pengeluaran atau retur material.');
     if(salesOrderId&&input.movement!=='issue')throw new Error('Sales Order hanya dapat ditautkan pada transaksi pengeluaran material.');
+    if(salesOrderId&&!reservationId)throw new Error('Pilih reservasi stok yang akan digunakan.');
+    if(reservationId&&!salesOrderId)throw new Error('Referensi reservasi harus terhubung dengan Sales Order.');
     var salesOrders=Array.isArray(context.salesOrders)?context.salesOrders:[];
     if(salesOrderId){
       var salesOrder=salesOrders.find(function(order){return String(order.id)===salesOrderId;});
@@ -80,12 +82,12 @@
     }
     var activeReservations=(Array.isArray(context.inventoryReservations)?context.inventoryReservations:[]).filter(function(row){return String(row.status)==='active'&&String(row.materialId)===String(material.id);});
     function remainingReservation(row){
-      var used=existing.filter(function(tx){return tx.movement==='issue'&&String(tx.salesOrderId||'')===String(row.salesOrderId||'')&&String(tx.materialId)===String(row.materialId)&&String(tx.createdAt||'')>=String(row.createdAt||'');}).reduce(function(sum,tx){return sum+n(tx.qty);},0);
+      var used=existing.filter(function(tx){return tx.movement==='issue'&&String(tx.reservationId||'')===String(row.id||'');}).reduce(function(sum,tx){return sum+n(tx.qty);},0);
       return Math.max(0,n(row.qty)-used);
     }
     var totalReserved=activeReservations.reduce(function(sum,row){return sum+remainingReservation(row);},0);
     if(salesOrderId){
-      var reservedForOrder=activeReservations.filter(function(row){return String(row.salesOrderId)===salesOrderId;}).reduce(function(sum,row){return sum+remainingReservation(row);},0);
+      var reservedForOrder=activeReservations.filter(function(row){return String(row.salesOrderId)===salesOrderId&&String(row.id)===reservationId;}).reduce(function(sum,row){return sum+remainingReservation(row);},0);
       if(reservedForOrder<=0.000001)throw new Error('Sales Order belum memiliki reservasi aktif untuk material ini.');
       if(qty>reservedForOrder+0.000001)throw new Error('Kuantitas pengeluaran melebihi sisa reservasi Sales Order.');
     }
@@ -109,7 +111,7 @@
       materialId:String(material.id),materialName:String(material.name||''),
       movement:String(input.movement),qty:qty,unit:String(material.unit||''),
       date:date,projectId:projectId,projectName:String((projects.find(function(p){return String(p.id)===projectId;})||{}).title||''),
-      purchaseOrderId:String(input.purchaseOrderId||''),salesOrderId:salesOrderId,supplier:String(input.supplier||''),
+      purchaseOrderId:String(input.purchaseOrderId||''),salesOrderId:salesOrderId,reservationId:reservationId,supplier:String(input.supplier||''),
       reference:String(input.reference||''),notes:String(input.notes||''),
       createdAt:String(input.createdAt||new Date().toISOString()),createdBy:String(input.createdBy||'Owner')
     };
