@@ -366,7 +366,7 @@ const hppSheet = {
   projectName: hppProject.title,
   items: [
     { itemType: 'material', materialId: 'MAT-01', name: 'Akrilik 5 mm', qty: 2, unit: 'lembar', unitPrice: 100000, costingMethod: 'sheet', costingDetails: { method: 'sheet', sourceMode: 'whole', summary: '2 lembar untuk 4 komponen; yield 78.5%.' }, materialSnapshot: { unit: 'm2', purchaseUnit: 'lembar', conversionFactor: 3.2, updatedAt: '2026-11-24T09:00:00.000Z' } },
-    { itemType: 'service', serviceId: 'SRV-01', name: 'Fabrikasi Display', qty: 1, unit: 'job', unitPrice: 150000 }
+    { itemType: 'service', catalogRecordType: 'product', serviceId: 'SRV-01', name: 'Produk Display', qty: 1, unit: 'job', unitPrice: 150000 }
   ],
   labor: 100000,
   other: 25000,
@@ -396,6 +396,7 @@ assert.ok(hppQuotation.lines.every(line => line.sourceCostSheetId === hppSheet.i
 assert.match(hppQuotation.lines[0].description, /2 lembar/);
 assert.match(hppQuotation.lines[0].description, /Kalkulasi: 2 lembar untuk 4 komponen; yield 78\.5%\./);
 assert.equal(hppQuotation.lines[0].sourceCostingSummary, '2 lembar untuk 4 komponen; yield 78.5%.');
+assert.equal(hppQuotation.lines[1].catalogRecordType, 'product', 'product catalog identity survives HPP import into quotation');
 
 window.openCommercialDocumentEditor('quotation', hppQuotation.id);
 field('cd-status', 'approved');
