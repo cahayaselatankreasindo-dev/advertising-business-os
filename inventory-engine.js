@@ -153,7 +153,7 @@
     };
     if(transaction.notes.length>500||transaction.reference.length>120||transaction.supplier.length>160)throw new Error('Catatan, referensi, atau supplier terlalu panjang.');
     var balances=calculateBalances(materials,existing.concat([transaction]));
-    if(['issue','adjustment_out'].indexOf(input.movement)>=0){
+    if(['issue','return','adjustment_out'].indexOf(input.movement)>=0){
       var reservedAfter=totalReserved;
       if(salesOrderId&&input.movement==='issue')reservedAfter=Math.max(0,reservedAfter-qty);
       if(salesOrderId&&input.movement==='return')reservedAfter+=qty;
