@@ -2200,7 +2200,7 @@
         const service=(db.services||[]).find(x=>x.id===id);
         if(!service || service.status==='inactive' || !Number.isFinite(Number(service.costPrice)) || Number(service.costPrice)<=0) return showToast('Produk/jasa belum aktif atau belum memiliki biaya dasar/HPP. Lengkapi katalog terlebih dahulu.',true);
         const unitPrice=Number(service.costPrice);
-        hppLines.push({itemType:'service',serviceId:service.id,name:service.name,unit:service.unit||'job',qty,unitPrice,subtotal:qty*unitPrice});
+        hppLines.push({itemType:'service',catalogRecordType:service.recordType==='product'?'product':'service',serviceId:service.id,name:service.name,unit:service.unit||'job',qty,unitPrice,subtotal:qty*unitPrice});
       } else {
         const material=db.materials.find(x=>x.id===id);
         if(!isMaterialSelectable(material)) return showToast('Material belum aktif atau data supplier, harga, dan konversinya belum terverifikasi.',true);
