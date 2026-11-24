@@ -92,7 +92,8 @@ const longAddress = pdf.generatePdf({
   lines:[{name:'Pekerjaan display',qty:1,unit:'lot',unitPrice:500000}],
   paymentTerms:'Pembayaran sesuai persetujuan tertulis.',bankDetails:'Bank Jago Syariah | 508705048143'
 },MockPdf);
-assert.ok(longAddress.roundedRects[1].height>42,'client information card expands to fit long multi-line addresses');
+const longAddressCard=longAddress.roundedRects.find(rect=>rect.x===14);
+assert.ok(longAddressCard&&longAddressCard.height>42,'client information card expands to fit long multi-line addresses');
 
 const veryLongTerms = 'Ketentuan pembayaran dan pelaksanaan pekerjaan wajib mengikuti persetujuan tertulis para pihak. '.repeat(900);
 const paginatedTerms = pdf.generatePdf({
