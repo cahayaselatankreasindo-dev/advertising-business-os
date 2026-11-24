@@ -1060,13 +1060,20 @@ function validatePurchaseOrderReceiptStatuses_(ss, incomingPurchaseOrders, incom
 
 // Inventory ledger is append-only. Every stock movement is checked against master data
 // and the full dated ledger before any new row is merged.
-function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, incomingPurchaseOrders) {
+function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, incomingPurchaseOrders, incomingSalesOrders) {
   if (!Array.isArray(incomingTransactions)) throw new Error("INVALID_INVENTORY_TRANSACTIONS");
   ensureSheet(ss, "Inventory_Transactions", FIELD_MAP.Inventory_Transactions.headers);
   var existing = readSheetData(ss, "Inventory_Transactions");
   var materials = readSheetData(ss, "Materials");
   var projects = readSheetData(ss, "Projects");
   var purchaseOrders = readSheetData(ss, "Purchase_Orders");
+  var salesOrders = readSheetData(ss, "Sales_Orders");
+  (incomingSalesOrders || []).forEach(function(incomingOrder) {
+    var copy = Object.assign({}, incomingOrder);
+    if (Array.isArray(incomingOrder.materialRequirements)) copy.materialRequirementsJson = JSON.stringify(incomingOrder.materialRequirements);
+    var index = salesOrders.findIndex(function(order) { return String(order.id) === String(copy.id); });
+    if (index >= 0) salesOrders[index] = copy; else salesOrders.push(copy);
+  });
   (incomingPurchaseOrders || []).forEach(function(incomingPO) {
     var copy = Object.assign({}, incomingPO);
     if (Array.isArray(incomingPO.items)) copy.itemsJson = JSON.stringify(incomingPO.items);
@@ -1099,6 +1106,23 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     var projectId = String(tx.projectId || "");
     if (["issue","return"].indexOf(String(tx.movement)) >= 0 && !projects.some(function(p) { return String(p.id) === projectId; })) throw new Error("INVENTORY_PROJECT_REQUIRED");
     if (["adjustment_in","adjustment_out"].indexOf(String(tx.movement)) >= 0 && !String(tx.notes || "").trim()) throw new Error("INVENTORY_ADJUSTMENT_REASON_REQUIRED");
+    var priorLedger = existing.concat(newRows);
+    if (String(tx.movement) === "return") {
+      var netIssued = priorLedger.filter(function(row) { return String(row.projectId || "") === projectId && String(row.materialId) === String(tx.materialId); })
+        .reduce(function(sum,row) { if (row.movement === "issue") return sum + Number(row.qty || 0); if (row.movement === "return") return sum - Number(row.qty || 0); return sum; },0);
+      if (qty > Math.max(0,netIssued) + 0.000001) throw new Error("INVENTORY_RETURN_EXCEEDS_PROJECT_ISSUE");
+    }
+    if (String(tx.movement) === "issue") {
+      var hasActiveOrder = salesOrders.some(function(order) { return String(order.projectId) === projectId && ["ready_production","in_production"].indexOf(String(order.status || "")) >= 0; });
+      if (hasActiveOrder) {
+        var reservationState = calculateActiveProjectReservations_(ss, salesOrders, priorLedger);
+        if (reservationState.errors.length) throw new Error("INVENTORY_RESERVATION_DATA_INVALID");
+        var projectLines = reservationState.byProject[projectId] || [];
+        var reservationLine = projectLines.find(function(line) { return String(line.materialId) === String(tx.materialId); });
+        if (!reservationLine) throw new Error("INVENTORY_MATERIAL_NOT_RESERVED_FOR_PROJECT");
+        if (qty > Number(reservationLine.outstanding || 0) + 0.000001) throw new Error("INVENTORY_ISSUE_EXCEEDS_PROJECT_RESERVATION");
+      }
+    }
     var current = existing.find(function(row) { return String(row.id) === id; });
     if (!current && String(tx.movement) === "receipt") {
       var poId = String(tx.purchaseOrderId || "");
@@ -1154,6 +1178,14 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     if (after < -0.000001) throw new Error("INVENTORY_INSUFFICIENT_STOCK");
     balances[materialId] = Math.max(0, after);
   });
+  if (newRows.some(function(row) { return String(row.movement) === "adjustment_out"; })) {
+    var reservationCheck = calculateActiveProjectReservations_(ss, salesOrders, ledger);
+    if (reservationCheck.errors.length) throw new Error("INVENTORY_RESERVATION_DATA_INVALID");
+    Object.keys(reservationCheck.byMaterial).forEach(function(materialId) {
+      var reserved = reservationCheck.byMaterial[materialId];
+      if (reserved.committed > Number(balances[materialId] || 0) + 0.000001) throw new Error("INVENTORY_ADJUSTMENT_BREACHES_RESERVATION");
+    });
+  }
   return true;
 }
 
