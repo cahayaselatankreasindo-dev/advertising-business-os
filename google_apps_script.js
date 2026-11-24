@@ -93,8 +93,8 @@ var FIELD_MAP = {
     fields: ["id", "projectId", "projectName", "supplier", "date", "itemsJson", "total", "status", "createdAt", "updatedAt", "inventoryControlVersion"]
   },
   Sales_Orders: {
-    headers: ["ID", "NomorSO", "QuotationID", "NomorQuotation", "ProjectID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "TanggalOrder", "TanggalPengiriman", "ItemsJSON", "Total", "DPPersen", "DPWajib", "Status", "RiwayatJSON", "Catatan", "CreatedAt", "UpdatedAt"],
-    fields: ["id", "orderNo", "quotationId", "quotationNo", "projectId", "projectName", "client", "clientPhone", "clientEmail", "orderDate", "deliveryDate", "itemsJson", "total", "dpPercent", "dpRequiredAmount", "status", "historyJson", "notes", "createdAt", "updatedAt"]
+    headers: ["ID", "NomorSO", "QuotationID", "NomorQuotation", "ProjectID", "NamaProyek", "Klien", "WhatsAppKlien", "EmailKlien", "TanggalOrder", "TanggalPengiriman", "ItemsJSON", "Total", "DPPersen", "DPWajib", "Status", "RiwayatJSON", "Catatan", "CreatedAt", "UpdatedAt", "MaterialRequirementsJSON"],
+    fields: ["id", "orderNo", "quotationId", "quotationNo", "projectId", "projectName", "client", "clientPhone", "clientEmail", "orderDate", "deliveryDate", "itemsJson", "total", "dpPercent", "dpRequiredAmount", "status", "historyJson", "notes", "createdAt", "updatedAt", "materialRequirementsJson"]
   },
   Inventory_Transactions: {
     headers: ["ID", "NomorTransaksi", "MaterialID", "NamaMaterial", "JenisPergerakan", "Qty", "Satuan", "Tanggal", "ProjectID", "NamaProyek", "PurchaseOrderID", "Supplier", "Referensi", "Catatan", "CreatedAt", "CreatedBy"],
@@ -464,7 +464,7 @@ function doGet(e) {
       projectCosts: identity.role === "owner" ? readLegacySheetData_(ss, "Project_Costs") : [],
       services: readSheetData(ss, "Services"),
       purchaseOrders: readSheetData(ss, "Purchase_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } return x; }),
-      salesOrders: readSheetData(ss, "Sales_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } try { x.history = JSON.parse(x.historyJson || "[]"); } catch(e) { x.history = []; } return x; }),
+      salesOrders: readSheetData(ss, "Sales_Orders").map(function(x){ try { x.items = JSON.parse(x.itemsJson || "[]"); } catch(e) { x.items = []; } try { x.history = JSON.parse(x.historyJson || "[]"); } catch(e) { x.history = []; } try { x.materialRequirements = JSON.parse(x.materialRequirementsJson || "[]"); } catch(e) { x.materialRequirements = []; } return x; }),
       inventoryTransactions: readSheetData(ss, "Inventory_Transactions"),
       quotationSnapshots: readSheetData(ss, "Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
       quotations: readSheetData(ss, "Commercial_Quotations").map(function(x){ try { x.lines = JSON.parse(x.linesJson || "[]"); } catch(e) { x.lines = []; } return x; }),
@@ -748,9 +748,126 @@ function mergeInvoicesSafely_(ss, incomingInvoices) {
     lock.releaseLock();
   }
 }
+function parseSalesOrderMaterialRequirements_(order) {
+  if (Array.isArray(order && order.materialRequirements)) return order.materialRequirements;
+  var raw = order && order.materialRequirementsJson;
+  if (Array.isArray(raw)) return raw;
+  try { var parsed = JSON.parse(raw || "[]"); return Array.isArray(parsed) ? parsed : []; } catch (e) { return []; }
+}
+
+function calculateHppMaterialRequirements_(ss, projectId) {
+  var materials = readSheetData(ss, "Materials");
+  var sheet = readSheetData(ss, "Cost_Sheets").find(function(row) { return String(row.projectId) === String(projectId); });
+  if (!sheet) return {requirements:[],errors:["HPP proyek belum tersedia."]};
+  var items = [];
+  try { items = JSON.parse(sheet.itemsJson || "[]"); } catch (e) { items = []; }
+  if (!Array.isArray(items)) items = [];
+  var grouped = Object.create(null), errors = [];
+  items.forEach(function(item, index) {
+    if (!item || item.serviceId || item.itemType === "service" || !item.materialId) return;
+    var material = materials.find(function(row) { return String(row.id) === String(item.materialId); });
+    if (!material) { errors.push("Material HPP tidak ditemukan: " + String(item.materialId)); return; }
+    var qty = Number(item.qty);
+    if (!Number.isFinite(qty) || qty <= 0) { errors.push("Kuantitas HPP tidak valid untuk " + String(material.name || item.materialId)); return; }
+    var lineUnit = String(item.unit || "").trim().toLowerCase();
+    var stockUnit = String(material.unit || "").trim();
+    var purchaseUnit = String(material.purchaseUnit || "").trim().toLowerCase();
+    var stockQty = 0;
+    if (lineUnit === stockUnit.toLowerCase()) stockQty = qty;
+    else if (purchaseUnit && lineUnit === purchaseUnit) {
+      var factor = Number(material.conversionFactor);
+      if (!Number.isFinite(factor) || factor <= 0) { errors.push("Faktor konversi tidak valid untuk " + String(material.name || item.materialId)); return; }
+      stockQty = qty * factor;
+    } else {
+      errors.push("Satuan HPP tidak cocok untuk " + String(material.name || item.materialId));
+      return;
+    }
+    var key = String(material.id);
+    if (!grouped[key]) grouped[key] = {materialId:material.id,name:String(material.name || ""),unit:stockUnit,required:0};
+    grouped[key].required += stockQty;
+  });
+  var requirements = Object.keys(grouped).map(function(key) { return grouped[key]; })
+    .sort(function(a,b) { return String(a.name).localeCompare(String(b.name)); });
+  if (!requirements.length && !errors.length) errors.push("HPP belum memiliki baris material.");
+  return {requirements:requirements,errors:errors};
+}
+
+function normalizeMaterialRequirementSnapshot_(rows) {
+  return (Array.isArray(rows) ? rows : []).map(function(row) {
+    return {materialId:String(row.materialId || ""),name:String(row.name || ""),unit:String(row.unit || ""),required:Number(row.required)};
+  }).sort(function(a,b) { return a.materialId.localeCompare(b.materialId); });
+}
+
+function calculateInventoryBalancesServer_(materials, transactions) {
+  var directions = {opening:1,receipt:1,return:1,issue:-1,adjustment_in:1,adjustment_out:-1};
+  var materialMap = Object.create(null), balances = Object.create(null);
+  (materials || []).forEach(function(row) { materialMap[String(row.id)] = row; });
+  (transactions || []).slice().sort(function(a,b) {
+    var date = String(a.date || "").localeCompare(String(b.date || ""));
+    if (date) return date;
+    var created = String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+    return created || String(a.id || "").localeCompare(String(b.id || ""));
+  }).forEach(function(tx) {
+    var materialId = String(tx.materialId || ""), direction = directions[String(tx.movement || "")];
+    if (!materialMap[materialId] || !direction) return;
+    balances[materialId] = Number(balances[materialId] || 0) + (Number(tx.qty) || 0) * direction;
+  });
+  return balances;
+}
+
+function calculateActiveProjectReservations_(ss, orders, transactions) {
+  var activeStatuses = {ready_production:true,in_production:true};
+  var materials = readSheetData(ss, "Materials");
+  var groups = Object.create(null), errors = [], byMaterial = Object.create(null), byProject = Object.create(null);
+  (orders || []).forEach(function(order) {
+    var status = String(order.status || "").toLowerCase(), projectId = String(order.projectId || "");
+    if (!activeStatuses[status] || !projectId) return;
+    if (!groups[projectId]) groups[projectId] = {projectId:projectId,projectName:String(order.projectName || ""),orders:[]};
+    groups[projectId].orders.push(order);
+  });
+  Object.keys(groups).forEach(function(projectId) {
+    var project = groups[projectId], snapshotOrder = project.orders.find(function(order) { return parseSalesOrderMaterialRequirements_(order).length > 0; });
+    var requirements = [];
+    if (snapshotOrder) {
+      requirements = normalizeMaterialRequirementSnapshot_(parseSalesOrderMaterialRequirements_(snapshotOrder));
+      project.orders.forEach(function(order) {
+        var snapshot = parseSalesOrderMaterialRequirements_(order);
+        if (snapshot.length && JSON.stringify(normalizeMaterialRequirementSnapshot_(snapshot)) !== JSON.stringify(requirements)) {
+          errors.push("Snapshot kebutuhan material antar Sales Order proyek " + (project.projectName || projectId) + " berbeda.");
+        }
+      });
+    } else {
+      var hpp = calculateHppMaterialRequirements_(ss, projectId);
+      if (hpp.errors.length) { hpp.errors.forEach(function(error) { errors.push((project.projectName || projectId) + ": " + error); }); return; }
+      requirements = hpp.requirements;
+    }
+    var issued = Object.create(null);
+    (transactions || []).forEach(function(tx) {
+      if (String(tx.projectId || "") !== projectId) return;
+      var materialId = String(tx.materialId || "");
+      if (tx.movement === "issue") issued[materialId] = (issued[materialId] || 0) + (Number(tx.qty) || 0);
+      else if (tx.movement === "return") issued[materialId] = (issued[materialId] || 0) - (Number(tx.qty) || 0);
+    });
+    var lines = [];
+    requirements.forEach(function(line) {
+      var material = materials.find(function(row) { return String(row.id) === String(line.materialId); });
+      if (!material || String(material.unit || "") !== String(line.unit || "")) { errors.push("Material atau satuan snapshot reservasi tidak valid pada proyek " + (project.projectName || projectId)); return; }
+      var netIssued = Math.max(0, issued[String(line.materialId)] || 0);
+      var outstanding = Math.max(0, Number(line.required) - netIssued);
+      var row = {projectId:projectId,projectName:project.projectName || projectId,orderNo:String(snapshotOrder && (snapshotOrder.orderNo || snapshotOrder.id) || project.orders[0].orderNo || ""),materialId:line.materialId,name:line.name || material.name,unit:line.unit,required:Number(line.required),issued:netIssued,outstanding:outstanding};
+      lines.push(row);
+      if (!byMaterial[String(line.materialId)]) byMaterial[String(line.materialId)] = {materialId:line.materialId,name:row.name,unit:row.unit,committed:0,projects:[]};
+      byMaterial[String(line.materialId)].committed += outstanding;
+      byMaterial[String(line.materialId)].projects.push(row);
+    });
+    byProject[projectId] = lines;
+  });
+  return {byMaterial:byMaterial,byProject:byProject,errors:errors};
+}
+
 // Validasi server-side Sales Order: quotation approved, satu SO per quotation,
 // transisi status terkendali, dan pelepasan produksi berdasarkan pembayaran DP terverifikasi.
-function validateSalesOrdersBeforeMerge_(ss, incomingOrders) {
+function validateSalesOrdersBeforeMerge_(ss, incomingOrders, incomingTransactions) {
   if (!Array.isArray(incomingOrders)) throw new Error("INVALID_SALES_ORDERS");
   ensureSheet(ss, "Sales_Orders", FIELD_MAP.Sales_Orders.headers);
   var existingOrders = readSheetData(ss, "Sales_Orders");
@@ -761,9 +878,10 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders) {
   var seenIds = {};
   var seenQuotes = {};
   var seenNumbers = {};
-  var allowedStatuses = ["awaiting_dp","ready_production","in_production","quality_check","ready_delivery","delivered","closed","cancelled"];
+  var allowedStatuses = ["awaiting_dp","awaiting_material","ready_production","in_production","quality_check","ready_delivery","delivered","closed","cancelled"];
   var transitions = {
-    awaiting_dp:["ready_production","cancelled"],
+    awaiting_dp:["awaiting_material","ready_production","cancelled"],
+    awaiting_material:["ready_production","cancelled"],
     ready_production:["in_production","cancelled"],
     in_production:["quality_check"],
     quality_check:["in_production","ready_delivery"],
@@ -804,12 +922,21 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders) {
     try { quotationLines = JSON.parse(quote.linesJson || "[]"); } catch (parseError) { quotationLines = []; }
     if (!Array.isArray(quotationLines)) quotationLines = [];
     if (!existing) {
-      var expectedInitial = dpRequired > 0 ? "awaiting_dp" : "ready_production";
-      if (String(order.status) !== expectedInitial) throw new Error("INVALID_INITIAL_SALES_ORDER_STATUS");
+      var expectedInitial = dpRequired > 0 ? ["awaiting_dp"] : ["ready_production","awaiting_material"];
+      if (expectedInitial.indexOf(String(order.status)) < 0) throw new Error("INVALID_INITIAL_SALES_ORDER_STATUS");
       if (String(order.quotationNo || "") !== String(quote.docNo || quote.id)) throw new Error("SALES_ORDER_QUOTATION_SNAPSHOT_MISMATCH");
       if (total !== Math.round(Number(quote.total)) || dpPercent !== Number(quote.dpPercent || 0)) throw new Error("SALES_ORDER_QUOTATION_VALUE_MISMATCH");
       if (itemsJson !== JSON.stringify(quotationLines)) throw new Error("SALES_ORDER_ITEMS_SNAPSHOT_MISMATCH");
     } else {
+      var currentSnapshot = parseSalesOrderMaterialRequirements_(existing);
+      var incomingSnapshot = parseSalesOrderMaterialRequirements_(order);
+      if (currentSnapshot.length && incomingSnapshot.length &&
+          JSON.stringify(normalizeMaterialRequirementSnapshot_(currentSnapshot)) !== JSON.stringify(normalizeMaterialRequirementSnapshot_(incomingSnapshot))) {
+        throw new Error("SALES_ORDER_MATERIAL_RESERVATION_IMMUTABLE");
+      }
+      if (currentSnapshot.length && !incomingSnapshot.length) {
+        order.materialRequirementsJson = JSON.stringify(currentSnapshot);
+      }
       var currentItems = String(existing.itemsJson || "[]");
       var immutableChanged = String(existing.quotationId) !== quoteId ||
         String(existing.orderNo) !== String(order.orderNo) ||
@@ -837,7 +964,49 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders) {
     var status = String(order.status);
     if (status !== "awaiting_dp" && status !== "cancelled" && paid < dpRequired) throw new Error("SALES_ORDER_DP_NOT_VERIFIED");
     if (status === "closed" && (invoiceTotal <= 0 || paid < invoiceTotal)) throw new Error("SALES_ORDER_CANNOT_CLOSE_WITH_UNPAID_INVOICE");
+    var wasReserved = !!(existing && ["ready_production","in_production"].indexOf(String(existing.status || "")) >= 0);
+    var willBeReserved = ["ready_production","in_production"].indexOf(status) >= 0;
+    var enteringReservation = willBeReserved && !wasReserved;
+    if (enteringReservation) {
+      var snapshot = parseSalesOrderMaterialRequirements_(order);
+      if (!snapshot.length) {
+        var expectedSnapshot = calculateHppMaterialRequirements_(ss, projectId);
+        if (expectedSnapshot.errors.length) throw new Error("SALES_ORDER_MATERIAL_PLAN_INVALID");
+        snapshot = expectedSnapshot.requirements;
+        order.materialRequirementsJson = JSON.stringify(snapshot);
+      } else {
+        var expected = calculateHppMaterialRequirements_(ss, projectId);
+        if (expected.errors.length) throw new Error("SALES_ORDER_MATERIAL_PLAN_INVALID");
+        if (JSON.stringify(normalizeMaterialRequirementSnapshot_(snapshot)) !== JSON.stringify(normalizeMaterialRequirementSnapshot_(expected.requirements))) {
+          throw new Error("SALES_ORDER_MATERIAL_SNAPSHOT_MISMATCH");
+        }
+        order.materialRequirementsJson = JSON.stringify(normalizeMaterialRequirementSnapshot_(snapshot));
+      }
+    }
   });
+  var incomingById = Object.create(null);
+  incomingOrders.forEach(function(order) { incomingById[String(order.id)] = order; });
+  var mergedOrders = existingOrders.map(function(order) { return incomingById[String(order.id)] || order; });
+  incomingOrders.forEach(function(order) { if (!existingOrders.some(function(row) { return String(row.id) === String(order.id); })) mergedOrders.push(order); });
+  var reservationTriggered = incomingOrders.some(function(order) {
+    var old = existingOrders.find(function(row) { return String(row.id) === String(order.id); });
+    var wasReserved = !!(old && ["ready_production","in_production"].indexOf(String(old.status || "")) >= 0);
+    return ["ready_production","in_production"].indexOf(String(order.status || "")) >= 0 && !wasReserved;
+  });
+  if (reservationTriggered) {
+    var txMap = Object.create(null);
+    readSheetData(ss, "Inventory_Transactions").concat(Array.isArray(incomingTransactions) ? incomingTransactions : []).forEach(function(tx) {
+      if (tx && tx.id) txMap[String(tx.id)] = tx;
+    });
+    var ledger = Object.keys(txMap).map(function(id) { return txMap[id]; });
+    var reservations = calculateActiveProjectReservations_(ss, mergedOrders, ledger);
+    if (reservations.errors.length) throw new Error("SALES_ORDER_MATERIAL_RESERVATION_INVALID: " + reservations.errors.join(" "));
+    var balances = calculateInventoryBalancesServer_(readSheetData(ss, "Materials"), ledger);
+    Object.keys(reservations.byMaterial).forEach(function(materialId) {
+      var row = reservations.byMaterial[materialId];
+      if (row.committed > Number(balances[materialId] || 0) + 0.000001) throw new Error("SALES_ORDER_INSUFFICIENT_MATERIAL_STOCK: " + row.name);
+    });
+  }
   return true;
 }
 
@@ -1012,15 +1181,22 @@ function doPost(e) {
         if (payload.materials)      mergeSummary.Materials       = mergeSheet(ss, "Materials", payload.materials);
         if (payload.costSheets) mergeSummary.Cost_Sheets = mergeSheet(ss, "Cost_Sheets", payload.costSheets.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
         if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
-        if (payload.purchaseOrders) validatePurchaseOrderReceiptStatuses_(ss, payload.purchaseOrders, payload.inventoryTransactions || []);
-        if (payload.inventoryTransactions) validateInventoryTransactionsBeforeMerge_(ss, payload.inventoryTransactions, payload.purchaseOrders || []);
-        if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
-        if (payload.salesOrders) {
-          validateSalesOrdersBeforeMerge_(ss, payload.salesOrders);
-          mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); return y; }));
-        }
-        if (payload.inventoryTransactions) {
-          mergeSummary.Inventory_Transactions = mergeSheet(ss, "Inventory_Transactions", payload.inventoryTransactions);
+        var inventoryLock = LockService.getScriptLock();
+        inventoryLock.waitLock(30000);
+        try {
+          if (payload.materials) mergeSummary.Materials = mergeSheet(ss, "Materials", payload.materials);
+          if (payload.costSheets) mergeSummary.Cost_Sheets = mergeSheet(ss, "Cost_Sheets", payload.costSheets.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
+          if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
+          if (payload.purchaseOrders) validatePurchaseOrderReceiptStatuses_(ss, payload.purchaseOrders, payload.inventoryTransactions || []);
+          if (payload.salesOrders) validateSalesOrdersBeforeMerge_(ss, payload.salesOrders, payload.inventoryTransactions || []);
+          if (payload.inventoryTransactions) validateInventoryTransactionsBeforeMerge_(ss, payload.inventoryTransactions, payload.purchaseOrders || [], payload.salesOrders || []);
+          if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
+          if (payload.salesOrders) {
+            mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); y.materialRequirementsJson = JSON.stringify(x.materialRequirements || []); return y; }));
+          }
+          if (payload.inventoryTransactions) mergeSummary.Inventory_Transactions = mergeSheet(ss, "Inventory_Transactions", payload.inventoryTransactions);
+        } finally {
+          inventoryLock.releaseLock();
         }
         if (payload.quotationSnapshots) mergeSummary.Quotations = mergeSheet(ss, "Quotations", payload.quotationSnapshots.map(function(x){ var y = Object.assign({}, x); y.linesJson = JSON.stringify(x.lines || []); return y; }));
         if (payload.quotations) mergeSummary.Commercial_Quotations = mergeCommercialQuotationsSafely_(ss, payload.quotations);
