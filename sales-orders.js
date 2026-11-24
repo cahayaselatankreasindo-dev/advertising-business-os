@@ -79,7 +79,11 @@ async function updateSalesOrderStatus(id,nextStatus){
   await persist();
   renderSalesOrders();
   notify('Status '+order.orderNo+' diperbarui menjadi '+E().statusLabel(nextStatus)+'.');
- }catch(error){notify(error.message||String(error),true);}
+ }catch(error){
+  var message=error.message||String(error);
+  if(message.indexOf('SALES_ORDER_STOCK_RESERVATION_REQUIRED')>=0)message='Stok material belum dikunci. Buka Inventory & Stok, klik Kunci Stok pada Sales Order ini, lalu ubah status menjadi Dalam Produksi.';
+  notify(message,true);
+ }
 }
 function openInvoiceForQuotation(id){
  var d=data(),q=quoteFor(id,d);
