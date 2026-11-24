@@ -971,6 +971,38 @@ function validatePurchaseOrderReceiptStatuses_(ss, incomingPurchaseOrders, incom
   return true;
 }
 
+// Validate the Material Master before any cloud upsert. Draft templates may carry no price,
+// while active purchasable SKUs must have a traceable supplier price and a consistent conversion.
+function validateMaterialsBeforeMerge_(ss, incomingMaterials) {
+  if (!Array.isArray(incomingMaterials)) return true;
+  var seenSku = {};
+  incomingMaterials.forEach(function(material) {
+    if (!material || !String(material.id || "").trim()) throw new Error("MATERIAL_ID_REQUIRED");
+    var sku = String(material.sku || "").trim().toUpperCase();
+    if (sku) {
+      if (seenSku[sku]) throw new Error("DUPLICATE_MATERIAL_SKU");
+      seenSku[sku] = true;
+    }
+    var status = String(material.status || "").toLowerCase();
+    if (status !== "active" || !sku || sku.indexOf("MAT-MANUAL-") === 0) return;
+    var unit = String(material.unit || "").trim();
+    var purchaseUnit = String(material.purchaseUnit || "").trim();
+    var factor = Number(material.conversionFactor);
+    var purchasePrice = Number(material.purchasePrice);
+    var usagePrice = Number(material.unitPrice);
+    if (!String(material.name || "").trim() || !String(material.category || "").trim() || !unit || !purchaseUnit) throw new Error("ACTIVE_MATERIAL_SPECIFICATION_REQUIRED");
+    if (!Number.isFinite(factor) || factor <= 0) throw new Error("ACTIVE_MATERIAL_CONVERSION_INVALID");
+    if (!Number.isFinite(purchasePrice) || purchasePrice <= 0 || !Number.isFinite(usagePrice) || usagePrice <= 0) throw new Error("ACTIVE_MATERIAL_PRICE_REQUIRED");
+    if (Math.abs(usagePrice - purchasePrice / factor) > Math.max(0.01, purchasePrice / factor * 0.000001)) throw new Error("ACTIVE_MATERIAL_USAGE_PRICE_MISMATCH");
+    if (!String(material.supplierName || "").trim() || !String(material.priceSource || "").trim()) throw new Error("ACTIVE_MATERIAL_PRICE_SOURCE_REQUIRED");
+    var priceDate = String(material.priceDate || "");
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(priceDate)) throw new Error("ACTIVE_MATERIAL_PRICE_DATE_REQUIRED");
+    var parsedDate = new Date(priceDate + "T00:00:00Z");
+    if (isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== priceDate) throw new Error("ACTIVE_MATERIAL_PRICE_DATE_INVALID");
+  });
+  return true;
+}
+
 // Atomic stock reservation: all material lines succeed or none are written.
 function reserveSalesOrderStock_(ss, salesOrderId, identity) {
   if (!identity || identity.role !== "owner") throw new Error("FORBIDDEN_STOCK_RESERVATION");
@@ -1385,7 +1417,10 @@ function doPost(e) {
             inventoryLock = LockService.getScriptLock();
             inventoryLock.waitLock(30000);
           }
-          if (payload.materials) mergeSummary.Materials = mergeSheet(ss, "Materials", payload.materials);
+          if (payload.materials) {
+            validateMaterialsBeforeMerge_(ss, payload.materials);
+            mergeSummary.Materials = mergeSheet(ss, "Materials", payload.materials);
+          }
           if (payload.purchaseOrders) validatePurchaseOrderReceiptStatuses_(ss, payload.purchaseOrders, payload.inventoryTransactions || []);
           if (payload.inventoryTransactions) validateInventoryTransactionsBeforeMerge_(ss, payload.inventoryTransactions, payload.purchaseOrders || [], payload.salesOrders || []);
           if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
