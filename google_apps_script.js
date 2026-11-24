@@ -935,6 +935,7 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders, incomingTransaction
         throw new Error("SALES_ORDER_MATERIAL_RESERVATION_IMMUTABLE");
       }
       if (currentSnapshot.length && !incomingSnapshot.length) {
+        order.materialRequirements = currentSnapshot;
         order.materialRequirementsJson = JSON.stringify(currentSnapshot);
       }
       var currentItems = String(existing.itemsJson || "[]");
@@ -973,6 +974,7 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders, incomingTransaction
         var expectedSnapshot = calculateHppMaterialRequirements_(ss, projectId);
         if (expectedSnapshot.errors.length) throw new Error("SALES_ORDER_MATERIAL_PLAN_INVALID");
         snapshot = expectedSnapshot.requirements;
+        order.materialRequirements = snapshot;
         order.materialRequirementsJson = JSON.stringify(snapshot);
       } else {
         var expected = calculateHppMaterialRequirements_(ss, projectId);
@@ -980,8 +982,14 @@ function validateSalesOrdersBeforeMerge_(ss, incomingOrders, incomingTransaction
         if (JSON.stringify(normalizeMaterialRequirementSnapshot_(snapshot)) !== JSON.stringify(normalizeMaterialRequirementSnapshot_(expected.requirements))) {
           throw new Error("SALES_ORDER_MATERIAL_SNAPSHOT_MISMATCH");
         }
-        order.materialRequirementsJson = JSON.stringify(normalizeMaterialRequirementSnapshot_(snapshot));
+        order.materialRequirements = normalizeMaterialRequirementSnapshot_(snapshot);
+        order.materialRequirementsJson = JSON.stringify(order.materialRequirements);
       }
+    }
+    var finalSnapshot = parseSalesOrderMaterialRequirements_(order);
+    if (finalSnapshot.length) {
+      order.materialRequirements = finalSnapshot;
+      order.materialRequirementsJson = JSON.stringify(finalSnapshot);
     }
   });
   var incomingById = Object.create(null);
@@ -1178,9 +1186,6 @@ function doPost(e) {
         if (payload.finance)        mergeSummary.Finance         = mergeFinanceSafely_(ss, payload.finance);
         if (payload.memory)         mergeSummary.Memory          = mergeSheet(ss, "Memory", payload.memory);
         if (payload.marketingSpend) mergeSummary.Marketing_Spend = mergeSheet(ss, "Marketing_Spend", payload.marketingSpend);
-        if (payload.materials)      mergeSummary.Materials       = mergeSheet(ss, "Materials", payload.materials);
-        if (payload.costSheets) mergeSummary.Cost_Sheets = mergeSheet(ss, "Cost_Sheets", payload.costSheets.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
-        if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
         var inventoryLock = LockService.getScriptLock();
         inventoryLock.waitLock(30000);
         try {
