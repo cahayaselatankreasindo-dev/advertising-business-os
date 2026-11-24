@@ -51,7 +51,7 @@ function buildQuotationLinesFromCostSheet(sheet){
  var allocatedTotal=allocated.reduce(function(sum,value){return sum+value;},0);
  if(allocatedTotal!==sellingTotal)throw new Error('Alokasi harga penawaran HPP gagal direkonsiliasi.');
  return components.map(function(item,index){
-  return{id:'HPP-LINE-'+(index+1),itemType:item.itemType,materialId:item.materialId||'',serviceId:item.serviceId||'',name:item.name,description:item.description,qty:item.qty,unit:item.unit,unitPrice:allocated[index]/item.qty,sourceCostSheetId:String(sheet.id||''),sourceCostSheetUpdatedAt:String(sheet.updatedAt||''),sourceCostUnitPrice:item.sourceCostUnitPrice,sourceCostSubtotal:item.sourceCostSubtotal,sourceHppQty:item.qty,sourceHppUnit:item.unit,sourceCostingMethod:item.costingMethod||'',marginPercent:margin,pricingSource:'hpp'};
+  return{id:'HPP-LINE-'+(index+1),itemType:item.itemType,materialId:item.materialId||'',serviceId:item.serviceId||'',name:item.name,description:item.description,qty:item.qty,unit:item.unit,unitPrice:allocated[index]/item.qty,sourceCostSheetId:String(sheet.id||''),sourceCostSheetUpdatedAt:String(sheet.updatedAt||''),sourceCostUnitPrice:item.sourceCostUnitPrice,sourceCostSubtotal:item.sourceCostSubtotal,sourceHppQty:item.qty,sourceHppUnit:item.unit,sourceCostingMethod:item.costingMethod||'',sourceCostingSummary:item.sourceCostingSummary||'',sourceCostingMode:item.sourceCostingMode||'',marginPercent:margin,pricingSource:'hpp'};
  });
 }
 function localDate(d){d=d instanceof Date?d:new Date(d||Date.now());return[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
