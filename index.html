@@ -2284,16 +2284,48 @@
         hppSaveInProgress=false;
       }
     }
-    function deleteHppEstimate(projectId) {
-      const record=(db.costSheets||[]).find(x=>x.projectId===projectId); if(!record)return;
+    async function deleteHppEstimate(projectId) {
+      if(hppSaveInProgress)return showToast('Penyimpanan atau penghapusan HPP sedang diproses. Tunggu sampai selesai.',true);
+      if(!isOwnerSession())return showToast('Penghapusan HPP hanya dapat dilakukan oleh Owner.',true);
+      const idx=(db.costSheets||[]).findIndex(x=>x.projectId===projectId);
+      if(idx<0)return;
+      const record=JSON.parse(JSON.stringify(db.costSheets[idx]));
       if(!confirm('Hapus perhitungan HPP tersimpan untuk '+(record.projectName||projectId)+'? Data quotation/invoice yang sudah diterbitkan tidak ikut diubah.'))return;
-      db.costSheets=db.costSheets.filter(x=>x.projectId!==projectId);
-      const project=db.projects.find(x=>x.id===projectId);
-      if(project){delete project.hpp;delete project.estimatedCost;delete project.suggestedPrice;}
-      if(document.getElementById('hpp-project').value===projectId){hppLines=[];document.getElementById('hpp-labor').value=0;document.getElementById('hpp-other').value=0;document.getElementById('hpp-margin').value=30;renderHppEstimate();}
-      saveDB();renderHppSaved();showToast('HPP tersimpan dihapus.');
+      hppSaveInProgress=true;
+      try{
+        const project=db.projects.find(x=>x.id===projectId);
+        const projectFields=['hpp','estimatedCost','suggestedPrice'];
+        const previousProjectFields={};
+        if(project)projectFields.forEach(function(key){previousProjectFields[key]={exists:Object.prototype.hasOwnProperty.call(project,key),value:project[key]};});
+        const selector=document.getElementById('hpp-project');
+        const isSelected=!!selector&&selector.value===projectId;
+        const previousLines=hppLines.map(x=>JSON.parse(JSON.stringify(x)));
+        const previousInputs={labor:document.getElementById('hpp-labor').value,other:document.getElementById('hpp-other').value,margin:document.getElementById('hpp-margin').value};
+        db.costSheets.splice(idx,1);
+        if(project)projectFields.forEach(function(key){delete project[key];});
+        if(isSelected){hppLines=[];document.getElementById('hpp-labor').value=0;document.getElementById('hpp-other').value=0;document.getElementById('hpp-margin').value=30;renderHppEstimate();}
+        saveDB(true);
+        const cloudConfigured=!!(db.settings&&db.settings.googleSheetUrl);
+        if(cloudConfigured){
+          try{
+            if(!window.CSKAuth||typeof window.CSKAuth.isReady!=='function'||!window.CSKAuth.isReady())throw new Error('Login dan koneksi Google Sheets harus aktif sebelum HPP dihapus.');
+            const verified=await window.CSKAuth.sync(true);
+            if(!verified)throw new Error('Penghapusan HPP ke Google Sheets belum terverifikasi. Periksa koneksi lalu coba lagi.');
+          }catch(error){
+            db.costSheets.splice(Math.min(idx,db.costSheets.length),0,record);
+            if(project)projectFields.forEach(function(key){if(previousProjectFields[key].exists)project[key]=previousProjectFields[key].value;else delete project[key];});
+            if(isSelected){hppLines=previousLines;document.getElementById('hpp-labor').value=previousInputs.labor;document.getElementById('hpp-other').value=previousInputs.other;document.getElementById('hpp-margin').value=previousInputs.margin;}
+            saveDB(true);renderHppSaved();if(isSelected)renderHppEstimate();
+            showToast('HPP tidak dihapus dari cloud. Data sebelumnya dipulihkan: '+String(error&&error.message||error),true);
+            return;
+          }
+        }
+        renderHppSaved();
+        showToast(cloudConfigured?'HPP dihapus dan perubahan terverifikasi di Google Sheets.':'HPP dihapus dari penyimpanan lokal.');
+      }finally{
+        hppSaveInProgress=false;
+      }
     }
-
     function renderHppSaved() {
       const el=document.getElementById('hpp-saved-list'); if(!el)return;
       const current=(db.costSheets||[]).map(function(x){
