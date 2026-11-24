@@ -107,6 +107,31 @@ function saveScenario({cloudConfigured=true,syncResult=true,isOwner=true,existin
   const save=compile('saveHppEstimate',true,sandbox);
   return save().then(()=>({db,project,messages,saveCalls,syncCalls,rendered,oldSheet}));
 }
+function deleteScenario({cloudConfigured=true,syncResult=true,isOwner=true,selected=true}={}){
+  const project={id:'PRJ-01',title:'Display Booth',hpp:111,estimatedCost:111,suggestedPrice:222};
+  const oldSheet={id:'HPP-PRJ-01',projectId:'PRJ-01',projectName:'Display Booth',items:[{name:'old'}],total:111,price:222};
+  const db={projects:[project],costSheets:[oldSheet],settings:cloudConfigured?{googleSheetUrl:'https://script.google.test'}:{}};
+  const elements={
+    'hpp-project':{value:selected?'PRJ-01':'PRJ-02'},
+    'hpp-labor':{value:'50000'},'hpp-other':{value:'10000'},'hpp-margin':{value:'35'}
+  };
+  const messages=[],saveCalls=[];
+  let syncCalls=0,renderedSaved=0,renderedEstimate=0;
+  const sandbox={
+    document:{getElementById(id){return elements[id]||null;}},
+    db,hppLines:[{itemType:'material',name:'Akrilik',qty:2,unitPrice:50000}],
+    hppSaveInProgress:false,
+    isOwnerSession(){return isOwner;},
+    confirm(){return true;},
+    saveDB(skipCloud){saveCalls.push(skipCloud);},
+    window:{CSKAuth:{isReady(){return true;},async sync(){syncCalls++;return syncResult;}}},
+    renderHppSaved(){renderedSaved++;},renderHppEstimate(){renderedEstimate++;},
+    showToast(message,isError){messages.push({message,isError:!!isError});},
+    Number,String,JSON,Object,Array,Date,Math,Promise
+  };
+  const remove=compile('deleteHppEstimate',true,sandbox);
+  return remove('PRJ-01').then(()=>({db,project,elements,messages,saveCalls,syncCalls,renderedSaved,renderedEstimate,oldSheet,hppLines:sandbox.hppLines}));
+}
 (async function main(){
   const success=await saveScenario({cloudConfigured:true,syncResult:true});
   assert.equal(success.db.costSheets[0].total,125000,'new HPP snapshot replaces the previous project HPP');
@@ -131,5 +156,34 @@ function saveScenario({cloudConfigured=true,syncResult=true,isOwner=true,existin
   assert.equal(denied.db.costSheets[0].total,111,'Team cannot save HPP');
   assert.equal(denied.saveCalls.length,0);
   assert.equal(denied.messages[0].isError,true);
-  console.log('CSK HPP selection, service/product costing, and verified save workflow tests passed.');
+
+  const deleted=await deleteScenario({cloudConfigured:true,syncResult:true,selected:true});
+  assert.equal(deleted.db.costSheets.length,0,'verified cloud deletion removes the HPP snapshot');
+  assert.equal('hpp' in deleted.project,false,'verified cloud deletion clears project HPP fields');
+  assert.equal(deleted.hppLines.length,0,'deleting the selected HPP clears its working lines');
+  assert.equal(deleted.elements['hpp-labor'].value,0);
+  assert.equal(deleted.syncCalls,1);
+  assert.equal(deleted.saveCalls.length,1);
+  assert.match(deleted.messages[0].message,/terverifikasi di Google Sheets/);
+
+  const deleteFailed=await deleteScenario({cloudConfigured:true,syncResult:false,selected:true});
+  assert.equal(deleteFailed.db.costSheets.length,1,'failed cloud deletion restores the HPP snapshot');
+  assert.equal(JSON.stringify(deleteFailed.db.costSheets[0]),JSON.stringify(deleteFailed.oldSheet));
+  assert.equal(deleteFailed.project.hpp,111,'failed cloud deletion restores project HPP fields');
+  assert.equal(deleteFailed.project.suggestedPrice,222);
+  assert.equal(deleteFailed.hppLines.length,1,'failed cloud deletion restores the working HPP lines');
+  assert.equal(deleteFailed.elements['hpp-labor'].value,'50000');
+  assert.equal(deleteFailed.saveCalls.length,2,'rollback is persisted locally after cloud deletion fails');
+  assert.equal(deleteFailed.messages[0].isError,true);
+
+  const deleteOffline=await deleteScenario({cloudConfigured:false,selected:false});
+  assert.equal(deleteOffline.db.costSheets.length,0,'offline HPP deletion remains local');
+  assert.equal(deleteOffline.syncCalls,0);
+  assert.match(deleteOffline.messages[0].message,/penyimpanan lokal/);
+
+  const deleteDenied=await deleteScenario({isOwner:false});
+  assert.equal(deleteDenied.db.costSheets.length,1,'Team cannot delete HPP');
+  assert.equal(deleteDenied.saveCalls.length,0);
+  assert.equal(deleteDenied.messages[0].isError,true);
+  console.log('CSK HPP selection, service/product costing, verified save, and verified delete workflow tests passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
