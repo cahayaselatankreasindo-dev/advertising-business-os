@@ -93,6 +93,11 @@ for (const s of [backend, mirror]) {
   assert.match(s, /quotationSnapshots: readSheetData\(ss, "Quotations"\)/);
 }
 assert.equal(backend.trimEnd(), mirror.trimEnd());
+assert.ok(backend.includes('function validateCommercialDocumentsBeforeMerge_(ss, sheetName, incomingRows)'), 'server validates commercial document financials');
+assert.ok(backend.includes('validateCommercialDocumentsBeforeMerge_(ss, "Commercial_Quotations", incomingQuotations)'), 'server validates quotation writes');
+assert.ok(backend.includes('validateCommercialDocumentsBeforeMerge_(ss, "Invoices", incomingInvoices)'), 'server validates invoice writes');
+assert.ok(backend.includes('COMMERCIAL_DISCOUNT_EXCEEDS_SUBTOTAL'), 'server rejects discounts above subtotal');
+assert.ok(backend.includes('COMMERCIAL_DOCUMENT_TOTAL_MISMATCH_'), 'server independently verifies subtotal, tax, and total snapshots');
 assert.match(guard, /'quotationSnapshots','quotations','invoices'/);
 assert.ok(guard.includes("db.invoicePayments = identity.role === 'owner'"));
 assert.doesNotMatch(guard.match(/function makeSyncPayload\(\)[\s\S]*?\n  }/)[0], /invoicePayments/, 'payment ledger is read-only in generic sync payload');
