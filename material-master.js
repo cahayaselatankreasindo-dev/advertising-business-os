@@ -13,8 +13,8 @@ function statusLabel(m){var s=String(m.status||'active');return s==='active'?'Ak
 function statusClass(m){var s=String(m.status||'active');return s==='active'?'bg-emerald-50 text-emerald-700':s==='template'?'bg-slate-100 text-slate-600':s==='inactive'?'bg-rose-50 text-rose-700':'bg-amber-50 text-amber-700';}
 function getRows(){var d=data();return Array.isArray(d.materials)?d.materials:[];}
 function save(nextRows){
- var b=bridge(),d=data(),before=(d.materials||[]).slice();
- d.materials=nextRows;
+ var b=bridge(),before=getRows().slice();
+ b.replaceMaterials(nextRows);
  return Promise.resolve(b.save()).catch(function(error){b.replaceMaterials(before);throw error;});
 }
 function ensureModal(){
@@ -92,7 +92,7 @@ async function importSeed(){
 }
 async function toggleStatus(id){
  var b=bridge();if(!b||!b.isOwner())return notify('Perubahan status master hanya dapat dilakukan Owner.',true);
- var rows=getRows().slice(),m=rows.find(function(x){return String(x.id)===String(id);});if(!m)return;
+ var rows=getRows().map(function(x){return Object.assign({},x);}),m=rows.find(function(x){return String(x.id)===String(id);});if(!m)return;
  if(m.status==='template')return notify('Kode kelompok tidak dapat diaktifkan.',true);
  if(m.status==='active'){if(!w.confirm('Nonaktifkan '+m.sku+'? Riwayat transaksi tetap disimpan.'))return;m.status='inactive';}
  else{
