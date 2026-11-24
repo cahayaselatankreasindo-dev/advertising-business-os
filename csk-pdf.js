@@ -708,7 +708,8 @@ function normalizeMaterialCostReport(input) {
       varianceCost:Number.isFinite(varianceCost) ? varianceCost : null,
       variancePct:Number.isFinite(variancePct) ? variancePct : null,
       estimated:!!line.estimated,
-      rowComplete:!!line.rowComplete
+      rowComplete:!!line.rowComplete,
+      unplanned:!!line.unplanned
     };
   }) : [];
   var estimatedTotalCost = input.estimatedTotalCost === null || input.estimatedTotalCost === undefined || input.estimatedTotalCost === '' ? null : Number(input.estimatedTotalCost);
@@ -776,7 +777,8 @@ function drawMaterialCostTableHeader(pdf,y) {
   return x;
 }
 function drawMaterialCostRow(pdf,line,index,y,x) {
-  var nameLines=pdf.splitTextToSize(line.name||'Material',86);
+  var displayName=(line.name||'Material')+(line.unplanned?' (di luar HPP)':'');
+  var nameLines=pdf.splitTextToSize(displayName,86);
   var height=Math.max(9,3+nameLines.length*3.5);
   pdf.setDrawColor.apply(pdf,COLORS.line);
   pdf.line(14,y+height,283,y+height);
@@ -842,7 +844,8 @@ function generateMaterialCostPdf(input,jsPDF) {
   var x=drawMaterialCostTableHeader(pdf,y);
   y+=5;
   d.lines.forEach(function(line,index){
-    var rowHeight=Math.max(9,3+pdf.splitTextToSize(line.name||'Material',86).length*3.5);
+    var displayName=(line.name||'Material')+(line.unplanned?' (di luar HPP)':'');
+    var rowHeight=Math.max(9,3+pdf.splitTextToSize(displayName,86).length*3.5);
     if(y+rowHeight>pageHeight-35){
       pdf.addPage();
       y=drawMaterialCostHeader(pdf,d,true)+5;
