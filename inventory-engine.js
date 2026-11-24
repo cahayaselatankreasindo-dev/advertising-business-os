@@ -129,7 +129,65 @@
     }).sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
     return{hasHpp:true,requirements:requirements,errors:errors,ready:errors.length===0&&requirements.length>0&&requirements.every(function(row){return row.ready;}),materialCount:requirements.length};
   }
+  function calculateOpenSalesOrderCommitments(salesOrders,costSheets,materials,transactions,balances){
+    var activeStatuses={ready_production:true,in_production:true,quality_check:true,ready_delivery:true};
+    var orders=Array.isArray(salesOrders)?salesOrders:[];
+    var sheets=Array.isArray(costSheets)?costSheets:[];
+    var materialRows=Array.isArray(materials)?materials:[];
+    var ledger=Array.isArray(transactions)?transactions:[];
+    var activeProjects=Object.create(null),activeOrderCount=0,errors=[],grouped=Object.create(null);
+    orders.forEach(function(order){
+      var status=String(order&&order.status||'').toLowerCase(),projectId=String(order&&order.projectId||'');
+      if(!activeStatuses[status]||!projectId)return;
+      activeOrderCount++;
+      if(!activeProjects[projectId])activeProjects[projectId]={projectId:projectId,projectName:String(order.projectName||''),orderCount:0};
+      activeProjects[projectId].orderCount++;
+      if(!activeProjects[projectId].projectName)activeProjects[projectId].projectName=String(order.projectName||'');
+    });
+    var projectIds=Object.keys(activeProjects);
+    projectIds.forEach(function(projectId){
+      var project=activeProjects[projectId];
+      var sheet=sheets.find(function(row){return String(row.projectId)===projectId;});
+      if(!sheet){errors.push('HPP belum tersedia untuk proyek '+(project.projectName||projectId)+'.');return;}
+      var plan=calculateHppRequirements(sheet,materialRows,{});
+      if(plan.errors.length){plan.errors.forEach(function(error){errors.push((project.projectName||projectId)+': '+error);});return;}
+      if(!plan.requirements.length){errors.push('HPP proyek '+(project.projectName||projectId)+' belum memiliki kebutuhan material yang dapat dihitung.');return;}
+      var issued=Object.create(null);
+      ledger.forEach(function(tx){
+        if(String(tx.projectId||'')!==projectId)return;
+        var materialId=String(tx.materialId||'');
+        if(tx.movement==='issue')issued[materialId]=(issued[materialId]||0)+n(tx.qty);
+        else if(tx.movement==='return')issued[materialId]=(issued[materialId]||0)-n(tx.qty);
+      });
+      plan.requirements.forEach(function(requirement){
+        var materialId=String(requirement.materialId);
+        var netIssued=Math.max(0,issued[materialId]||0);
+        var outstanding=Math.max(0,requirement.required-netIssued);
+        if(!grouped[materialId])grouped[materialId]={
+          materialId:requirement.materialId,name:requirement.name,unit:requirement.unit,
+          onHand:n((balances||{})[materialId]),committed:0,projects:[]
+        };
+        grouped[materialId].committed+=outstanding;
+        grouped[materialId].projects.push({
+          projectId:projectId,projectName:project.projectName||projectId,
+          orderCount:project.orderCount,required:requirement.required,
+          netIssued:netIssued,outstanding:outstanding
+        });
+      });
+    });
+    var requirements=Object.keys(grouped).map(function(materialId){
+      var row=grouped[materialId];
+      row.availableAfterCommitments=row.onHand-row.committed;
+      row.shortage=Math.max(0,row.committed-row.onHand);
+      row.projects.sort(function(a,b){return String(a.projectName).localeCompare(String(b.projectName));});
+      return row;
+    }).sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
+    return{
+      activeOrderCount:activeOrderCount,activeProjectCount:projectIds.length,
+      requirements:requirements,errors:errors,ready:errors.length===0
+    };
+  }
   function getBalance(materialId,balances){return n((balances||{})[String(materialId)]);}
   function movementLabel(value){return MOVEMENTS[value]?MOVEMENTS[value].label:String(value||'-');}
-  return{MOVEMENTS:MOVEMENTS,localDate:localDate,nextTransactionNumber:nextTransactionNumber,sortTransactions:sortTransactions,calculateBalances:calculateBalances,validateTransaction:validateTransaction,getBalance:getBalance,calculateHppRequirements:calculateHppRequirements,movementLabel:movementLabel};
+  return{MOVEMENTS:MOVEMENTS,localDate:localDate,nextTransactionNumber:nextTransactionNumber,sortTransactions:sortTransactions,calculateBalances:calculateBalances,validateTransaction:validateTransaction,getBalance:getBalance,calculateHppRequirements:calculateHppRequirements,calculateOpenSalesOrderCommitments:calculateOpenSalesOrderCommitments,movementLabel:movementLabel};
 });
