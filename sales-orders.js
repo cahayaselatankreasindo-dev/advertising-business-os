@@ -68,17 +68,23 @@ async function updateSalesOrderStatus(id,nextStatus){
   if(!order)throw new Error('Sales Order tidak ditemukan.');
   var q=quoteFor(order.quotationId,d),payment=summary(order,d),transitionOrder=order,transitionNote='';
   if(nextStatus==='ready_production'){
-   var snapshot=Array.isArray(order.materialRequirements)&&order.materialRequirements.length?order.materialRequirements:buildMaterialReservationSnapshot(order.projectId,d);
-   var candidate=Object.assign({},order,{status:'ready_production',materialRequirements:snapshot});
-   var report=reservationReportForCandidate(candidate,d);
-   var shortageRows=report.requirements.filter(function(row){return row.shortage>0;});
-   if(report.errors.length||shortageRows.length){
-    var reason=report.errors.length?report.errors.join(' '):'Stok tidak cukup untuk: '+shortageRows.map(function(row){return row.name+' kurang '+qtyFormat(row.shortage)+' '+row.unit;}).join(', ')+'.';
-    if(order.status==='awaiting_material'){notify('Belum dapat melepas produksi. '+reason,true);return;}
-    nextStatus='awaiting_material';transitionNote='Menunggu material. '+reason;
+   var snapshot=null,snapshotError=null;
+   try{snapshot=Array.isArray(order.materialRequirements)&&order.materialRequirements.length?order.materialRequirements:buildMaterialReservationSnapshot(order.projectId,d);}catch(error){snapshotError=error;}
+   if(snapshotError){
+    if(order.status==='awaiting_material')throw snapshotError;
+    nextStatus='awaiting_material';transitionNote='Menunggu material. '+(snapshotError.message||String(snapshotError));
    }else{
-    transitionOrder=candidate;
-    transitionNote='Reservasi material otomatis dibuat berdasarkan snapshot HPP.';
+    var candidate=Object.assign({},order,{status:'ready_production',materialRequirements:snapshot});
+    var report=reservationReportForCandidate(candidate,d);
+    var shortageRows=report.requirements.filter(function(row){return row.shortage>0;});
+    if(report.errors.length||shortageRows.length){
+     var reason=report.errors.length?report.errors.join(' '):'Stok tidak cukup untuk: '+shortageRows.map(function(row){return row.name+' kurang '+qtyFormat(row.shortage)+' '+row.unit;}).join(', ')+'.';
+     if(order.status==='awaiting_material'){notify('Belum dapat melepas produksi. '+reason,true);return;}
+     nextStatus='awaiting_material';transitionNote='Menunggu material. '+reason;
+    }else{
+     transitionOrder=candidate;
+     transitionNote='Reservasi material otomatis dibuat berdasarkan snapshot HPP.';
+    }
    }
   }else if(nextStatus==='in_production'&&order.status==='quality_check'){
    var reworkSnapshot=Array.isArray(order.materialRequirements)&&order.materialRequirements.length?order.materialRequirements:buildMaterialReservationSnapshot(order.projectId,d);
@@ -143,14 +149,18 @@ function prepareInitialMaterialReservation(order,d){
   if(report.errors.length||shortages.length){
    var reason=report.errors.length?report.errors.join(' '):'Stok belum cukup untuk '+shortages.map(function(row){return row.name+' kurang '+qtyFormat(row.shortage)+' '+row.unit;}).join(', ')+'.';
    order.status='awaiting_material';
-   order.history.push({date:new Date().toISOString(),status:'awaiting_material',actor:'System',note:'Menunggu material. '+reason});
+   var lastHistory=order.history[order.history.length-1];
+   if(lastHistory&&lastHistory.status==='ready_production'){lastHistory.status='awaiting_material';lastHistory.note='Sales Order dibuat. Menunggu material. '+reason;}
+   else order.history.push({date:new Date().toISOString(),status:'awaiting_material',actor:'System',note:'Menunggu material. '+reason});
   }else{
    order.materialRequirements=snapshot;
    order.history.push({date:new Date().toISOString(),status:'ready_production',actor:'System',note:'Reservasi material otomatis dibuat berdasarkan snapshot HPP.'});
   }
  }catch(error){
   order.status='awaiting_material';
-  order.history.push({date:new Date().toISOString(),status:'awaiting_material',actor:'System',note:'Menunggu material. '+(error.message||String(error))});
+  var lastHistory=order.history[order.history.length-1];
+  if(lastHistory&&lastHistory.status==='ready_production'){lastHistory.status='awaiting_material';lastHistory.note='Sales Order dibuat. Menunggu material. '+(error.message||String(error));}
+  else order.history.push({date:new Date().toISOString(),status:'awaiting_material',actor:'System',note:'Menunggu material. '+(error.message||String(error))});
  }
 }
 function openPurchaseOrderQty(projectId,materialId,d){
