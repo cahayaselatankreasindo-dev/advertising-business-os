@@ -93,4 +93,8 @@ assert.ok(commercial.includes('function downloadCommercialDocumentPdf()'), 'comm
 assert.ok(commercial.includes("data-action=\"download-existing\""), 'saved document cards expose direct PDF download');
 assert.ok(commercial.includes('w.downloadCommercialDocumentPdf=downloadCommercialDocumentPdf'), 'PDF handler is available to the document UI');
 assert.ok(sw.includes('./csk-pdf.js'), 'service worker precaches the PDF engine');
+const pdfSource = fs.readFileSync('csk-pdf.js', 'utf8');
+assert.ok(pdfSource.includes("pdf.output('blob')"), 'PDF download creates a browser-compatible Blob');
+assert.ok(pdfSource.includes('URL.createObjectURL'), 'PDF download uses a Blob URL for mobile browser compatibility');
+assert.ok(pdfSource.includes('anchor.download=filename'), 'PDF download uses a real file download anchor');
 console.log('CSK PDF tests passed.');
