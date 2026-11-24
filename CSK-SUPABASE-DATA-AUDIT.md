@@ -1,3 +1,5 @@
+> **STATUS: DITUNDA (24 November 2026).** Owner memilih melanjutkan CSK Business OS menggunakan Google Apps Script + Google Sheets. Dokumen ini hanya catatan referensi untuk kemungkinan masa depan, bukan instruksi untuk membuat project, menghubungkan aplikasi, memigrasikan data, atau mengubah autentikasi. Jangan melakukan pekerjaan Supabase kecuali Owner secara eksplisit meminta keputusan ini dibuka kembali.
+
 # CSK Business OS — Read-only Data & Backend Audit
 
 **Audit date:** 24 November 2026  
