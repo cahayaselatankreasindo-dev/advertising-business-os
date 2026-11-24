@@ -62,6 +62,7 @@
     var existing=Array.isArray(context.transactions)?context.transactions:[];
     var material=materials.find(function(m){return String(m.id)===String(input&&input.materialId||'');});
     if(!material)throw new Error('Pilih material yang terdaftar.');
+    if(String(material.status||'active')!=='active')throw new Error('Material belum aktif. Lengkapi dan verifikasi Master Bahan Baku terlebih dahulu.');
     if(!String(material.unit||'').trim())throw new Error('Master Material belum memiliki satuan stok. Lengkapi satuan terlebih dahulu.');
     if(!MOVEMENTS[input.movement])throw new Error('Pilih jenis transaksi stok yang valid.');
     var qty=Number(input.qty);
