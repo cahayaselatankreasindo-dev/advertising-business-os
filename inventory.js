@@ -28,6 +28,7 @@ function ensureBound(){
    prefillLimit=String(b.dataset.pickLimit||'');
    renderInventory('issue');
   }
+  if(action==='pdf-picklist')downloadPickingListPdf(String(b.dataset.projectId||''));
  });
  page.addEventListener('submit',function(event){
   if(event.target&&event.target.id==='inventory-entry-form'){event.preventDefault();saveInventoryTransaction();}
@@ -152,6 +153,29 @@ async function saveInventoryTransaction(){
  }catch(error){if(added&&d&&Array.isArray(d.inventoryTransactions)){var rollbackIndex=d.inventoryTransactions.findIndex(function(x){return String(x.id)===String(added.id);});if(rollbackIndex>=0)d.inventoryTransactions.splice(rollbackIndex,1);}notify(error.message||String(error),true);}
  finally{var current=el('inv-save');if(current){current.disabled=false;updateMovementFields();}}
 }
+async function downloadPickingListPdf(projectId){
+ try{
+  var d=data(),balances=E().calculateBalances(d.materials||[],d.inventoryTransactions||[]);
+  var report=E().calculateOpenSalesOrderCommitments(d.salesOrders||[],d.costSheets||[],d.materials||[],d.inventoryTransactions||[],balances);
+  if(report.errors.length)throw new Error('Perbaiki data reservasi terlebih dahulu: '+report.errors.join(' '));
+  var lines=report.pickingList.filter(function(line){return String(line.projectId)===String(projectId)&&line.outstanding>0;});
+  if(!lines.length)throw new Error('Proyek ini tidak memiliki material yang menunggu pengambilan.');
+  if(!w.CSKPDF||typeof w.CSKPDF.downloadPickingList!=='function')throw new Error('Mesin PDF Picking List belum tersedia. Muat ulang aplikasi.');
+  var order=(d.salesOrders||[]).find(function(row){return String(row.projectId)===String(projectId)&&['ready_production','in_production'].indexOf(String(row.status||''))>=0;});
+  var project=(d.projects||[]).find(function(row){return String(row.id)===String(projectId);});
+  var identity=bridge()&&bridge().getIdentity?bridge().getIdentity():null;
+  return await w.CSKPDF.downloadPickingList({
+   title:'MATERIAL PICKING LIST',
+   docNo:'PICK-'+String(order&&order.orderNo||projectId),
+   orderNo:String(order&&order.orderNo||lines[0].orderNo||'-'),
+   projectId:projectId,
+   projectName:String(project&&project.title||lines[0].projectName||projectId),
+   date:E().localDate(),
+   preparedBy:String(identity&&(identity.name||identity.email)||''),
+   lines:lines
+  });
+ }catch(error){notify(error.message||String(error),true);return{ok:false,error:error.message||String(error)};}
+}
 function renderCommitmentPanel(report){
  var shortages=report.requirements.filter(function(row){return row.shortage>0;}).length;
  var html='<section class="bg-white border border-slate-200 rounded-2xl p-4 mb-5"><div class="flex flex-wrap justify-between items-start gap-3"><div><h2 class="font-bold text-sm">Reservasi Material & Picking List</h2><p class="text-[11px] text-slate-500 mt-1">Material otomatis direservasi saat Sales Order berstatus Siap Produksi atau Dalam Produksi.</p></div><div class="flex gap-2 text-[10px]"><span class="rounded-full bg-blue-50 text-blue-700 px-2 py-1">'+report.activeOrderCount+' order aktif</span><span class="rounded-full bg-violet-50 text-violet-700 px-2 py-1">'+report.activeProjectCount+' proyek</span></div></div>';
@@ -166,6 +190,10 @@ function renderCommitmentPanel(report){
   }).join('')+'</tbody></table></div>';
  }
  html+='<div class="mt-5"><div class="flex flex-wrap justify-between items-center gap-2"><div><h3 class="font-bold text-xs">Daftar Pengambilan Material</h3><p class="text-[10px] text-slate-500 mt-1">Keluarkan material dari stok sesuai kebutuhan yang masih direservasi per proyek.</p></div><span class="text-[10px] text-slate-400">'+report.pickingList.length+' baris terbuka</span></div>';
+ var pickProjects=Object.create(null);
+ report.pickingList.forEach(function(line){var key=String(line.projectId);if(!pickProjects[key])pickProjects[key]={projectId:key,projectName:line.projectName,orderNo:line.orderNo,count:0};pickProjects[key].count++;});
+ var pickProjectButtons=Object.keys(pickProjects).map(function(key){var group=pickProjects[key];return'<button data-inv-action="pdf-picklist" data-project-id="'+esc(group.projectId)+'" class="px-3 py-2 rounded-lg border border-orange-200 bg-orange-50 text-orange-800 text-[10px] font-bold">Unduh Picking List PDF · '+esc(group.projectName)+' ('+group.count+')</button>';}).join('');
+ if(pickProjectButtons)html+='<div class="flex flex-wrap gap-2 mt-3">'+pickProjectButtons+'</div>';
  if(!report.pickingList.length)html+='<div class="mt-3 rounded-lg border border-dashed p-4 text-center text-[11px] text-slate-500">Tidak ada material yang menunggu pengambilan.</div>';
  else html+='<div class="overflow-x-auto mt-2"><table class="w-full min-w-[720px] text-[11px]"><thead class="bg-slate-50 text-slate-500"><tr><th class="text-left p-2">Proyek / SO</th><th class="text-left p-2">Material</th><th class="text-right p-2">Kebutuhan</th><th class="text-right p-2">Sudah keluar</th><th class="text-right p-2">Sisa reservasi</th><th class="text-right p-2">Aksi</th></tr></thead><tbody>'+report.pickingList.map(function(line){
   var stockRow=report.requirements.find(function(row){return String(row.materialId)===String(line.materialId);});
