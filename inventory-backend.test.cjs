@@ -206,6 +206,16 @@ assert.equal(context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[l
 const issueAfterDelivery=transaction('RESV-CONSUME-0004','STK-CSK-2026-00033','issue',1,'2026-11-24',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[issueAfterDelivery],[],[deliveredOrder]),/INVENTORY_SALES_ORDER_NOT_ACTIVE/,'new material issues are blocked after Sales Order delivery');
 
+const linkedReturn=transaction('RESV-RETURN-0001','STK-CSK-2026-00034','return',1,'2026-11-24',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne,linkedIssueTwo,linkedReturn],[],[]),true,'return is accepted only against the exact Sales Order reservation that was issued');
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne,linkedIssueTwo,{...linkedReturn,id:'ITX-RESV-RETURN-0002',transactionNo:'STK-CSK-2026-00035',qty:5}],[],[]),/INVENTORY_RETURN_EXCEEDS_SALES_ORDER_ISSUE/,'return quantity cannot exceed net material already issued');
+consumeCase.ss.sheets.Inventory_Transactions.appendRow(rowFor('Inventory_Transactions',linkedReturn));
+assert.equal(context.reconcileConsumedReservations_(consumeCase.ss),0,'a material return reactivates a previously consumed reservation');
+assert.equal(consumeCase.ss.sheets.Inventory_Reservations.rows[1][map.Inventory_Reservations.fields.indexOf('status')],'active','returned quantity restores the reservation to active status');
+const reissuedAfterReturn=transaction('RESV-REISSUE-0001','STK-CSK-2026-00036','issue',1,'2026-11-25',{projectId:project.id,projectName:project.title,salesOrderId:consumeCase.order.id,reservationId:consumeReservation.id});
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(consumeCase.ss,[linkedIssueOne,linkedIssueTwo,linkedReturn,reissuedAfterReturn],[],[]),true,'returned quantity can be issued again within the restored reservation limit');
+
+
 const competing=reservationFixture(5,'SO-INV-00000002',4);
 const competingSecond={...competing.order,id:'SO-INV-00000003',orderNo:'SO-CSK-2026-00002',quotationId:'QUO-INV-00002',quotationNo:'QUO-CSK-2026-00002'};
 const competingQuote={...competing.quote,id:competingSecond.quotationId,docNo:competingSecond.quotationNo};
