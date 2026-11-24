@@ -12,7 +12,7 @@ function materialList(){var b=bridge();if(!b)return[];return b.getMaterials().fi
 function baseUsagePrice(material){
   var E=w.CSKCustomCostingEngine;
   if(E&&typeof E.getBaseUsageUnitPrice==='function')return E.getBaseUsageUnitPrice(material);
-  var buy=Number(material&&material.purchasePrice),factor=Number(material&&material.conversionFactor)||1,unit=String(material&&material.unit||''),purchaseUnit=String(material&&material.purchaseUnit||unit),price=Number(material&&material.unitPrice),waste=Number(material&&material.wasteRate)||0;
+  var buy=Number(material&&material.purchasePrice),rawFactor=material&&material.conversionFactor,factor=rawFactor===undefined||rawFactor===null||rawFactor===''?1:Number(rawFactor),unit=String(material&&material.unit||''),purchaseUnit=String(material&&material.purchaseUnit||unit),price=Number(material&&material.unitPrice),waste=Number(material&&material.wasteRate)||0;
   if(Number.isFinite(buy)&&buy>0&&factor>0)return buy/factor;
   if(purchaseUnit===unit&&Number.isFinite(price)&&price>0&&waste>=0&&waste<=100)return price/(1+waste/100);
   throw new Error('Harga dasar per satuan pakai belum tersedia.');
