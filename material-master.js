@@ -8,9 +8,9 @@ function n(v){var x=Number(v);return Number.isFinite(x)?x:0;}
 function rupiah(v){return 'Rp '+Math.round(n(v)).toLocaleString('id-ID');}
 function notify(message,isError){var b=bridge();if(b&&b.toast)b.toast(message,!!isError);}
 function data(){var b=bridge();if(!b)throw new Error('Koneksi master material belum siap.');return b.getData();}
-function active(m){return !!m&&String(m.status||'active')==='active'&&n(m.unitPrice)>0&&n(m.purchasePrice)>0&&n(m.conversionFactor)>0&&!!String(m.unit||'').trim()&&!!String(m.purchaseUnit||'').trim();}
-function statusLabel(m){var s=String(m.status||'active');return s==='active'?'Aktif':s==='template'?'Kode kelompok':'Draft';}
-function statusClass(m){var s=String(m.status||'active');return s==='active'?'bg-emerald-50 text-emerald-700':s==='template'?'bg-slate-100 text-slate-600':'bg-amber-50 text-amber-700';}
+function active(m){var buy=n(m&&m.purchasePrice)||n(m&&m.unitPrice),factor=n(m&&m.conversionFactor)||1;return !!m&&String(m.status||'active')==='active'&&n(m.unitPrice)>0&&buy>0&&factor>0&&!!String(m.unit||'').trim()&&!!String(m.purchaseUnit||m.unit||'').trim();}
+function statusLabel(m){var s=String(m.status||'active');return s==='active'?'Aktif':s==='template'?'Kode kelompok':s==='inactive'?'Nonaktif':'Draft';}
+function statusClass(m){var s=String(m.status||'active');return s==='active'?'bg-emerald-50 text-emerald-700':s==='template'?'bg-slate-100 text-slate-600':s==='inactive'?'bg-rose-50 text-rose-700':'bg-amber-50 text-amber-700';}
 function getRows(){var d=data();return Array.isArray(d.materials)?d.materials:[];}
 function save(nextRows){
  var b=bridge(),d=data(),before=(d.materials||[]).slice();
@@ -39,7 +39,7 @@ function openEditor(id){
  ensureModal();
  var modal=el(modalId);modal.classList.remove('hidden');
  el('mm-title').textContent=m?'Edit Master Material':'Tambah Material CSK';
- var fields={id:m&&m.id||'',sku:m&&m.sku||'',name:m&&m.name||'',category:m&&m.category||'',subcategory:m&&m.subcategory||'',spec:m&&m.spec||'',color:m&&m.color||'',thickness:m&&m.thicknessMm||'',width:m&&m.widthMm||'',length:m&&m.lengthMm||'',rollLength:m&&m.rollLengthM||'',purchaseUnit:m&&m.purchaseUnit||'',unit:m&&m.unit||'',factor:m&&m.conversionFactor||'',purchasePrice:m&&m.purchasePrice||'',supplier:m&&m.supplierName||'',priceSource:m&&m.priceSource||'',priceDate:m&&m.priceDate||'',waste:m&&m.wasteRate||0,notes:m&&m.notes||''};
+ var fields={id:m&&m.id||'',sku:m&&m.sku||'',name:m&&m.name||'',category:m&&m.category||'',subcategory:m&&m.subcategory||'',spec:m&&m.spec||'',color:m&&m.color||'',thickness:m&&m.thicknessMm||'',width:m&&m.widthMm||'',length:m&&m.lengthMm||'',rollLength:m&&m.rollLengthM||'',purchaseUnit:m&&m.purchaseUnit||m&&m.unit||'',unit:m&&m.unit||'',factor:m&&m.conversionFactor||1,purchasePrice:m&&m.purchasePrice||m&&m.unitPrice||'',supplier:m&&m.supplierName||'',priceSource:m&&m.priceSource||'',priceDate:m&&m.priceDate||'',waste:m&&m.wasteRate||0,notes:m&&m.notes||''};
  Object.keys(fields).forEach(function(key){var node=el('mm-'+key);if(node)node.value=fields[key];});
  var referenced=!!m&&isReferenced(m.id,rows);
  el('mm-sku').disabled=referenced;
