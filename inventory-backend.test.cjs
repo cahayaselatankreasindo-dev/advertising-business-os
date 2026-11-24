@@ -143,4 +143,19 @@ const orderStatusCol=map.Sales_Orders.fields.indexOf('status');
 notReady.ss.sheets.Sales_Orders.rows[1][orderStatusCol]='awaiting_dp';
 assert.throws(()=>context.reserveSalesOrderStock_(notReady.ss,notReady.order.id,{role:'owner',email:'owner@example.test'}),/SALES_ORDER_NOT_READY_FOR_RESERVATION/,'orders awaiting DP cannot reserve stock');
 
+const reReserve=context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.order.id,{role:'owner',email:'owner@example.test'});
+assert.equal(reReserve.status,'already_reserved');
+const released=context.releaseSalesOrderReservation_(reserveCase.ss,reserveCase.order.id,'Test release',{role:'owner',email:'owner@example.test'});
+assert.equal(released.releasedLines,1,'Owner can release all active material lines');
+const reserveAgain=context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.order.id,{role:'owner',email:'owner@example.test'});
+assert.equal(reserveAgain.status,'reserved','released Sales Order can be reserved again when stock is still available');
+assert.notEqual(reserveAgain.reservations[0].id,reserved.reservations[0].id,'new reservation cycle receives a unique immutable ID');
+
+const terminalFixture=reservationFixture(5,'SO-INV-00000005',2);
+const activeReservation={id:'RSV-TERM-00001',reservationNo:'RSV-CSK-2026-00001',salesOrderId:terminalFixture.order.id,orderNo:terminalFixture.order.orderNo,projectId:project.id,projectName:project.title,materialId:material.id,materialName:material.name,qty:2,unit:'m2',status:'active',createdAt:'2026-11-20T08:00:00.000Z',createdBy:'owner@example.test',releasedAt:'',releaseReason:''};
+terminalFixture.ss.sheets.Inventory_Reservations.appendRow(rowFor('Inventory_Reservations',activeReservation));
+assert.equal(context.releaseTerminalSalesOrderReservations_(terminalFixture.ss,[{id:terminalFixture.order.id,status:'delivered'}],{role:'owner',email:'owner@example.test'}),1,'terminal Sales Order statuses automatically release active reservations');
+assert.equal(context.readSheetData(terminalFixture.ss,'Inventory_Reservations')[0].status,'released');
+
+
 console.log('CSK Inventory backend validation tests passed.');
