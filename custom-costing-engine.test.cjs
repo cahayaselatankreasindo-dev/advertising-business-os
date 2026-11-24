@@ -12,6 +12,18 @@ assert.equal(sheet.piecesCount,8);
 assert.ok(sheet.yieldPercent>0&&sheet.yieldPercent<100);
 assert.equal(sheet.placements.length,8);
 
+const rotatedDefault=engine.calculateSheetCutList({
+  sheetWidthMm:100,sheetHeightMm:200,kerfMm:0,
+  parts:[{widthMm:150,heightMm:80,qty:1}]
+});
+assert.equal(rotatedDefault.sheetsUsed,1,'default rotation should allow a component to fit after a 90-degree turn');
+assert.equal(rotatedDefault.placements[0].rotated,true,'the placement should report the applied 90-degree rotation');
+
+assert.throws(()=>engine.calculateSheetCutList({
+  sheetWidthMm:100,sheetHeightMm:200,kerfMm:0,allowRotation:false,
+  parts:[{widthMm:150,heightMm:80,qty:1}]
+}),/tidak muat|tidak dapat ditempatkan/,'explicitly disabled rotation must reject a component that only fits when rotated');
+
 const mixed=engine.calculateSheetCutList({
   sheetWidthMm:1220,sheetHeightMm:2440,kerfMm:3,wasteRate:10,allowRotation:true,
   parts:[{widthMm:600,heightMm:400,qty:2},{widthMm:300,heightMm:200,qty:2}]
