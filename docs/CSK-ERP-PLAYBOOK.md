@@ -510,3 +510,36 @@ The PDF is a picking instruction, not proof of material issue. The Inventory iss
 
 ### Next accounting prerequisite
 Before actual-versus-estimated HPP cost reconciliation is enabled, CSK must approve an inventory valuation policy and capture verified unit cost for opening balances and supplier receipts. The current price in Material Master is a planning price, not a historical inventory cost ledger.
+
+
+## 21. Inventory valuation and actual material cost — 25 November 2026
+
+### Delivered on the internal Business OS feature branch
+- Added immutable inventory cost snapshots to new stock movements: unit cost, total cost, cost source, and valuation method. The fields are appended to the Inventory_Transactions sheet mapping; existing columns are not reordered.
+- Implemented Moving Weighted Average (WAC) for inventory value and average unit cost. New opening balances and manual receipts capture a unit cost; PO-linked receipts use the unit price saved on the PO line.
+- Project issues and stock-out adjustments use the weighted-average unit cost at the time of posting.
+- Project returns use the weighted-average cost of that project's net issues, so a later supplier receipt with a different price does not rewrite the cost of material already issued to the project.
+- Sales Order production reservation snapshots now freeze estimated HPP material quantity, estimated unit cost, and estimated total material cost.
+- Sales Order detail compares estimated HPP material cost with actual net issue cost (issue cost less return cost), and displays the cost variance.
+- Inventory shows current average unit cost, stock value, transaction-level unit/total cost, and cost source.
+
+### Cost-source and historical-data rules
+- `purchase_order`: cost is taken from the linked PO line and validated by Apps Script.
+- `opening_manual` / `manual_receipt`: cost is entered by Owner for opening stock or a receipt not priced by a linked PO.
+- `moving_average`: issue and stock adjustment cost is validated against the current WAC balance.
+- `project_issue_average`: a project return reverses the cost of that project's net issued material.
+- `master_fallback`: used when historical or manually entered inventory does not have a verified unit-cost snapshot. The UI marks this as estimated; it is not evidence of the historical supplier invoice price.
+- Historical Inventory rows are not rewritten to invent a cost history. Their valuation can use Master Material price as a visibly estimated fallback until the Owner reconciles original documents.
+
+### Interpretation and boundaries
+- The displayed actual material cost is the net cost of Inventory issues less returns. It is not a complete project profit calculation and does not include labor, services, overhead, machine time, scrap/offcut, or other non-material costs.
+- The estimated material cost comes from the frozen HPP line subtotals. Missing HPP prices remain null and do not become zero-cost estimates.
+- Owner must verify opening unit costs, manual receipt prices, supplier PO line prices, and the first stock valuation before production use. Do not treat fallback values as verified purchase costs.
+- No automatic valuation-method migration, historical ledger rewrite, live Apps Script deployment, Google Sheets migration, merge to main, or public website deployment has been performed.
+
+### Test coverage
+- WAC calculation after opening, supplier receipt, and project issue.
+- Project returns retain original issue valuation after a later receipt changes the warehouse average.
+- Backend rejects manipulated issue costs and PO receipt costs.
+- HPP material cost snapshots are frozen at production release; missing cost estimates remain unknown rather than zero.
+- Legacy cost fallback is flagged as estimated.
