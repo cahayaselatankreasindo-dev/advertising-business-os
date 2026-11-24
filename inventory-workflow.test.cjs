@@ -67,6 +67,28 @@ assert.throws(()=>E.validateTransaction({
  purchaseOrderId:'PO-001'
 },{materials,projects,purchaseOrders:[{...po,status:'draft'}],transactions:[]}),/berstatus Dipesan/);
 
+const reservationOrder={id:'SO-INV-UI-0001',projectId:'PRJ-001',status:'in_production'};
+const reservation={id:'RSV-UI-0001',salesOrderId:reservationOrder.id,materialId:'MAT-ACR',qty:4,unit:'m2',status:'active'};
+const reservedOpening=tx('00000020','STK-CSK-2026-00020','opening',5,'2026-11-01');
+const linkedIssue=E.validateTransaction({
+ materialId:'MAT-ACR',movement:'issue',qty:2,unit:'m2',date:'2026-11-15',
+ projectId:'PRJ-001',salesOrderId:reservationOrder.id,reservationId:reservation.id
+},{materials,projects,transactions:[reservedOpening],salesOrders:[reservationOrder],inventoryReservations:[reservation]});
+assert.equal(linkedIssue.transaction.salesOrderId,reservationOrder.id,'stock issue stores its Sales Order link');
+assert.equal(linkedIssue.transaction.reservationId,reservation.id,'stock issue stores the exact reservation row ID');
+assert.equal(linkedIssue.balances['MAT-ACR'],3,'linked material issue reduces physical stock');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'issue',qty:2,unit:'m2',date:'2026-11-15',projectId:'PRJ-001'
+},{materials,projects,transactions:[reservedOpening],inventoryReservations:[reservation]}),/dikunci oleh Sales Order/,'unlinked issue cannot consume reserved stock');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'issue',qty:5,unit:'m2',date:'2026-11-15',
+ projectId:'PRJ-001',salesOrderId:reservationOrder.id,reservationId:reservation.id
+},{materials,projects,transactions:[reservedOpening],salesOrders:[reservationOrder],inventoryReservations:[reservation]}),/melebihi sisa reservasi/,'linked issue cannot exceed the reserved quantity');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'issue',qty:1,unit:'m2',date:'2026-11-15',
+ projectId:'PRJ-001',salesOrderId:reservationOrder.id,reservationId:'RSV-WRONG'
+},{materials,projects,transactions:[reservedOpening],salesOrders:[reservationOrder],inventoryReservations:[reservation]}),/belum memiliki reservasi aktif/,'linked issue must reference an active reservation row');
+
 const demand=E.calculateHppRequirements({
  projectId:'PRJ-001',
  items:[
@@ -197,6 +219,8 @@ assert.match(guard,/inventoryReservations = identity\.role === 'owner'/,'reserva
 assert.match(html,/reserveSalesOrderStock: function/,'Business OS bridge exposes reservation actions to Inventory UI');
 assert.match(ui,/renderReservationPanel/,'Inventory UI displays locked Sales Order reservations');
 assert.match(ui,/inv-sales-order/,'Inventory issue form supports Sales Order-linked material consumption');
+assert.match(ui,/inv-reservation-id/,'Inventory issue form attaches the exact reservation row to each stock issue');
+assert.match(backend,/ReservationID/,'inventory ledger schema stores an immutable reservation reference');
 assert.match(ui,/data-inv-action="reserve-so"/,'Owner can lock stock from the Inventory page');
 assert.match(ui,/data-inv-action="release-so"/,'Owner can release an active stock reservation');
 assert.match(html,/id="page-inventory"/,'inventory page is mounted in Business OS');
