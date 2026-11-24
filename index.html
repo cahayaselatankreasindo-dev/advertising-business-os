@@ -2198,7 +2198,7 @@
         const material=db.materials.find(x=>x.id===id);
         if(!material || !Number.isFinite(Number(material.unitPrice)) || Number(material.unitPrice)<=0) return showToast('Material belum memiliki harga pemakaian yang valid.',true);
         const unitPrice=Number(material.unitPrice);
-        hppLines.push({itemType:'material',materialId:material.id,name:material.name,unit:material.unit,qty,unitPrice,subtotal:qty*unitPrice,materialSnapshot:{unit:material.unit,purchaseUnit:material.purchaseUnit||'',conversionFactor:Number(material.conversionFactor)||0,updatedAt:material.updatedAt||''}});
+        hppLines.push({itemType:'material',materialId:material.id,name:material.name,unit:material.unit,qty,unitPrice,subtotal:qty*unitPrice,materialSnapshot:{name:material.name,unit:material.unit,purchaseUnit:material.purchaseUnit||'',conversionFactor:Number(material.conversionFactor)||0,updatedAt:material.updatedAt||''}});
       }
       renderHppEstimate();
     }
