@@ -521,6 +521,30 @@
     return { payment: stored, finance: finance };
   }
 
+  async function reserveSalesOrderStock(salesOrderId) {
+    if (!ready || !identity || identity.role !== 'owner') throw new Error('Reservasi stok hanya dapat dilakukan oleh Owner.');
+    var id = String(salesOrderId || '').trim();
+    if (!id) throw new Error('Sales Order wajib dipilih.');
+    await post({ action: 'reserve_sales_order_stock', salesOrderId: id });
+    var response = await get('get_data');
+    var rows = Array.isArray(response.data && response.data.inventoryReservations) ? response.data.inventoryReservations : [];
+    var active = rows.filter(function(row) { return String(row.salesOrderId) === id && String(row.status) === 'active'; });
+    if (!active.length) throw new Error('Reservasi belum terverifikasi di Google Sheets. Periksa status Sales Order, DP, HPP, dan ketersediaan stok.');
+    return { reservations: active, data: rows };
+  }
+  async function releaseSalesOrderReservation(salesOrderId, reason) {
+    if (!ready || !identity || identity.role !== 'owner') throw new Error('Reservasi stok hanya dapat dilepas oleh Owner.');
+    var id = String(salesOrderId || '').trim();
+    if (!id) throw new Error('Sales Order wajib dipilih.');
+    await post({ action: 'release_sales_order_reservation', salesOrderId: id, reason: String(reason || 'Dilepas oleh Owner') });
+    var response = await get('get_data');
+    var rows = Array.isArray(response.data && response.data.inventoryReservations) ? response.data.inventoryReservations : [];
+    if (rows.some(function(row) { return String(row.salesOrderId) === id && String(row.status) === 'active'; })) {
+      throw new Error('Pelepasan reservasi belum terverifikasi di Google Sheets.');
+    }
+    return { data: rows };
+  }
+
   window.CSKAuth = {
     isReady: function () { return ready; },
     getIdentity: function () { return identity ? { email: identity.email, role: identity.role } : null; },
@@ -529,7 +553,9 @@
     pull: function () { return window.pullAndMerge(); },
     deleteRecord: function (sheet, id) { return window.deleteOnCloud(sheet, id); },
     getData: function () { return get('get_data'); },
-    recordInvoicePayment: recordInvoicePayment
+    recordInvoicePayment: recordInvoicePayment,
+    reserveSalesOrderStock: reserveSalesOrderStock,
+    releaseSalesOrderReservation: releaseSalesOrderReservation
   };
 
   // Warn before leaving while Owner changes or a legacy migration still await verified cloud sync.
