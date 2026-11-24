@@ -33,17 +33,26 @@ function rowFor(sheetName,record){
  const schema=map[sheetName];
  return schema.fields.map(field=>{
   if(field==='itemsJson'&&record.items)return JSON.stringify(record.items);
+  if(field==='historyJson'&&record.history)return JSON.stringify(record.history);
+  if(field==='materialRequirementsJson'&&record.materialRequirements)return JSON.stringify(record.materialRequirements);
   return record[field]===undefined?'':record[field];
  });
 }
 const material={id:'MAT-INV-001',name:'Akrilik Clear 3mm',unit:'m2',unitPrice:100000,updatedAt:'2026-11-20',sku:'ACR-03',status:'active'};
 const project={id:'PRJ-INV-001',title:'Rak Display Custom',client:'PT Contoh',value:10000000,status:'plan'};
+const otherProject={id:'PRJ-INV-002',title:'Booth Event Custom',client:'PT Contoh',value:5000000,status:'plan'};
+const reservationOrder={
+ id:'SO-INV-00000001',orderNo:'SO-CSK-2026-00001',projectId:project.id,
+ projectName:project.title,status:'in_production',
+ materialRequirements:[{materialId:material.id,name:material.name,unit:'m2',required:4}]
+};
 const po={id:'PO-INV-001',projectId:project.id,projectName:project.title,supplier:'Supplier A',date:'2026-11-19',itemsJson:JSON.stringify([{materialId:material.id,name:material.name,qty:4,unit:'m2',unitPrice:100000}]),total:400000,status:'ordered',inventoryControlVersion:1,createdAt:'2026-11-19T08:00:00.000Z',updatedAt:'2026-11-19T08:00:00.000Z'};
 function fixture(){
  return new FakeSpreadsheet({
   Materials:new FakeSheet([map.Materials.headers,rowFor('Materials',material)]),
-  Projects:new FakeSheet([map.Projects.headers,rowFor('Projects',project)]),
+  Projects:new FakeSheet([map.Projects.headers,rowFor('Projects',project),rowFor('Projects',otherProject)]),
   Purchase_Orders:new FakeSheet([map.Purchase_Orders.headers,rowFor('Purchase_Orders',po)]),
+  Sales_Orders:new FakeSheet([map.Sales_Orders.headers]),
   Inventory_Transactions:new FakeSheet([map.Inventory_Transactions.headers])
  });
 }
@@ -56,6 +65,23 @@ function transaction(id,no,movement,qty,date,extra){
  },extra||{});
 }
 const opening=transaction('INV-00000001','STK-CSK-2026-00001','opening',5,'2026-11-01');
+function stockedFixture(qty){
+ const ss=fixture();
+ const balance=transaction('INV-STOCK-OPEN1','STK-CSK-2026-00020','opening',qty,'2026-11-01');
+ ss.sheets.Inventory_Transactions.appendRow(rowFor('Inventory_Transactions',balance));
+ return ss;
+}
+let reservedStock=stockedFixture(5);
+const reservedIssue=transaction('INV-RESERVED-ISSUE1','STK-CSK-2026-00021','issue',2,'2026-11-03',{projectId:project.id,projectName:project.title});
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(reservedStock,[reservedIssue],[],[reservationOrder]),true,'project may issue material within its own reservation');
+const excessProjectIssue=transaction('INV-RESERVED-ISSUE2','STK-CSK-2026-00022','issue',5,'2026-11-03',{projectId:project.id,projectName:project.title});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[excessProjectIssue],[],[reservationOrder]),/INVENTORY_ISSUE_EXCEEDS_PROJECT_RESERVATION/,'project cannot issue more than its remaining HPP reservation');
+const unreservedProjectIssue=transaction('INV-RESERVED-ISSUE3','STK-CSK-2026-00023','issue',2,'2026-11-03',{projectId:otherProject.id,projectName:otherProject.title});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[unreservedProjectIssue],[],[reservationOrder]),/INVENTORY_MOVEMENT_BREACHES_RESERVATION/,'another project cannot consume stock reserved to an active production order');
+const reservedAdjustment=transaction('INV-RESERVED-ADJ01','STK-CSK-2026-00024','adjustment_out',2,'2026-11-03',{notes:'Selisih stock opname'});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[reservedAdjustment],[],[reservationOrder]),/INVENTORY_ADJUSTMENT_BREACHES_RESERVATION/,'stock adjustment cannot reduce stock below active project reservations');
+const releasedOrder=Object.assign({},reservationOrder,{status:'quality_check'});
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[unreservedProjectIssue],[],[releasedOrder]),true,'QC releases unissued material back to available stock');
 let ss=fixture();
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(ss,[opening]),true,'valid opening balance can be recorded');
 ss.sheets.Inventory_Transactions.appendRow(rowFor('Inventory_Transactions',opening));
