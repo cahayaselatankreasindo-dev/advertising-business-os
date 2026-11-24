@@ -93,6 +93,7 @@ const longAddress = pdf.generatePdf({
   paymentTerms:'Pembayaran sesuai persetujuan tertulis.',bankDetails:'Bank Jago Syariah | 508705048143'
 },MockPdf);
 const longAddressCard=longAddress.roundedRects.find(rect=>rect.x===14);
+console.log('PDF address debug',pdf.normalizeDocument({clientAddress:Array.from({length:20},()=> 'Jl. Industri Raya Blok A Nomor 123 Kecamatan Serpong').join(', ')}).clientAddress.length,new MockPdf().splitTextToSize(pdf.normalizeDocument({clientAddress:Array.from({length:20},()=> 'Jl. Industri Raya Blok A Nomor 123 Kecamatan Serpong').join(', ')}).clientAddress,80).length,longAddress.roundedRects);
 assert.ok(longAddressCard&&longAddressCard.height>28,'client information card expands beyond its minimum height for long addresses; actual height '+(longAddressCard&&longAddressCard.height));
 
 const veryLongTerms = 'Ketentuan pembayaran dan pelaksanaan pekerjaan wajib mengikuti persetujuan tertulis para pihak. '.repeat(900);
