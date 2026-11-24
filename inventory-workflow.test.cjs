@@ -88,6 +88,62 @@ const mismatch=E.calculateHppRequirements({items:[{itemType:'material',materialI
 assert.equal(mismatch.ready,false);
 assert.match(mismatch.errors[0],/tidak cocok/);
 
+const commitmentMaterials=[
+ {...materials[0],purchaseUnit:'lembar',conversionFactor:2.5},
+ materials[1]
+];
+const commitmentSheets=[
+ {projectId:'PRJ-001',items:[
+  {itemType:'material',materialId:'MAT-ACR',name:'Acrylic sheet',qty:2,unit:'lembar'},
+  {itemType:'material',materialId:'MAT-HOL',name:'Hollow',qty:4,unit:'m'}
+ ]},
+ {projectId:'PRJ-002',items:[
+  {itemType:'material',materialId:'MAT-ACR',name:'Acrylic panel',qty:1.5,unit:'m2'}
+ ]}
+];
+const activeOrders=[
+ {id:'SO-001',projectId:'PRJ-001',projectName:'Project A',status:'in_production'},
+ {id:'SO-001B',projectId:'PRJ-001',projectName:'Project A',status:'quality_check'},
+ {id:'SO-002',projectId:'PRJ-002',projectName:'Project B',status:'ready_production'},
+ {id:'SO-003',projectId:'PRJ-003',projectName:'Awaiting DP',status:'awaiting_dp'},
+ {id:'SO-004',projectId:'PRJ-004',projectName:'Delivered',status:'delivered'},
+ {id:'SO-005',projectId:'PRJ-005',projectName:'Cancelled',status:'cancelled'}
+];
+const commitmentLedger=[
+ {projectId:'PRJ-001',materialId:'MAT-ACR',movement:'issue',qty:1},
+ {projectId:'PRJ-001',materialId:'MAT-ACR',movement:'return',qty:0.25},
+ {projectId:'PRJ-002',materialId:'MAT-ACR',movement:'issue',qty:0.5},
+ {projectId:'PRJ-001',materialId:'MAT-HOL',movement:'issue',qty:1}
+];
+const commitments=E.calculateOpenSalesOrderCommitments(
+ activeOrders,commitmentSheets,commitmentMaterials,commitmentLedger,
+ {'MAT-ACR':6,'MAT-HOL':4}
+);
+assert.equal(commitments.activeOrderCount,3,'awaiting-DP, delivered, and cancelled orders do not reserve material');
+assert.equal(commitments.activeProjectCount,2,'multiple active Sales Orders for one project do not duplicate the project HPP');
+assert.equal(commitments.ready,true);
+const acrylicCommitment=commitments.requirements.find(x=>x.materialId==='MAT-ACR');
+assert.ok(Math.abs(acrylicCommitment.committed-5.25)<1e-9,'purchase-unit conversion and net issue/return movements determine remaining material commitment');
+assert.ok(Math.abs(acrylicCommitment.availableAfterCommitments-0.75)<1e-9);
+assert.equal(acrylicCommitment.shortage,0);
+const hollowCommitment=commitments.requirements.find(x=>x.materialId==='MAT-HOL');
+assert.equal(hollowCommitment.committed,3,'project issues reduce outstanding material commitment');
+assert.equal(hollowCommitment.availableAfterCommitments,1);
+
+const shortageCommitments=E.calculateOpenSalesOrderCommitments(
+ activeOrders,commitmentSheets,commitmentMaterials,commitmentLedger,
+ {'MAT-ACR':4,'MAT-HOL':4}
+);
+assert.ok(Math.abs(shortageCommitments.requirements.find(x=>x.materialId==='MAT-ACR').shortage-1.25)<1e-9,'cross-project commitments surface a shared-stock shortage');
+
+const unresolvedCommitments=E.calculateOpenSalesOrderCommitments(
+ activeOrders.concat([{id:'SO-003B',projectId:'PRJ-003',projectName:'Awaiting DP',status:'in_production'}]),
+ commitmentSheets,commitmentMaterials,commitmentLedger,{'MAT-ACR':6,'MAT-HOL':4}
+);
+assert.equal(unresolvedCommitments.ready,false,'an active project without HPP is not silently treated as zero demand');
+assert.match(unresolvedCommitments.errors[0],/HPP belum tersedia/);
+
+
 const backend=fs.readFileSync('google_apps_script.js','utf8');
 const deploy=fs.readFileSync('apps-script/Code.gs','utf8');
 const guard=fs.readFileSync('security/guard.js','utf8');
@@ -112,6 +168,10 @@ assert.match(html,/id="page-inventory"/,'inventory page is mounted in Business O
 assert.match(html,/CSKInventoryBridge/,'inventory uses internal Business OS bridge');
 assert.match(ui,/validateTransaction/,'inventory UI validates transactions before save');
 assert.match(ui,/openInventoryReceiptFromPO/,'inventory UI supports PO-linked receiving');
+assert.match(ui,/calculateOpenSalesOrderCommitments/,'inventory UI calculates cross-project active Sales Order commitments');
+assert.match(ui,/Komitmen Material Sales Order/,'inventory page shows the active production material commitment panel');
+assert.match(ui,/Estimasi bebas/,'inventory page distinguishes physical stock from estimated free stock');
+assert.match(ui,/monitoring, bukan reservasi stok yang terkunci/,'inventory UI clearly labels commitments as advisory, not locked reservations');
 assert.match(salesUI,/calculateHppRequirements/,'Sales Order material plan uses HPP and verified unit conversion');
 assert.match(salesUI,/createDraftPOFromShortage/,'Sales Order can create supplier-grouped draft POs from HPP shortages');
 assert.match(salesUI,/openPurchaseOrderQty/,'shortage planner subtracts quantities already covered by draft or ordered POs');
