@@ -287,3 +287,10 @@ Production reservation, picking, and material cost valuation are now implemented
 - Historical ledger rows without cost snapshots can be replayed using current Master Material price as an estimated fallback. These values are visibly marked as estimates and must be reconciled against original purchase documents.
 - Actual material cost is not the full project HPP or net profit. Labor, service, overhead, machine time, and scrap valuation are separate accounting workstreams.
 - Cost fields are appended to the Inventory ledger schema; existing columns remain in place. No production deployment, live Sheets migration, merge to main, or public website change has occurred.
+
+
+### Actual material cost reconciliation PDF
+- Sales Order detail can export a branded landscape A4 PDF comparing frozen HPP material estimates with net issued material cost and per-material cost variance.
+- Missing HPP prices and incomplete inventory valuations remain explicitly unknown; they are never converted to zero-cost savings.
+- Legacy Master Material fallback is marked as estimated. The report is temporary until the order is delivered/closed and all returns are reconciled.
+- This is material-cost reporting only, not full project profit or margin. Labor, services, machine time, overhead, scrap, and other expenses remain separate.
