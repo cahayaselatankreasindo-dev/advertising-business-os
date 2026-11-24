@@ -151,8 +151,10 @@
     if(input.movement==='receipt'&&String(input.purchaseOrderId||'').trim()){
       var selectedPO=(Array.isArray(context.purchaseOrders)?context.purchaseOrders:[]).find(function(po){return String(po.id)===String(input.purchaseOrderId);});
       var selectedItems=Array.isArray(selectedPO&&selectedPO.items)?selectedPO.items:[];
-      var selectedLine=selectedItems.find(function(item){return String(item.materialId)===String(material.id);});
-      poUnitCost=n(selectedLine&&selectedLine.unitPrice);
+      var selectedLines=selectedItems.filter(function(item){return String(item.materialId)===String(material.id);});
+      var selectedQty=selectedLines.reduce(function(sum,item){return sum+n(item.qty);},0);
+      var selectedCost=selectedLines.reduce(function(sum,item){return sum+n(item.qty)*n(item.unitPrice);},0);
+      poUnitCost=selectedQty>0?selectedCost/selectedQty:0;
     }
     var unitCost=0,costSource='';
     if(input.movement==='opening'){
@@ -161,7 +163,7 @@
       unitCost=suppliedUnitCost;
       costSource='opening_manual';
     }else if(input.movement==='receipt'){
-      if(poUnitCost>0){
+      if(String(input.purchaseOrderId||'').trim()&&poUnitCost>0){
         unitCost=poUnitCost;
         costSource='purchase_order';
       }else{
