@@ -419,7 +419,8 @@
       var actual=actualByMaterial[String(line.materialId)]||{qty:0,cost:0,estimated:false,complete:true};
       var estimate=line.estimatedTotalCost===null||line.estimatedTotalCost===undefined||line.estimatedTotalCost===''?null:Number.isFinite(Number(line.estimatedTotalCost))?Number(line.estimatedTotalCost):null;
       var actualCostComplete=actual.complete!==false;
-      var rowComplete=actualCostComplete&&hasActualMovement&&estimate!==null;
+      var hasMaterialMovement=!!actualByMaterial[String(line.materialId)];
+      var rowComplete=actualCostComplete&&hasMaterialMovement&&estimate!==null;
       if(actual.estimated)estimated=true;
       return{
         materialId:line.materialId,name:line.name||'',unit:line.unit||'',
@@ -427,11 +428,12 @@
         estimatedCost:estimate,actualCost:Math.max(0,Math.round(actual.cost)),
         varianceCost:rowComplete?Math.round(actual.cost-estimate):null,
         variancePct:rowComplete&&estimate>0?(actual.cost-estimate)/estimate*100:null,
-        estimated:actual.estimated,actualCostComplete:actualCostComplete,rowComplete:rowComplete
+        estimated:actual.estimated,actualCostComplete:actualCostComplete,hasMaterialMovement:hasMaterialMovement,rowComplete:rowComplete
       };
     });
     var estimatesComplete=result.every(function(row){return row.estimatedCost!==null;});
-    var varianceComplete=actualComplete&&hasActualMovement&&estimatesComplete&&unplannedIds.length===0;
+    var allHppMaterialsReconciled=result.length>0&&result.every(function(row){return row.hasMaterialMovement;});
+    var varianceComplete=actualComplete&&hasActualMovement&&estimatesComplete&&unplannedIds.length===0&&allHppMaterialsReconciled;
     var estimatedTotalCost=estimatesComplete?Math.round(result.reduce(function(sum,row){return sum+row.estimatedCost;},0)):null;
     var actualTotalCost=Math.round(result.reduce(function(sum,row){return sum+row.actualCost;},0));
     return{
