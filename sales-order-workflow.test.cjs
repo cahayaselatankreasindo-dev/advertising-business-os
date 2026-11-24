@@ -69,6 +69,8 @@ const deploy=fs.readFileSync('apps-script/Code.gs','utf8');
 const guard=fs.readFileSync('security/guard.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
 const ui=fs.readFileSync('sales-orders.js','utf8');
+assert.match(ui,/purchasePrice\/conversionFactor/,'draft PO unit cost uses base purchase price converted to stock units, not waste-loaded HPP price');
+assert.match(ui,/baseUsageUnitPrice/,'draft PO retains a traceable base purchase-unit cost snapshot');
 const sw=fs.readFileSync('sw.js','utf8');
 const auth=fs.readFileSync('backend-auth.test.cjs','utf8');
 assert.equal(backend,deploy,'canonical Apps Script and deployment copy must stay identical');
