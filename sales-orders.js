@@ -283,10 +283,10 @@ function materialPlanHtml(order,d,balances){
  var plan=materialPlanForOrder(order,d,balances);
  if(!plan.requirements.length&&!plan.errors.length)return'<div class="mt-3 rounded-lg border p-3 text-[11px] text-slate-500">HPP belum memiliki baris material yang dapat dihitung.</div>';
  var rowsData=materialShortageRows(order,d,balances,plan);
- var materialCost=w.CSKInventoryEngine.calculateMaterialCostVariance(plan.requirements,order.projectId,d.inventoryTransactions||[]);
+ var materialCost=w.CSKInventoryEngine.calculateMaterialCostVariance(plan.requirements,order.projectId,d.inventoryTransactions||[],d.materials||[]);
  var costSummary='<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 my-3">'+
   '<div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] text-slate-500">Estimasi HPP material</div><b class="text-sm">'+(materialCost.estimatedTotalCost===null?'Belum tersedia':money(materialCost.estimatedTotalCost))+'</b></div>'+
-  '<div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] text-slate-500">Biaya aktual material</div><b class="text-sm">'+money(materialCost.actualTotalCost)+'</b><div class="text-[10px] text-slate-500">'+(materialCost.complete?'Valuasi tercatat lengkap':'Valuasi belum lengkap')+'</div></div>'+
+  '<div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] text-slate-500">Biaya aktual material</div><b class="text-sm">'+money(materialCost.actualTotalCost)+'</b><div class="text-[10px] text-slate-500">'+(materialCost.complete?(materialCost.estimated?'Valuasi memakai fallback harga Master':'Valuasi tercatat lengkap'):'Valuasi belum lengkap')+'</div></div>'+
   '<div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] text-slate-500">Selisih aktual vs estimasi</div><b class="text-sm '+(materialCost.varianceCost===null?'text-slate-500':materialCost.varianceCost>0?'text-red-700':materialCost.varianceCost<0?'text-emerald-700':'text-slate-900')+'">'+(materialCost.varianceCost===null?'Belum dapat dihitung':(materialCost.varianceCost>0?'+':'')+money(materialCost.varianceCost))+'</b></div></div>'+
   (materialCost.estimated?'<p class="text-[10px] text-amber-700 mb-2">Sebagian transaksi lama menggunakan fallback harga Master Material. Nilai biaya aktual tersebut bersifat estimasi, bukan bukti harga pembelian historis.</p>':'');
  var rows=rowsData.map(function(item){
