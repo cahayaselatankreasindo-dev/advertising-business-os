@@ -129,6 +129,13 @@ const idempotent=context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.orde
 assert.equal(idempotent.status,'already_reserved','repeated reserve requests do not duplicate active reservations');
 assert.equal(reserveCase.ss.sheets.Inventory_Reservations.getLastRow(),2,'idempotent request keeps one reservation row');
 assert.throws(()=>context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.order.id,{role:'team',email:'team@example.test'}),/FORBIDDEN_STOCK_RESERVATION/,'Team cannot reserve stock');
+const orderStatusColumn=map.Sales_Orders.fields.indexOf('status');
+reserveCase.ss.sheets.Sales_Orders.rows[1][orderStatusColumn]='in_production';
+assert.equal(context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.order.id,{role:'owner',email:'owner@example.test'}).status,'already_reserved','existing reservation remains idempotent after production starts');
+assert.throws(()=>context.releaseSalesOrderReservation_(reserveCase.ss,reserveCase.order.id,'',{role:'owner',email:'owner@example.test'}),/RESERVATION_RELEASE_REASON_REQUIRED/,'manual release requires an audit reason');
+const released=context.releaseSalesOrderReservation_(reserveCase.ss,reserveCase.order.id,'Test release by Owner',{role:'owner',email:'owner@example.test'});
+assert.equal(released.releasedLines,1,'Owner can release all active reservation rows');
+assert.equal(reserveCase.ss.sheets.Inventory_Reservations.rows[1][map.Inventory_Reservations.fields.indexOf('status')],'released','released reservation is retained in history');
 
 const competing=reservationFixture(5,'SO-INV-00000002',4);
 const competingSecond={...competing.order,id:'SO-INV-00000003',orderNo:'SO-CSK-2026-00002',quotationId:'QUO-INV-00002',quotationNo:'QUO-CSK-2026-00002'};
@@ -137,6 +144,14 @@ competing.ss.sheets.Commercial_Quotations.appendRow(rowFor('Commercial_Quotation
 competing.ss.sheets.Sales_Orders.appendRow(rowFor('Sales_Orders',competingSecond));
 assert.equal(context.reserveSalesOrderStock_(competing.ss,competing.order.id,{role:'owner',email:'owner@example.test'}).status,'reserved');
 assert.throws(()=>context.reserveSalesOrderStock_(competing.ss,competingSecond.id,{role:'owner',email:'owner@example.test'}),/RESERVATION_STOCK_INSUFFICIENT/,'active reservations reduce stock available to competing Sales Orders');
+
+const shortage=reservationFixture(3,'SO-INV-00000005',4);
+assert.throws(()=>context.reserveSalesOrderStock_(shortage.ss,shortage.order.id,{role:'owner',email:'owner@example.test'}),/RESERVATION_STOCK_INSUFFICIENT/,'reservation fails when on-hand stock is insufficient');
+
+const terminal=reservationFixture(5,'SO-INV-00000006',4);
+assert.equal(context.reserveSalesOrderStock_(terminal.ss,terminal.order.id,{role:'owner',email:'owner@example.test'}).status,'reserved');
+assert.equal(context.releaseTerminalSalesOrderReservations_(terminal.ss,[{id:terminal.order.id,status:'cancelled'}],{role:'owner',email:'owner@example.test'}),1,'cancelled Sales Orders automatically release their reservations');
+assert.equal(terminal.ss.sheets.Inventory_Reservations.rows[1][map.Inventory_Reservations.fields.indexOf('status')],'released','automatic release keeps reservation audit history');
 
 const notReady=reservationFixture(5,'SO-INV-00000004',2);
 const orderStatusCol=map.Sales_Orders.fields.indexOf('status');
