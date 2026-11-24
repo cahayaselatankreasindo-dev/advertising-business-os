@@ -132,6 +132,18 @@ const legacyCostVariance=E.calculateMaterialCostVariance(
 assert.equal(legacyCostVariance.actualTotalCost,7500,'legacy issues are valued using the replayed moving average when the Master Material cost is available');
 assert.equal(legacyCostVariance.estimated,true,'legacy master fallback is clearly marked as estimated');
 assert.equal(legacyCostVariance.complete,true,'fallback valuation is complete but explicitly estimated');
+const unvaluedMaterials=[{id:'MAT-UNCOSTED',name:'Uncosted Stock',unit:'pcs',unitPrice:0}];
+const unvaluedLedger=[
+ {id:'UNCOSTED-OPEN',materialId:'MAT-UNCOSTED',movement:'opening',qty:10,unit:'pcs',date:'2026-11-01'},
+ {id:'UNCOSTED-ISSUE',materialId:'MAT-UNCOSTED',movement:'issue',qty:2,unit:'pcs',date:'2026-11-02',projectId:'PRJ-UNCOSTED'}
+];
+const unvaluedVariance=E.calculateMaterialCostVariance(
+ [{materialId:'MAT-UNCOSTED',name:'Uncosted Stock',unit:'pcs',required:5,estimatedTotalCost:10000}],
+ 'PRJ-UNCOSTED',unvaluedLedger,unvaluedMaterials
+);
+assert.equal(unvaluedVariance.complete,false,'actual material cost is incomplete when no verified or fallback unit cost exists');
+assert.equal(unvaluedVariance.varianceCost,null,'incomplete actual valuation must not present a misleading cost variance');
+assert.equal(unvaluedVariance.rows[0].varianceCost,null);
 
 assert.throws(()=>E.validateTransaction({
  materialId:'MAT-ACR',movement:'issue',qty:1,unit:'m2',date:'2026-11-15',projectId:''
