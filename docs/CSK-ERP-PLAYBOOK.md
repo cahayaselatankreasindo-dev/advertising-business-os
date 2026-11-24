@@ -564,3 +564,8 @@ Actual-versus-estimated material cost is now available in Sales Order detail usi
 - Cost report normalization preserves unknown HPP estimates as null.
 - Landscape A4 dimensions, multi-page pagination, and download API are covered by PDF regression tests.
 - Inventory cost variance is suppressed when actual cost valuation is incomplete.
+
+
+### Cost variance completeness rule
+- The project-level variance remains unavailable until every HPP material has at least one corresponding issue/return movement, all related transaction costs can be valued, all HPP estimated costs are known, and no unplanned material issue exists.
+- A material with no issue/return activity is displayed as not yet issued, not as zero-cost savings. Per-material costs with missing valuation remain marked incomplete.
