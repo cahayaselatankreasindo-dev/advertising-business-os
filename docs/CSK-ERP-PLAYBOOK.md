@@ -497,3 +497,16 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 
 ### Operational note
 The PDF is a picking instruction, not proof of material issue. The Inventory issue transaction remains the source of truth for physical stock movement.
+
+
+## 20. Material usage reconciliation report — 25 November 2026
+
+### Delivered on the internal Business OS feature branch
+- Sales Order HPP detail now offers a branded A4 PDF report for project material quantities.
+- The report compares the HPP material plan with net material issued to the project (issue transactions less recorded returns), showing planned quantity, net issued quantity, variance, and remaining HPP quantity.
+- When a frozen Sales Order material snapshot exists, the report explicitly identifies it as the source. Legacy orders without a frozen snapshot use the current HPP and label that source as not frozen.
+- Long reports paginate and include project/SO identifiers, status, report date, and verification signature fields.
+- The report is quantity reconciliation only. It does not claim that net material issued equals material consumed, does not value inventory, and does not calculate actual material cost or project profit.
+
+### Next accounting prerequisite
+Before actual-versus-estimated HPP cost reconciliation is enabled, CSK must approve an inventory valuation policy and capture verified unit cost for opening balances and supplier receipts. The current price in Material Master is a planning price, not a historical inventory cost ledger.
