@@ -53,7 +53,9 @@ function fixture(){
   Projects:new FakeSheet([map.Projects.headers,rowFor('Projects',project),rowFor('Projects',otherProject)]),
   Purchase_Orders:new FakeSheet([map.Purchase_Orders.headers,rowFor('Purchase_Orders',po)]),
   Sales_Orders:new FakeSheet([map.Sales_Orders.headers]),
-  Inventory_Transactions:new FakeSheet([map.Inventory_Transactions.headers])
+  Inventory_Transactions:new FakeSheet([map.Inventory_Transactions.headers]),
+  Sales_Orders:new FakeSheet([map.Sales_Orders.headers]),
+  Cost_Sheets:new FakeSheet([map.Cost_Sheets.headers])
  });
 }
 function transaction(id,no,movement,qty,date,extra){
@@ -95,6 +97,26 @@ const issue=transaction('INV-00000003','STK-CSK-2026-00003','issue',6,'2026-11-0
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(fixture(),[issue]),/INVENTORY_INSUFFICIENT_STOCK/,'negative inventory is blocked');
 const issueNoProject=transaction('INV-00000004','STK-CSK-2026-00004','issue',1,'2026-11-03');
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(fixture(),[issueNoProject]),/INVENTORY_PROJECT_REQUIRED/,'project issue must be linked to a real project');
+
+function reservedFixture(){
+ const reserved=fixture();
+ const openingStock=transaction('RES-OPEN-0001','STK-CSK-2026-00020','opening',5,'2026-11-01');
+ reserved.sheets.Inventory_Transactions.appendRow(rowFor('Inventory_Transactions',openingStock));
+ reserved.sheets.Sales_Orders.appendRow(rowFor('Sales_Orders',{
+  id:'SO-RESERVED-0001',orderNo:'SO-CSK-2026-00001',projectId:project.id,projectName:project.title,
+  quotationId:'QUO-RESERVED-001',status:'in_production',
+  materialRequirementsJson:JSON.stringify([{materialId:material.id,name:material.name,unit:material.unit,required:4}])
+ }));
+ return reserved;
+}
+const overReservedIssue=transaction('RES-ISSUE-0001','STK-CSK-2026-00021','issue',5,'2026-11-03',{projectId:project.id,projectName:project.title});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(reservedFixture(),[overReservedIssue]),/INVENTORY_ISSUE_EXCEEDS_PROJECT_RESERVATION/,'server blocks project issues beyond reserved HPP quantity');
+const validPick=transaction('RES-ISSUE-0002','STK-CSK-2026-00021','issue',4,'2026-11-03',{projectId:project.id,projectName:project.title});
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(reservedFixture(),[validPick]),true,'server accepts a picking transaction within the reservation');
+const excessReturn=transaction('RES-RETURN-0001','STK-CSK-2026-00021','return',1,'2026-11-03',{projectId:project.id,projectName:project.title});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(reservedFixture(),[excessReturn]),/INVENTORY_RETURN_EXCEEDS_PROJECT_ISSUE/,'server blocks returns above previously issued quantity');
+const reservationBreach=transaction('RES-ADJUST-0001','STK-CSK-2026-00021','adjustment_out',2,'2026-11-03',{notes:'Stock opname'});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(reservedFixture(),[reservationBreach]),/INVENTORY_ADJUSTMENT_BREACHES_RESERVATION/,'server prevents adjustments from consuming stock reserved for production');
 
 const wrongUnit=transaction('INV-00000005','STK-CSK-2026-00005','receipt',1,'2026-11-03',{supplier:'Supplier A',unit:'lembar'});
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(fixture(),[wrongUnit]),/INVENTORY_UNIT_MISMATCH/,'stock movement must use the material stock unit');
