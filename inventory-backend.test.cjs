@@ -85,6 +85,23 @@ const unreservedProjectIssue=transaction('INV-RESERVED-ISSUE3','STK-CSK-2026-000
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[unreservedProjectIssue],[],[reservationOrder]),/INVENTORY_MOVEMENT_BREACHES_RESERVATION/,'another project cannot consume stock reserved to an active production order');
 const reservedAdjustment=transaction('INV-RESERVED-ADJ01','STK-CSK-2026-00024','adjustment_out',2,'2026-11-03',{notes:'Selisih stock opname',costSource:'moving_average'});
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[reservedAdjustment],[],[reservationOrder]),/INVENTORY_ADJUSTMENT_BREACHES_RESERVATION/,'stock adjustment cannot reduce stock below active project reservations');
+const returnCostFixture=stockedFixture(10);
+const issuedAtOldCost=transaction('INV-RETURN-ISSUE1','STK-CSK-2026-00030','issue',5,'2026-11-02',{
+ projectId:project.id,projectName:project.title,costSource:'moving_average'
+});
+const laterReceipt=transaction('INV-RETURN-RECEIPT1','STK-CSK-2026-00031','receipt',10,'2026-11-03',{
+ supplier:'Supplier B',unitCost:200000,totalCost:2000000,costSource:'manual_receipt'
+});
+returnCostFixture.sheets.Inventory_Transactions.appendRow(rowFor('Inventory_Transactions',issuedAtOldCost));
+returnCostFixture.sheets.Inventory_Transactions.appendRow(rowFor('Inventory_Transactions',laterReceipt));
+const validReturnAtIssueCost=transaction('INV-RETURN-VALID1','STK-CSK-2026-00032','return',2,'2026-11-04',{
+ projectId:project.id,projectName:project.title,unitCost:100000,totalCost:200000,costSource:'project_issue_average'
+});
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(returnCostFixture,[validReturnAtIssueCost]),true,'project return is valued at the original weighted-average issue cost after a later receipt changes stock average');
+const invalidReturnAtCurrentAverage=transaction('INV-RETURN-INVALID1','STK-CSK-2026-00033','return',2,'2026-11-04',{
+ projectId:project.id,projectName:project.title,unitCost:166666.67,totalCost:333333,costSource:'moving_average'
+});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(returnCostFixture,[invalidReturnAtCurrentAverage]),/INVENTORY_COST_SNAPSHOT_MISMATCH/,'backend rejects a return valued at the newer warehouse average instead of its original issue cost');
 const releasedOrder=Object.assign({},reservationOrder,{status:'quality_check'});
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[unreservedProjectIssue],[],[releasedOrder]),true,'QC releases unissued material back to available stock');
 let ss=fixture();
