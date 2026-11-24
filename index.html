@@ -3358,7 +3358,7 @@
     });
     window.CSKInventoryBridge = {
       getData: function () {
-        return { materials: db.materials || [], projects: db.projects || [], purchaseOrders: db.purchaseOrders || [], inventoryTransactions: db.inventoryTransactions || [] };
+        return { materials: db.materials || [], projects: db.projects || [], costSheets: db.costSheets || [], salesOrders: db.salesOrders || [], purchaseOrders: db.purchaseOrders || [], inventoryTransactions: db.inventoryTransactions || [] };
       },
       isOwner: function () { return isOwnerSession(); },
       getIdentity: function () { return window.CSKAuth && window.CSKAuth.getIdentity ? window.CSKAuth.getIdentity() : null; },
