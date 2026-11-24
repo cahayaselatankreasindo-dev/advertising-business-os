@@ -97,6 +97,19 @@ const receivedPO={...po,status:'received',items:[{materialId:material.id,qty:4,u
 assert.throws(()=>context.validatePurchaseOrderReceiptStatuses_(fixture(),[receivedPO],[]),/PURCHASE_ORDER_RECEIPT_INCOMPLETE/,'PO cannot be marked received before all stock is received');
 const fullPOReceipt=transaction('INV-PO-FULL-0001','STK-CSK-2026-00011','receipt',4,'2026-11-20',{purchaseOrderId:po.id,supplier:po.supplier});
 assert.equal(context.validatePurchaseOrderReceiptStatuses_(fixture(),[receivedPO],[fullPOReceipt]),true,'fully received PO can be marked received');
+const convertedMaterial={...material,unit:'m',purchaseUnit:'batang',conversionFactor:6,purchasePrice:120000,unitPrice:20000};
+const convertedPO={...po,items:[{materialId:material.id,sku:'H-H-2X2-1',name:'Hollow hitam 2 × 2 cm, tebal 1 mm',qty:2,unit:'batang',purchaseUnit:'batang',usageUnit:'m',conversionFactor:6,unitPrice:120000,usageUnitPrice:20000}],itemsJson:JSON.stringify([{materialId:material.id,sku:'H-H-2X2-1',name:'Hollow hitam 2 × 2 cm, tebal 1 mm',qty:2,unit:'batang',purchaseUnit:'batang',usageUnit:'m',conversionFactor:6,unitPrice:120000,usageUnitPrice:20000}]),total:240000};
+const convertedFixture=fixture();
+convertedFixture.sheets.Materials.rows[1]=rowFor('Materials',convertedMaterial);
+convertedFixture.sheets.Purchase_Orders.rows[1]=rowFor('Purchase_Orders',{...convertedPO,itemsJson:convertedPO.itemsJson});
+const convertedReceipt=transaction('INV-CONVERT-0001','STK-CSK-2026-00021','receipt',6,'2026-11-20',{purchaseOrderId:po.id,supplier:po.supplier,unit:'m'});
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(convertedFixture,[convertedReceipt]),true,'one purchased 6m hollow bar is received as six stock meters');
+convertedFixture.sheets.Inventory_Transactions.appendRow(rowFor('Inventory_Transactions',convertedReceipt));
+const convertedOverReceipt=transaction('INV-CONVERT-0002','STK-CSK-2026-00022','receipt',7,'2026-11-21',{purchaseOrderId:po.id,supplier:po.supplier,unit:'m'});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(convertedFixture,[convertedReceipt,convertedOverReceipt]),/INVENTORY_RECEIPT_EXCEEDS_PURCHASE_ORDER/,'converted receipts cannot exceed the two ordered 6m bars');
+const convertedFullReceipt=transaction('INV-CONVERT-0003','STK-CSK-2026-00023','receipt',12,'2026-11-20',{purchaseOrderId:po.id,supplier:po.supplier,unit:'m'});
+const convertedReceivedPO={...convertedPO,status:'received'};
+assert.equal(context.validatePurchaseOrderReceiptStatuses_(convertedFixture,[convertedReceivedPO],[convertedFullReceipt]),true,'PO completion compares converted stock meters, not purchase bars');
 const cancelledPO={...po,status:'cancelled',items:[{materialId:material.id,qty:4,unit:'m2'}]};
 assert.throws(()=>context.validatePurchaseOrderReceiptStatuses_(fixture(),[cancelledPO],[fullPOReceipt]),/PURCHASE_ORDER_CANNOT_CANCEL_AFTER_RECEIPT/,'PO cannot be cancelled after stock receipt');
 
