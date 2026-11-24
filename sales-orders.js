@@ -154,7 +154,13 @@ function prepareInitialMaterialReservation(order,d){
    else order.history.push({date:new Date().toISOString(),status:'awaiting_material',actor:'System',note:'Menunggu material. '+reason});
   }else{
    order.materialRequirements=snapshot;
-   order.history.push({date:new Date().toISOString(),status:'ready_production',actor:'System',note:'Reservasi material otomatis dibuat berdasarkan snapshot HPP.'});
+   var lastHistory=order.history[order.history.length-1];
+   if(lastHistory&&lastHistory.status==='ready_production'){
+    lastHistory.actor='System';
+    lastHistory.note='Sales Order dibuat dan reservasi material otomatis disiapkan berdasarkan snapshot HPP.';
+   }else{
+    order.history.push({date:new Date().toISOString(),status:'ready_production',actor:'System',note:'Reservasi material otomatis dibuat berdasarkan snapshot HPP.'});
+   }
   }
  }catch(error){
   order.status='awaiting_material';
