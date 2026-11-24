@@ -281,3 +281,20 @@ Release boundary:
 - This is a quantity report only. Do not present net issued quantity as proven consumed quantity or as actual cost.
 - Actual cost reconciliation remains blocked until the Owner approves an inventory valuation method and verified cost capture for opening stock, supplier receipts, returns, and adjustments.
 - CI: CSK Security Tests run 900 PASS; CSK business source regression checks run 773 PASS.
+
+
+## 11. Update — 25 November 2026: Actual material cost valuation
+
+Delivered on the internal feature branch:
+- Inventory_Transactions mapping now appends immutable unitCost, totalCost, costSource, and costingMethod fields without moving existing columns.
+- WAC inventory valuation replays the append-only ledger. Opening balances and manual receipts capture unit cost; PO receipts use the linked PO line price; issues and stock-out adjustments use the current weighted average.
+- Project returns reverse the weighted-average cost of the project's net issued material. A later supplier receipt cannot change the cost assigned to an earlier project issue.
+- Sales Order reservation snapshots freeze estimated HPP material quantities and estimated material costs. Sales Order detail shows estimated material cost, actual net issue cost, and cost variance.
+- Historical rows without unit-cost snapshots can be valued using Master Material price as a fallback, visibly marked as estimated. No historical costs are fabricated or written back to the ledger.
+- Actual material cost is not total HPP or project profit; labor, service, overhead, machine time, and scrap remain outside this phase.
+
+Verification on latest observed PR head: CSK Security Tests PASS and CSK business source regression checks PASS. See PR #26 for current commit and checks.
+
+Release boundary:
+- No merge to main, Apps Script production deployment, live Google Sheets migration, or public website deployment.
+- Before production use, Owner must verify opening stock unit costs, supplier PO line prices, manual receipt costs, and schema migration in a controlled copy.
