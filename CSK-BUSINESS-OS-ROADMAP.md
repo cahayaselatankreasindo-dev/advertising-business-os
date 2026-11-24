@@ -254,3 +254,42 @@ The Owner confirmed that CSK Business OS should continue using the existing Goog
 - PDF delivery uses Blob URLs and an iOS/iPad preview flow with a Save to Files fallback. The later PR #33 pagination improvements are included; the PWA manifest and service worker are aligned at version 3.2.27.
 - PR #31 head validation: CSK Security Tests run 1207 PASS; CSK business source regression checks run 1024 PASS. PR #32 head validation: Security Tests run 1146 PASS and business-source checks run 995 PASS. The integrated colorful UI branch also passed Security Tests run 1227 and business-source checks run 1037.
 - Remaining work is operational acceptance, not another competing reservation ledger: complete real-device browser/PDF QA, verify Owner/Team behavior against a test Apps Script deployment, and prepare a reviewed schema migration checklist. No production deployment, live Sheet writes, or main-branch merge has been performed.
+
+## 18. Release acceptance checklist — staging only
+
+### A. Prepare isolated test environment
+- [ ] Duplicate the production Google Sheet to a clearly named TEST copy; do not connect staging to the live spreadsheet.
+- [ ] Create a separate Apps Script TEST deployment bound only to the test copy.
+- [ ] Configure test-only Owner and Team identities/PINs through the approved Apps Script security setup. Never paste credentials into GitHub or ChatGPT.
+- [ ] Confirm the frontend points to the TEST endpoint and that the public marketing website has no dependency on this application.
+
+### B. Verify access and data boundaries
+- [ ] Owner can access all authorized modules; Team is limited to Leads, Clients, and Projects.
+- [ ] Team cannot read or write HPP, purchasing, Sales Orders, inventory, finance, quotations, invoices, or private business memory through direct backend calls.
+- [ ] Four-digit PIN rotation, failed-login throttling, session expiry, and logout behave as expected on the TEST deployment.
+- [ ] Apps Script source copies remain byte-identical after any release packaging.
+
+### C. Verify the complete business workflow
+- [ ] Create a test Lead, convert it to one Client and one Project, and repeat the conversion to confirm idempotency.
+- [ ] Create a test Material SKU as Draft; verify activation is blocked until supplier, purchase price, purchase unit, usage unit, conversion factor, waste, price source, and price date are complete.
+- [ ] Build and save HPP with material, product/service, custom cut-list costing, and a frozen price snapshot.
+- [ ] Create a Quotation from the saved HPP, approve it, and verify customer PDF excludes internal HPP/margin data.
+- [ ] Convert the approved Quotation to one Sales Order; verify repeated conversion does not create a duplicate.
+- [ ] Record a real test payment in the payment ledger; confirm production release is blocked before the required DP is verified.
+- [ ] Set the Sales Order to Ready Production; verify atomic reservation blocks competing orders from reserving the same physical stock.
+- [ ] Record partial material issue, then return part of that exact issue against the same Sales Order/reservation; verify the reservation balance reactivates correctly.
+- [ ] Create a supplier-unit Draft PO from a material shortage, mark it Ordered, receive it in stock units using the verified conversion, and verify over-receipt is rejected.
+- [ ] Verify cancellation/delivery releases unused reservation and invoice settlement is required before Sales Order closure.
+- [ ] Verify inventory balance, active reservations, HPP estimate, net issue/return, and cost variance reconcile for the test project.
+
+### D. Device and document acceptance
+- [ ] Desktop Chrome/Edge: navigation, modal scrolling, tables, forms, save/sync, PDF download and multi-page pagination.
+- [ ] iPhone Safari: login, mobile navigation/safe areas, quotation/invoice PDF preview, Share → Save to Files, and reopening the saved PDF.
+- [ ] Android Chrome: login, navigation, forms, PDF download and PWA refresh.
+- [ ] Confirm service-worker update from version 3.2.27 does not keep stale HTML/CSS or break an active session.
+
+### E. Production release gate
+- [ ] All automated regression suites pass on the final integrated commit.
+- [ ] Owner reviews test evidence, backup/restore procedure, schema additions, and Apps Script deployment diff.
+- [ ] Only after explicit Owner approval: take a fresh production backup, run the reviewed schema setup, deploy the approved Apps Script version, verify read-back, then release the internal frontend.
+- [ ] Keep rollback instructions and the prior Apps Script deployment available. Do not merge to main or deploy the public website as part of this Business OS release.
