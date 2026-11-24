@@ -8,6 +8,7 @@ const quote={
   projectId:'PRJ-TEST-001',projectName:'Rak Display Custom',client:'PT Contoh',
   clientPhone:'628123456789',clientEmail:'procurement@example.test',
   total:10000000,dpPercent:50,projectDeadline:'2026-12-15',
+  sourceCostSheetSnapshot:{id:'HPP-PRJ-TEST-001',projectId:'PRJ-TEST-001',projectName:'Rak Display Custom',items:[{materialId:'MAT-01',name:'Akrilik 3 mm',qty:2,unit:'lembar',materialSnapshot:{unit:'m2',purchaseUnit:'lembar',conversionFactor:3.2}}],materialTotal:100000,labor:0,other:0,margin:30,total:100000,price:142858,profit:42858,updatedAt:'2026-11-20T06:00:00.000Z'},
   lines:[{id:'L-1',name:'Rak display custom',description:'Acrylic + hollow',qty:2,unit:'unit',unitPrice:5000000}]
 };
 const project={id:'PRJ-TEST-001',title:'Rak Display Custom'};
@@ -18,6 +19,9 @@ assert.equal(created.order.orderNo,'SO-CSK-2026-00001');
 assert.equal(created.order.dpRequiredAmount,5000000);
 assert.equal(created.order.projectId,project.id);
 assert.deepEqual(created.order.items,quote.lines);
+assert.deepEqual(created.order.sourceCostSheetSnapshot,quote.sourceCostSheetSnapshot,'Sales Order keeps the exact HPP snapshot used by its approved quotation');
+quote.sourceCostSheetSnapshot.items[0].qty=99;
+assert.equal(created.order.sourceCostSheetSnapshot.items[0].qty,2,'Sales Order HPP snapshot is a detached immutable copy');
 
 const duplicate=E.buildOrder(quote,project,[created.order],{date:'2026-11-20'});
 assert.equal(duplicate.existing,true,'one quotation must not create duplicate Sales Orders');
@@ -25,6 +29,10 @@ assert.equal(duplicate.order.id,created.order.id);
 assert.equal(E.nextOrderNumber([created.order],'2026-11-20'),'SO-CSK-2026-00002');
 assert.throws(()=>E.buildOrder({...quote,status:'draft'},project,[]),/harus disetujui/);
 assert.throws(()=>E.buildOrder({...quote,projectId:''},null,[]),/Proyek belum terhubung/);
+const legacyQuote={...quote,id:'QUO-LEGACY-001',projectId:project.id};delete legacyQuote.sourceCostSheetSnapshot;
+const legacySnapshot={id:'HPP-LEGACY-001',projectId:project.id,items:[{materialId:'MAT-01',qty:1,unit:'m2'}],total:100,price:200,updatedAt:'2026-11-20T07:00:00.000Z'};
+const legacyOrder=E.buildOrder(legacyQuote,project,[],{date:'2026-11-20',sourceCostSheetSnapshot:legacySnapshot});
+assert.deepEqual(legacyOrder.order.sourceCostSheetSnapshot,legacySnapshot,'legacy quotations capture the current HPP snapshot at Sales Order creation');
 
 const invoices=[{id:'INV-TEST-001',sourceQuotationId:quote.id,total:10000000}];
 const underpaid=E.summarizePayments(quote,invoices,[{id:'PAY-1',invoiceId:'INV-TEST-001',amount:4900000}]);
