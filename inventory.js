@@ -243,8 +243,9 @@ function renderReservationPanel(d){
    return{row:row,issued:issued,remaining:remaining,onHand:onHand,pickQty:pickQty};
   });
   var summary=picking.map(function(line){return esc(line.row.materialName)+': '+qty(line.remaining)+' '+esc(line.row.unit)+' tersisa';}).join(' · ');
+  var canRelease=String(order.status||'').toLowerCase()==='ready_production';
   var action=active.length
-   ? '<button data-inv-action="release-so" data-sales-order-id="'+esc(order.id)+'" class="px-3 py-2 rounded-lg border border-red-200 text-red-700 text-[10px] font-bold">Lepas Reservasi</button>'
+   ? (canRelease?'<button data-inv-action="release-so" data-sales-order-id="'+esc(order.id)+'" class="px-3 py-2 rounded-lg border border-red-200 text-red-700 text-[10px] font-bold">Lepas Reservasi</button>':'<span class="text-[10px] text-slate-500">Reservasi terkunci selama produksi</span>')
    : fullyConsumed
     ? '<span class="text-[10px] font-semibold text-emerald-700">Semua material telah digunakan</span>'
     : '<button data-inv-action="reserve-so" data-sales-order-id="'+esc(order.id)+'" class="px-3 py-2 rounded-lg bg-violet-700 text-white text-[10px] font-bold">Kunci Stok</button>';
