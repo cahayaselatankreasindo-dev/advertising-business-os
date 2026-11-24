@@ -205,7 +205,7 @@ assert.match(ui,/openInventoryReceiptFromPO/,'inventory UI supports PO-linked re
 assert.match(ui,/calculateOpenSalesOrderCommitments/,'inventory UI calculates cross-project active Sales Order commitments');
 assert.match(ui,/Komitmen Material Sales Order/,'inventory page shows the active production material commitment panel');
 assert.match(ui,/Estimasi bebas/,'inventory page distinguishes physical stock from estimated free stock');
-assert.match(ui,/Reservasi diproses atomik oleh Google Apps Script/,'inventory UI explains server-side locked reservation behavior');
+assert.match(ui,/Reservasi dicatat di Google Sheets dan diproses oleh backend/,'inventory UI explains server-side locked reservation behavior');
 assert.match(salesUI,/calculateHppRequirements/,'Sales Order material plan uses HPP and verified unit conversion');
 assert.match(salesUI,/createDraftPOFromShortage/,'Sales Order can create supplier-grouped draft POs from HPP shortages');
 assert.match(salesUI,/openPurchaseOrderQty/,'shortage planner subtracts quantities already covered by draft or ordered POs');
