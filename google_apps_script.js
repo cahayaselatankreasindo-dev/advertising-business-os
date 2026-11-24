@@ -1178,12 +1178,15 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     if (after < -0.000001) throw new Error("INVENTORY_INSUFFICIENT_STOCK");
     balances[materialId] = Math.max(0, after);
   });
-  if (newRows.some(function(row) { return String(row.movement) === "adjustment_out"; })) {
+  if (newRows.some(function(row) { return ["issue","adjustment_out"].indexOf(String(row.movement)) >= 0; })) {
     var reservationCheck = calculateActiveProjectReservations_(ss, salesOrders, ledger);
     if (reservationCheck.errors.length) throw new Error("INVENTORY_RESERVATION_DATA_INVALID");
     Object.keys(reservationCheck.byMaterial).forEach(function(materialId) {
       var reserved = reservationCheck.byMaterial[materialId];
-      if (reserved.committed > Number(balances[materialId] || 0) + 0.000001) throw new Error("INVENTORY_ADJUSTMENT_BREACHES_RESERVATION");
+      if (reserved.committed > Number(balances[materialId] || 0) + 0.000001) {
+        var breachedByIssue = newRows.some(function(row) { return String(row.materialId) === materialId && String(row.movement) === "issue"; });
+        throw new Error(breachedByIssue ? "INVENTORY_MOVEMENT_BREACHES_RESERVATION" : "INVENTORY_ADJUSTMENT_BREACHES_RESERVATION");
+      }
     });
   }
   return true;
