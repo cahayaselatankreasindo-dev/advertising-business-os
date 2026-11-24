@@ -1183,8 +1183,17 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     var priorLedger = existing.concat(newRows);
     if (!current) {
       var unitCost = Number(tx.unitCost), totalCost = Number(tx.totalCost);
+      var allowedCostSources = {
+        opening:["opening_manual","master_fallback"],
+        receipt:["purchase_order","manual_receipt","master_fallback"],
+        issue:["moving_average","master_fallback"],
+        return:["moving_average","master_fallback"],
+        adjustment_in:["moving_average","opening_manual","master_fallback"],
+        adjustment_out:["moving_average","master_fallback"]
+      };
       if (!Number.isFinite(unitCost) || unitCost <= 0 || !Number.isFinite(totalCost) || totalCost <= 0 ||
-          Math.abs(totalCost - Math.round(qty * unitCost)) > 1 || String(tx.costingMethod || "") !== "moving_average") {
+          Math.abs(totalCost - Math.round(qty * unitCost)) > 1 || String(tx.costingMethod || "") !== "moving_average" ||
+          !allowedCostSources[String(tx.movement)] || allowedCostSources[String(tx.movement)].indexOf(String(tx.costSource || "")) < 0) {
         throw new Error("INVALID_INVENTORY_COST_SNAPSHOT");
       }
       var valuationBefore = calculateInventoryValuationServer_(materials, priorLedger);
