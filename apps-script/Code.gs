@@ -990,7 +990,7 @@ function validateMaterialsBeforeMerge_(ss, incomingMaterials) {
       seenSku[sku] = true;
     }
     var status = String(material.status || "").toLowerCase();
-    if (status !== "active" || !sku || sku.indexOf("MAT-MANUAL-") === 0) return;
+    if (status !== "active" || !sku || sku.indexOf("MAT-MANUAL-") === 0 || !String(material.purchaseUnit || "").trim()) return;
     var unit = String(material.unit || "").trim();
     var purchaseUnit = String(material.purchaseUnit || "").trim();
     var factor = Number(material.conversionFactor);
