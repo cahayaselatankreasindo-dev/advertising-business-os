@@ -1157,7 +1157,7 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
   });
   var terminalSalesOrders = {};
   (incomingSalesOrders || []).forEach(function(order) {
-    if (order && ["cancelled","delivered","closed"].indexOf(String(order.status || "").toLowerCase()) >= 0) {
+    if (order && String(order.status || "").toLowerCase() === "cancelled") {
       terminalSalesOrders[String(order.id || "")] = true;
     }
   });
@@ -1217,7 +1217,7 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
       if (!reservationId) throw new Error("INVENTORY_RESERVATION_ID_REQUIRED");
       var salesOrder = salesOrderById[salesOrderId];
       var salesOrderStatus = String(salesOrder && salesOrder.status || "").toLowerCase();
-      if (!salesOrder || ["ready_production","in_production","quality_check","ready_delivery"].indexOf(salesOrderStatus) < 0) throw new Error("INVENTORY_SALES_ORDER_NOT_ACTIVE");
+      if (!salesOrder || ["ready_production","in_production","quality_check","ready_delivery","delivered"].indexOf(salesOrderStatus) < 0) throw new Error("INVENTORY_SALES_ORDER_NOT_ACTIVE");
       if (String(salesOrder.projectId || "") !== projectId) throw new Error("INVENTORY_SALES_ORDER_PROJECT_MISMATCH");
     } else if (reservationId) {
       throw new Error("INVENTORY_RESERVATION_LINK_REQUIRES_SALES_ORDER");
@@ -1268,6 +1268,7 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
   var movementSeen = {};
   ledger.forEach(function(tx) {
     var materialId = String(tx.materialId || "");
+    var reservationId = String(tx.reservationId || "");
     var direction = movementDirection[String(tx.movement || "")];
     var before = Number(balances[materialId] || 0);
     if (String(tx.movement) === "opening") {
