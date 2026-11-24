@@ -79,6 +79,7 @@ const productAdded=runAddHppLine('service:PRD-01',[],[
 ],2);
 assert.equal(productAdded.lines.length,1,'active product catalog entries can be used in HPP');
 assert.equal(productAdded.lines[0].serviceId,'PRD-01');
+assert.equal(productAdded.lines[0].catalogRecordType,'product','product catalog identity is retained in the HPP snapshot');
 assert.equal(productAdded.lines[0].subtotal,140000);
 const inactiveService=runAddHppLine('service:SVC-02',[],[
   {id:'SVC-02',name:'Jasa nonaktif',unit:'job',costPrice:45000,status:'inactive'}
