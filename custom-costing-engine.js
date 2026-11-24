@@ -69,6 +69,7 @@
     const sheetH=positive(input.sheetHeightMm,'Panjang lembar/roll');
     const kerf=nonNegative(input.kerfMm||0,'Lebar mata potong');
     const waste=nonNegative(input.wasteRate||0,'Waste');
+    const allowRotation=input.allowRotation!==false;
     if(waste>100)throw new Error('Waste maksimal 100%.');
     if(!Array.isArray(input.parts)||!input.parts.length)throw new Error('Masukkan minimal satu ukuran komponen.');
     const pieces=[];
@@ -85,18 +86,18 @@
     for(const piece of pieces){
       const packedW=piece.widthMm+kerf,packedH=piece.heightMm+kerf;
       if(packedW>sheetW||packedH>sheetH){
-        if(!input.allowRotation||packedH>sheetW||packedW>sheetH)throw new Error('Komponen '+piece.widthMm+' × '+piece.heightMm+' mm tidak muat pada lembar '+sheetW+' × '+sheetH+' mm.');
+        if(!allowRotation||packedH>sheetW||packedW>sheetH)throw new Error('Komponen '+piece.widthMm+' × '+piece.heightMm+' mm tidak muat pada lembar '+sheetW+' × '+sheetH+' mm.');
       }
       let chosenBin=-1,chosen=null;
       for(let i=0;i<bins.length;i++){
-        const candidate=findSheetPosition(bins[i],packedW,packedH,input.allowRotation!==false);
+        const candidate=findSheetPosition(bins[i],packedW,packedH,allowRotation);
         if(candidate&&(!chosen||candidate.shortSide<chosen.shortSide||(candidate.shortSide===chosen.shortSide&&candidate.longSide<chosen.longSide))){
           chosenBin=i;chosen=candidate;
         }
       }
       if(!chosen){
         const bin={freeRects:[{x:0,y:0,w:sheetW,h:sheetH}],placements:[],chargedArea:0,actualArea:0};
-        chosen=findSheetPosition(bin,packedW,packedH,input.allowRotation!==false);
+        chosen=findSheetPosition(bin,packedW,packedH,allowRotation);
         if(!chosen)throw new Error('Ukuran komponen tidak dapat ditempatkan pada lembar.');
         bins.push(bin);chosenBin=bins.length-1;
       }
