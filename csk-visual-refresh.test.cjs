@@ -24,6 +24,8 @@ assert.match(css, /body > aside[\s\S]*linear-gradient/,
   'desktop sidebar must use the new colour system');
 assert.match(css, /#page-dashboard > div:first-child[\s\S]*linear-gradient/,
   'dashboard hero must use the vibrant gradient treatment');
+assert.match(css, /#page-dashboard > div:first-child > div:last-child button:last-child[\s\S]*grid-column:\s*auto !important/,
+  'four dashboard quick actions must remain balanced on mobile');
 assert.match(css, /#page-dashboard > \.grid\.grid-cols-2 > div:nth-child\(5\)/,
   'all five dashboard KPIs must receive deliberate accent styling');
 assert.match(css, /nav\.pillar-mobile-nav/,
