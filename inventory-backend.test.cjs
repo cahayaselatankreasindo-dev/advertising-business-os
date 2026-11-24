@@ -114,9 +114,22 @@ const releasedOrder=Object.assign({},reservationOrder,{status:'quality_check'});
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[unreservedProjectIssue],[],[releasedOrder]),true,'QC releases unissued material back to available stock');
 let ss=fixture();
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(ss,[opening]),true,'valid opening balance can be recorded');
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(fixture(),[{...opening,reference:''}]),/INVENTORY_COST_REFERENCE_REQUIRED/,'opening cost requires a source document or valuation reference');
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(fixture(),[{...opening,unitCost:0,totalCost:0}]),/INVALID_INVENTORY_COST_SNAPSHOT/,'new stock movements cannot be saved without a valid unit and total cost snapshot');
+const manualReceiptNoReference=transaction('INV-MISSING-REF','STK-CSK-2026-00034','receipt',1,'2026-11-20',{supplier:'Supplier A',reference:''});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(fixture(),[manualReceiptNoReference]),/INVENTORY_COST_REFERENCE_REQUIRED/,'manual supplier receipt requires a verifiable document reference');
 ss.sheets.Inventory_Transactions.appendRow(rowFor('Inventory_Transactions',opening));
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(ss,[opening]),true,'unchanged existing ledger rows remain syncable');
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(ss,[{...opening,qty:6}]),/INVENTORY_TRANSACTION_IMMUTABLE/,'existing stock transactions cannot be edited');
+
+const wacOpening=transaction('INV-WAC-OPEN01','STK-CSK-2026-00101','opening',10,'2026-11-01',{unitCost:100000,totalCost:1000000});
+const wacReceipt=transaction('INV-WAC-REC01','STK-CSK-2026-00102','receipt',10,'2026-11-02',{supplier:'Supplier C',unitCost:200000,totalCost:2000000,costSource:'manual_receipt'});
+const wacIssue=transaction('INV-WAC-ISS01','STK-CSK-2026-00103','issue',5,'2026-11-03',{projectId:project.id,projectName:project.title,unitCost:150000,totalCost:750000,costSource:'moving_average'});
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(fixture(),[wacOpening,wacReceipt,wacIssue]),true,'server accepts a sequence of documented movements using the recalculated moving weighted average');
+const wacServer=context.calculateInventoryValuationServer_([material],[wacOpening,wacReceipt,wacIssue]);
+assert.equal(wacServer.stockValue[material.id],2250000);
+assert.equal(wacServer.averageCost[material.id],150000);
+assert.equal(wacServer.estimated[material.id],false,'documented purchase costs are not marked as estimated');
 
 const secondOpening=transaction('INV-00000002','STK-CSK-2026-00002','opening',2,'2026-11-02');
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(ss,[opening,secondOpening]),/INVENTORY_OPENING_ALREADY_EXISTS/,'one opening balance is allowed per material');
