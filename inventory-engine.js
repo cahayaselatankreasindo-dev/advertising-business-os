@@ -96,6 +96,22 @@
       createdAt:String(input.createdAt||new Date().toISOString()),createdBy:String(input.createdBy||'Owner')
     };
     if(transaction.notes.length>500||transaction.reference.length>120||transaction.supplier.length>160)throw new Error('Catatan, referensi, atau supplier terlalu panjang.');
+    if(transaction.movement==='return'){
+      var netIssued=existing.filter(function(tx){return String(tx.projectId||'')===projectId&&String(tx.materialId)===String(material.id);}).reduce(function(sum,tx){if(tx.movement==='issue')return sum+n(tx.qty);if(tx.movement==='return')return sum-n(tx.qty);return sum;},0);
+      if(qty>Math.max(0,netIssued)+0.000001)throw new Error('Retur melebihi material yang pernah dikeluarkan ke proyek.');
+    }
+    if(transaction.movement==='issue'){
+      var activeProject=(Array.isArray(context.salesOrders)?context.salesOrders:[]).some(function(order){return String(order.projectId)===projectId&&['ready_production','in_production'].indexOf(String(order.status||''))>=0;});
+      if(activeProject){
+        var balancesBefore=calculateBalances(materials,existing);
+        var reservations=calculateOpenSalesOrderCommitments(context.salesOrders,context.costSheets,materials,existing,balancesBefore);
+        if(reservations.errors.length)throw new Error('Reservasi material proyek belum valid: '+reservations.errors.join(' '));
+        var reservedLine=null;
+        reservations.requirements.some(function(row){return String(row.materialId)===String(material.id)&&row.projects.some(function(line){if(String(line.projectId)===projectId){reservedLine=line;return true;}return false;});});
+        if(!reservedLine)throw new Error('Material tidak tercantum dalam reservasi HPP proyek aktif.');
+        if(qty>reservedLine.outstanding+0.000001)throw new Error('Pengeluaran melebihi sisa reservasi proyek ('+reservedLine.outstanding+' '+material.unit+').');
+      }
+    }
     var balances=calculateBalances(materials,existing.concat([transaction]));
     return{transaction:transaction,balances:balances};
   }
