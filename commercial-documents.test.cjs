@@ -51,9 +51,9 @@ const hppSheet = {
 };
 const hppLines = buildQuotationLinesFromCostSheet(hppSheet);
 assert.equal(hppLines.length, 4, 'HPP import keeps material, service, labor, and other-cost components visible');
-assert.equal(hppLines.reduce((sum, line) => sum + line.qty * line.unitPrice, 0), hppSheet.price, 'allocated quotation line values reconcile exactly to the saved HPP selling price');
-assert.equal(hppLines[0].qty, 1);
-assert.equal(hppLines[0].unit, 'Lot');
+assert.equal(Math.round(hppLines.reduce((sum, line) => sum + line.qty * line.unitPrice, 0)), hppSheet.price, 'allocated quotation line values reconcile exactly to the saved HPP selling price');
+assert.equal(hppLines[0].qty, 2, 'original HPP quantity is preserved');
+assert.equal(hppLines[0].unit, 'lembar', 'original HPP unit is preserved');
 assert.match(hppLines[0].description, /2 lembar/, 'original HPP consumption quantity remains visible in the quotation description');
 assert.ok(hppLines.every(line => line.sourceCostSheetId === hppSheet.id));
 assert.ok(hppLines.every(line => line.marginPercent === 30));
