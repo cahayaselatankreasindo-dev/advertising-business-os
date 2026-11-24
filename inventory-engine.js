@@ -80,7 +80,13 @@
       if(!salesOrder||['ready_production','in_production','quality_check','ready_delivery'].indexOf(String(salesOrder.status||'').toLowerCase())<0)throw new Error('Sales Order tidak berada pada tahap produksi yang dapat menerima pengeluaran material.');
       if(String(salesOrder.projectId||'')!==projectId)throw new Error('Proyek transaksi tidak sesuai dengan Sales Order yang dipilih.');
     }
-    var activeReservations=(Array.isArray(context.inventoryReservations)?context.inventoryReservations:[]).filter(function(row){return String(row.status)==='active'&&String(row.materialId)===String(material.id);});
+    var terminalSalesOrders=Object.create(null);
+    salesOrders.forEach(function(order){
+      if(['cancelled','delivered','closed'].indexOf(String(order.status||'').toLowerCase())>=0)terminalSalesOrders[String(order.id||'')]=true;
+    });
+    var activeReservations=(Array.isArray(context.inventoryReservations)?context.inventoryReservations:[]).filter(function(row){
+      return String(row.status)==='active'&&String(row.materialId)===String(material.id)&&!terminalSalesOrders[String(row.salesOrderId||'')];
+    });
     function remainingReservation(row){
       var used=existing.filter(function(tx){return tx.movement==='issue'&&String(tx.reservationId||'')===String(row.id||'');}).reduce(function(sum,tx){return sum+n(tx.qty);},0);
       return Math.max(0,n(row.qty)-used);
