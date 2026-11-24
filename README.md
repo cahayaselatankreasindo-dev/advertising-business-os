@@ -54,6 +54,7 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - Dokumen komersial dibatasi untuk Owner di antarmuka dan backend.
 - Quotation dapat menghubungkan proyek dan mengimpor snapshot HPP tersimpan. Rincian material/jasa, tenaga kerja, dan biaya lain dipertahankan, harga dialokasikan proporsional sesuai biaya, serta totalnya direkonsiliasi dengan harga jual HPP.
 - Kuantitas dan satuan pemakaian HPP tetap terlihat pada quotation. ID dan waktu sumber HPP disimpan di setiap baris; perubahan HPP berikutnya tidak otomatis mengubah quotation/invoice yang sudah dibuat.
+- Ringkasan metode custom costing (misalnya potong lembar/roll, potong profil, konversi kemasan, luas, panjang, atau volume) ikut terbaca pada deskripsi quotation; detail kalkulasi lengkap tetap tersimpan pada snapshot HPP sumber.
 
 ## 🔐 Autentikasi dan Hak Akses
 
