@@ -74,6 +74,9 @@ assert.match(backend,/validateSalesOrdersBeforeMerge_\(ss, payload\.salesOrders,
 assert.match(backend,/SALES_ORDER_DP_NOT_VERIFIED/,'backend enforces verified DP before production');
 assert.match(backend,/awaiting_material/,'backend supports orders waiting for material availability');
 assert.match(ui,/prepareInitialMaterialReservation/,'Sales Order creation automatically checks and reserves HPP materials');
+assert.match(ui,/estimatedUnitCost/,'Sales Order freezes estimated material unit costs with HPP quantity snapshots');
+assert.match(ui,/estimatedTotalCost/,'Sales Order freezes estimated material total costs for later actual-cost comparison');
+assert.match(ui,/calculateMaterialCostVariance/,'Sales Order compares actual material issue cost with the frozen HPP estimate');
 assert.match(ui,/data-so-action="usage-report"/,'Sales Order material panel exposes a quantity reconciliation PDF action');
 assert.match(ui,/downloadMaterialUsageReport/,'Sales Order builds a project-specific material usage report from the stock ledger');
 assert.match(pdf,/generateMaterialUsagePdf/,'PDF engine supports HPP versus net material issue reconciliation');
