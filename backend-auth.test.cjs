@@ -164,6 +164,9 @@ assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
 assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
   action: 'insert', sheet: 'Inventory_Transactions', data: { id: 'ITX-DIRECT-0001' }
 }), /INVENTORY_LEDGER_SERVER_ONLY/, 'Inventory movements cannot bypass append-only ledger validation');
+assert.equal(roleSandbox.authorizePayload({ role: 'owner' }, { action: 'reserve_sales_order_stock', salesOrderId: 'SO-INV-00000001' }), true, 'Owner may request guarded Sales Order stock reservation');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, { action: 'reserve_sales_order_stock', salesOrderId: 'SO-INV-00000001' }), /FORBIDDEN_STOCK_RESERVATION/, 'Team cannot reserve stock');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, { action: 'release_sales_order_reservation' }), /SALES_ORDER_ID_REQUIRED/, 'reservation release requires a Sales Order ID');
 assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
   action: 'delete', sheet: 'Inventory_Transactions', id: 'ITX-TEST-0001'
 }), /INVENTORY_LEDGER_SERVER_ONLY/, 'Inventory ledger rows cannot be deleted');
