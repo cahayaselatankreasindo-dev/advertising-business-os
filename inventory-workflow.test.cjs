@@ -98,6 +98,14 @@ assert.equal(costVariance.estimatedTotalCost,1200);
 assert.equal(costVariance.actualTotalCost,750);
 assert.equal(costVariance.varianceCost,-450);
 assert.equal(costVariance.complete,true,'actual-versus-estimated material cost is complete when all unit-cost snapshots and HPP estimates exist');
+const partiallyIssuedVariance=E.calculateMaterialCostVariance([
+ {materialId:'MAT-WAC',name:'Material WAC',unit:'m2',required:10,estimatedTotalCost:1200},
+ {materialId:'MAT-HOL',name:'Hollow 2x2',unit:'m',required:4,estimatedTotalCost:300}
+],'PRJ-WAC',valuationLedger,materials);
+assert.equal(partiallyIssuedVariance.rows[1].hasMaterialMovement,false,'HPP materials with no issue/return activity remain unvalued rather than appearing as zero-cost savings');
+assert.equal(partiallyIssuedVariance.rows[1].varianceCost,null);
+assert.equal(partiallyIssuedVariance.varianceComplete,false,'project-level cost variance waits until every HPP material has issue/return activity');
+assert.equal(partiallyIssuedVariance.varianceCost,null);
 const returnCostMaterials=[{id:'MAT-RET',name:'Material Retur',unit:'m2',unitPrice:999}];
 const returnCostProjects=[{id:'PRJ-RET',title:'Project Return Cost'}];
 const returnCostLedger=[
