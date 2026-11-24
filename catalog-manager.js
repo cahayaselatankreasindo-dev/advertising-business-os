@@ -186,7 +186,7 @@ async function saveMaterialFromCatalog(){
   say('Material '+sku+' aktif dan tersinkron terverifikasi. HPP pakai '+rupiah(unitPrice)+'/'+unit+'.');
   closeCskCatalogManager();
 }
-function saveServiceFromCatalog(){
+async function saveServiceFromCatalog(){
   if(!ownerOnly())return;
   var family=getSelectedFamily();if(!family)return;
   var name=el('cm-service-name').value.trim(),sku=el('cm-service-sku').value.trim().toUpperCase(),unit=el('cm-service-unit').value,basePrice=Number(el('cm-service-price').value),costPrice=Number(el('cm-service-cost').value),supplier=el('cm-service-supplier').value.trim(),spec=el('cm-service-spec').value.trim();
@@ -194,10 +194,20 @@ function saveServiceFromCatalog(){
   var database=getDb();if(!database){say('Database aplikasi belum siap.',true);return;}
   var services=Array.isArray(database.services)?database.services:(database.services=[]);
   if(services.some(function(item){return String(item.sku||'').toUpperCase()===sku;})){say('SKU jasa sudah terdaftar.',true);return;}
-  services.push({id:'SVC-'+Date.now()+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),sku:sku,name:name,category:family.category,recordType:family.recordType==='product_template'?'product':'service',spec:spec,unit:unit,basePrice:Math.round(basePrice),costPrice:Math.round(costPrice),costingMethod:family.serviceCode,supplierName:supplier,status:'active',updatedAt:new Date().toISOString()});
-  if(typeof w.saveDB==='function')w.saveDB();
+  var record={id:'SVC-'+Date.now()+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),sku:sku,name:name,category:family.category,recordType:family.recordType==='product_template'?'product':'service',spec:spec,unit:unit,basePrice:Math.round(basePrice),costPrice:Math.round(costPrice),costingMethod:family.serviceCode,supplierName:supplier,status:'active',updatedAt:new Date().toISOString()};
+  services.push(record);
+  try{
+    if(typeof w.saveDB==='function')w.saveDB();
+    if(!w.CSKAuth||typeof w.CSKAuth.sync!=='function')throw new Error('Layanan sinkronisasi belum siap. Produk atau jasa belum diaktifkan.');
+    var verified=await w.CSKAuth.sync(true);
+    if(!verified)throw new Error('Sinkronisasi produk dan jasa ke Google Sheets belum terverifikasi. Aktivasi dibatalkan, silakan periksa koneksi lalu coba lagi.');
+  }catch(error){
+    database.services=services.filter(function(item){return item.id!==record.id;});
+    if(typeof w.saveDB==='function')w.saveDB();
+    say(String(error&&error.message||error),true);return;
+  }
   if(typeof w.renderServices==='function')w.renderServices();
-  say('Jasa '+sku+' berhasil ditambahkan ke katalog.');
+  say((record.recordType==='product'?'Produk ':'Jasa ')+sku+' aktif dan tersinkron terverifikasi.');
   closeCskCatalogManager();
 }
 function openCskCatalogManager(mode){
