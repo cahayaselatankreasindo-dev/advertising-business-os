@@ -193,7 +193,7 @@ function renderReservationPanel(d){
  if(!orders.length)html+='<div class="mt-3 border border-dashed rounded-xl p-4 text-xs text-slate-500">Belum ada Sales Order berstatus Siap Produksi.</div>';
  else html+='<div class="mt-3 space-y-2">'+orders.map(function(order){
   var active=reservations.filter(function(row){return String(row.salesOrderId)===String(order.id)&&row.status==='active';});
-  var summary=active.map(function(row){var used=(d.inventoryTransactions||[]).filter(function(tx){return tx.movement==='issue'&&String(tx.salesOrderId||'')===String(order.id)&&String(tx.materialId)===String(row.materialId)&&String(tx.createdAt||'')>=String(row.createdAt||'');}).reduce(function(sum,tx){return sum+n(tx.qty);},0);var remaining=Math.max(0,n(row.qty)-used);return esc(row.materialName)+': '+qty(remaining)+' '+esc(row.unit)+' tersisa';}).join(' · ');
+  var summary=active.map(function(row){var used=(d.inventoryTransactions||[]).filter(function(tx){return tx.movement==='issue'&&String(tx.reservationId||'')===String(row.id||'');}).reduce(function(sum,tx){return sum+n(tx.qty);},0);var remaining=Math.max(0,n(row.qty)-used);return esc(row.materialName)+': '+qty(remaining)+' '+esc(row.unit)+' tersisa';}).join(' · ');
   var action=active.length
    ? '<button data-inv-action="release-so" data-sales-order-id="'+esc(order.id)+'" class="px-3 py-2 rounded-lg border border-red-200 text-red-700 text-[10px] font-bold">Lepas Reservasi</button>'
    : '<button data-inv-action="reserve-so" data-sales-order-id="'+esc(order.id)+'" class="px-3 py-2 rounded-lg bg-violet-700 text-white text-[10px] font-bold">Kunci Stok</button>';
