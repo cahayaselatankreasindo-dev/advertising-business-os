@@ -77,7 +77,7 @@
     var salesOrders=Array.isArray(context.salesOrders)?context.salesOrders:[];
     if(salesOrderId){
       var salesOrder=salesOrders.find(function(order){return String(order.id)===salesOrderId;});
-      if(!salesOrder||['ready_production','in_production','quality_check','ready_delivery','delivered'].indexOf(String(salesOrder.status||'').toLowerCase())<0)throw new Error('Sales Order tidak berada pada tahap produksi yang dapat menerima pengeluaran material.');
+      if(!salesOrder||['ready_production','in_production','quality_check','ready_delivery'].indexOf(String(salesOrder.status||'').toLowerCase())<0)throw new Error('Sales Order tidak berada pada tahap produksi yang dapat menerima pengeluaran material.');
       if(String(salesOrder.projectId||'')!==projectId)throw new Error('Proyek transaksi tidak sesuai dengan Sales Order yang dipilih.');
     }
     var activeReservations=(Array.isArray(context.inventoryReservations)?context.inventoryReservations:[]).filter(function(row){return String(row.status)==='active'&&String(row.materialId)===String(material.id);});
