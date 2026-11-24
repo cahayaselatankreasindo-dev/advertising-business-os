@@ -126,7 +126,7 @@ assert.throws(()=>E.validateTransaction({
 assert.throws(()=>E.validateTransaction({
  materialId:'MAT-ACR',movement:'issue',qty:1,unit:'m2',date:'2026-11-15',
  projectId:'PRJ-001',salesOrderId:reservationOrder.id,reservationId:'RSV-WRONG'
-},{materials,projects,transactions:[reservedOpening],salesOrders:[reservationOrder],inventoryReservations:[reservation]}),/belum memiliki reservasi aktif/,'linked issue must reference an active reservation row');
+},{materials,projects,transactions:[reservedOpening],salesOrders:[reservationOrder],inventoryReservations:[reservation]}),/belum memiliki reservasi yang dapat digunakan/,'linked issue must reference an active reservation row');
 
 const demand=E.calculateHppRequirements({
  projectId:'PRJ-001',
