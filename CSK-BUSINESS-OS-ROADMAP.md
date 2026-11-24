@@ -293,3 +293,25 @@ The Owner confirmed that CSK Business OS should continue using the existing Goog
 - [ ] Owner reviews test evidence, backup/restore procedure, schema additions, and Apps Script deployment diff.
 - [ ] Only after explicit Owner approval: take a fresh production backup, run the reviewed schema setup, deploy the approved Apps Script version, verify read-back, then release the internal frontend.
 - [ ] Keep rollback instructions and the prior Apps Script deployment available. Do not merge to main or deploy the public website as part of this Business OS release.
+
+## 17. CRM compatibility integration — 25 November 2026
+
+- PR #35 merged into the integrated development branch after all CSK Security Tests passed.
+- Legacy lead statuses are normalized for display/filtering: Baru, Dihubungi, Deal Menang, Batal, and their supported English aliases.
+- Legacy project statuses are normalized: Perencanaan, Pengerjaan, Review Klien, Selesai.
+- Indonesian day-first date values such as `08/11/2026` and `08.11.2026` are read as local dates and normalized in memory; invalid dates are rejected.
+- Normalization does not rewrite or migrate original Google Sheets values.
+- Regression tests cover explicit ISO `today`, legacy date parsing, legacy status filters, and closed-lead/project summary behavior.
+- Older PR #23 is closed as superseded. PR #34 is also closed as superseded because its reservation-return implementation and tests are already present in the integrated branch.
+- CI on PR #35 passed: syntax, mapping/RBAC, commercial documents, workflow simulation, backend security, dashboard, CRM, invoice/payment, Photo LAB, and colorful UI checks.
+
+## 18. Release readiness — still gated
+
+The integrated feature branch is a development candidate, not a live deployment. Before production release:
+1. Run a final full regression workflow on the exact integrated branch head after the last merge.
+2. Perform browser QA on desktop, iPhone Safari, and Android, including PDF download/print and service-worker update.
+3. Back up the production Google Sheet and review the exact new columns/tabs before any schema setup.
+4. Have the Owner run the approved Apps Script setup/deployment and verify login, Owner/Team visibility, one test quotation, invoice, payment, Sales Order, reservation, issue/return, and PO receipt.
+5. Only after the Owner confirms those checks, prepare the production release PR/deployment.
+
+No Apps Script deployment, production Sheets write/schema migration, Script Properties change, Supabase change, or public website deployment has been performed.
