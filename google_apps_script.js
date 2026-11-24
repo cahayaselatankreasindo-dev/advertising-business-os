@@ -996,7 +996,7 @@ function validateMaterialsBeforeMerge_(ss, incomingMaterials) {
     if (Math.abs(usagePrice - purchasePrice / factor) > Math.max(0.01, purchasePrice / factor * 0.000001)) throw new Error("ACTIVE_MATERIAL_USAGE_PRICE_MISMATCH");
     if (!String(material.supplierName || "").trim() || !String(material.priceSource || "").trim()) throw new Error("ACTIVE_MATERIAL_PRICE_SOURCE_REQUIRED");
     var priceDate = String(material.priceDate || "");
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(priceDate)) throw new Error("ACTIVE_MATERIAL_PRICE_DATE_REQUIRED");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(priceDate)) throw new Error("ACTIVE_MATERIAL_PRICE_DATE_REQUIRED");
     var parsedDate = new Date(priceDate + "T00:00:00Z");
     if (isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== priceDate) throw new Error("ACTIVE_MATERIAL_PRICE_DATE_INVALID");
   });
