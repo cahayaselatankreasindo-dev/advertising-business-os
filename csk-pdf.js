@@ -705,6 +705,7 @@ function normalizeMaterialCostReport(input) {
       varianceCost:Number.isFinite(varianceCost) ? varianceCost : null,
       variancePct:Number.isFinite(variancePct) ? variancePct : null,
       estimated:!!line.estimated,
+      actualCostComplete:line.actualCostComplete!==false,
       rowComplete:!!line.rowComplete
     };
   }) : [];
@@ -790,7 +791,7 @@ function drawMaterialCostRow(pdf,line,index,y,x) {
   pdf.text(String(line.estimatedQty),x[4]-2,y+4,{align:'right'});
   pdf.text(String(line.actualQty),x[5]-2,y+4,{align:'right'});
   pdf.text(line.estimatedCost===null?'-':formatRupiah(line.estimatedCost),x[6]-2,y+4,{align:'right'});
-  pdf.text(formatRupiah(line.actualCost),x[7]-2,y+4,{align:'right'});
+  pdf.text(line.actualCostComplete===false?'Belum lengkap':formatRupiah(line.actualCost),x[7]-2,y+4,{align:'right'});
   pdf.setFont('helvetica','bold');
   var variance=line.varianceCost===null?'-':(line.varianceCost>0?'+':'')+formatRupiah(line.varianceCost);
   pdf.text(variance,x[8]-2,y+4,{align:'right'});
@@ -854,6 +855,7 @@ function generateMaterialCostPdf(input,jsPDF) {
   var note=!d.hasActualMovement?'Belum ada transaksi pengeluaran atau retur material untuk proyek ini; selisih biaya belum dapat dihitung.':d.isFinal?'Status order sudah selesai/ditutup. Pastikan seluruh sisa material telah diretur sebelum menjadikan selisih sebagai hasil final.':'Laporan masih sementara karena order belum ditutup; material yang masih berada di proyek dapat memengaruhi biaya akhir.';
   if(!d.complete)note+=' Valuasi belum lengkap; sebagian transaksi belum memiliki snapshot biaya yang dapat dihitung.';
   if(d.estimated)note+=' Sebagian biaya memakai fallback harga Master dan bersifat estimasi.';
+  if(d.estimatedTotalCost===null)note+=' Sebagian harga estimasi HPP belum tersedia sehingga selisih total tidak dapat dihitung.';
   drawText(pdf,note,18,y+18,5.9,'normal',COLORS.muted,260);
   y+=30;
   drawText(pdf,'Disusun oleh',18,y,7,'normal',COLORS.muted);
