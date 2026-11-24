@@ -37,10 +37,10 @@ function ensureBound(){
   if(event.target&&event.target.id==='inv-search'){var value=event.target.value,position=value.length;filterText=value;if(!formOpen){renderInventory();var input=el('inv-search');if(input){input.focus();if(input.setSelectionRange)input.setSelectionRange(position,position);}}}
  });
  page.addEventListener('change',function(event){
-  if(event.target&&event.target.id==='inv-material'){updateUnitHint();}
+  if(event.target&&event.target.id==='inv-material'){var costField=el('inv-unit-cost');if(costField)delete costField.dataset.manual;updateUnitHint();}
    if(event.target&&event.target.id==='inv-unit-cost'){event.target.dataset.manual='1';}
-  if(event.target&&event.target.id==='inv-po'){if(event.target.value)applyPurchaseOrderSelection(event.target.value);else restoreAllMaterialOptions();}
-  if(event.target&&event.target.id==='inv-movement'){updateMovementFields();updateUnitHint();}
+  if(event.target&&event.target.id==='inv-po'){var costField=el('inv-unit-cost');if(costField)delete costField.dataset.manual;if(event.target.value)applyPurchaseOrderSelection(event.target.value);else restoreAllMaterialOptions();}
+  if(event.target&&event.target.id==='inv-movement'){var costField=el('inv-unit-cost');if(costField)delete costField.dataset.manual;updateMovementFields();updateUnitHint();}
  });
  bound=true;
 }
