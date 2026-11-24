@@ -250,6 +250,7 @@ assert.match(ui,/inv-reservation-id/,'Inventory issue form attaches the exact re
 assert.match(backend,/ReservationID/,'inventory ledger schema stores an immutable reservation reference');
 assert.match(ui,/data-inv-action="reserve-so"/,'Owner can lock stock from the Inventory page');
 assert.match(ui,/data-inv-action="release-so"/,'Owner can release an active stock reservation');
+assert.match(ui,/canRelease=String\(order\.status\|\|'\'\)\.toLowerCase\(\)==='ready_production'/,'manual reservation release is limited to orders that have not started production');
 assert.match(html,/id="page-inventory"/,'inventory page is mounted in Business OS');
 assert.match(html,/CSKInventoryBridge/,'inventory uses internal Business OS bridge');
 assert.match(html,/costSheets: db\.costSheets \|\| \[\], salesOrders: db\.salesOrders \|\| \[\]/,'inventory bridge supplies HPP and Sales Order data to the commitment monitor');
