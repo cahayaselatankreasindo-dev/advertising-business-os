@@ -4,8 +4,8 @@ const fs=require('node:fs');
 const E=require('./inventory-engine');
 
 const materials=[
- {id:'MAT-ACR',name:'Akrilik Clear 3mm',unit:'m2',sku:'ACR-03',status:'active'},
- {id:'MAT-HOL',name:'Hollow 2x2',unit:'m',sku:'HOL-22',status:'active'}
+ {id:'MAT-ACR',name:'Akrilik Clear 3mm',unit:'m2',unitPrice:100000,sku:'ACR-03',status:'active'},
+ {id:'MAT-HOL',name:'Hollow 2x2',unit:'m',unitPrice:50000,sku:'HOL-22',status:'active'}
 ];
 const projects=[{id:'PRJ-001',title:'Rak Display Custom'}];
 function tx(id,no,movement,qty,date,extra){
@@ -38,6 +38,28 @@ const created=E.validateTransaction({
 assert.equal(created.transaction.projectName,'Rak Display Custom');
 assert.equal(created.balances['MAT-ACR'],3);
 assert.equal(created.transaction.movement,'issue');
+assert.equal(created.transaction.unitCost,100000,'project issue uses the current moving-average cost per stock unit');
+assert.equal(created.transaction.totalCost,100000,'issue cost snapshot is stored on the append-only ledger');
+assert.equal(created.transaction.costingMethod,'moving_average');
+
+const valuationMaterials=[{id:'MAT-WAC',name:'Material WAC',unit:'m2',unitPrice:999}];
+const valuationLedger=[
+ {id:'WAC-OPEN',materialId:'MAT-WAC',movement:'opening',qty:10,unit:'m2',date:'2026-11-01',unitCost:100,totalCost:1000,costSource:'opening_manual',costingMethod:'moving_average'},
+ {id:'WAC-RECEIPT',materialId:'MAT-WAC',movement:'receipt',qty:10,unit:'m2',date:'2026-11-02',unitCost:200,totalCost:2000,costSource:'manual_receipt',costingMethod:'moving_average'},
+ {id:'WAC-ISSUE',materialId:'MAT-WAC',movement:'issue',qty:5,unit:'m2',date:'2026-11-03',projectId:'PRJ-WAC',unitCost:150,totalCost:750,costSource:'moving_average',costingMethod:'moving_average'}
+];
+const valuation=E.calculateInventoryValuation(valuationMaterials,valuationLedger);
+assert.equal(valuation.balances['MAT-WAC'],15);
+assert.equal(valuation.stockValue['MAT-WAC'],2250);
+assert.equal(valuation.averageCost['MAT-WAC'],150,'moving weighted average recalculates after a supplier receipt and material issue');
+const costVariance=E.calculateMaterialCostVariance(
+ [{materialId:'MAT-WAC',name:'Material WAC',unit:'m2',required:10,estimatedTotalCost:1200}],
+ 'PRJ-WAC',valuationLedger
+);
+assert.equal(costVariance.estimatedTotalCost,1200);
+assert.equal(costVariance.actualTotalCost,750);
+assert.equal(costVariance.varianceCost,-450);
+assert.equal(costVariance.complete,true,'actual-versus-estimated material cost is complete when all unit-cost snapshots and HPP estimates exist');
 
 assert.throws(()=>E.validateTransaction({
  materialId:'MAT-ACR',movement:'issue',qty:1,unit:'m2',date:'2026-11-15',projectId:''
