@@ -1752,7 +1752,6 @@
       const totalSpent = db.marketingSpend.reduce((a, b) => a + Number(b.spent || 0), 0);
       const totalMktLeads = db.marketingSpend.reduce((a, b) => a + Number(b.leadsGenerated || 0), 0);
       const cpl = totalMktLeads > 0 ? Math.round(totalSpent / totalMktLeads) : 0;
-      const roas = totalSpent > 0 ? (totalIncome / totalSpent).toFixed(1) : '—';
 
       document.getElementById('stat-mkt-spend').innerText = formatRp(totalSpent);
       document.getElementById('mkt-total-budget').innerText = formatRp(totalBudget);
@@ -1760,43 +1759,131 @@
       document.getElementById('mkt-total-leads').innerText = totalMktLeads;
       document.getElementById('mkt-cpl').innerText = 'Rp ' + cpl.toLocaleString('id-ID');
 
-      // Active projects on dashboard
-      const activeProj = db.projects.filter(p => p.status !== 'done').slice(0, 4);
+      // Use local calendar dates so dashboard reminders do not shift around UTC midnight.
+      const now = new Date();
+      const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+      const validDateKey = value => {
+        const raw = String(value || '').trim().slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return '';
+        const parts = raw.split('-').map(Number);
+        const parsed = new Date(parts[0], parts[1] - 1, parts[2]);
+        return parsed.getFullYear() === parts[0] && parsed.getMonth() === parts[1] - 1 && parsed.getDate() === parts[2] ? raw : '';
+      };
+      const shortDate = value => {
+        const key = validDateKey(value);
+        if (!key) return '';
+        const parts = key.split('-').map(Number);
+        return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+      };
+      const leadFollowUpState = lead => {
+        const date = validDateKey(lead && lead.nextFollowUp);
+        if (!date) return 'unscheduled';
+        return date < today ? 'overdue' : date === today ? 'today' : 'scheduled';
+      };
+      const projectDeadlineState = project => {
+        if (String(project && project.status || '').toLowerCase() === 'done') return 'completed';
+        const date = validDateKey(project && project.deadline);
+        if (!date) return 'no-date';
+        return date < today ? 'overdue' : date === today ? 'today' : 'upcoming';
+      };
+
+      // Prioritise the closest/overdue deadlines instead of showing arbitrary array order.
+      const projectPriority = { overdue: 0, today: 1, upcoming: 2, 'no-date': 3, completed: 4 };
+      const activeProj = db.projects
+        .filter(p => String(p.status || '').toLowerCase() !== 'done')
+        .slice()
+        .sort((a, b) => {
+          const aState = projectDeadlineState(a), bState = projectDeadlineState(b);
+          const stateDiff = projectPriority[aState] - projectPriority[bState];
+          if (stateDiff) return stateDiff;
+          const aDate = validDateKey(a.deadline) || '9999-12-31';
+          const bDate = validDateKey(b.deadline) || '9999-12-31';
+          return aDate.localeCompare(bDate);
+        })
+        .slice(0, 4);
+      const projectStatusMeta = {
+        plan: { label: 'Perencanaan', color: 'bg-slate-100 text-slate-700' },
+        ongoing: { label: 'Pengerjaan', color: 'bg-amber-100 text-amber-800' },
+        review: { label: 'Review klien', color: 'bg-blue-100 text-blue-800' }
+      };
+      const projectDeadlineMeta = {
+        overdue: { label: 'Terlambat', color: 'bg-red-100 text-red-700' },
+        today: { label: 'Deadline hari ini', color: 'bg-amber-100 text-amber-800' },
+        upcoming: { label: 'Deadline', color: 'bg-emerald-100 text-emerald-700' },
+        'no-date': { label: 'Belum ada deadline', color: 'bg-slate-100 text-slate-600' }
+      };
       const dashProjEl = document.getElementById('dash-projects-list');
       if (activeProj.length === 0) {
         dashProjEl.innerHTML = '<div class="text-xs text-slate-400 py-3 text-center">Belum ada proyek berjalan.</div>';
       } else {
-        dashProjEl.innerHTML = activeProj.map(p =>
-          '<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">' +
-            '<div>' +
-              '<div class="text-xs font-bold text-slate-800">' + escapeInvoiceHtml(p.title || 'Tanpa nama proyek') + '</div>' +
-              '<div class="text-[11px] text-slate-500">' + escapeInvoiceHtml(p.client || '-') + ' &bull; Deadline: ' + escapeInvoiceHtml(p.deadline || '-') + '</div>' +
+        dashProjEl.innerHTML = activeProj.map(p => {
+          const status = projectStatusMeta[p.status] || { label: escapeInvoiceHtml(p.status || 'Status belum diatur'), color: 'bg-slate-100 text-slate-600' };
+          const deadlineState = projectDeadlineState(p);
+          const deadlineMeta = projectDeadlineMeta[deadlineState] || projectDeadlineMeta['no-date'];
+          const deadline = shortDate(p.deadline);
+          const deadlineText = deadlineState === 'upcoming' && deadline ? deadlineMeta.label + ' · ' + deadline : deadlineMeta.label;
+          return '<article class="flex items-start justify-between gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 min-w-0">' +
+            '<div class="min-w-0 flex-1">' +
+              '<div class="text-xs font-bold text-slate-800 break-words">' + escapeInvoiceHtml(p.title || 'Tanpa nama proyek') + '</div>' +
+              '<div class="text-[11px] text-slate-500 mt-1">' + escapeInvoiceHtml(p.client || '-') + '</div>' +
+              '<div class="mt-2 flex flex-wrap gap-1.5">' +
+                '<span class="badge ' + status.color + '">' + status.label + '</span>' +
+                '<span class="badge ' + deadlineMeta.color + '">' + deadlineText + '</span>' +
+              '</div>' +
             '</div>' +
-            '<span class="badge ' + (p.status === 'ongoing' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800') + '">' +
-              (p.status === 'ongoing' ? 'Pengerjaan' : 'Review') +
-            '</span>' +
-          '</div>'
-        ).join('');
+          '</article>';
+        }).join('');
       }
 
-      // Recent leads
-      const recentLeads = db.leads.filter(l => l.status !== 'won' && l.status !== 'lost').slice(0, 4);
+      // Follow-up queue: overdue first, then today, upcoming, and unscheduled leads.
+      const leadPriority = { overdue: 0, today: 1, scheduled: 2, unscheduled: 3 };
+      const recentLeads = db.leads
+        .filter(l => !['won', 'lost'].includes(String(l.status || '').toLowerCase()))
+        .slice()
+        .sort((a, b) => {
+          const aState = leadFollowUpState(a), bState = leadFollowUpState(b);
+          const stateDiff = leadPriority[aState] - leadPriority[bState];
+          if (stateDiff) return stateDiff;
+          const aDate = validDateKey(a.nextFollowUp) || '';
+          const bDate = validDateKey(b.nextFollowUp) || '';
+          if (aDate !== bDate) return aDate.localeCompare(bDate);
+          return String(b.date || '').localeCompare(String(a.date || ''));
+        })
+        .slice(0, 4);
+      const leadFollowUpMeta = {
+        overdue: { label: 'Terlambat', color: 'bg-red-100 text-red-700' },
+        today: { label: 'Hari ini', color: 'bg-amber-100 text-amber-800' },
+        scheduled: { label: 'Terjadwal', color: 'bg-blue-100 text-blue-700' },
+        unscheduled: { label: 'Belum dijadwalkan', color: 'bg-slate-100 text-slate-600' }
+      };
       const dashLeadsEl = document.getElementById('dash-leads-list');
       if (recentLeads.length === 0) {
         dashLeadsEl.innerHTML = '<div class="text-xs text-slate-400 py-3 text-center">Tidak ada lead yang perlu follow up.</div>';
       } else {
-        dashLeadsEl.innerHTML = recentLeads.map(l =>
-          '<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">' +
-            '<div>' +
-              '<div class="text-xs font-bold text-slate-800">' + escapeInvoiceHtml(l.name) + '</div>' +
-              '<div class="text-[11px] text-slate-500">' + escapeInvoiceHtml(l.source || 'Sumber tidak dicatat') + ' &bull; ' + formatRp(l.value) + '</div>' +
+        dashLeadsEl.innerHTML = recentLeads.map(l => {
+          const state = leadFollowUpState(l);
+          const meta = leadFollowUpMeta[state];
+          const date = shortDate(l.nextFollowUp);
+          const followUpText = state === 'overdue' && date ? 'Terlambat · ' + date
+            : state === 'today' ? 'Follow-up hari ini'
+            : state === 'scheduled' && date ? 'Follow-up · ' + date
+            : 'Belum ada jadwal follow-up';
+          const leadIdArg = escapeInvoiceHtml(JSON.stringify(String(l.id || '')));
+          return '<article class="flex items-start justify-between gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 min-w-0">' +
+            '<div class="min-w-0 flex-1">' +
+              '<div class="text-xs font-bold text-slate-800 break-words">' + escapeInvoiceHtml(l.name || 'Tanpa nama') + '</div>' +
+              '<div class="text-[11px] text-slate-500 mt-1">' + escapeInvoiceHtml(l.source || 'Sumber tidak dicatat') + ' · ' + formatRp(l.value) + '</div>' +
+              '<div class="mt-2 flex flex-wrap items-center gap-1.5">' +
+                '<span class="badge ' + meta.color + '">' + meta.label + '</span>' +
+                '<span class="text-[10px] text-slate-500">' + followUpText + '</span>' +
+              '</div>' +
             '</div>' +
-            '<div class="flex items-center gap-1.5">' +
-              (l.phone ? '<a href="https://wa.me/' + cleanPhone(l.phone) + '" target="_blank" class="p-1.5 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200 text-xs"><i class="fa fa-whatsapp"></i> Chat</a>' : '') +
-              '<button onclick="convertLeadToWon(\'' + l.id + '\')" class="p-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs font-semibold">Deal</button>' +
+            '<div class="flex items-center gap-1.5 shrink-0">' +
+              (l.phone ? '<a href="https://wa.me/' + cleanPhone(l.phone) + '" target="_blank" rel="noopener noreferrer" aria-label="Chat ' + escapeInvoiceHtml(l.name || 'lead') + ' melalui WhatsApp" class="p-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 text-xs"><i class="fa fa-whatsapp"></i></a>' : '') +
+              '<button onclick="convertLeadToWon(' + leadIdArg + ')" class="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-xs font-semibold">Deal</button>' +
             '</div>' +
-          '</div>'
-        ).join('');
+          '</article>';
+        }).join('');
       }
     }
 
