@@ -1181,7 +1181,12 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
   var seenNumbers = {};
   var newRows = [];
   var immutableFields = ["transactionNo","materialId","materialName","movement","qty","unit","date","projectId","projectName","purchaseOrderId","supplier","unitCost","totalCost","costSource","costingMethod","reference","notes","createdAt","createdBy"];
-  incomingTransactions.forEach(function(tx) {
+  incomingTransactions.slice().sort(function(a,b) {
+    var date = String(a.date || "").localeCompare(String(b.date || ""));
+    if (date) return date;
+    var created = String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+    return created || String(a.id || "").localeCompare(String(b.id || ""));
+  }).forEach(function(tx) {
     if (!tx || !/^ITX-[A-Za-z0-9_-]{8,100}$/.test(String(tx.id || ""))) throw new Error("INVALID_INVENTORY_TRANSACTION_ID");
     var id = String(tx.id);
     if (seenIds[id]) throw new Error("DUPLICATE_INVENTORY_TRANSACTION_ID");
@@ -1205,6 +1210,14 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     var current = existing.find(function(row) { return String(row.id) === id; });
     var priorLedger = existing.concat(newRows);
     if (!current) {
+      var latestForMaterial = priorLedger.filter(function(row) { return String(row.materialId) === String(tx.materialId); })
+        .sort(function(a,b) {
+          var movementDate = String(a.date || "").localeCompare(String(b.date || ""));
+          if (movementDate) return movementDate;
+          var created = String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+          return created || String(a.id || "").localeCompare(String(b.id || ""));
+        }).slice(-1)[0];
+      if (latestForMaterial && date < String(latestForMaterial.date || "")) throw new Error("INVENTORY_TRANSACTION_BACKDATED");
       var unitCost = Number(tx.unitCost), totalCost = Number(tx.totalCost);
       var allowedCostSources = {
         opening:["opening_manual"],
