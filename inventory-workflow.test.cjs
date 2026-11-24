@@ -53,6 +53,9 @@ assert.equal(created.transaction.movement,'issue');
 assert.equal(created.transaction.unitCost,100000,'project issue uses the current moving-average cost per stock unit');
 assert.equal(created.transaction.totalCost,100000,'issue cost snapshot is stored on the append-only ledger');
 assert.equal(created.transaction.costingMethod,'moving_average');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'receipt',qty:1,unit:'m2',date:'2026-11-12',supplier:'Supplier A',unitCost:120000,reference:'FAKTUR-BACKDATED'
+},{materials,projects,transactions:ledger}),/Tanggal transaksi tidak boleh lebih awal/,'backdated stock entries cannot rewrite historical moving-average costs');
 
 assert.throws(()=>E.validateTransaction({
  materialId:'MAT-ACR',movement:'opening',qty:2,unit:'m2',date:'2026-11-15',reference:'OPEN-001'
@@ -255,6 +258,7 @@ assert.equal(unresolvedCommitments.ready,false,'an active project without HPP is
 assert.match(unresolvedCommitments.errors[0],/HPP belum tersedia/);
 
 
+const engineSource=fs.readFileSync('inventory-engine.js','utf8');
 const backend=fs.readFileSync('google_apps_script.js','utf8');
 const deploy=fs.readFileSync('apps-script/Code.gs','utf8');
 const guard=fs.readFileSync('security/guard.js','utf8');
@@ -290,6 +294,8 @@ assert.match(backend,/INVALID_INVENTORY_COST_SNAPSHOT/,'server rejects missing o
 assert.match(ui,/openInventoryReceiptFromPO/,'inventory UI supports PO-linked receiving');
 assert.match(ui,/calculateOpenSalesOrderCommitments/,'inventory UI calculates cross-project active Sales Order commitments');
 assert.match(ui,/calculateInventoryValuation/,'inventory UI calculates moving-average stock valuation');
+assert.match(engineSource,/Tanggal transaksi tidak boleh lebih awal/,'client engine prevents backdated stock valuation changes');
+assert.match(backend,/INVENTORY_TRANSACTION_BACKDATED/,'Apps Script independently rejects backdated stock movements');
 assert.match(ui,/Nilai persediaan · WAC/,'inventory dashboard shows indicative inventory value');
 assert.match(ui,/Biaya rata-rata \/ unit/,'inventory dashboard shows moving-average unit cost');
 assert.match(ui,/Sumber biaya/,'inventory ledger exposes the source of each cost snapshot');
