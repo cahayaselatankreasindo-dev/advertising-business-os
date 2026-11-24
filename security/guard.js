@@ -83,7 +83,7 @@
   }
   function resetDb() {
     if (typeof db === 'undefined') return;
-    ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','legacyCostings','projectCosts','services','purchaseOrders','quotationSnapshots','quotations','invoices','invoicePayments','salesOrders','inventoryTransactions'].forEach(function (key) { db[key] = []; });
+    ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','legacyCostings','projectCosts','services','purchaseOrders','quotationSnapshots','quotations','invoices','invoicePayments','salesOrders','inventoryTransactions','inventoryReservations'].forEach(function (key) { db[key] = []; });
     db.settings = { googleSheetUrl: apiUrl(), lastSync: '', lastSyncError: '' };
     db.role = 'team';
   }
@@ -316,6 +316,7 @@
         db[collection] = mergeById(cloud[collection], local[collection]);
       });
       db.invoicePayments = identity.role === 'owner' && Array.isArray(cloud.invoicePayments) ? cloud.invoicePayments : [];
+      db.inventoryReservations = identity.role === 'owner' && Array.isArray(cloud.inventoryReservations) ? cloud.inventoryReservations : [];
       db.settings = db.settings || {};
       db.settings.googleSheetUrl = url;
       db.settings.lastSync = cloud.lastSynced || '';
@@ -432,6 +433,7 @@
       setLegacyReadOnlyCollections(cloud);
       collectionsForRole().forEach(function (key) { db[key] = mergeById(cloud[key], db[key]); });
       db.invoicePayments = identity.role === 'owner' && Array.isArray(cloud.invoicePayments) ? cloud.invoicePayments : [];
+      db.inventoryReservations = identity.role === 'owner' && Array.isArray(cloud.inventoryReservations) ? cloud.inventoryReservations : [];
       db.settings.lastSync = cloud.lastSynced || new Date().toISOString();
       db.settings.lastSyncError = '';
       saveScoped();
@@ -513,6 +515,7 @@
       throw new Error('PAYMENT_NOT_VERIFIED_CHECK_AND_RETRY');
     }
     db.invoicePayments = paymentRows;
+    db.inventoryReservations = Array.isArray(cloud.inventoryReservations) ? cloud.inventoryReservations : [];
     db.finance = financeRows;
     db.invoices = Array.isArray(cloud.invoices) ? cloud.invoices : db.invoices;
     saveScoped();
@@ -530,6 +533,8 @@
     var rows = Array.isArray(response.data && response.data.inventoryReservations) ? response.data.inventoryReservations : [];
     var active = rows.filter(function(row) { return String(row.salesOrderId) === id && String(row.status) === 'active'; });
     if (!active.length) throw new Error('Reservasi belum terverifikasi di Google Sheets. Periksa status Sales Order, DP, HPP, dan ketersediaan stok.');
+    db.inventoryReservations = rows;
+    if (typeof renderAll === 'function') renderAll();
     return { reservations: active, data: rows };
   }
   async function releaseSalesOrderReservation(salesOrderId, reason) {
@@ -542,6 +547,8 @@
     if (rows.some(function(row) { return String(row.salesOrderId) === id && String(row.status) === 'active'; })) {
       throw new Error('Pelepasan reservasi belum terverifikasi di Google Sheets.');
     }
+    db.inventoryReservations = rows;
+    if (typeof renderAll === 'function') renderAll();
     return { data: rows };
   }
 
