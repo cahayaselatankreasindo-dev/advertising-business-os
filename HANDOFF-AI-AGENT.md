@@ -264,3 +264,23 @@ Safety boundary:
 - UI harus colorful, modern, premium, nyaman dipakai lama, dan responsif di desktop/iPhone/Android.
 - Prioritas pengembangan: konsistensi semua modul, integrasi alur HPP → quotation/invoice → pembayaran → Sales Order → produksi → inventory/PO, sinkronisasi Sheets, serta pengujian sebelum rilis.
 - Jangan merge ke `main`, deploy Apps Script, mengubah Script Properties, atau menulis data produksi tanpa persetujuan Owner.
+
+## 9. Update — 24 November 2026: Commercial validation and cross-Sales-Order stock commitments
+
+Delivered on `feature/hpp-material-conversion-20261120`:
+- Commercial quotation/invoice editor now validates positive quantities, non-negative numeric unit prices, non-negative discount, discount not exceeding subtotal, tax rate from 0–100%, and DP from 1–99% before save.
+- Blank quantity or unit-price fields are not silently accepted as zero.
+- Apps Script independently validates new/financially changed quotation and invoice rows, recalculates subtotal/tax/total, and rejects mismatched snapshots. Unchanged legacy financial snapshots are skipped for compatibility.
+- `apps-script/Code.gs` and `google_apps_script.js` remain byte-for-byte identical.
+- Inventory engine now aggregates material commitments across active Sales Orders (Ready Production, In Production, Quality Control, Ready Delivery), deduplicates projects, converts verified purchase units, and nets project issues/returns against outstanding HPP demand.
+- Inventory page displays physical stock, active commitments, estimated free stock, and shortage. Projects with missing HPP or invalid conversion are shown as unresolved rather than treated as zero demand.
+- Added regression coverage for commercial input validation, backend total validation, cross-project stock commitments, project deduplication, issue/return netting, and unresolved HPP.
+
+Validation: GitHub Actions source-checks and test jobs PASS on the latest feature branch commits.
+
+Operational boundary:
+- Cross-Sales-Order commitments are monitoring estimates, not persisted or locked reservations. They use the latest saved HPP, so changing HPP can change the estimate.
+- No reservation ledger, automatic material issue, pick list, purchase-unit receiving conversion, merge to main, production Apps Script deployment, live Google Sheets migration, or public website deployment has been performed.
+- Public Astro website repository remains untouched.
+
+Next phase: design server-enforced stock reservation at production release, with explicit handling for partial issue/return and reservation release. Then add material pick lists and purchase-unit conversion at receiving. Keep the implementation on this internal feature branch until Owner review and migration planning.
