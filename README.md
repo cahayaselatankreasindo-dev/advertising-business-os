@@ -50,7 +50,7 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - Percobaan pembayaran yang belum terverifikasi mempertahankan ID dan payload sementara pada sesi tab agar retry memakai transaksi yang sama; data sementara dihapus setelah verifikasi berhasil.
 - Invoice tidak otomatis dicatat sebagai kas masuk; Finance hanya mencatat pembayaran yang benar-benar diterima.
 - Backend menolak perubahan nilai total atau pembatalan Invoice yang sudah memiliki pembayaran, serta melindungi jurnal Finance terkait dari penghapusan generik.
-- Rincian HPP proyek tersimpan di tab `Quotations` dan dapat diimpor ke editor Quotation melalui proyek terkait. Import mempertahankan material, jasa, kuantitas, satuan, metode kalkulasi, serta referensi snapshot HPP; alokasi harga jual mengikuti margin HPP dan direkonsiliasi ke total penawaran.
+- HPP proyek tersimpan di tab `Cost_Sheets`; arsip quotation HPP lama tetap berada di tab `Quotations`. HPP proyek dapat diimpor ke editor Quotation komersial melalui proyek terkait. Import mempertahankan material, jasa, kuantitas, satuan, metode kalkulasi, serta referensi snapshot HPP; alokasi harga jual mengikuti margin HPP dan direkonsiliasi ke total penawaran.
 - Invoice hasil konversi mempertahankan snapshot baris Quotation, termasuk referensi HPP. Dokumen komersial tetap disimpan terpisah di `Commercial_Quotations` dan `Invoices`.
 - Dokumen komersial dibatasi untuk Owner di antarmuka dan backend.
 - Quotation dapat menghubungkan proyek dan mengimpor snapshot HPP tersimpan. Rincian material/jasa, tenaga kerja, dan biaya lain dipertahankan, harga dialokasikan proporsional sesuai biaya, serta totalnya direkonsiliasi dengan harga jual HPP.
