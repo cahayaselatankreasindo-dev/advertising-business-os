@@ -226,3 +226,11 @@ The Owner confirmed that CSK Business OS should continue using the existing Goog
 - Material conversion uses the unit and conversion factor recorded in the HPP snapshot. If the stock base unit in Material Master has since changed, the plan reports an error and blocks Draft PO creation until the discrepancy is reviewed.
 - Existing Sales Orders without a saved snapshot continue using the legacy current-HPP fallback; the Sales Order UI labels this state explicitly.
 - Regression coverage now spans HPP import → Quotation → Invoice → Sales Order → material demand and server-side Google Sheets persistence. All changes remain source-only; no Apps Script deployment, production Sheet migration, or merge to main is performed here.
+
+## 15. Integration checkpoint — 25 November 2026
+
+- Commercial PDF layout and multi-page pagination are integrated from PR #33. The latest security and business-source regression workflows passed after merge.
+- The inventory commitment bridge is integrated from PR #29 into this development branch.
+- This branch is the current integrated UI/operations staging line. The older PR #27 target was updated to the inventory-bridge development branch for review; GitHub currently reports branch divergence, so no merge is attempted until reconciliation is complete.
+- The current branch remains isolated from `main`, the public website, production Apps Script deployment, live Google Sheets, and Supabase.
+- Remaining release gates: rerun the full CI suite on this exact integrated head, reconcile any branch-only changes without force-pushing, and complete desktop/iPhone browser QA plus owner-supervised Apps Script/Sheets migration review.
