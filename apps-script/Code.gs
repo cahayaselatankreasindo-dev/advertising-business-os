@@ -1207,11 +1207,11 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     if (!current) {
       var unitCost = Number(tx.unitCost), totalCost = Number(tx.totalCost);
       var allowedCostSources = {
-        opening:["opening_manual","master_fallback"],
-        receipt:["purchase_order","manual_receipt","master_fallback"],
+        opening:["opening_manual"],
+        receipt:["purchase_order","manual_receipt"],
         issue:["moving_average","master_fallback"],
         return:["project_issue_average","moving_average","master_fallback"],
-        adjustment_in:["moving_average","opening_manual","master_fallback"],
+        adjustment_in:["moving_average","opening_manual"],
         adjustment_out:["moving_average","master_fallback"]
       };
       if (!Number.isFinite(unitCost) || unitCost <= 0 || !Number.isFinite(totalCost) || totalCost <= 0 ||
