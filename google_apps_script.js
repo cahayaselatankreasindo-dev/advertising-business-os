@@ -1053,7 +1053,7 @@ function reserveSalesOrderStock_(ss, salesOrderId, identity) {
     var rows = keys.map(function(key, index) {
       var material = required[key].material;
       return {
-        id: "RSV-" + String(salesOrderId).replace(/[^A-Za-z0-9_-]/g,"_") + "-" + String(key).replace(/[^A-Za-z0-9_-]/g,"_"),
+        id: "RSV-" + String(salesOrderId).replace(/[^A-Za-z0-9_-]/g,"_").slice(0,35) + "-" + String(key).replace(/[^A-Za-z0-9_-]/g,"_").slice(0,35) + "-" + now.replace(/[^0-9]/g,"").slice(0,17),
         reservationNo: prefix + String(maxNo + index + 1).padStart(5,"0"),
         salesOrderId: String(order.id), orderNo: String(order.orderNo || ""), projectId: String(order.projectId || ""),
         projectName: String(order.projectName || ""), materialId: String(key), materialName: String(material.name || ""),
