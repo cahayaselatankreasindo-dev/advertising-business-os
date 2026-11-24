@@ -1253,6 +1253,7 @@ function doPost(e) {
         if (payload.salesOrders) {
           validateSalesOrdersBeforeMerge_(ss, payload.salesOrders);
           mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); y.sourceCostSheetSnapshotJson = JSON.stringify(x.sourceCostSheetSnapshot || null); return y; }));
+          if (identity.role === "owner") releaseTerminalSalesOrderReservations_(ss, payload.salesOrders, identity);
           mergeSummary.ReleasedReservations = releaseTerminalSalesOrderReservations_(ss, payload.salesOrders, identity);
         }
         if (payload.inventoryTransactions) {
