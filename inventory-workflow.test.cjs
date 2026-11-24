@@ -95,7 +95,7 @@ assert.throws(()=>E.validateTransaction({
  materialId:'MAT-ACR',movement:'adjustment_out',qty:1,unit:'m2',date:'2026-11-15',notes:''
 },{materials,projects,transactions:ledger}),/Alasan penyesuaian/);
 
-const po={id:'PO-001',supplier:'Supplier A',status:'ordered',items:[{materialId:'MAT-ACR',qty:4,unit:'m2'}]};
+const po={id:'PO-001',supplier:'Supplier A',status:'ordered',items:[{materialId:'MAT-ACR',qty:4,unit:'m2',unitPrice:100000}]};
 const poReceipt=E.validateTransaction({
  materialId:'MAT-ACR',movement:'receipt',qty:2,unit:'m2',date:'2026-11-20',
  purchaseOrderId:'PO-001'
