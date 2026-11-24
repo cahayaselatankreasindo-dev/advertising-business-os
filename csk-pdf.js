@@ -357,13 +357,19 @@ function downloadBlob(blob, filename) {
   }
   var url = w.URL.createObjectURL(blob);
   var anchor = w.document.createElement('a');
+  var userAgent = String(w.navigator && w.navigator.userAgent || '');
+  var isAppleMobile = /iPhone|iPad|iPod/.test(userAgent) ||
+    (String(w.navigator && w.navigator.platform || '') === 'MacIntel' && Number(w.navigator && w.navigator.maxTouchPoints || 0) > 1);
   anchor.href = url;
   anchor.download = filename;
+  anchor.target = isAppleMobile ? '_blank' : '_self';
+  anchor.rel = 'noopener';
   anchor.style.display = 'none';
   w.document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  w.setTimeout(function() { w.URL.revokeObjectURL(url); }, 60000);
+  w.setTimeout(function() { w.URL.revokeObjectURL(url); }, 300000);
+  return isAppleMobile ? 'ios-pdf-preview' : 'blob-download';
 }
 async function downloadDocument(input) {
   try {
@@ -371,9 +377,11 @@ async function downloadDocument(input) {
     var pdf = generatePdf(input, jsPDF);
     var filename = makeFilename(input);
     var blob = pdf.output('blob');
-    downloadBlob(blob, filename);
-    notify('PDF siap disimpan: ' + filename, false);
-    return { ok: true, filename: filename, method: 'blob-download' };
+    var method = downloadBlob(blob, filename);
+    notify(method === 'ios-pdf-preview'
+      ? 'PDF dibuka untuk pratinjau. Di iPhone/iPad, pilih Bagikan lalu Simpan ke File.'
+      : 'PDF disiapkan untuk diunduh: ' + filename, false);
+    return { ok: true, filename: filename, method: method };
   } catch (error) {
     notify('PDF belum dapat diunduh. ' + String(error && error.message || error) + ' Gunakan Cetak lalu pilih Simpan sebagai PDF.', true);
     return { ok: false, error: String(error && error.message || error) };
