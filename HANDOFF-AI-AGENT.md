@@ -241,3 +241,26 @@ Operational boundary:
 - Public Astro website repository remains untouched.
 
 Next phase: design server-enforced stock reservation at production release, with explicit handling for partial issue/return and reservation release. Then add material pick lists and purchase-unit conversion at receiving. Keep the implementation on this internal feature branch until Owner review and migration planning.
+
+
+## 9. Update — 25 November 2026: Production reservation and picking
+
+Delivered on the internal feature branch:
+- Added Sales Order state `awaiting_material` / label `Menunggu Material`.
+- A production-ready transition creates a frozen material requirement snapshot from HPP and reserves stock after other active projects' reservations.
+- Snapshot is persisted in `Sales_Orders.MaterialRequirementsJSON`, validated against HPP by Apps Script, and immutable after reservation. Rework after QC reuses the frozen snapshot.
+- Active reservations are derived for `ready_production` and `in_production`; QC releases unissued balance; rework reactivates reservation.
+- Inventory page shows reserved/free stock and a project/material picking list. Picking opens a prefilled issue form.
+- Server and client prevent over-issue beyond reservation, return beyond net issued, unreserved projects consuming reserved stock, and adjustment-out below reservations.
+- Sales Order and inventory writes are validated and serialized under a ScriptLock in `sync_all`.
+- No new reservation sheet was created; Sales Order snapshot plus the append-only inventory ledger is the single source of truth.
+
+Verified on latest branch head before docs update:
+- CSK Security Tests run 830: PASS.
+- CSK business source regression checks run 721: PASS.
+- Includes mapping, RBAC, Sales Order workflow/backend, inventory workflow/backend, PO receiving, HPP conversion, and reservation/picking regression coverage.
+
+Release boundary:
+- Public Astro website repository untouched.
+- No Apps Script production deployment, live sheet migration, merge to main, or production release performed.
+- Next phase: actual-versus-estimated HPP, material consumption variance, labor/machine time capture, and project margin reconciliation.
