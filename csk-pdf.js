@@ -351,16 +351,39 @@ function generatePdf(input, jsPDF) {
   addFooter(pdf);
   return pdf;
 }
+function downloadBlob(blob, filename) {
+  if (!blob || !w || !w.URL || typeof w.URL.createObjectURL !== 'function') {
+    throw new Error('Browser tidak mendukung penyimpanan PDF. Gunakan Cetak lalu Simpan sebagai PDF.');
+  }
+  var url = w.URL.createObjectURL(blob);
+  var anchor = w.document.createElement('a');
+  var userAgent = String(w.navigator && w.navigator.userAgent || '');
+  var isAppleMobile = /iPhone|iPad|iPod/.test(userAgent) ||
+    (String(w.navigator && w.navigator.platform || '') === 'MacIntel' && Number(w.navigator && w.navigator.maxTouchPoints || 0) > 1);
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.target = isAppleMobile ? '_blank' : '_self';
+  anchor.rel = 'noopener';
+  anchor.style.display = 'none';
+  w.document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  w.setTimeout(function() { w.URL.revokeObjectURL(url); }, 300000);
+  return isAppleMobile ? 'ios-pdf-preview' : 'blob-download';
+}
 async function downloadDocument(input) {
   try {
     var jsPDF = await loadJsPdf();
     var pdf = generatePdf(input, jsPDF);
     var filename = makeFilename(input);
-    pdf.save(filename);
-    notify('PDF berhasil dibuat: ' + filename, false);
-    return { ok: true, filename: filename };
+    var blob = pdf.output('blob');
+    var method = downloadBlob(blob, filename);
+    notify(method === 'ios-pdf-preview'
+      ? 'PDF dibuka untuk pratinjau. Di iPhone/iPad, pilih Bagikan lalu Simpan ke File.'
+      : 'PDF disiapkan untuk diunduh: ' + filename, false);
+    return { ok: true, filename: filename, method: method };
   } catch (error) {
-    notify('PDF belum berhasil dibuat. ' + String(error && error.message || error) + ' Anda masih dapat mencoba Cetak.', true);
+    notify('PDF belum dapat diunduh. ' + String(error && error.message || error) + ' Gunakan Cetak lalu pilih Simpan sebagai PDF.', true);
     return { ok: false, error: String(error && error.message || error) };
   }
 }

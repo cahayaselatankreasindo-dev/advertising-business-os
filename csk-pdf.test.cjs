@@ -93,4 +93,11 @@ assert.ok(commercial.includes('function downloadCommercialDocumentPdf()'), 'comm
 assert.ok(commercial.includes("data-action=\"download-existing\""), 'saved document cards expose direct PDF download');
 assert.ok(commercial.includes('w.downloadCommercialDocumentPdf=downloadCommercialDocumentPdf'), 'PDF handler is available to the document UI');
 assert.ok(sw.includes('./csk-pdf.js'), 'service worker precaches the PDF engine');
+const pdfSource = fs.readFileSync('csk-pdf.js', 'utf8');
+assert.ok(pdfSource.includes("pdf.output('blob')"), 'PDF download creates a browser-compatible Blob');
+assert.ok(pdfSource.includes('URL.createObjectURL'), 'PDF download uses a Blob URL for mobile browser compatibility');
+assert.match(pdfSource,/anchor\.download\s*=\s*filename/, 'PDF download uses a real file download anchor');
+assert.ok(pdfSource.includes("anchor.target = isAppleMobile ? '_blank' : '_self'"), 'iPhone and iPad open the generated PDF in a saveable preview tab');
+assert.ok(pdfSource.includes('Bagikan lalu Simpan ke File'), 'iOS users receive explicit Save to Files instructions');
+assert.ok(pdfSource.includes('300000'), 'PDF preview URL remains available long enough for mobile sharing');
 console.log('CSK PDF tests passed.');

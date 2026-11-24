@@ -11,11 +11,13 @@ on:
       - feature/csk-colorful-ui-20261124
       - feature/csk-inventory-bridge-fix-20261124
       - feature/csk-stock-reservation-core-20261125
+      - feature/csk-operational-completion-20261125
   pull_request:
     branches:
       - main
       - feature/csk-colorful-ui-20261124
       - feature/csk-inventory-bridge-fix-20261124
+      - feature/csk-stock-reservation-core-20261125
 
 jobs:
   test:

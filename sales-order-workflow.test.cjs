@@ -2,6 +2,12 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const E=require('./sales-order-engine');
+assert.equal(E.purchaseQuantityForStock(6,{purchaseUnit:'batang',unit:'m',conversionFactor:6}),1,'six stock meters convert to one six-meter hollow bar');
+assert.equal(E.purchaseQuantityForStock(7,{purchaseUnit:'batang',unit:'m',conversionFactor:6}),2,'indivisible bars round up when stock shortage exceeds one bar');
+assert.equal(E.purchaseQuantityForStock(500,{purchaseUnit:'kg',unit:'g',conversionFactor:1000}),0.5,'bulk purchase units retain fractional quantities where supplier units are continuous');
+assert.equal(E.purchasePriceForUnit({purchasePrice:120000,unitPrice:22000,conversionFactor:6,wasteRate:10}),120000,'supplier PO uses the actual purchase-unit price, not the waste-loaded HPP unit price');
+assert.equal(E.purchasePriceForUnit({unitPrice:22000,conversionFactor:6,wasteRate:10}),120000,'legacy fallback removes HPP waste loading before reconstructing purchase-unit price');
+
 
 const quote={
   id:'QUO-TEST-001',docNo:'QUO-CSK-2026-00001',status:'approved',
@@ -69,6 +75,12 @@ const deploy=fs.readFileSync('apps-script/Code.gs','utf8');
 const guard=fs.readFileSync('security/guard.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
 const ui=fs.readFileSync('sales-orders.js','utf8');
+assert.match(ui,/purchasePriceForUnit\(material\)/,'draft PO uses the centralized supplier purchase-unit price');
+assert.match(ui,/baseUsageUnitPrice/,'draft PO retains a traceable base purchase-unit cost snapshot');
+assert.match(ui,/purchaseQuantityForStock\(buyStockQty,material\)/,'stock shortages are converted back to supplier purchase quantities');
+assert.match(ui,/purchaseUnit:purchaseUnit,usageUnit:material\.unit,conversionFactor:conversionFactor/,'draft PO preserves purchase-to-stock conversion metadata for receiving');
+assert.match(ui,/qty\)\*\(Number\(item\.conversionFactor\)\|\|1\)/,'open PO commitments are converted into stock units before subtracting from shortages');
+
 const sw=fs.readFileSync('sw.js','utf8');
 const auth=fs.readFileSync('backend-auth.test.cjs','utf8');
 assert.equal(backend,deploy,'canonical Apps Script and deployment copy must stay identical');

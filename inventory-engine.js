@@ -72,31 +72,53 @@
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Error('Tanggal transaksi tidak valid.');
     var projectId=String(input.projectId||''),salesOrderId=String(input.salesOrderId||''),reservationId=String(input.reservationId||'');
     if(['issue','return'].indexOf(input.movement)>=0&&!projects.some(function(p){return String(p.id)===projectId;}))throw new Error('Pilih proyek untuk pengeluaran atau retur material.');
-    if(salesOrderId&&input.movement!=='issue')throw new Error('Sales Order hanya dapat ditautkan pada transaksi pengeluaran material.');
+    if(salesOrderId&&['issue','return'].indexOf(input.movement)<0)throw new Error('Sales Order hanya dapat ditautkan pada pengeluaran atau retur material.');
     if(salesOrderId&&!reservationId)throw new Error('Pilih reservasi stok yang akan digunakan.');
     if(reservationId&&!salesOrderId)throw new Error('Referensi reservasi harus terhubung dengan Sales Order.');
     var salesOrders=Array.isArray(context.salesOrders)?context.salesOrders:[];
     if(salesOrderId){
       var salesOrder=salesOrders.find(function(order){return String(order.id)===salesOrderId;});
-      if(!salesOrder||['ready_production','in_production','quality_check','ready_delivery'].indexOf(String(salesOrder.status||'').toLowerCase())<0)throw new Error('Sales Order tidak berada pada tahap produksi yang dapat menerima pengeluaran material.');
+      if(!salesOrder||['ready_production','in_production','quality_check','ready_delivery'].indexOf(String(salesOrder.status||'').toLowerCase())<0)throw new Error('Sales Order tidak berada pada tahap produksi yang dapat menerima pengeluaran atau retur material.');
       if(String(salesOrder.projectId||'')!==projectId)throw new Error('Proyek transaksi tidak sesuai dengan Sales Order yang dipilih.');
     }
     var terminalSalesOrders=Object.create(null);
     salesOrders.forEach(function(order){
       if(['cancelled','delivered','closed'].indexOf(String(order.status||'').toLowerCase())>=0)terminalSalesOrders[String(order.id||'')]=true;
     });
-    var activeReservations=(Array.isArray(context.inventoryReservations)?context.inventoryReservations:[]).filter(function(row){
-      return String(row.status)==='active'&&String(row.materialId)===String(material.id)&&!terminalSalesOrders[String(row.salesOrderId||'')];
+    var reservationRows=(Array.isArray(context.inventoryReservations)?context.inventoryReservations:[]).filter(function(row){
+      return ['active','consumed'].indexOf(String(row.status))>=0&&String(row.materialId)===String(material.id)&&!terminalSalesOrders[String(row.salesOrderId||'')];
     });
-    function remainingReservation(row){
-      var used=existing.filter(function(tx){return tx.movement==='issue'&&String(tx.reservationId||'')===String(row.id||'');}).reduce(function(sum,tx){return sum+n(tx.qty);},0);
-      return Math.max(0,n(row.qty)-used);
+    function netIssuedForReservation(row){
+      return existing.filter(function(tx){return String(tx.reservationId||'')===String(row.id||'');}).reduce(function(sum,tx){
+        if(tx.movement==='issue')return sum+n(tx.qty);
+        if(tx.movement==='return')return sum-n(tx.qty);
+        return sum;
+      },0);
     }
-    var totalReserved=activeReservations.reduce(function(sum,row){return sum+remainingReservation(row);},0);
+    function remainingReservation(row){
+      return Math.max(0,n(row.qty)-Math.max(0,netIssuedForReservation(row)));
+    }
+    var totalReserved=reservationRows.reduce(function(sum,row){return sum+remainingReservation(row);},0);
     if(salesOrderId){
-      var reservedForOrder=activeReservations.filter(function(row){return String(row.salesOrderId)===salesOrderId&&String(row.id)===reservationId;}).reduce(function(sum,row){return sum+remainingReservation(row);},0);
-      if(reservedForOrder<=0.000001)throw new Error('Sales Order belum memiliki reservasi aktif untuk material ini.');
-      if(qty>reservedForOrder+0.000001)throw new Error('Kuantitas pengeluaran melebihi sisa reservasi Sales Order.');
+      var linkedReservation=reservationRows.find(function(row){return String(row.salesOrderId)===salesOrderId&&String(row.id)===reservationId;});
+      if(!linkedReservation)throw new Error('Sales Order belum memiliki reservasi yang dapat digunakan untuk transaksi ini.');
+      var reservedForOrder=remainingReservation(linkedReservation);
+      var netIssued= Math.max(0,netIssuedForReservation(linkedReservation));
+      if(input.movement==='issue'){
+        if(reservedForOrder<=0.000001)throw new Error('Sales Order belum memiliki sisa reservasi aktif untuk material ini.');
+        if(qty>reservedForOrder+0.000001)throw new Error('Kuantitas pengeluaran melebihi sisa reservasi Sales Order.');
+      }else{
+        if(netIssued<=0.000001)throw new Error('Belum ada material yang dikeluarkan dari reservasi ini untuk diretur.');
+        if(qty>netIssued+0.000001)throw new Error('Kuantitas retur melebihi jumlah yang sudah dikeluarkan dari reservasi ini.');
+      }
+    }
+    if(input.movement==='return'&&!salesOrderId){
+      var unlinkedReservation=reservationRows.find(function(row){
+        var linkedOrder=salesOrders.find(function(order){return String(order.id)===String(row.salesOrderId||'');});
+        var rowProject=String(row.projectId||linkedOrder&&linkedOrder.projectId||'');
+        return rowProject===projectId&&Math.max(0,netIssuedForReservation(row))>0.000001;
+      });
+      if(unlinkedReservation)throw new Error('Retur material dari Sales Order harus ditautkan ke Sales Order dan ID reservasi yang sama.');
     }
     if(['adjustment_in','adjustment_out'].indexOf(input.movement)>=0&&!String(input.notes||'').trim())throw new Error('Alasan penyesuaian stok wajib diisi.');
     if(input.movement==='receipt'&&!String(input.supplier||'').trim()&&!String(input.purchaseOrderId||'').trim())throw new Error('Isi supplier atau nomor Purchase Order untuk penerimaan.');
@@ -131,8 +153,10 @@
     };
     if(transaction.notes.length>500||transaction.reference.length>120||transaction.supplier.length>160)throw new Error('Catatan, referensi, atau supplier terlalu panjang.');
     var balances=calculateBalances(materials,existing.concat([transaction]));
-    if(['issue','adjustment_out'].indexOf(input.movement)>=0){
-      var reservedAfter=totalReserved-(salesOrderId&&input.movement==='issue'?qty:0);
+    if(['issue','return','adjustment_out'].indexOf(input.movement)>=0){
+      var reservedAfter=totalReserved;
+      if(salesOrderId&&input.movement==='issue')reservedAfter=Math.max(0,reservedAfter-qty);
+      if(salesOrderId&&input.movement==='return')reservedAfter+=qty;
       if(n(balances[material.id])<reservedAfter-0.000001)throw new Error('Stok tidak cukup untuk pengeluaran ini karena sebagian stok sedang dikunci oleh Sales Order lain.');
     }
     return{transaction:transaction,balances:balances};
