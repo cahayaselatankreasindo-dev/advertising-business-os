@@ -385,7 +385,7 @@
     });
   }
   function calculateMaterialCostVariance(requirements,projectId,transactions,materials){
-    var rows=(Array.isArray(requirements)?requirements:[]),project=String(projectId||''),actualByMaterial=Object.create(null),complete=true,estimated=false;
+    var rows=(Array.isArray(requirements)?requirements:[]),project=String(projectId||''),actualByMaterial=Object.create(null),actualComplete=true,estimated=false;
     var valuation=Array.isArray(materials)?calculateInventoryValuation(materials,transactions):null;
     (Array.isArray(transactions)?transactions:[]).forEach(function(tx){
       if(String(tx.projectId||'')!==project||['issue','return'].indexOf(String(tx.movement||''))<0)return;
@@ -393,13 +393,13 @@
       var derived=valuation&&valuation.transactionCosts[String(tx.id||'')];
       if(totalCost<=0&&derived&&derived.totalCost>0)totalCost=derived.totalCost;
       if(totalCost<=0&&unitCost>0)totalCost=Math.round(qty*unitCost);
-      if(totalCost<=0){complete=false;return;}
+      if(totalCost<=0){actualComplete=false;return;}
       if(!actualByMaterial[id])actualByMaterial[id]={qty:0,cost:0,estimated:false};
       var sign=tx.movement==='issue'?1:-1;
       actualByMaterial[id].qty+=sign*qty;
       actualByMaterial[id].cost+=sign*totalCost;
       if((derived&&derived.estimated)||tx.costSource==='master_fallback'||tx.costSource==='legacy_master_fallback')actualByMaterial[id].estimated=true;
-      if(derived&&!derived.complete)complete=false;
+      if(derived&&!derived.complete)actualComplete=false;
     });
     var result=rows.map(function(line){
       var actual=actualByMaterial[String(line.materialId)]||{qty:0,cost:0,estimated:false};
@@ -420,7 +420,7 @@
       rows:result,estimatedTotalCost:result.every(function(row){return row.estimatedCost!==null;})?Math.round(result.reduce(function(sum,row){return sum+row.estimatedCost;},0)):null,
       actualTotalCost:Math.round(result.reduce(function(sum,row){return sum+row.actualCost;},0)),
       varianceCost:result.every(function(row){return row.varianceCost!==null;})?Math.round(result.reduce(function(sum,row){return sum+row.varianceCost;},0)):null,
-      complete:complete,estimated:estimated
+      complete:actualComplete,varianceComplete:actualComplete&&result.every(function(row){return row.estimatedCost!==null;}),estimated:estimated
     };
   }
   function getBalance(materialId,balances){return n((balances||{})[String(materialId)]);}
