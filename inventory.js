@@ -147,7 +147,7 @@ function renderCommitmentPanel(report){
    return'<tr class="border-t"><td class="p-2"><b>'+esc(row.name)+'</b><div class="text-[10px] text-slate-400">'+esc(row.projects.map(function(project){return project.projectName;}).join(', '))+'</div></td><td class="p-2">'+esc(row.unit)+'</td><td class="p-2 text-right">'+qty(row.onHand)+'</td><td class="p-2 text-right font-semibold">'+qty(row.committed)+'</td><td class="p-2 text-right font-bold '+freeClass+'">'+qty(row.availableAfterCommitments)+'</td><td class="p-2 text-right font-bold '+(row.shortage>0?'text-red-700':'text-emerald-700')+'">'+(row.shortage>0?qty(row.shortage):'0')+'</td></tr>';
   }).join('')+'</tbody></table></div>';
  }
- html+='<p class="text-[10px] text-slate-400 mt-3">Komitmen dihitung dari HPP terbaru proyek dengan status Siap Produksi, Dalam Produksi, Quality Control, dan Siap Dikirim. Pengeluaran serta retur material proyek mengurangi atau menambah kebutuhan tersisa. Ini adalah monitoring, bukan reservasi stok yang terkunci; perubahan HPP dapat mengubah estimasi.</p></section>';
+ html+='<p class="text-[10px] text-slate-400 mt-3">Komitmen merupakan estimasi kebutuhan HPP untuk perencanaan dan dapat berubah jika HPP diperbarui. Reservasi yang benar-benar mengunci stok ditampilkan pada panel terpisah.</p></section>';
  return html;
 }
 function renderReservationPanel(d){
@@ -163,7 +163,7 @@ function renderReservationPanel(d){
    : '<button data-inv-action="reserve-so" data-sales-order-id="'+esc(order.id)+'" class="px-3 py-2 rounded-lg bg-violet-700 text-white text-[10px] font-bold">Kunci Stok</button>';
   return '<div class="flex flex-wrap items-center justify-between gap-3 border rounded-xl p-3"><div class="min-w-0"><div class="font-bold text-xs">'+esc(order.orderNo||order.id)+' · '+esc(order.projectName||'Proyek')+'</div><div class="text-[10px] text-slate-500 mt-1">'+(active.length?'<span class="text-emerald-700 font-semibold">Terkunci</span> · '+summary:'<span class="text-amber-700">Belum direservasi</span> · '+esc(order.client||''))+'</div></div>'+(bridge()&&bridge().isOwner()?action:'')+'</div>';
  }).join('')+'</div>';
- html+='<p class="text-[10px] text-slate-400 mt-3">Reservasi diproses atomik oleh Google Apps Script. Stok yang sudah dikunci tidak dapat dipesan oleh Sales Order lain. Untuk saat ini, pelepasan dilakukan manual oleh Owner; pencatatan picking dan pemakaian reservasi akan menjadi tahap berikutnya.</p></section>';
+ html+='<p class="text-[10px] text-slate-400 mt-3">Reservasi dicatat di Google Sheets dan diproses oleh backend. Pembatalan, penyelesaian, atau penutupan Sales Order melepas reservasi aktif secara otomatis. Owner juga dapat melepasnya secara manual untuk koreksi.</p></section>';
  return html;
 }
 async function reserveSalesOrderStock(salesOrderId){
