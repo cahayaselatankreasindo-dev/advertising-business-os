@@ -55,6 +55,49 @@
     });
     return balances;
   }
+  function calculateInventoryValuation(materials,transactions){
+    var materialMap=new Map((Array.isArray(materials)?materials:[]).map(function(m){return[String(m.id),m];}));
+    var state=Object.create(null),transactionCosts=Object.create(null);
+    sortTransactions(transactions).forEach(function(tx){
+      var id=String(tx.materialId||''),material=materialMap.get(id),movement=MOVEMENTS[String(tx.movement||'')];
+      if(!material||!movement)return;
+      var current=state[id]||{qty:0,value:0,estimated:false,complete:true};
+      var qty=n(tx.qty),beforeQty=current.qty,beforeValue=current.value;
+      var average=beforeQty>0.000001?beforeValue/beforeQty:0;
+      var masterCost=n(material.unitPrice),storedCost=n(tx.unitCost);
+      var unitCost=storedCost,estimated=!!(tx.costSource==='master_fallback'||tx.costSource==='legacy_master_fallback'),complete=true;
+      if(unitCost<=0){
+        if(['issue','return','adjustment_out'].indexOf(String(tx.movement))>=0)unitCost=average||masterCost;
+        else if(tx.movement==='adjustment_in'&&beforeQty>0)unitCost=average||masterCost;
+        else unitCost=masterCost;
+        estimated=true;
+      }
+      if(unitCost<=0){complete=false;unitCost=0;}
+      var totalCost=n(tx.totalCost);
+      if(totalCost<=0&&unitCost>0){totalCost=Math.round(qty*unitCost);estimated=true;}
+      if(unitCost>0&&totalCost>0&&Math.abs(totalCost-qty*unitCost)>1.01)complete=false;
+      var signedValue=movement.direction*totalCost;
+      var afterQty=beforeQty+(movement.direction*qty);
+      var afterValue=beforeValue+signedValue;
+      if(afterQty< -0.000001)throw new Error('Stok tidak mencukupi saat menghitung valuasi '+(material.name||id)+'.');
+      if(afterQty<=0.000001){afterQty=0;afterValue=0;}
+      if(afterValue< -1.01){complete=false;estimated=true;afterValue=0;}
+      current={qty:Math.max(0,afterQty),value:Math.max(0,afterValue),estimated:current.estimated||estimated,complete:current.complete&&complete};
+      state[id]=current;
+      transactionCosts[String(tx.id||'')]={
+        unitCost:unitCost,totalCost:totalCost,estimated:estimated,complete:complete,
+        costSource:String(tx.costSource|| (estimated?'legacy_master_fallback':'recorded'))
+      };
+    });
+    var balances={},stockValue={},averageCost={},estimated={},valuationComplete={},valuationByMaterial={};
+    Object.keys(state).forEach(function(id){
+      var row=state[id],avg=row.qty>0?row.value/row.qty:0;
+      balances[id]=row.qty;stockValue[id]=Math.round(row.value);averageCost[id]=Math.round(avg*10000)/10000;
+      estimated[id]=row.estimated;valuationComplete[id]=row.complete;
+      valuationByMaterial[id]={qty:row.qty,stockValue:Math.round(row.value),averageCost:averageCost[id],estimated:row.estimated,complete:row.complete};
+    });
+    return{balances:balances,stockValue:stockValue,averageCost:averageCost,estimated:estimated,complete:valuationComplete,byMaterial:valuationByMaterial,transactionCosts:transactionCosts};
+  }
   function validateTransaction(input,context){
     context=context||{};
     var materials=Array.isArray(context.materials)?context.materials:[];
@@ -85,6 +128,34 @@
       if(receivedQty+qty>orderedQty+0.000001)throw new Error('Jumlah penerimaan melebihi sisa kuantitas Purchase Order.');
     }
     if(input.movement==='opening'&&existing.some(function(tx){return String(tx.materialId)===String(material.id)&&tx.movement==='opening';}))throw new Error('Saldo awal material ini sudah pernah dicatat.');
+    var valuationBefore=calculateInventoryValuation(materials,existing);
+    var averageBefore=n(valuationBefore.averageCost[String(material.id)]);
+    var masterUnitCost=n(material.unitPrice);
+    var suppliedUnitCost=n(input.unitCost);
+    var poUnitCost=0;
+    if(input.movement==='receipt'&&String(input.purchaseOrderId||'').trim()){
+      var selectedPO=(Array.isArray(context.purchaseOrders)?context.purchaseOrders:[]).find(function(po){return String(po.id)===String(input.purchaseOrderId);});
+      var selectedItems=Array.isArray(selectedPO&&selectedPO.items)?selectedPO.items:[];
+      var selectedLine=selectedItems.find(function(item){return String(item.materialId)===String(material.id);});
+      poUnitCost=n(selectedLine&&selectedLine.unitPrice);
+    }
+    var unitCost=0,costSource='';
+    if(input.movement==='opening'){
+      unitCost=suppliedUnitCost||masterUnitCost;
+      costSource=suppliedUnitCost>0?'opening_manual':'master_fallback';
+    }else if(input.movement==='receipt'){
+      unitCost=poUnitCost||suppliedUnitCost||masterUnitCost;
+      costSource=poUnitCost>0?'purchase_order':suppliedUnitCost>0?'manual_receipt':'master_fallback';
+    }else if(input.movement==='adjustment_in'&&averageBefore<=0){
+      unitCost=suppliedUnitCost||masterUnitCost;
+      costSource=suppliedUnitCost>0?'opening_manual':'master_fallback';
+    }else{
+      unitCost=averageBefore||masterUnitCost;
+      costSource=averageBefore>0?'moving_average':'master_fallback';
+    }
+    if(!Number.isFinite(unitCost)||unitCost<=0)throw new Error('Harga pokok per satuan stok belum tersedia. Isi harga pokok Master Material atau harga transaksi terlebih dahulu.');
+    unitCost=Math.round(unitCost*10000)/10000;
+    var totalCost=Math.round(qty*unitCost);
     var transaction={
       id:String(input.id||'ITX-'+Date.now()+'-'+Math.random().toString(36).slice(2,8).toUpperCase()),
       transactionNo:String(input.transactionNo||nextTransactionNumber(existing,date)),
@@ -92,6 +163,7 @@
       movement:String(input.movement),qty:qty,unit:String(material.unit||''),
       date:date,projectId:projectId,projectName:String((projects.find(function(p){return String(p.id)===projectId;})||{}).title||''),
       purchaseOrderId:String(input.purchaseOrderId||''),supplier:String(input.supplier||''),
+      unitCost:unitCost,totalCost:totalCost,costSource:costSource,costingMethod:'moving_average',
       reference:String(input.reference||''),notes:String(input.notes||''),
       createdAt:String(input.createdAt||new Date().toISOString()),createdBy:String(input.createdBy||'Owner')
     };
@@ -145,11 +217,18 @@
         return;
       }
       var key=String(material.id);
-      if(!grouped[key])grouped[key]={materialId:material.id,name:material.name,unit:stockUnit,required:0,onHand:n((balances||{})[key])};
+      var lineCost=n(item.subtotal);
+      if(lineCost<=0&&n(item.unitPrice)>0)lineCost=qty*n(item.unitPrice);
+      if(!grouped[key])grouped[key]={materialId:material.id,name:material.name,unit:stockUnit,required:0,onHand:n((balances||{})[key]),estimatedTotalCost:0,estimatedCostKnown:true};
       grouped[key].required+=stockQty;
+      if(lineCost>0)grouped[key].estimatedTotalCost+=lineCost;
+      else grouped[key].estimatedCostKnown=false;
     });
     var requirements=Object.keys(grouped).map(function(key){
-      var row=grouped[key];row.shortage=Math.max(0,row.required-row.onHand);row.remaining=row.onHand-row.required;row.ready=row.shortage<=0;return row;
+      var row=grouped[key];row.shortage=Math.max(0,row.required-row.onHand);row.remaining=row.onHand-row.required;row.ready=row.shortage<=0;
+      row.estimatedTotalCost=row.estimatedCostKnown?Math.round(row.estimatedTotalCost):null;
+      row.estimatedUnitCost=row.estimatedCostKnown&&row.required>0?row.estimatedTotalCost/row.required:null;
+      delete row.estimatedCostKnown;return row;
     }).sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
     return{hasHpp:true,requirements:requirements,errors:errors,ready:errors.length===0&&requirements.length>0&&requirements.every(function(row){return row.ready;}),materialCount:requirements.length};
   }
@@ -183,7 +262,7 @@
           if(!material){errors.push('Material reservasi tidak ditemukan untuk proyek '+(project.projectName||projectId)+': '+String(line.materialId||'-')+'.');return null;}
           if(String(line.unit||'')!==String(material.unit||'')){errors.push('Satuan snapshot reservasi tidak cocok untuk '+material.name+'.');return null;}
           if(!Number.isFinite(Number(line.required))||required<=0){errors.push('Kuantitas reservasi tidak valid untuk '+material.name+'.');return null;}
-          return{materialId:material.id,name:String(line.name||material.name||''),unit:material.unit,required:required};
+          return{materialId:material.id,name:String(line.name||material.name||''),unit:material.unit,required:required,estimatedUnitCost:Number.isFinite(Number(line.estimatedUnitCost))?Number(line.estimatedUnitCost):null,estimatedTotalCost:Number.isFinite(Number(line.estimatedTotalCost))?Number(line.estimatedTotalCost):null};
         }).filter(Boolean);
         project.reservationSource='snapshot';
         project.reservationOrderNo=String(snapshotOrder.orderNo||snapshotOrder.id||'');
@@ -273,7 +352,42 @@
       };
     });
   }
+  function calculateMaterialCostVariance(requirements,projectId,transactions){
+    var rows=(Array.isArray(requirements)?requirements:[]),project=String(projectId||''),actualByMaterial=Object.create(null),complete=true,estimated=false;
+    (Array.isArray(transactions)?transactions:[]).forEach(function(tx){
+      if(String(tx.projectId||'')!==project||['issue','return'].indexOf(String(tx.movement||''))<0)return;
+      var id=String(tx.materialId||''),qty=n(tx.qty),unitCost=n(tx.unitCost),totalCost=n(tx.totalCost);
+      if(totalCost<=0&&unitCost>0)totalCost=Math.round(qty*unitCost);
+      if(totalCost<=0){complete=false;return;}
+      if(!actualByMaterial[id])actualByMaterial[id]={qty:0,cost:0,estimated:false};
+      var sign=tx.movement==='issue'?1:-1;
+      actualByMaterial[id].qty+=sign*qty;
+      actualByMaterial[id].cost+=sign*totalCost;
+      if(tx.costSource==='master_fallback'||tx.costSource==='legacy_master_fallback')actualByMaterial[id].estimated=true;
+    });
+    var result=rows.map(function(line){
+      var actual=actualByMaterial[String(line.materialId)]||{qty:0,cost:0,estimated:false};
+      var estimate=Number.isFinite(Number(line.estimatedTotalCost))?Number(line.estimatedTotalCost):null;
+      var rowComplete=complete&&estimate!==null;
+      if(estimate===null)complete=false;
+      if(actual.estimated)estimated=true;
+      return{
+        materialId:line.materialId,name:line.name||'',unit:line.unit||'',
+        estimatedQty:n(line.required),actualQty:Math.max(0,actual.qty),
+        estimatedCost:estimate,actualCost:Math.round(actual.cost),
+        varianceCost:estimate===null?null:Math.round(actual.cost-estimate),
+        variancePct:estimate>0?(actual.cost-estimate)/estimate*100:null,
+        estimated:actual.estimated,rowComplete:rowComplete
+      };
+    });
+    return{
+      rows:result,estimatedTotalCost:result.every(function(row){return row.estimatedCost!==null;})?Math.round(result.reduce(function(sum,row){return sum+row.estimatedCost;},0)):null,
+      actualTotalCost:Math.round(result.reduce(function(sum,row){return sum+row.actualCost;},0)),
+      varianceCost:result.every(function(row){return row.varianceCost!==null;})?Math.round(result.reduce(function(sum,row){return sum+row.varianceCost;},0)):null,
+      complete:complete,estimated:estimated
+    };
+  }
   function getBalance(materialId,balances){return n((balances||{})[String(materialId)]);}
   function movementLabel(value){return MOVEMENTS[value]?MOVEMENTS[value].label:String(value||'-');}
-  return{MOVEMENTS:MOVEMENTS,localDate:localDate,nextTransactionNumber:nextTransactionNumber,sortTransactions:sortTransactions,calculateBalances:calculateBalances,validateTransaction:validateTransaction,getBalance:getBalance,calculateHppRequirements:calculateHppRequirements,calculateOpenSalesOrderCommitments:calculateOpenSalesOrderCommitments,calculateMaterialUsageVariance:calculateMaterialUsageVariance,movementLabel:movementLabel};
+  return{MOVEMENTS:MOVEMENTS,localDate:localDate,nextTransactionNumber:nextTransactionNumber,sortTransactions:sortTransactions,calculateBalances:calculateBalances,calculateInventoryValuation:calculateInventoryValuation,validateTransaction:validateTransaction,getBalance:getBalance,calculateHppRequirements:calculateHppRequirements,calculateOpenSalesOrderCommitments:calculateOpenSalesOrderCommitments,calculateMaterialUsageVariance:calculateMaterialUsageVariance,calculateMaterialCostVariance:calculateMaterialCostVariance,movementLabel:movementLabel};
 });
