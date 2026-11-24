@@ -1156,21 +1156,18 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
   var activeReservations = readSheetData(ss, "Inventory_Reservations").filter(function(row) {
     return String(row.status) === "active" && !cancelledSalesOrders[String(row.salesOrderId || "")];
   });
-  var reservationRemainingByOrderMaterial = {};
+  var reservationRemainingById = {};
   var reservedByMaterial = {};
   activeReservations.forEach(function(row) {
     var salesOrderId = String(row.salesOrderId || "");
     var materialId = String(row.materialId || "");
-    var key = salesOrderId + "|" + materialId;
+    var key = String(row.id || "");
     var alreadyIssued = existing.filter(function(tx) {
-      return String(tx.movement) === "issue" &&
-        String(tx.salesOrderId || "") === salesOrderId &&
-        String(tx.materialId || "") === materialId &&
-        String(tx.createdAt || "") >= String(row.createdAt || "");
+      return String(tx.movement) === "issue" && String(tx.reservationId || "") === key;
     }).reduce(function(sum, tx) { return sum + Math.max(0, Number(tx.qty) || 0); }, 0);
     var remaining = Math.max(0, Number(row.qty || 0) - alreadyIssued);
     if (remaining > 0.000001) {
-      reservationRemainingByOrderMaterial[key] = Number(reservationRemainingByOrderMaterial[key] || 0) + remaining;
+      reservationRemainingById[key] = remaining;
       reservedByMaterial[materialId] = Number(reservedByMaterial[materialId] || 0) + remaining;
     }
   });
@@ -1184,7 +1181,7 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
   var seenIds = {};
   var seenNumbers = {};
   var newRows = [];
-  var immutableFields = ["transactionNo","materialId","materialName","movement","qty","unit","date","projectId","projectName","purchaseOrderId","supplier","reference","notes","createdAt","createdBy","salesOrderId"];
+  var immutableFields = ["transactionNo","materialId","materialName","movement","qty","unit","date","projectId","projectName","purchaseOrderId","supplier","reference","notes","createdAt","createdBy","salesOrderId","reservationId"];
   incomingTransactions.forEach(function(tx) {
     if (!tx || !/^ITX-[A-Za-z0-9_-]{8,100}$/.test(String(tx.id || ""))) throw new Error("INVALID_INVENTORY_TRANSACTION_ID");
     var id = String(tx.id);
@@ -1206,12 +1203,16 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     var projectId = String(tx.projectId || "");
     var salesOrderId = String(tx.salesOrderId || "");
     if (["issue","return"].indexOf(String(tx.movement)) >= 0 && !projects.some(function(p) { return String(p.id) === projectId; })) throw new Error("INVENTORY_PROJECT_REQUIRED");
+    var reservationId = String(tx.reservationId || "");
     if (salesOrderId) {
       if (String(tx.movement) !== "issue") throw new Error("INVENTORY_SALES_ORDER_LINK_ONLY_FOR_ISSUE");
+      if (!reservationId) throw new Error("INVENTORY_RESERVATION_ID_REQUIRED");
       var salesOrder = salesOrderById[salesOrderId];
       var salesOrderStatus = String(salesOrder && salesOrder.status || "").toLowerCase();
       if (!salesOrder || ["ready_production","in_production","quality_check","ready_delivery","delivered"].indexOf(salesOrderStatus) < 0) throw new Error("INVENTORY_SALES_ORDER_NOT_ACTIVE");
       if (String(salesOrder.projectId || "") !== projectId) throw new Error("INVENTORY_SALES_ORDER_PROJECT_MISMATCH");
+    } else if (reservationId) {
+      throw new Error("INVENTORY_RESERVATION_LINK_REQUIRES_SALES_ORDER");
     }
     if (["adjustment_in","adjustment_out"].indexOf(String(tx.movement)) >= 0 && !String(tx.notes || "").trim()) throw new Error("INVENTORY_ADJUSTMENT_REASON_REQUIRED");
     var current = existing.find(function(row) { return String(row.id) === id; });
@@ -1272,11 +1273,15 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
     if (newIds[String(tx.id)] && String(tx.movement) === "issue") {
       var salesOrderId = String(tx.salesOrderId || "");
       if (salesOrderId) {
-        var key = salesOrderId + "|" + materialId;
-        var reservedForOrder = Number(reservationRemainingByOrderMaterial[key] || 0);
-        if (reservedForOrder <= 0.000001) throw new Error("INVENTORY_SALES_ORDER_RESERVATION_REQUIRED");
+        var reservation = activeReservations.find(function(row) {
+          return String(row.id || "") === reservationId &&
+            String(row.salesOrderId || "") === salesOrderId &&
+            String(row.materialId || "") === materialId;
+        });
+        var reservedForOrder = Number(reservationRemainingById[reservationId] || 0);
+        if (!reservation || reservedForOrder <= 0.000001) throw new Error("INVENTORY_SALES_ORDER_RESERVATION_REQUIRED");
         if (Number(tx.qty) > reservedForOrder + 0.000001) throw new Error("INVENTORY_ISSUE_EXCEEDS_SALES_ORDER_RESERVATION");
-        reservationRemainingByOrderMaterial[key] = Math.max(0, reservedForOrder - Number(tx.qty));
+        reservationRemainingById[reservationId] = Math.max(0, reservedForOrder - Number(tx.qty));
         reservedByMaterial[materialId] = Math.max(0, Number(reservedByMaterial[materialId] || 0) - Number(tx.qty));
       }
     }
@@ -1306,10 +1311,7 @@ function reconcileConsumedReservations_(ss) {
   reservations.forEach(function(row, index) {
     if (String(row.status) !== "active") return;
     var issued = ledger.filter(function(tx) {
-      return String(tx.movement) === "issue" &&
-        String(tx.salesOrderId || "") === String(row.salesOrderId || "") &&
-        String(tx.materialId || "") === String(row.materialId || "") &&
-        String(tx.createdAt || "") >= String(row.createdAt || "");
+      return String(tx.movement) === "issue" && String(tx.reservationId || "") === String(row.id || "");
     }).reduce(function(sum, tx) { return sum + Math.max(0, Number(tx.qty) || 0); }, 0);
     if (issued + 0.000001 < Number(row.qty || 0)) return;
     var rowNo = index + 2;
