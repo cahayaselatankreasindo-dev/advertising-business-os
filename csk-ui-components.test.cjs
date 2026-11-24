@@ -44,7 +44,7 @@ assert.match(css, /@media print/, 'print styles must remain explicit');
 const cacheVersion = (sw.match(/const CACHE_NAME = 'csk-business-os-v([^']+)'/) || [])[1];
 assert.ok(cacheVersion, 'PWA service worker cache version must be declared');
 assert.equal(manifest.version, cacheVersion, 'PWA manifest and service worker versions must stay aligned');
-assert.match(sw, /csk-business-os-v3\\.2\\.13/, 'PWA cache version must be bumped for the stock reservation release');
+assert.match(sw, /csk-business-os-v3\.2\.13/, 'PWA cache version must be bumped for the stock reservation release');
 assert.match(sw, /'\.\/csk-visual-refresh\.css'/, 'the visual foundation must be cached for offline use');
 assert.match(sw, /'\.\/csk-ui-components\.css'/, 'the shared component styles must be cached for offline use');
 
