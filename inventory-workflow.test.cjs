@@ -131,6 +131,18 @@ const hollowCommitment=commitments.requirements.find(x=>x.materialId==='MAT-HOL'
 assert.equal(hollowCommitment.committed,3,'project issues reduce outstanding material commitment');
 assert.equal(hollowCommitment.availableAfterCommitments,1);
 
+const reservationSnapshot=[{materialId:'MAT-ACR',name:'Akrilik Clear 3mm',unit:'m2',required:5}];
+const reservationLedger=[
+ {...tx('00000020','STK-CSK-2026-00020','opening',10,'2026-11-01'),materialId:'MAT-ACR'},
+ {...tx('00000021','STK-CSK-2026-00021','issue',1,'2026-11-02',{projectId:'PRJ-001'}),materialId:'MAT-ACR'},
+ {...tx('00000022','STK-CSK-2026-00022','return',0.25,'2026-11-03',{projectId:'PRJ-001'}),materialId:'MAT-ACR'}
+];
+const reservedOrders=[{id:'SO-RESERVED-001',orderNo:'SO-CSK-2026-00001',projectId:'PRJ-001',projectName:'Project A',status:'in_production',materialRequirements:reservationSnapshot}];
+assert.throws(()=>E.validateTransaction({materialId:'MAT-ACR',movement:'issue',qty:4.5,unit:'m2',date:'2026-11-04',projectId:'PRJ-001'},{materials,projects,transactions:reservationLedger,salesOrders:reservedOrders,costSheets:[]}),/melebihi sisa reservasi/,'project issue cannot exceed its active HPP reservation');
+const picked=E.validateTransaction({materialId:'MAT-ACR',movement:'issue',qty:4,unit:'m2',date:'2026-11-04',projectId:'PRJ-001'},{materials,projects,transactions:reservationLedger,salesOrders:reservedOrders,costSheets:[]});
+assert.equal(picked.balances['MAT-ACR'],5.25,'valid picking reduces physical stock');
+assert.throws(()=>E.validateTransaction({materialId:'MAT-ACR',movement:'return',qty:1,unit:'m2',date:'2026-11-04',projectId:'PRJ-001'},{materials,projects,transactions:reservationLedger,salesOrders:reservedOrders,costSheets:[]}),/Retur melebihi material/,'project return cannot exceed previously issued material');
+
 const shortageCommitments=E.calculateOpenSalesOrderCommitments(
  activeOrders,commitmentSheets,commitmentMaterials,commitmentLedger,
  {'MAT-ACR':4,'MAT-HOL':4}
@@ -170,9 +182,10 @@ assert.match(html,/CSKInventoryBridge/,'inventory uses internal Business OS brid
 assert.match(ui,/validateTransaction/,'inventory UI validates transactions before save');
 assert.match(ui,/openInventoryReceiptFromPO/,'inventory UI supports PO-linked receiving');
 assert.match(ui,/calculateOpenSalesOrderCommitments/,'inventory UI calculates cross-project active Sales Order commitments');
-assert.match(ui,/Komitmen Material Sales Order/,'inventory page shows the active production material commitment panel');
-assert.match(ui,/Estimasi bebas/,'inventory page distinguishes physical stock from estimated free stock');
-assert.match(ui,/monitoring, bukan reservasi stok yang terkunci/,'inventory UI clearly labels commitments as advisory, not locked reservations');
+assert.match(ui,/Reservasi Material & Picking List/,'inventory page shows locked material reservations and production picking list');
+assert.match(ui,/Stok tersedia/,'inventory page distinguishes physical stock from stock available after reservations');
+assert.match(ui,/data-inv-action="pick"/,'inventory picking list can prefill a project-linked stock issue');
+assert.match(ui,/applyPickingPrefill/,'picking action opens a prefilled issue transaction');
 assert.match(salesUI,/calculateHppRequirements/,'Sales Order material plan uses HPP and verified unit conversion');
 assert.match(salesUI,/createDraftPOFromShortage/,'Sales Order can create supplier-grouped draft POs from HPP shortages');
 assert.match(salesUI,/openPurchaseOrderQty/,'shortage planner subtracts quantities already covered by draft or ordered POs');
