@@ -1133,7 +1133,7 @@ function stockRequirementsFromSalesOrderSnapshot_(snapshot, materials) {
   return result;
 }
 function nextStockReservationEventNo_(rows,date) {
-  var year=String(date).slice(0,4),pattern=new RegExp("^RSV-CSK-"+year+"-(\\\\d+)$"),max=0;
+  var year=String(date).slice(0,4),pattern=new RegExp("^RSV-CSK-"+year+"-(\\d+)$"),max=0;
   (rows||[]).forEach(function(row){var m=pattern.exec(String(row.eventNo||""));if(m)max=Math.max(max,Number(m[1])||0);});
   return "RSV-CSK-"+year+"-"+String(max+1).padStart(5,"0");
 }
