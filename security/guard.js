@@ -431,6 +431,7 @@
       var cloud = response.data || {};
       setLegacyReadOnlyCollections(cloud);
       collectionsForRole().forEach(function (key) { db[key] = mergeById(cloud[key], db[key]); });
+      if (identity.role === 'owner') db.stockReservations = Array.isArray(cloud.stockReservations) ? cloud.stockReservations : [];
       db.invoicePayments = identity.role === 'owner' && Array.isArray(cloud.invoicePayments) ? cloud.invoicePayments : [];
       db.settings.lastSync = cloud.lastSynced || new Date().toISOString();
       db.settings.lastSyncError = '';
@@ -521,6 +522,38 @@
     return { payment: stored, finance: finance };
   }
 
+  async function mutateStockReservation(action, salesOrderId, reason) {
+    if (!ready || !identity) throw new Error('AUTH_REQUIRED');
+    if (identity.role !== 'owner') throw new Error('FORBIDDEN_STOCK_RESERVATION');
+    if (!salesOrderId) throw new Error('SALES_ORDER_ID_REQUIRED');
+    if (syncRunning) throw new Error('SYNC_IN_PROGRESS_TRY_AGAIN');
+    var synced = await syncNow(true);
+    if (!synced) throw new Error('SALES_ORDER_SYNC_REQUIRED_BEFORE_RESERVATION');
+    await post({ action: action, salesOrderId: String(salesOrderId), reason: String(reason || '') });
+    var response = await get('get_data');
+    var cloud = response.data || {};
+    var rows = Array.isArray(cloud.stockReservations) ? cloud.stockReservations : [];
+    var active = {};
+    rows.filter(function(row){return String(row.salesOrderId)===String(salesOrderId);}).forEach(function(row){
+      var key=String(row.materialId||'');
+      active[key]=(active[key]||0)+(String(row.eventType)==='reserve'?1:(String(row.eventType)==='release'?-1:0))*Math.max(0,Number(row.qty)||0);
+    });
+    var hasActive = Object.keys(active).some(function(key){return active[key]>0.000001;});
+    if (action === 'reserve_sales_order_stock' && !hasActive) throw new Error('STOCK_RESERVATION_NOT_VERIFIED');
+    if (action === 'release_sales_order_stock' && hasActive) throw new Error('STOCK_RESERVATION_RELEASE_NOT_VERIFIED');
+    db.stockReservations = rows;
+    saveScoped();
+    if (typeof renderAll === 'function') renderAll();
+    if (typeof updateCloudIndicator === 'function') updateCloudIndicator();
+    return { reservations: rows.filter(function(row){return String(row.salesOrderId)===String(salesOrderId);}), active: hasActive };
+  }
+  async function reserveSalesOrderStock(salesOrderId) {
+    return mutateStockReservation('reserve_sales_order_stock', salesOrderId, '');
+  }
+  async function releaseSalesOrderStock(salesOrderId, reason) {
+    return mutateStockReservation('release_sales_order_stock', salesOrderId, reason || 'Reservasi dilepas oleh Owner');
+  }
+
   window.CSKAuth = {
     isReady: function () { return ready; },
     getIdentity: function () { return identity ? { email: identity.email, role: identity.role } : null; },
@@ -529,7 +562,9 @@
     pull: function () { return window.pullAndMerge(); },
     deleteRecord: function (sheet, id) { return window.deleteOnCloud(sheet, id); },
     getData: function () { return get('get_data'); },
-    recordInvoicePayment: recordInvoicePayment
+    recordInvoicePayment: recordInvoicePayment,
+    reserveSalesOrderStock: reserveSalesOrderStock,
+    releaseSalesOrderStock: releaseSalesOrderStock
   };
 
   // Warn before leaving while Owner changes or a legacy migration still await verified cloud sync.
