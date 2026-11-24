@@ -189,6 +189,13 @@ assert.match(backend,/Inventory_Reservations/,'reservation records use a dedicat
 assert.match(backend,/releaseSalesOrderReservation_/,'Owner can release an active Sales Order reservation');
 assert.match(guard,/inventoryTransactions/,'owner sync includes inventory ledger');
 assert.match(guard,/inventory/,'inventory navigation is Owner-only');
+assert.match(guard,/reserveSalesOrderStock/,'authenticated client exposes verified reserve action');
+assert.match(guard,/releaseSalesOrderReservation/,'authenticated client exposes verified release action');
+assert.match(guard,/inventoryReservations = identity\.role === 'owner'/,'reservation state is read from cloud and never added to generic sync collections');
+assert.match(html,/reserveSalesOrderStock: function/,'Business OS bridge exposes reservation actions to Inventory UI');
+assert.match(ui,/renderReservationPanel/,'Inventory UI displays locked Sales Order reservations');
+assert.match(ui,/data-inv-action="reserve-so"/,'Owner can lock stock from the Inventory page');
+assert.match(ui,/data-inv-action="release-so"/,'Owner can release an active stock reservation');
 assert.match(html,/id="page-inventory"/,'inventory page is mounted in Business OS');
 assert.match(html,/CSKInventoryBridge/,'inventory uses internal Business OS bridge');
 assert.match(html,/costSheets: db\.costSheets \|\| \[\], salesOrders: db\.salesOrders \|\| \[\]/,'inventory bridge supplies HPP and Sales Order data to the commitment monitor');
