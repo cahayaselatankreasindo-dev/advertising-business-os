@@ -47,6 +47,7 @@ jobs:
           node --check sales-order-backend.test.cjs
           node --check inventory-engine.js
           node --check inventory.js
+          node --check security/guard.js
           node --check inventory-workflow.test.cjs
           node --check inventory-backend.test.cjs
           node --check commercial-documents.test.cjs
