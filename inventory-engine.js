@@ -98,6 +98,20 @@
     });
     return{balances:balances,stockValue:stockValue,averageCost:averageCost,estimated:estimated,complete:valuationComplete,byMaterial:valuationByMaterial,transactionCosts:transactionCosts};
   }
+  function calculateProjectNetIssueCost(projectId,materialId,transactions,valuation){
+    var project=String(projectId||''),material=String(materialId||''),netQty=0,netCost=0;
+    var costs=valuation&&valuation.transactionCosts||{};
+    sortTransactions(transactions).forEach(function(tx){
+      if(String(tx.projectId||'')!==project||String(tx.materialId||'')!==material||['issue','return'].indexOf(String(tx.movement||''))<0)return;
+      var qty=n(tx.qty),snapshot=costs[String(tx.id||'')]||{};
+      var unitCost=n(snapshot.unitCost)||n(tx.unitCost),totalCost=n(snapshot.totalCost)||n(tx.totalCost);
+      if(totalCost<=0&&unitCost>0)totalCost=Math.round(qty*unitCost);
+      if(tx.movement==='issue'){netQty+=qty;netCost+=totalCost;}
+      else{netQty-=qty;netCost-=totalCost;}
+    });
+    netQty=Math.max(0,netQty);netCost=Math.max(0,netCost);
+    return{qty:netQty,totalCost:netCost,averageCost:netQty>0?netCost/netQty:0};
+  }
   function validateTransaction(input,context){
     context=context||{};
     var materials=Array.isArray(context.materials)?context.materials:[];
@@ -146,6 +160,10 @@
     }else if(input.movement==='receipt'){
       unitCost=poUnitCost||suppliedUnitCost||masterUnitCost;
       costSource=poUnitCost>0?'purchase_order':suppliedUnitCost>0?'manual_receipt':'master_fallback';
+    }else if(input.movement==='return'){
+      var projectIssueCost=calculateProjectNetIssueCost(projectId,material.id,existing,valuationBefore);
+      unitCost=projectIssueCost.averageCost||averageBefore||masterUnitCost;
+      costSource=projectIssueCost.averageCost>0?'project_issue_average':averageBefore>0?'moving_average':'master_fallback';
     }else if(input.movement==='adjustment_in'&&averageBefore<=0){
       unitCost=suppliedUnitCost||masterUnitCost;
       costSource=suppliedUnitCost>0?'opening_manual':'master_fallback';
