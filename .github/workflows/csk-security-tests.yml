@@ -9,6 +9,7 @@ on:
       - feature/commercial-documents-standalone-20261109
       - feature/hpp-material-conversion-20261120
       - feature/csk-colorful-ui-20261124
+      - feature/csk-stock-reservation-20261124
   pull_request:
     branches:
       - main
