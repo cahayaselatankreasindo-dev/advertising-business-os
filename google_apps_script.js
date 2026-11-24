@@ -1031,8 +1031,18 @@ function reserveSalesOrderStock_(ss, salesOrderId, identity) {
       if (!required[key]) required[key] = { material: material, qty: 0 };
       required[key].qty += stockQty;
     });
-    var keys = Object.keys(required);
-    if (!keys.length) throw new Error("SALES_ORDER_HPP_HAS_NO_MATERIALS");
+    var allKeys = Object.keys(required);
+    allKeys.forEach(function(key) {
+      var alreadyIssued = ledger.filter(function(tx) {
+        return String(tx.movement) === "issue" &&
+          String(tx.salesOrderId || "") === String(salesOrderId) &&
+          String(tx.materialId || "") === String(key);
+      }).reduce(function(sum, tx) { return sum + Math.max(0, Number(tx.qty) || 0); }, 0);
+      required[key].qty = Math.max(0, required[key].qty - alreadyIssued);
+    });
+    var keys = allKeys.filter(function(key) { return required[key].qty > 0.000001; });
+    if (!allKeys.length) throw new Error("SALES_ORDER_HPP_HAS_NO_MATERIALS");
+    if (!keys.length) throw new Error("SALES_ORDER_HPP_MATERIALS_ALREADY_ISSUED");
     var shortages = [];
     keys.forEach(function(key) {
       var available = Number(balances[key] || 0) - Number(reserved[key] || 0);
