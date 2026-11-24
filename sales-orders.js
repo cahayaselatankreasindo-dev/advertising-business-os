@@ -273,8 +273,7 @@ async function downloadMaterialCostReport(salesOrderId){
    valuationMethod:'Moving Weighted Average (WAC)',
    lines:lines
   });
-  if(!result||!result.ok)throw new Error(result&&result.error||'PDF rekonsiliasi biaya material belum berhasil dibuat.');
-  return result;
+  return result||{ok:false,error:'PDF rekonsiliasi biaya material belum berhasil dibuat.'};
  }catch(error){notify(error.message||String(error),true);return{ok:false,error:error.message||String(error)};}
 }
 async function createDraftPOFromShortage(salesOrderId){
