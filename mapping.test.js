@@ -236,8 +236,8 @@ const FIELD_MAP = sandbox.FIELD_MAP;
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
-    ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoice_Payments','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Sales_Orders','Inventory_Transactions','Services'].sort(),
-    'FIELD_MAP mencakup 16 tab');
+    ['Clients','Commercial_Quotations','Cost_Sheets','Finance','Invoice_Payments','Invoices','Leads','Marketing_Spend','Materials','Memory','Projects','Purchase_Orders','Quotations','Sales_Orders','Inventory_Transactions','Services','Stock_Reservations'].sort(),
+    'FIELD_MAP mencakup 17 tab');
   eq(FIELD_MAP.Purchase_Orders.headers,
     ['ID','ProjectID','NamaProyek','Supplier','Tanggal','ItemsJSON','Total','Status','CreatedAt','UpdatedAt','InventoryControlVersion'],
     'Purchase Orders menambahkan versi kontrol penerimaan tanpa mengubah kolom lama');
