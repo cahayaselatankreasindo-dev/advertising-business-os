@@ -101,18 +101,26 @@
       if(qty>Math.max(0,netIssued)+0.000001)throw new Error('Retur melebihi material yang pernah dikeluarkan ke proyek.');
     }
     if(transaction.movement==='issue'){
-      var activeProject=(Array.isArray(context.salesOrders)?context.salesOrders:[]).some(function(order){return String(order.projectId)===projectId&&['ready_production','in_production'].indexOf(String(order.status||''))>=0;});
+      var salesOrders=Array.isArray(context.salesOrders)?context.salesOrders:[];
+      var activeProject=salesOrders.some(function(order){return String(order.projectId)===projectId&&['ready_production','in_production'].indexOf(String(order.status||''))>=0;});
+      var balancesBefore=calculateBalances(materials,existing);
+      var reservationsBefore=calculateOpenSalesOrderCommitments(salesOrders,context.costSheets,materials,existing,balancesBefore);
+      if(reservationsBefore.errors.length)throw new Error('Reservasi material proyek belum valid: '+reservationsBefore.errors.join(' '));
       if(activeProject){
-        var balancesBefore=calculateBalances(materials,existing);
-        var reservations=calculateOpenSalesOrderCommitments(context.salesOrders,context.costSheets,materials,existing,balancesBefore);
-        if(reservations.errors.length)throw new Error('Reservasi material proyek belum valid: '+reservations.errors.join(' '));
         var reservedLine=null;
-        reservations.requirements.some(function(row){return String(row.materialId)===String(material.id)&&row.projects.some(function(line){if(String(line.projectId)===projectId){reservedLine=line;return true;}return false;});});
+        reservationsBefore.requirements.some(function(row){return String(row.materialId)===String(material.id)&&row.projects.some(function(line){if(String(line.projectId)===projectId){reservedLine=line;return true;}return false;});});
         if(!reservedLine)throw new Error('Material tidak tercantum dalam reservasi HPP proyek aktif.');
         if(qty>reservedLine.outstanding+0.000001)throw new Error('Pengeluaran melebihi sisa reservasi proyek ('+reservedLine.outstanding+' '+material.unit+').');
       }
     }
     var balances=calculateBalances(materials,existing.concat([transaction]));
+    if(transaction.movement==='issue'){
+      var reservationsAfter=calculateOpenSalesOrderCommitments(context.salesOrders,context.costSheets,materials,existing.concat([transaction]),balances);
+      if(reservationsAfter.errors.length)throw new Error('Reservasi material proyek belum valid: '+reservationsAfter.errors.join(' '));
+      reservationsAfter.requirements.forEach(function(row){
+        if(row.committed>n(balances[row.materialId])+0.000001)throw new Error('Pengeluaran akan mengurangi stok yang sudah direservasi proyek lain untuk '+row.name+'.');
+      });
+    }
     return{transaction:transaction,balances:balances};
   }
   function calculateHppRequirements(costSheet,materials,balances){
