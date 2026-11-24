@@ -187,6 +187,7 @@ assert.match(backend,/LockService\.getScriptLock\(\)/,'stock reservation is prot
 assert.match(backend,/RESERVATION_STOCK_INSUFFICIENT/,'stock reservation rejects competing orders when free stock is insufficient');
 assert.match(backend,/Inventory_Reservations/,'reservation records use a dedicated server-owned sheet');
 assert.match(backend,/releaseSalesOrderReservation_/,'Owner can release an active Sales Order reservation');
+assert.match(backend,/releaseTerminalSalesOrderReservations_\(ss, payload\.salesOrders, identity\)/,'terminal Sales Order status automatically releases active reservations');
 assert.match(guard,/inventoryTransactions/,'owner sync includes inventory ledger');
 assert.match(guard,/inventory/,'inventory navigation is Owner-only');
 assert.match(guard,/reserveSalesOrderStock/,'authenticated client exposes verified reserve action');
