@@ -141,6 +141,7 @@ const reservedOrders=[{id:'SO-RESERVED-001',orderNo:'SO-CSK-2026-00001',projectI
 assert.throws(()=>E.validateTransaction({materialId:'MAT-ACR',movement:'issue',qty:4.5,unit:'m2',date:'2026-11-04',projectId:'PRJ-001'},{materials,projects,transactions:reservationLedger,salesOrders:reservedOrders,costSheets:[]}),/melebihi sisa reservasi/,'project issue cannot exceed its active HPP reservation');
 const picked=E.validateTransaction({materialId:'MAT-ACR',movement:'issue',qty:4,unit:'m2',date:'2026-11-04',projectId:'PRJ-001'},{materials,projects,transactions:reservationLedger,salesOrders:reservedOrders,costSheets:[]});
 assert.equal(picked.balances['MAT-ACR'],5.25,'valid picking reduces physical stock');
+assert.throws(()=>E.validateTransaction({materialId:'MAT-ACR',movement:'issue',qty:6,unit:'m2',date:'2026-11-04',projectId:'PRJ-003'},{materials,projects:projects.concat([{id:'PRJ-003',title:'Awaiting DP'}]),transactions:reservationLedger,salesOrders:reservedOrders,costSheets:[]}),/sudah direservasi proyek lain/,'an unreserved project cannot consume stock held for another production project');
 assert.throws(()=>E.validateTransaction({materialId:'MAT-ACR',movement:'return',qty:1,unit:'m2',date:'2026-11-04',projectId:'PRJ-001'},{materials,projects,transactions:reservationLedger,salesOrders:reservedOrders,costSheets:[]}),/Retur melebihi material/,'project return cannot exceed previously issued material');
 
 const shortageCommitments=E.calculateOpenSalesOrderCommitments(
