@@ -88,6 +88,15 @@ const linkedIssue=E.validateTransaction({
 assert.equal(linkedIssue.transaction.salesOrderId,reservationOrder.id,'stock issue stores its Sales Order link');
 assert.equal(linkedIssue.transaction.reservationId,reservation.id,'stock issue stores the exact reservation row ID');
 assert.equal(linkedIssue.balances['MAT-ACR'],3,'linked material issue reduces physical stock');
+const deliveredOrder={...reservationOrder,status:'delivered'};
+const terminalStockIssue=E.validateTransaction({
+ materialId:'MAT-ACR',movement:'issue',qty:5,unit:'m2',date:'2026-11-16',projectId:'PRJ-001'
+},{materials,projects,transactions:[reservedOpening],salesOrders:[deliveredOrder],inventoryReservations:[reservation]});
+assert.equal(terminalStockIssue.balances['MAT-ACR'],0,'stale reservations for delivered Sales Orders do not block stock availability');
+assert.throws(()=>E.validateTransaction({
+ materialId:'MAT-ACR',movement:'issue',qty:1,unit:'m2',date:'2026-11-16',projectId:'PRJ-001',
+ salesOrderId:deliveredOrder.id,reservationId:reservation.id
+},{materials,projects,transactions:[reservedOpening],salesOrders:[deliveredOrder],inventoryReservations:[reservation]}),/Sales Order tidak berada/,'new linked issues are blocked after Sales Order delivery');
 assert.throws(()=>E.validateTransaction({
  materialId:'MAT-ACR',movement:'issue',qty:2,unit:'m2',date:'2026-11-15',projectId:'PRJ-001'
 },{materials,projects,transactions:[reservedOpening],inventoryReservations:[reservation]}),/dikunci oleh Sales Order/,'unlinked issue cannot consume reserved stock');
