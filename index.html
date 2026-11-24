@@ -3371,6 +3371,8 @@
         if (!verified) throw new Error("Transaksi stok belum terverifikasi di Google Sheets. Periksa koneksi lalu sinkronkan kembali.");
         return true;
       },
+      reserveSalesOrderStock: function (salesOrderId) { if (!window.CSKAuth || !window.CSKAuth.reserveSalesOrderStock) throw new Error('Fitur reservasi stok belum siap.'); return window.CSKAuth.reserveSalesOrderStock(salesOrderId); },
+      releaseSalesOrderReservation: function (salesOrderId, reason) { if (!window.CSKAuth || !window.CSKAuth.releaseSalesOrderReservation) throw new Error('Fitur pelepasan reservasi belum siap.'); return window.CSKAuth.releaseSalesOrderReservation(salesOrderId, reason); },
       toast: function (message, isError) { showToast(message, !!isError); }
     };
 
