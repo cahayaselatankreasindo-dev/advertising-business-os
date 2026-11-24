@@ -251,3 +251,16 @@ Safety boundary:
 - No public CSK website, production Google Sheet, Apps Script deployment, Script Properties, or production database was modified.
 - No Supabase project, schema migration, or production cutover was created/performed.
 
+
+
+---
+
+## 14. Update keputusan Owner — 24 November 2026
+
+- Fokus aktif hanya **CSK Business OS**, bukan website publik CSK.
+- Jangan gunakan Supabase untuk fase sekarang. Jangan membuat project, mengubah database, menambahkan autentikasi kedua, atau merencanakan cutover. Supabase ditunda sampai Owner meminta kembali.
+- Arsitektur aktif tetap frontend HTML/JavaScript + Google Apps Script + Google Sheets.
+- PIN login yang ditargetkan adalah 4 digit. PIN lama 8–12 digit masih kompatibel sampai Owner menjalankan rotasi setelah Apps Script versi baru di-deploy.
+- UI harus colorful, modern, premium, nyaman dipakai lama, dan responsif di desktop/iPhone/Android.
+- Prioritas pengembangan: konsistensi semua modul, integrasi alur HPP → quotation/invoice → pembayaran → Sales Order → produksi → inventory/PO, sinkronisasi Sheets, serta pengujian sebelum rilis.
+- Jangan merge ke `main`, deploy Apps Script, mengubah Script Properties, atau menulis data produksi tanpa persetujuan Owner.
