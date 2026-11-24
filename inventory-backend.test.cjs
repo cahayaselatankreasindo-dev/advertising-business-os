@@ -56,6 +56,17 @@ assert.throws(()=>context.validateMaterialsBeforeMerge_(fixture(),[{...validMast
 assert.throws(()=>context.validateMaterialsBeforeMerge_(fixture(),[{...validMasterMaterial,unitPrice:25000}]),/ACTIVE_MATERIAL_USAGE_PRICE_MISMATCH/,'active material usage price must equal purchase price divided by conversion');
 assert.throws(()=>context.validateMaterialsBeforeMerge_(fixture(),[{...validMasterMaterial,priceSource:''}]),/ACTIVE_MATERIAL_PRICE_SOURCE_REQUIRED/,'active material requires a traceable price source');
 
+const convertedPO={...po,status:'received',items:[{materialId:material.id,qty:2,purchaseUnit:'roll',usageUnit:'m2',conversionFactor:6}]};
+const convertedPOFixture=fixture();
+const shortConvertedReceipt=transaction('INV-PO-CONVERT-01','STK-CSK-2026-00991','receipt',11,'2026-11-20',{purchaseOrderId:po.id,supplier:po.supplier});
+assert.throws(()=>context.validatePurchaseOrderReceiptStatuses_(convertedPOFixture,[convertedPO],[shortConvertedReceipt]),/PURCHASE_ORDER_RECEIPT_INCOMPLETE/,'received PO status requires receipt in stock units after purchase conversion');
+const fullConvertedReceipt=transaction('INV-PO-CONVERT-02','STK-CSK-2026-00992','receipt',12,'2026-11-20',{purchaseOrderId:po.id,supplier:po.supplier});
+assert.equal(context.validatePurchaseOrderReceiptStatuses_(fixture(),[convertedPO],[fullConvertedReceipt]),true,'converted PO receipt is complete when all 12 stock units are received');
+
+const wasteAdjustedMaterial={...validMasterMaterial,id:'MAT-MASTER-WASTE',sku:'H-H-2X2-WASTE',wasteRate:10,unitPrice:22000};
+assert.equal(context.validateMaterialsBeforeMerge_(fixture(),[wasteAdjustedMaterial]),true,'HPP usage price includes the configured material waste allowance');
+assert.throws(()=>context.validateMaterialsBeforeMerge_(fixture(),[{...wasteAdjustedMaterial,unitPrice:20000}]),/ACTIVE_MATERIAL_USAGE_PRICE_MISMATCH/,'active material usage price cannot omit its configured waste allowance');
+
 function transaction(id,no,movement,qty,date,extra){
  return Object.assign({
   id:'ITX-'+id,transactionNo:no,materialId:material.id,materialName:material.name,
