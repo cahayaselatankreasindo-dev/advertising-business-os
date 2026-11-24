@@ -182,6 +182,11 @@ assert.match(backend,/validatePurchaseOrderReceiptStatuses_/,'backend validates 
 assert.match(backend,/PURCHASE_ORDER_RECEIPT_INCOMPLETE/,'new versioned POs cannot be marked received before all items are received');
 assert.match(backend,/inventoryControlVersion/,'legacy Purchase Orders remain compatible while new POs require receipt control');
 assert.match(backend,/INVENTORY_LEDGER_SERVER_ONLY/,'direct insert and delete are blocked');
+assert.match(backend,/reserveSalesOrderStock_/,'backend provides an atomic Sales Order stock reservation action');
+assert.match(backend,/LockService\.getScriptLock\(\)/,'stock reservation is protected by a script lock');
+assert.match(backend,/RESERVATION_STOCK_INSUFFICIENT/,'stock reservation rejects competing orders when free stock is insufficient');
+assert.match(backend,/Inventory_Reservations/,'reservation records use a dedicated server-owned sheet');
+assert.match(backend,/releaseSalesOrderReservation_/,'Owner can release an active Sales Order reservation');
 assert.match(guard,/inventoryTransactions/,'owner sync includes inventory ledger');
 assert.match(guard,/inventory/,'inventory navigation is Owner-only');
 assert.match(html,/id="page-inventory"/,'inventory page is mounted in Business OS');
