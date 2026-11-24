@@ -99,8 +99,15 @@
       var poItems=Array.isArray(po.items)?po.items:[];
       var matching=poItems.filter(function(item){return String(item.materialId)===String(material.id);});
       if(!matching.length)throw new Error('Material tidak tercantum pada Purchase Order yang dipilih.');
-      if(matching.some(function(item){return String(item.unit||'')!==String(material.unit||'');}))throw new Error('Satuan item Purchase Order tidak sama dengan satuan stok material.');
-      var orderedQty=matching.reduce(function(sum,item){return sum+n(item.qty);},0);
+      matching.forEach(function(item){
+        if(item.purchaseUnit){
+          if(String(item.purchaseUnit)!==String(material.purchaseUnit||material.unit||'')||String(item.usageUnit||'')!==String(material.unit||''))throw new Error('Satuan beli atau satuan pakai pada Purchase Order tidak sesuai master material.');
+          if(!Number.isFinite(Number(item.conversionFactor))||Number(item.conversionFactor)<=0)throw new Error('Faktor konversi pada Purchase Order tidak valid.');
+        }else if(String(item.unit||'')!==String(material.unit||'')){
+          throw new Error('Satuan item Purchase Order lama tidak sama dengan satuan stok material.');
+        }
+      });
+      var orderedQty=matching.reduce(function(sum,item){return sum+n(item.qty)*(item.purchaseUnit?(Number(item.conversionFactor)||0):1);},0);
       var receivedQty=existing.filter(function(tx){return String(tx.purchaseOrderId||'')===String(po.id)&&String(tx.materialId)===String(material.id)&&tx.movement==='receipt';}).reduce(function(sum,tx){return sum+n(tx.qty);},0);
       if(receivedQty+qty>orderedQty+0.000001)throw new Error('Jumlah penerimaan melebihi sisa kuantitas Purchase Order.');
     }
