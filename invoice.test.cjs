@@ -58,7 +58,7 @@ assert.ok(html.includes("'INVOICE PELUNASAN (SISA ' + (100 - currentInvoiceDpPer
 assert.ok(html.includes('id="page-hpp"'), 'HPP calculator page exists');
 assert.ok(html.includes('function addHppMaterial()'), 'material master create handler exists');
 assert.ok(html.includes('function calculateHpp()'), 'HPP calculation handler exists');
-assert.ok(html.includes("itemType:'service',serviceId:service.id"), 'service internal cost can be added to project HPP');
+assert.ok(html.includes("itemType:'service',catalogRecordType:service.recordType==='product'?'product':'service',serviceId:service.id"), 'service and product catalog costs can be added to project HPP with their source type preserved');
 assert.ok(html.includes('Number(service.costPrice)<=0'), 'unpriced services cannot be used in HPP');
 assert.ok(html.includes('Material + Jasa'), 'HPP material subtotal includes service costs');
 assert.ok(html.includes('function saveHppEstimate()'), 'project HPP save handler exists');

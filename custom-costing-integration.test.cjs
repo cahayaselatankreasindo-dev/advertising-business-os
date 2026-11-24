@@ -13,6 +13,10 @@ assert.ok(html.includes('openCskCustomCosting()'),'HPP page exposes custom costi
 assert.ok(html.includes('window.CSKCustomCostingBridge'),'HPP bridge is scoped to internal app');
 assert.ok(html.includes('./custom-costing-engine.js')&&html.includes('./custom-costing.js'),'custom costing scripts are loaded by Business OS');
 assert.ok(ui.includes("getCurrentProjectId()"),'custom costing requires a selected project');
+assert.ok(ui.includes('b.isMaterialSelectable'),'custom costing only offers materials that pass the verified HPP material gate');
+assert.ok(ui.includes('function baseUsagePrice(material)'),'custom costing derives a base unit price before applying waste');
+assert.ok(ui.includes('Harga dasar pakai sebelum waste'),'custom costing explains the price basis to the operator');
+assert.ok(engine.includes('function getBaseUsageUnitPrice(material)'),'the costing engine exposes a single waste-safe base price helper');
 assert.ok(ui.includes("addLine(pendingLine)"),'calculated custom line is added through HPP bridge');
 assert.ok(ui.includes('costingDetails'),'calculation details are retained with the HPP line');
 assert.ok(ui.includes('materialSnapshot:{name:m.name||\'\',unit:m.unit||\'\',purchaseUnit:m.purchaseUnit||\'\',conversionFactor:Number(m.conversionFactor)||0'), 'custom costing captures the material unit conversion snapshot');

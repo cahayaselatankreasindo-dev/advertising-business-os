@@ -161,17 +161,70 @@ function drawHeader(pdf, d, continuation) {
   drawText(pdf, 'Jatuh tempo / berlaku: ' + formatDate(d.dueDate), boxX + 5, boxY + 29, 6.1, 'normal', COLORS.white, boxW - 10);
   return 53;
 }
-function drawInfoCard(pdf, x, y, width, title, rows) {
-  setColor(pdf, 'setFillColor', COLORS.paper);
-  pdf.roundedRect(x, y, width, 42, 2, 2, 'F');
-  drawText(pdf, title, x + 4, y + 6, 6.5, 'bold', COLORS.orange);
-  var cursor = y + 12;
-  rows.forEach(function(row, index) {
-    if (!row || !row.value) return;
-    var text = (row.label ? row.label + ': ' : '') + row.value;
-    var h = drawText(pdf, text, x + 4, cursor, index === 0 ? 8 : 7, index === 0 ? 'bold' : 'normal', index === 0 ? COLORS.ink : COLORS.muted, width - 8);
-    cursor += Math.max(4, h + 1);
+function measureInfoCardHeight(pdf,width,rows){
+  var total=12;
+  (rows||[]).forEach(function(row,index){
+    if(!row||!row.value)return;
+    var text=(row.label?row.label+': ':'')+row.value;
+    var size=index===0?8:7;
+    pdf.setFont('helvetica',index===0?'bold':'normal');
+    pdf.setFontSize(size);
+    var lines=pdf.splitTextToSize(cleanText(text),width-8);
+    total+=Math.max(3,lines.length*size*0.42)+1.2;
   });
+  return Math.max(28,total+2);
+}
+function drawInfoCard(pdf, x, y, width, title, rows) {
+  var cursor=y+12,layouts=[];
+  (rows||[]).forEach(function(row,index){
+    if(!row||!row.value)return;
+    var text=(row.label?row.label+': ':'')+row.value;
+    var size=index===0?8:7;
+    pdf.setFont('helvetica',index===0?'bold':'normal');
+    pdf.setFontSize(size);
+    var lines=pdf.splitTextToSize(cleanText(text),width-8);
+    var height=Math.max(3,lines.length*size*0.42);
+    layouts.push({text:text,size:size,style:index===0?'bold':'normal',color:index===0?COLORS.ink:COLORS.muted,y:cursor});
+    cursor+=height+1.2;
+  });
+  var cardHeight=measureInfoCardHeight(pdf,width,rows);
+  setColor(pdf,'setFillColor',COLORS.paper);
+  pdf.roundedRect(x,y,width,cardHeight,2,2,'F');
+  drawText(pdf,title,x+4,y+6,6.5,'bold',COLORS.orange);
+  layouts.forEach(function(item){
+    drawText(pdf,item.text,x+4,item.y,item.size,item.style,item.color,width-8);
+  });
+  return cardHeight;
+}
+function drawSummaryCard(pdf,d,y,pageHeight){
+  var summary=d.paymentSummary||('Nilai kontrak: '+formatRupiah(d.contractTotal));
+  var lines=pdf.splitTextToSize(cleanText(summary),174);
+  if(lines.length>4)return drawSectionWithPagination(pdf,d,'RINGKASAN PEMBAYARAN',summary,y,174,pageHeight);
+  var height=Math.max(15,8+lines.length*3.2);
+  if(y+height>pageHeight-30){pdf.addPage();y=drawHeader(pdf,d,true)+4;}
+  setColor(pdf,'setFillColor',COLORS.paleOrange);
+  pdf.roundedRect(14,y,182,height,2,2,'F');
+  drawText(pdf,summary,18,y+Math.min(9,height-4),7.2,'bold',COLORS.ink,174);
+  return y+height+6;
+}
+function drawSectionWithPagination(pdf,d,title,text,y,width,pageHeight){
+  var lines=pdf.splitTextToSize(cleanText(text),width),lineHeight=3.4,fontSize=7,first=true;
+  while(lines.length){
+    if(y+12>pageHeight-25){pdf.addPage();y=drawHeader(pdf,d,true)+5;}
+    drawText(pdf,title+(first?'':' (LANJUTAN)'),14,y+4,6.5,'bold',COLORS.orange);
+    y+=9;
+    var capacity=Math.floor((pageHeight-25-y)/lineHeight);
+    if(capacity<1){pdf.addPage();y=drawHeader(pdf,d,true)+5;continue;}
+    var chunk=lines.splice(0,capacity);
+    pdf.setFont('helvetica','normal');
+    pdf.setFontSize(fontSize);
+    setColor(pdf,'setTextColor',COLORS.ink);
+    pdf.text(chunk,14,y);
+    y+=chunk.length*lineHeight+6;
+    if(lines.length){pdf.addPage();y=drawHeader(pdf,d,true)+5;}
+    first=false;
+  }
+  return y;
 }
 function drawTableHeader(pdf, y) {
   var x = [14, 23, 99, 114, 131, 162, 196];
@@ -243,20 +296,25 @@ function generatePdf(input, jsPDF) {
     creator: 'CSK Business OS'
   });
   var y = drawHeader(pdf, d, false);
-  drawInfoCard(pdf, 14, y, 88, 'DITUJUKAN KEPADA', [
-    { value: d.client || 'Nama pelanggan belum diisi' },
-    { value: d.contactPerson, label: 'PIC' },
-    { value: d.clientPhone, label: 'Telepon' },
-    { value: d.clientEmail, label: 'Email' },
-    { value: d.clientAddress, label: 'Alamat' }
-  ]);
-  drawInfoCard(pdf, 108, y, 88, 'INFORMASI PEKERJAAN', [
-    { value: d.projectName || '-' },
-    { value: d.projectId, label: 'Project ID' },
-    { value: d.projectDeadline ? formatDate(d.projectDeadline) : '', label: 'Deadline proyek' },
-    { value: d.status ? d.status.toUpperCase() : '', label: 'Status' }
-  ]);
-  y += 51;
+  var clientRows=[
+    {value:d.client||'Nama pelanggan belum diisi'},
+    {value:d.contactPerson,label:'PIC'},
+    {value:d.clientPhone,label:'Telepon'},
+    {value:d.clientEmail,label:'Email'},
+    {value:d.clientAddress,label:'Alamat'}
+  ];
+  var projectRows=[
+    {value:d.projectName||'-'},
+    {value:d.projectId,label:'Project ID'},
+    {value:d.projectDeadline?formatDate(d.projectDeadline):'',label:'Deadline proyek'},
+    {value:d.status?d.status.toUpperCase():'',label:'Status'}
+  ];
+  var cardBlockHeight=Math.max(measureInfoCardHeight(pdf,88,clientRows),measureInfoCardHeight(pdf,88,projectRows));
+  if(y+cardBlockHeight+30>pageHeight-34){pdf.addPage();y=drawHeader(pdf,d,true)+5;}
+  var clientCardHeight=drawInfoCard(pdf,14,y,88,'DITUJUKAN KEPADA',clientRows);
+  var projectCardHeight=drawInfoCard(pdf,108,y,88,'INFORMASI PEKERJAAN',projectRows);
+  y+=Math.max(clientCardHeight,projectCardHeight)+9;
+  if(y+30>pageHeight-34){pdf.addPage();y=drawHeader(pdf,d,true)+5;}
   drawText(pdf, 'RINCIAN PRODUK DAN JASA', 14, y, 8, 'bold', COLORS.ink);
   y += 8;
   var x = drawTableHeader(pdf, y);
@@ -305,38 +363,14 @@ function generatePdf(input, jsPDF) {
   pdf.text(formatRupiah(d.total), tx + tw - 4, y + 30, { align: 'right' });
   y += totalsHeight + 8;
 
-  if (d.contractTotal != null || d.paymentSummary) {
-    if (y + 17 > pageHeight - 30) { pdf.addPage(); y = drawHeader(pdf, d, true) + 4; }
-    setColor(pdf, 'setFillColor', COLORS.paleOrange);
-    pdf.roundedRect(14, y, 182, 15, 2, 2, 'F');
-    var summary = d.paymentSummary || ('Nilai kontrak: ' + formatRupiah(d.contractTotal));
-    drawText(pdf, summary, 18, y + 9, 7.2, 'bold', COLORS.ink, 174);
-    y += 21;
-  }
-  var leftWidth = 94, rightX = 128;
-  var terms = [];
-  if (d.paymentTerms) terms.push({ label: 'KETENTUAN PEMBAYARAN', text: d.paymentTerms });
-  if (d.terms) terms.push({ label: 'SYARAT DAN KETENTUAN', text: d.terms });
-  if (d.notes) terms.push({ label: 'CATATAN', text: d.notes });
-  var termsHeight = terms.reduce(function(sum, item) {
-    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7);
-    return sum + 7 + pdf.splitTextToSize(item.text, leftWidth).length * 3.6;
-  }, 0);
-  if (y + Math.max(termsHeight, 37) > pageHeight - 25) {
-    pdf.addPage();
-    y = drawHeader(pdf, d, true) + 5;
-  }
-  terms.forEach(function(item) {
-    drawText(pdf, item.label, 14, y + 4, 6.5, 'bold', COLORS.orange);
-    var h = drawText(pdf, item.text, 14, y + 9, 7, 'normal', COLORS.ink, leftWidth);
-    y += h + 13;
-  });
-  if (d.bankDetails) {
-    if (y + 14 > pageHeight - 25) { pdf.addPage(); y = drawHeader(pdf, d, true) + 5; }
-    drawText(pdf, 'INFORMASI PEMBAYARAN', 14, y + 4, 6.5, 'bold', COLORS.orange);
-    var bankHeight = drawText(pdf, d.bankDetails, 14, y + 9, 7, 'normal', COLORS.ink, leftWidth);
-    y += bankHeight + 13;
-  }
+  if(d.contractTotal!=null||d.paymentSummary)y=drawSummaryCard(pdf,d,y,pageHeight);
+  var leftWidth=94,rightX=128;
+  var terms=[];
+  if(d.paymentTerms)terms.push({label:'KETENTUAN PEMBAYARAN',text:d.paymentTerms});
+  if(d.terms)terms.push({label:'SYARAT DAN KETENTUAN',text:d.terms});
+  if(d.notes)terms.push({label:'CATATAN',text:d.notes});
+  terms.forEach(function(item){y=drawSectionWithPagination(pdf,d,item.label,item.text,y,leftWidth,pageHeight);});
+  if(d.bankDetails)y=drawSectionWithPagination(pdf,d,'INFORMASI PEMBAYARAN',d.bankDetails,y,leftWidth,pageHeight);
   var signY = Math.max(y, pageHeight - 62);
   if (signY + 42 > pageHeight - 18) {
     pdf.addPage();
@@ -351,16 +385,62 @@ function generatePdf(input, jsPDF) {
   addFooter(pdf);
   return pdf;
 }
+function isAppleMobile() {
+  var userAgent = String(w && w.navigator && w.navigator.userAgent || '');
+  return /iPhone|iPad|iPod/.test(userAgent) ||
+    (String(w && w.navigator && w.navigator.platform || '') === 'MacIntel' && Number(w && w.navigator && w.navigator.maxTouchPoints || 0) > 1);
+}
+function downloadBlob(blob, filename, previewWindow) {
+  if (!blob || !w || !w.URL || typeof w.URL.createObjectURL !== 'function') {
+    throw new Error('Browser tidak mendukung penyimpanan PDF. Gunakan Cetak lalu Simpan sebagai PDF.');
+  }
+  var url = w.URL.createObjectURL(blob);
+  var appleMobile = isAppleMobile();
+  if (appleMobile && previewWindow && !previewWindow.closed && previewWindow.location) {
+    previewWindow.location.href = url;
+    if (typeof w.setTimeout === 'function') w.setTimeout(function() { w.URL.revokeObjectURL(url); }, 300000);
+    return 'ios-pdf-preview';
+  }
+  if (appleMobile && w.location) {
+    w.location.href = url;
+    if (typeof w.setTimeout === 'function') w.setTimeout(function() { w.URL.revokeObjectURL(url); }, 300000);
+    return 'ios-pdf-current-tab';
+  }
+  var anchor = w.document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.target = appleMobile ? '_blank' : '_self';
+  anchor.rel = 'noopener';
+  anchor.style.display = 'none';
+  w.document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  if (typeof w.setTimeout === 'function') w.setTimeout(function() { w.URL.revokeObjectURL(url); }, 300000);
+  return 'blob-download';
+}
 async function downloadDocument(input) {
+  var previewWindow = null;
+  if (isAppleMobile() && typeof w.open === 'function') {
+    try {
+      previewWindow = w.open('about:blank', '_blank');
+      if (previewWindow && previewWindow.document) previewWindow.document.title = 'Menyiapkan PDF';
+    } catch (openError) {
+      previewWindow = null;
+    }
+  }
   try {
     var jsPDF = await loadJsPdf();
     var pdf = generatePdf(input, jsPDF);
     var filename = makeFilename(input);
-    pdf.save(filename);
-    notify('PDF berhasil dibuat: ' + filename, false);
-    return { ok: true, filename: filename };
+    var blob = pdf.output('blob');
+    var method = downloadBlob(blob, filename, previewWindow);
+    notify(method === 'ios-pdf-preview' || method === 'ios-pdf-current-tab'
+      ? 'PDF dibuka untuk pratinjau. Di iPhone/iPad, pilih Bagikan lalu Simpan ke File.'
+      : 'PDF disiapkan untuk diunduh: ' + filename, false);
+    return { ok: true, filename: filename, method: method };
   } catch (error) {
-    notify('PDF belum berhasil dibuat. ' + String(error && error.message || error) + ' Anda masih dapat mencoba Cetak.', true);
+    if (previewWindow && !previewWindow.closed && typeof previewWindow.close === 'function') previewWindow.close();
+    notify('PDF belum dapat diunduh. ' + String(error && error.message || error) + ' Gunakan Cetak lalu pilih Simpan sebagai PDF.', true);
     return { ok: false, error: String(error && error.message || error) };
   }
 }

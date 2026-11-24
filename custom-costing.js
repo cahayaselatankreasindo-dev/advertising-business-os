@@ -8,7 +8,15 @@ function bridge(){return w.CSKCustomCostingBridge||null;}
 function notify(message,isError){var b=bridge();if(b&&b.toast)b.toast(message,!!isError);}
 function num(id){var node=el(id);return node?Number(node.value):NaN;}
 function val(id){var node=el(id);return node?node.value:'';}
-function materialList(){var b=bridge();return b?b.getMaterials().filter(function(m){return m.status!=='inactive';}):[];}
+function materialList(){var b=bridge();if(!b)return[];return b.getMaterials().filter(function(m){return typeof b.isMaterialSelectable==='function'?b.isMaterialSelectable(m):String(m&&m.status||'active')==='active'&&Number(m&&m.unitPrice)>0;});}
+function baseUsagePrice(material){
+  var E=w.CSKCustomCostingEngine;
+  if(E&&typeof E.getBaseUsageUnitPrice==='function')return E.getBaseUsageUnitPrice(material);
+  var buy=Number(material&&material.purchasePrice),rawFactor=material&&material.conversionFactor,factor=rawFactor===undefined||rawFactor===null||rawFactor===''?1:Number(rawFactor),unit=String(material&&material.unit||''),purchaseUnit=String(material&&material.purchaseUnit||unit),price=Number(material&&material.unitPrice),waste=Number(material&&material.wasteRate)||0;
+  if(Number.isFinite(buy)&&buy>0&&factor>0)return buy/factor;
+  if(purchaseUnit===unit&&Number.isFinite(price)&&price>0&&waste>=0&&waste<=100)return price/(1+waste/100);
+  throw new Error('Harga dasar per satuan pakai belum tersedia.');
+}
 function selectedMaterial(){return materialList().find(function(m){return String(m.id)===String(activeMaterialId);})||null;}
 function methodFor(material){
   var map={sheet_cutlist:'sheet',roll_width_length:'roll',bar_length_cutlist:'bar',pack_to_piece:'pack',dimension_or_volume:'volume'};
@@ -69,7 +77,8 @@ function cutRow(length,qty,removeAction){
 function renderForm(){
   var m=selectedMaterial(),box=el('cc-form');if(!m||!box)return;
   pendingLine=null;el('cc-result').classList.add('hidden');el('cc-add-line').disabled=true;
-  el('cc-material-note').textContent='Supplier: '+(m.supplierName||'belum dicatat')+' · Harga beli: '+money(m.purchasePrice||0)+' / '+(m.purchaseUnit||'-')+' · Harga pakai: '+money(m.unitPrice||0)+' / '+(m.unit||'-')+'. Pastikan harga dan spesifikasi masih berlaku.';
+  var basePrice=0;try{basePrice=baseUsagePrice(m);}catch(error){}
+  el('cc-material-note').textContent='Supplier: '+(m.supplierName||'belum dicatat')+' · Harga beli: '+money(m.purchasePrice||0)+' / '+(m.purchaseUnit||'-')+' · Harga dasar pakai sebelum waste: '+money(basePrice)+' / '+(m.unit||'-')+' · Harga HPP master termasuk waste: '+money(m.unitPrice||0)+' / '+(m.unit||'-')+'.';
   var waste=Number(m.wasteRate)||0,method=activeMethod,html='';
   if(method==='sheet'||method==='roll'){
     var sw=Number(m.widthMm)||'',sh=method==='roll'?(Number(m.rollLengthM)||0)*1000:(Number(m.lengthMm)||'');
@@ -79,11 +88,11 @@ function renderForm(){
   }else if(method==='pack'){
     html='<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">'+field('Jumlah pemakaian (pcs/unit)','cc-usage-qty','','Contoh 30',.01,.01)+field('Isi per kemasan','cc-units-pack',Number(m.conversionFactor)||'','Contoh 100',.01,.01)+field('Harga beli per kemasan (Rp)','cc-pack-price',Number(m.purchasePrice)||'','Harga supplier',1,1)+field('Waste / cadangan (%)','cc-waste',waste,'0',.1,0)+'</div>'+selectField('Perlakuan pembelian','cc-source-mode',[{value:'consumption',label:'Hitung pemakaian aktual (pro-rata)'},{value:'whole_pack',label:'Hitung pembelian kemasan utuh'}],'cc-source-mode','consumption')+'<p class="text-[10px] text-slate-500">Pro-rata cocok untuk menghitung biaya pemakaian saat sisa kemasan tetap menjadi stok. Pilih kemasan utuh jika proyek memang harus membeli pack/box baru.</p>';
   }else if(method==='area'){
-    html='<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">'+field('Lebar bidang (mm)','cc-width','','Contoh 500',1,1)+field('Panjang bidang (mm)','cc-height','','Contoh 800',1,1)+field('Jumlah bidang','cc-qty',1,'1',1,1)+field('Waste (%)','cc-waste',waste,'5',.1,0)+field('Harga per '+(String(m.unit||'m2').toLowerCase().indexOf('cm')>=0?'cm²':'m²')+' (Rp)','cc-unit-price',Number(m.unitPrice)||'','Harga master',1,1)+'</div><div class="text-[10px] text-slate-500">Luas dihitung dari ukuran mm lalu dikonversi ke '+esc(m.unit||'m2')+'.</div>';
+    html='<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">'+field('Lebar bidang (mm)','cc-width','','Contoh 500',1,1)+field('Panjang bidang (mm)','cc-height','','Contoh 800',1,1)+field('Jumlah bidang','cc-qty',1,'1',1,1)+field('Waste (%)','cc-waste',waste,'5',.1,0)+field('Harga dasar per '+(String(m.unit||'m2').toLowerCase().indexOf('cm')>=0?'cm²':'m²')+' sebelum waste (Rp)','cc-unit-price',baseUsagePrice(m)||'','Harga dasar master',1,1)+'</div><div class="text-[10px] text-slate-500">Luas dihitung dari ukuran mm lalu dikonversi ke '+esc(m.unit||'m2')+'.</div>';
   }else if(method==='linear'){
-    html='<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">'+field('Panjang potongan (mm)','cc-length','','Contoh 2500',1,1)+field('Jumlah potongan','cc-qty',1,'1',1,1)+field('Waste (%)','cc-waste',waste,'5',.1,0)+field('Harga per '+(String(m.unit||'m').toLowerCase()==='cm'?'cm':'m')+' (Rp)','cc-unit-price',Number(m.unitPrice)||'','Harga master',1,1)+'</div>';
+    html='<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">'+field('Panjang potongan (mm)','cc-length','','Contoh 2500',1,1)+field('Jumlah potongan','cc-qty',1,'1',1,1)+field('Waste (%)','cc-waste',waste,'5',.1,0)+field('Harga dasar per '+(String(m.unit||'m').toLowerCase()==='cm'?'cm':'m')+' sebelum waste (Rp)','cc-unit-price',baseUsagePrice(m)||'','Harga dasar master',1,1)+'</div>';
   }else if(method==='volume'){
-    html='<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">'+field('Lebar (mm)','cc-width','','',1,1)+field('Tinggi (mm)','cc-height','','',1,1)+field('Tebal / kedalaman (mm)','cc-depth','','',1,1)+field('Jumlah','cc-qty',1,'1',1,1)+field('Waste (%)','cc-waste',waste,'5',.1,0)+field('Harga per m³ (Rp)','cc-unit-price',Number(m.unitPrice)||'','Harga master',1,1)+'</div>';
+    html='<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">'+field('Lebar (mm)','cc-width','','',1,1)+field('Tinggi (mm)','cc-height','','',1,1)+field('Tebal / kedalaman (mm)','cc-depth','','',1,1)+field('Jumlah','cc-qty',1,'1',1,1)+field('Waste (%)','cc-waste',waste,'5',.1,0)+field('Harga dasar per m³ sebelum waste (Rp)','cc-unit-price',baseUsagePrice(m)||'','Harga dasar master',1,1)+'</div>';
   }else{
     html='<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">'+field('Jumlah pemakaian','cc-qty',1,'1',.01,.01)+field('Harga per satuan (Rp)','cc-unit-price',Number(m.unitPrice)||'','Harga master',1,1)+'<label class="cc-label">Satuan<input id="cc-unit" class="cc-input" value="'+esc(m.unit||'unit')+'"></label></div>';
   }

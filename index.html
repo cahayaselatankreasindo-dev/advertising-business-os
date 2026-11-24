@@ -646,16 +646,14 @@
 
       <!-- HPP & MATERIAL CALCULATOR -->
       <section id="page-hpp" class="page-content hidden space-y-6">
-        <div><span class="inline-flex px-2 py-1 rounded bg-cyan-100 text-cyan-800 text-[10px] font-bold uppercase">Kalkulasi Produksi</span>
+        <div class="flex flex-wrap items-start justify-between gap-3"><div><span class="inline-flex px-2 py-1 rounded bg-cyan-100 text-cyan-800 text-[10px] font-bold uppercase">Kalkulasi Produksi</span>
           <h1 class="text-2xl font-bold text-slate-900 mt-2">HPP & Material Calculator</h1>
-          <p class="text-sm text-slate-500">Kelola harga bahan, hitung kebutuhan material, biaya produksi, dan rekomendasi harga penawaran.</p></div>
+          <p class="text-sm text-slate-500">Kelola harga bahan, hitung kebutuhan material, biaya produksi, dan rekomendasi harga penawaran.</p></div><button onclick="openCskCatalogManager('material')" class="px-4 py-2 rounded-lg bg-cyan-700 text-white text-sm font-semibold shadow-sm">Katalog Bahan Baku</button></div>
+        <div id="material-master-app"></div>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div class="lg:col-span-1 bg-white border border-slate-200 rounded-xl p-4 space-y-3">
-            <div class="flex items-center justify-between gap-2"><h2 class="font-bold">Database Material</h2><button onclick="openCskCatalogManager('material')" class="px-3 py-2 rounded-lg bg-orange-600 text-white text-xs font-bold whitespace-nowrap">Katalog Referensi</button></div>
-            <p class="text-[11px] text-slate-500">Aktifkan bahan dari katalog lengkap setelah supplier dan harga beli diverifikasi. Harga pemakaian dihitung otomatis dari konversi.</p>
-            <input id="hpp-mat-name" class="w-full p-2 border rounded-lg text-sm" placeholder="Nama material (tambah cepat)">
-            <div class="grid grid-cols-2 gap-2"><input id="hpp-mat-unit" class="w-full p-2 border rounded-lg text-sm" placeholder="Satuan pakai (m2, pcs)"><input id="hpp-mat-price" type="number" min="1" class="w-full p-2 border rounded-lg text-sm" placeholder="Harga per satuan pakai"></div>
-            <button onclick="addHppMaterial()" class="w-full bg-cyan-700 text-white rounded-lg py-2 text-sm font-semibold">Tambah Cepat Material</button>
+            <div class="flex items-center justify-between gap-2"><h2 class="font-bold">Material Aktif untuk HPP</h2><span class="text-[10px] rounded-full bg-emerald-50 text-emerald-700 px-2 py-1 font-bold">Terverifikasi</span></div>
+            <p class="text-[11px] text-slate-500">Daftar ini hanya menampilkan material yang sudah memiliki harga beli, satuan, faktor konversi, supplier, dan sumber harga terverifikasi. Pengelolaan dilakukan melalui Master Bahan Baku di atas.</p>
             <div id="hpp-material-list" class="space-y-2 max-h-72 overflow-auto"></div>
           </div>
           <div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-4 space-y-3">
@@ -1433,6 +1431,7 @@
       invoicePayments: [],
       salesOrders: [],
       inventoryTransactions: [],
+      inventoryReservations: [],
       settings: {
         googleSheetUrl: '',
         lastSync: ''
@@ -1466,6 +1465,7 @@
           db.invoicePayments = parsed.invoicePayments || [];
           db.salesOrders = parsed.salesOrders || [];
           db.inventoryTransactions = parsed.inventoryTransactions || [];
+          db.inventoryReservations = parsed.inventoryReservations || [];
           db.settings       = parsed.settings       || { googleSheetUrl: '', lastSync: '' };
           db.role           = parsed.role           || 'owner';
         } catch (e) {
@@ -1493,6 +1493,20 @@
 
     function formatRp(num) {
       return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
+    }
+    function isMaterialSelectable(material) {
+      if(!material)return false;
+      const status=String(material.status||'active');
+      const unit=String(material.unit||'').trim();
+      const purchaseUnit=String(material.purchaseUnit||unit).trim();
+      const unitPrice=Number(material.unitPrice);
+      const purchasePrice=Number(material.purchasePrice)||(purchaseUnit===unit?unitPrice:0);
+      const rawFactor=material.conversionFactor;
+      const factor=rawFactor===undefined||rawFactor===null||rawFactor===''?1:Number(rawFactor);
+      const legacyManual=String(material.sku||'').indexOf('MAT-MANUAL-')===0&&purchaseUnit===unit&&factor===1&&Number.isFinite(unitPrice)&&unitPrice>0;
+      const verifiedSupplier=!!String(material.supplierName||'').trim()&&!!String(material.priceSource||'').trim()&&!!String(material.priceDate||'').trim();
+      return status==='active'&&Number.isFinite(unitPrice)&&unitPrice>0&&Number.isFinite(purchasePrice)&&purchasePrice>0&&
+        Number.isFinite(factor)&&factor>0&&!!unit&&!!purchaseUnit&&(legacyManual||verifiedSupplier);
     }
 
     function showToast(msg, isError) {
@@ -2074,14 +2088,15 @@
     function renderPurchasing() {
       db.purchaseOrders=db.purchaseOrders||[];
       const p=document.getElementById('po-project'); if(p)p.innerHTML='<option value="">Pilih proyek</option>'+db.projects.map(x=>'<option value="'+escapeInvoiceHtml(x.id)+'">'+escapeInvoiceHtml(x.title||x.id)+'</option>').join('');
-      const m=document.getElementById('po-material'); if(m)m.innerHTML=(db.materials||[]).map(x=>'<option value="'+escapeInvoiceHtml(x.id)+'">'+escapeInvoiceHtml(x.name)+' · '+formatRp(x.unitPrice)+'/'+escapeInvoiceHtml(x.unit)+'</option>').join('');
+      const m=document.getElementById('po-material'); if(m)m.innerHTML=(db.materials||[]).filter(isMaterialSelectable).map(x=>'<option value="'+escapeInvoiceHtml(x.id)+'">'+escapeInvoiceHtml(x.sku||x.name)+' · '+escapeInvoiceHtml(x.name)+' · '+formatRp(Number(x.purchasePrice)||Number(x.unitPrice))+'/'+escapeInvoiceHtml(x.purchaseUnit||x.unit)+'</option>').join('');
       const d=document.getElementById('po-date'); if(d&&!d.value)d.value=new Date().toISOString().slice(0,10);
       renderPoLines(); renderPoList();
     }
     function addPoLine() {
       const id=document.getElementById('po-material').value, qty=Number(document.getElementById('po-qty').value), m=(db.materials||[]).find(x=>x.id===id);
-      if(!m||!Number.isFinite(qty)||qty<=0)return showToast('Pilih material dan kuantitas yang valid.',true);
-      poLines.push({materialId:m.id,name:m.name,unit:m.unit,qty,unitPrice:Number(m.unitPrice),subtotal:qty*Number(m.unitPrice)}); renderPoLines();
+      if(!m||!isMaterialSelectable(m)||!Number.isFinite(qty)||qty<=0)return showToast('Pilih material aktif dan kuantitas pembelian yang valid.',true);
+      const purchaseUnit=m.purchaseUnit||m.unit,conversionFactor=Number(m.conversionFactor)||1,purchasePrice=Number(m.purchasePrice)||Number(m.unitPrice);
+      poLines.push({materialId:m.id,sku:m.sku||'',name:m.name,unit:purchaseUnit,purchaseUnit,usageUnit:m.unit,conversionFactor,wasteRate:Number(m.wasteRate)||0,qty,unitPrice:purchasePrice,usageUnitPrice:Number(m.unitPrice),subtotal:qty*purchasePrice}); renderPoLines();
     }
     function editPoLine(index) {
       const line=poLines[index]; if(!line)return;
@@ -2089,12 +2104,12 @@
       const priceRaw=prompt('Harga satuan (Rp):',String(line.unitPrice)); if(priceRaw===null)return;
       const qty=Number(qtyRaw),price=Number(priceRaw);
       if(!Number.isFinite(qty)||qty<=0||!Number.isFinite(price)||price<0)return showToast('Kuantitas atau harga tidak valid.',true);
-      line.qty=qty; line.unitPrice=price; line.subtotal=qty*price; renderPoLines();
+      line.qty=qty; line.unitPrice=price; line.usageUnitPrice=(price/(Number(line.conversionFactor)||1))*(1+(Number(line.wasteRate)||0)/100); line.subtotal=qty*price; renderPoLines();
     }
 
     function renderPoLines() {
       const el=document.getElementById('po-lines'); if(!el)return;
-      el.innerHTML=poLines.map((x,i)=>'<article class="rounded-xl border border-stone-100 bg-stone-50/70 p-3 space-y-2"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="font-semibold text-xs text-stone-800">'+escapeInvoiceHtml(x.name)+'</div><div class="text-[11px] text-stone-500 mt-1">'+Number(x.qty)+' '+escapeInvoiceHtml(x.unit)+' × '+formatRp(x.unitPrice)+'</div></div><b class="text-xs whitespace-nowrap">'+formatRp(x.subtotal)+'</b></div><div class="grid grid-cols-2 gap-2"><button onclick="editPoLine('+i+')" class="min-h-9 rounded-lg border border-stone-200 bg-white text-xs font-semibold">Edit item</button><button onclick="poLines.splice('+i+',1);renderPoLines()" class="min-h-9 rounded-lg border border-red-100 bg-red-50 text-xs font-semibold text-red-600">Hapus</button></div></article>').join('')||'<p class="text-xs text-stone-400 text-center py-4">Belum ada material dalam PO.</p>';
+      el.innerHTML=poLines.map((x,i)=>'<article class="rounded-xl border border-stone-100 bg-stone-50/70 p-3 space-y-2"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="font-semibold text-xs text-stone-800">'+escapeInvoiceHtml(x.sku||'')+' · '+escapeInvoiceHtml(x.name)+'</div><div class="text-[11px] text-stone-500 mt-1">'+Number(x.qty)+' '+escapeInvoiceHtml(x.purchaseUnit||x.unit)+' × '+formatRp(x.unitPrice)+'</div><div class="text-[10px] text-indigo-700 mt-1">Setara '+(Number(x.qty)*Number(x.conversionFactor||1)).toLocaleString('id-ID')+' '+escapeInvoiceHtml(x.usageUnit||x.unit)+' · faktor '+Number(x.conversionFactor||1)+'</div></div><b class="text-xs whitespace-nowrap">'+formatRp(x.subtotal)+'</b></div><div class="grid grid-cols-2 gap-2"><button onclick="editPoLine('+i+')" class="min-h-9 rounded-lg border border-stone-200 bg-white text-xs font-semibold">Edit item</button><button onclick="poLines.splice('+i+',1);renderPoLines()" class="min-h-9 rounded-lg border border-red-100 bg-red-50 text-xs font-semibold text-red-600">Hapus</button></div></article>').join('')||'<p class="text-xs text-stone-400 text-center py-4">Belum ada material dalam PO.</p>';
       document.getElementById('po-total').innerText='Total: '+formatRp(poLines.reduce((s,x)=>s+x.subtotal,0));
     }
     function createPurchaseOrder() {
@@ -2106,7 +2121,7 @@
     }
     function getPoReceiptProgress(po) {
       const expected={};
-      (po.items||[]).forEach(item=>{const id=String(item.materialId||'');expected[id]=(expected[id]||0)+(Number(item.qty)||0);});
+      (po.items||[]).forEach(item=>{const id=String(item.materialId||''),factor=Number(item.conversionFactor)||1;expected[id]=(expected[id]||0)+(Number(item.qty)||0)*factor;});
       const received={};
       (db.inventoryTransactions||[]).filter(tx=>String(tx.purchaseOrderId||'')===String(po.id)&&tx.movement==='receipt').forEach(tx=>{const id=String(tx.materialId||'');received[id]=(received[id]||0)+(Number(tx.qty)||0);});
       const ids=Object.keys(expected);
@@ -2134,38 +2149,36 @@
 
     // ============== HPP & MATERIAL CALCULATOR ==============
     let hppLines = [];
+    let hppSaveInProgress = false;
     function renderHpp() {
       db.materials = db.materials || []; db.costSheets = db.costSheets || [];
+      if (window.CSKMaterialMaster) window.CSKMaterialMaster.render();
+      const selectableMaterials = db.materials.filter(isMaterialSelectable);
       const project = document.getElementById('hpp-project');
       if (project) project.innerHTML = '<option value="">Pilih proyek</option>' + db.projects.map(p => '<option value="' + escapeInvoiceHtml(p.id) + '">' + escapeInvoiceHtml(p.title || p.id) + '</option>').join('');
       const mats = document.getElementById('hpp-material-list');
-      if (mats) mats.innerHTML = db.materials.length ? db.materials.map(m => '<article class="rounded-xl border border-stone-100 bg-stone-50/70 p-3 flex flex-col gap-2"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="font-semibold text-xs text-stone-800 break-words">'+escapeInvoiceHtml(m.name)+'</div><div class="text-[11px] text-stone-500 mt-1">Satuan: '+escapeInvoiceHtml(m.unit)+'</div></div><b class="text-xs text-stone-900 whitespace-nowrap">'+formatRp(m.unitPrice)+'</b></div><div class="grid grid-cols-2 gap-2"><button onclick="editHppMaterial(\''+escapeInvoiceHtml(m.id)+'\')" class="min-h-9 rounded-lg border border-stone-200 bg-white text-xs font-semibold text-stone-700">Edit material</button><button onclick="deleteHppMaterial(\''+escapeInvoiceHtml(m.id)+'\')" class="min-h-9 rounded-lg border border-red-100 bg-red-50 text-xs font-semibold text-red-600">Hapus</button></div></article>').join('') : '<p class="text-xs text-stone-400 text-center py-4">Belum ada material.</p>';
+      if (mats) mats.innerHTML = selectableMaterials.length ? selectableMaterials.map(m => '<article class="rounded-xl border border-stone-100 bg-stone-50/70 p-3"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="font-semibold text-xs text-stone-800 break-words">'+escapeInvoiceHtml(m.sku||'')+' · '+escapeInvoiceHtml(m.name)+'</div><div class="text-[11px] text-stone-500 mt-1">Satuan: '+escapeInvoiceHtml(m.unit)+' · Harga HPP: '+formatRp(m.unitPrice)+'/'+escapeInvoiceHtml(m.unit)+'</div><div class="text-[10px] text-slate-400 mt-1">Supplier: '+escapeInvoiceHtml(m.supplierName||'-')+'</div></div><span class="rounded-full bg-emerald-50 text-emerald-700 px-2 py-1 text-[10px] font-bold">Aktif</span></div></article>').join('') : '<p class="text-xs text-stone-400 text-center py-4">Belum ada material terverifikasi. Lengkapi data harga dan supplier pada Master Bahan Baku CSK.</p>';
       const select = document.getElementById('hpp-material');
       if (select) {
-        const materialOptions = db.materials.filter(m => m.status !== 'inactive').map(m => '<option value="material:' + escapeInvoiceHtml(m.id) + '">Material · ' + escapeInvoiceHtml(m.name) + ' (' + formatRp(m.unitPrice) + '/' + escapeInvoiceHtml(m.unit) + ')</option>').join('');
+        const materialOptions = selectableMaterials.map(m => '<option value="material:' + escapeInvoiceHtml(m.id) + '">Material · ' + escapeInvoiceHtml(m.name) + ' (' + formatRp(m.unitPrice) + '/' + escapeInvoiceHtml(m.unit) + ')</option>').join('');
         const serviceOptions = (db.services || []).filter(s => s.status !== 'inactive').map(s => '<option value="service:' + escapeInvoiceHtml(s.id) + '">' + (s.recordType==='product'?'Produk · ':'Jasa · ') + escapeInvoiceHtml(s.name) + ' (biaya ' + formatRp(s.costPrice || 0) + '/' + escapeInvoiceHtml(s.unit || 'job') + ')</option>').join('');
         select.innerHTML = '<option value="">Pilih material, produk, atau jasa</option>' + materialOptions + serviceOptions;
       }
       renderHppEstimate(); renderHppSaved();
     }
     function editHppMaterial(id) {
-      const m=db.materials.find(x=>x.id===id); if(!m)return;
-      const name=prompt('Nama material:',m.name); if(name===null)return;
-      const unit=prompt('Satuan material:',m.unit); if(unit===null)return;
-      const raw=prompt('Harga satuan (Rp):',String(m.unitPrice)); if(raw===null)return;
-      const price=Number(raw);
-      if(!name.trim()||!unit.trim()||!Number.isFinite(price)||price<0)return showToast('Data material tidak valid.',true);
-      m.name=name.trim(); m.unit=unit.trim(); m.unitPrice=price; m.conversionFactor=Number(m.conversionFactor)||1; m.purchaseUnit=m.purchaseUnit||m.unit; m.purchasePrice=price*m.conversionFactor; m.priceSource='Edit manual - wajib diverifikasi'; m.priceDate=new Date().toISOString().slice(0,10); m.updatedAt=new Date().toISOString();
-      saveDB(); renderHpp(); showToast('Master material diperbarui. Harga pada HPP lama tetap menggunakan snapshot.');
+      if (window.CSKMaterialMaster) return window.CSKMaterialMaster.openEditor(id);
+      showToast('Master material belum siap. Muat ulang aplikasi.',true);
     }
     function deleteHppMaterial(id) {
-      const m=db.materials.find(x=>x.id===id); if(!m)return;
-      if((db.costSheets||[]).some(s=>(s.items||[]).some(x=>x.materialId===id)) || (db.purchaseOrders||[]).some(po=>(po.items||[]).some(x=>x.materialId===id))) {
-        return showToast('Material sudah dipakai transaksi. Nonaktifkan secara manual, jangan hapus riwayat.',true);
-      }
-      if(!confirm('Hapus material '+m.name+' dari master data?'))return;
-      db.materials=db.materials.filter(x=>x.id!==id); saveDB(); renderHpp(); showToast('Material dihapus.');
+      if (window.CSKMaterialMaster) return window.CSKMaterialMaster.toggleStatus(id);
+      showToast('Master material belum siap. Muat ulang aplikasi.',true);
     }
+    function addHppMaterial() {
+      if (window.CSKMaterialMaster) return window.CSKMaterialMaster.openEditor('');
+      showToast('Master material belum siap. Muat ulang aplikasi.',true);
+    }
+
     function loadHppProject(projectId) {
       const sheet=(db.costSheets||[]).find(x=>x.projectId===projectId);
       hppLines=sheet?(sheet.items||[]).map(x=>({...x})): [];
@@ -2177,13 +2190,8 @@
     }
 
     function addHppMaterial() {
-      const name = document.getElementById('hpp-mat-name').value.trim(), unit = document.getElementById('hpp-mat-unit').value.trim(), unitPrice = Number(document.getElementById('hpp-mat-price').value);
-      if (!name || !unit || !Number.isFinite(unitPrice) || unitPrice <= 0) return showToast('Isi nama, satuan, dan harga material lebih dari nol.', true);
-      const now = new Date().toISOString();
-      db.materials = db.materials || [];
-      db.materials.push({id:'MAT-'+Date.now(),sku:'MAT-MANUAL-'+Date.now(),name,category:'Belum dikategorikan',unit,unitPrice,purchaseUnit:unit,purchasePrice:unitPrice,conversionFactor:1,costingMethod:'direct_unit',priceSource:'Input manual - wajib diverifikasi',priceDate:now.slice(0,10),status:'active',updatedAt:now});
-      document.getElementById('hpp-mat-name').value=''; document.getElementById('hpp-mat-unit').value=''; document.getElementById('hpp-mat-price').value='';
-      saveDB(); renderHpp(); showToast('Material ditambahkan. Lengkapi supplier dan bukti harga melalui master material.');
+      if (window.CSKMaterialMaster) return window.CSKMaterialMaster.openEditor('');
+      showToast('Master material belum siap. Muat ulang aplikasi.',true);
     }
     function addHppLine() {
       const selected=document.getElementById('hpp-material').value, qty=Number(document.getElementById('hpp-qty').value);
@@ -2191,14 +2199,14 @@
       if(!id || !Number.isFinite(qty) || qty<=0) return showToast('Pilih material atau jasa dan kuantitas lebih dari nol.',true);
       if(type==='service') {
         const service=(db.services||[]).find(x=>x.id===id);
-        if(!service || !Number.isFinite(Number(service.costPrice)) || Number(service.costPrice)<=0) return showToast('Jasa belum memiliki biaya dasar/HPP. Lengkapi biaya jasa terlebih dahulu.',true);
+        if(!service || service.status==='inactive' || !Number.isFinite(Number(service.costPrice)) || Number(service.costPrice)<=0) return showToast('Produk/jasa belum aktif atau belum memiliki biaya dasar/HPP. Lengkapi katalog terlebih dahulu.',true);
         const unitPrice=Number(service.costPrice);
-        hppLines.push({itemType:'service',serviceId:service.id,name:service.name,unit:service.unit||'job',qty,unitPrice,subtotal:qty*unitPrice});
+        hppLines.push({itemType:'service',catalogRecordType:service.recordType==='product'?'product':'service',serviceId:service.id,name:service.name,unit:service.unit||'job',qty,unitPrice,subtotal:qty*unitPrice});
       } else {
         const material=db.materials.find(x=>x.id===id);
-        if(!material || !Number.isFinite(Number(material.unitPrice)) || Number(material.unitPrice)<=0) return showToast('Material belum memiliki harga pemakaian yang valid.',true);
+        if(!isMaterialSelectable(material)) return showToast('Material belum aktif atau data supplier, harga, dan konversinya belum terverifikasi.',true);
         const unitPrice=Number(material.unitPrice);
-        hppLines.push({itemType:'material',materialId:material.id,name:material.name,unit:material.unit,qty,unitPrice,subtotal:qty*unitPrice,materialSnapshot:{name:material.name,unit:material.unit,purchaseUnit:material.purchaseUnit||'',conversionFactor:Number(material.conversionFactor)||0,updatedAt:material.updatedAt||''}});
+        hppLines.push({itemType:'material',materialId:material.id,name:material.name,unit:material.unit,qty,unitPrice,subtotal:qty*unitPrice,materialSnapshot:{sku:material.sku||'',name:material.name,category:material.category||'',spec:material.spec||'',color:material.color||'',thicknessMm:material.thicknessMm||'',unit:material.unit,purchaseUnit:material.purchaseUnit||'',purchasePrice:Number(material.purchasePrice)||0,conversionFactor:Number(material.conversionFactor)||0,wasteRate:Number(material.wasteRate)||0,supplierName:material.supplierName||'',priceSource:material.priceSource||'',priceDate:material.priceDate||'',unitPrice,updatedAt:material.updatedAt||''}});
       }
       renderHppEstimate();
     }
@@ -2234,30 +2242,90 @@
     }
     function renderHppEstimate() {
       const el=document.getElementById('hpp-lines'); if(!el)return;
-      el.innerHTML=hppLines.map((x,i)=>'<div class="border rounded-lg p-3 space-y-2"><div class="grid grid-cols-2 sm:grid-cols-4 gap-2"><label class="text-[11px] text-slate-500">Nama item<input value="'+escapeInvoiceHtml(x.name)+'" onchange="setHppLineField('+i+',\'name\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Satuan<input value="'+escapeInvoiceHtml(x.unit)+'" onchange="setHppLineField('+i+',\'unit\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Kuantitas<input type="number" min="0.01" step="0.01" value="'+Number(x.qty)+'" onchange="setHppLineField('+i+',\'qty\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Harga satuan (Rp)<input type="number" min="0" step="1" value="'+Number(x.unitPrice)+'" onchange="setHppLineField('+i+',\'unitPrice\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label></div>'+(x.costingDetails&&x.costingDetails.summary?'<p class="text-[10px] text-blue-700 bg-blue-50 rounded p-2">'+escapeInvoiceHtml(x.costingDetails.summary)+'</p>':'')+'<div class="flex justify-between items-center text-xs"><span class="text-slate-500">Subtotal item</span><b>'+formatRp(Number(x.qty)*Number(x.unitPrice))+'</b><button onclick="removeHppLine('+i+')" class="text-red-600">Hapus item</button></div></div>').join('') || '<p class="text-xs text-slate-400">Belum ada item material.</p>';
+      el.innerHTML=hppLines.map((x,i)=>'<div class="bg-stone-50/70 p-3 flex flex-col gap-2 border rounded-xl"><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2"><label class="text-[11px] text-slate-500">Nama item<input value="'+escapeInvoiceHtml(x.name)+'" onchange="setHppLineField('+i+',\'name\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Satuan<input value="'+escapeInvoiceHtml(x.unit)+'" onchange="setHppLineField('+i+',\'unit\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Kuantitas<input type="number" min="0.01" step="0.01" value="'+Number(x.qty)+'" onchange="setHppLineField('+i+',\'qty\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label><label class="text-[11px] text-slate-500">Harga satuan (Rp)<input type="number" min="0" step="1" value="'+Number(x.unitPrice)+'" onchange="setHppLineField('+i+',\'unitPrice\',this.value)" class="block w-full mt-1 p-2 border rounded text-xs"></label></div>'+(x.costingDetails&&x.costingDetails.summary?'<p class="text-[10px] text-blue-700 bg-blue-50 rounded p-2">'+escapeInvoiceHtml(x.costingDetails.summary)+'</p>':'')+'<div class="flex justify-between items-center text-xs"><span class="text-slate-500">Subtotal item</span><b>'+formatRp(Number(x.qty)*Number(x.unitPrice))+'</b><button onclick="removeHppLine('+i+')" class="text-red-600">Hapus item</button></div></div>').join('') || '<p class="text-xs text-slate-400">Belum ada item material.</p>';
       calculateHpp();
     }
     function removeHppLine(i) { hppLines.splice(i,1); renderHppEstimate(); }
-    function saveHppEstimate() {
+    async function saveHppEstimate() {
+      if(hppSaveInProgress)return showToast('Penyimpanan HPP sedang diproses. Tunggu sampai selesai.',true);
+      if(!isOwnerSession())return showToast('Penyimpanan HPP hanya dapat dilakukan oleh Owner.',true);
       const projectId=document.getElementById('hpp-project').value, project=db.projects.find(p=>p.id===projectId);
-      if(!project) return showToast('Pilih proyek terlebih dahulu.',true);
-      if(!hppLines.length) return showToast('Tambahkan minimal satu material.',true);
-      const totals=calculateHpp(); if(!totals)return;
-      const record={id:'HPP-'+projectId,projectId,projectName:project.title||'',items:hppLines.map(x=>({...x})),...totals,updatedAt:new Date().toISOString()};
-      const idx=db.costSheets.findIndex(x=>x.id===record.id); if(idx>=0) db.costSheets[idx]=record; else db.costSheets.push(record);
-      project.hpp=totals.total; project.estimatedCost=totals.total; project.suggestedPrice=totals.price;
-      saveDB(); renderHppSaved(); showToast('HPP proyek tersimpan dan disinkronkan.');
+      if(!project)return showToast('Pilih proyek terlebih dahulu.',true);
+      if(!hppLines.length)return showToast('Tambahkan minimal satu material atau jasa.',true);
+      const totals=calculateHpp();if(!totals)return;
+      hppSaveInProgress=true;
+      try{
+        const record={id:'HPP-'+projectId,projectId,projectName:project.title||'',items:hppLines.map(x=>JSON.parse(JSON.stringify(x))),...totals,updatedAt:new Date().toISOString()};
+        const idx=db.costSheets.findIndex(x=>x.id===record.id);
+        const previousSheet=idx>=0?JSON.parse(JSON.stringify(db.costSheets[idx])):null;
+        const projectFields=['hpp','estimatedCost','suggestedPrice'];
+        const previousProjectFields={};
+        projectFields.forEach(function(key){previousProjectFields[key]={exists:Object.prototype.hasOwnProperty.call(project,key),value:project[key]};});
+        if(idx>=0)db.costSheets[idx]=record;else db.costSheets.push(record);
+        project.hpp=totals.total;project.estimatedCost=totals.total;project.suggestedPrice=totals.price;
+        saveDB(true);
+        const cloudConfigured=!!(db.settings&&db.settings.googleSheetUrl);
+        if(cloudConfigured){
+          try{
+            if(!window.CSKAuth||typeof window.CSKAuth.isReady!=='function'||!window.CSKAuth.isReady())throw new Error('Login dan koneksi Google Sheets harus aktif sebelum HPP disimpan.');
+            const verified=await window.CSKAuth.sync(true);
+            if(!verified)throw new Error('Sinkronisasi HPP ke Google Sheets belum terverifikasi. Periksa koneksi lalu coba lagi.');
+          }catch(error){
+            if(idx>=0)db.costSheets[idx]=previousSheet;else db.costSheets=db.costSheets.filter(x=>x.id!==record.id);
+            projectFields.forEach(function(key){if(previousProjectFields[key].exists)project[key]=previousProjectFields[key].value;else delete project[key];});
+            saveDB(true);
+            showToast('HPP belum tersimpan ke cloud. Perubahan lokal dibatalkan: '+String(error&&error.message||error),true);
+            return;
+          }
+        }
+        renderHppSaved();
+        showToast(cloudConfigured?'HPP proyek tersimpan dan terverifikasi di Google Sheets.':'HPP tersimpan secara lokal. Hubungkan Google Sheets untuk sinkronisasi cloud.');
+      }finally{
+        hppSaveInProgress=false;
+      }
     }
-    function deleteHppEstimate(projectId) {
-      const record=(db.costSheets||[]).find(x=>x.projectId===projectId); if(!record)return;
+    async function deleteHppEstimate(projectId) {
+      if(hppSaveInProgress)return showToast('Penyimpanan atau penghapusan HPP sedang diproses. Tunggu sampai selesai.',true);
+      if(!isOwnerSession())return showToast('Penghapusan HPP hanya dapat dilakukan oleh Owner.',true);
+      const idx=(db.costSheets||[]).findIndex(x=>x.projectId===projectId);
+      if(idx<0)return;
+      const record=JSON.parse(JSON.stringify(db.costSheets[idx]));
       if(!confirm('Hapus perhitungan HPP tersimpan untuk '+(record.projectName||projectId)+'? Data quotation/invoice yang sudah diterbitkan tidak ikut diubah.'))return;
-      db.costSheets=db.costSheets.filter(x=>x.projectId!==projectId);
-      const project=db.projects.find(x=>x.id===projectId);
-      if(project){delete project.hpp;delete project.estimatedCost;delete project.suggestedPrice;}
-      if(document.getElementById('hpp-project').value===projectId){hppLines=[];document.getElementById('hpp-labor').value=0;document.getElementById('hpp-other').value=0;document.getElementById('hpp-margin').value=30;renderHppEstimate();}
-      saveDB();renderHppSaved();showToast('HPP tersimpan dihapus.');
+      hppSaveInProgress=true;
+      try{
+        const project=db.projects.find(x=>x.id===projectId);
+        const projectFields=['hpp','estimatedCost','suggestedPrice'];
+        const previousProjectFields={};
+        if(project)projectFields.forEach(function(key){previousProjectFields[key]={exists:Object.prototype.hasOwnProperty.call(project,key),value:project[key]};});
+        const selector=document.getElementById('hpp-project');
+        const isSelected=!!selector&&selector.value===projectId;
+        const previousLines=hppLines.map(x=>JSON.parse(JSON.stringify(x)));
+        const previousInputs={labor:document.getElementById('hpp-labor').value,other:document.getElementById('hpp-other').value,margin:document.getElementById('hpp-margin').value};
+        db.costSheets.splice(idx,1);
+        if(project)projectFields.forEach(function(key){delete project[key];});
+        if(isSelected){hppLines=[];document.getElementById('hpp-labor').value=0;document.getElementById('hpp-other').value=0;document.getElementById('hpp-margin').value=30;renderHppEstimate();}
+        saveDB(true);
+        const cloudConfigured=!!(db.settings&&db.settings.googleSheetUrl);
+        if(cloudConfigured){
+          try{
+            if(!window.CSKAuth||typeof window.CSKAuth.isReady!=='function'||!window.CSKAuth.isReady())throw new Error('Login dan koneksi Google Sheets harus aktif sebelum HPP dihapus.');
+            const verified=await window.CSKAuth.sync(true);
+            if(!verified)throw new Error('Penghapusan HPP ke Google Sheets belum terverifikasi. Periksa koneksi lalu coba lagi.');
+          }catch(error){
+            db.costSheets.splice(Math.min(idx,db.costSheets.length),0,record);
+            if(project)projectFields.forEach(function(key){if(previousProjectFields[key].exists)project[key]=previousProjectFields[key].value;else delete project[key];});
+            if(isSelected){hppLines=previousLines;document.getElementById('hpp-labor').value=previousInputs.labor;document.getElementById('hpp-other').value=previousInputs.other;document.getElementById('hpp-margin').value=previousInputs.margin;}
+            saveDB(true);renderHppSaved();if(isSelected)renderHppEstimate();
+            showToast('HPP tidak dihapus dari cloud. Data sebelumnya dipulihkan: '+String(error&&error.message||error),true);
+            return;
+          }
+        }
+        renderHppSaved();
+        showToast(cloudConfigured?'HPP dihapus dan perubahan terverifikasi di Google Sheets.':'HPP dihapus dari penyimpanan lokal.');
+      }finally{
+        hppSaveInProgress=false;
+      }
     }
-
     function renderHppSaved() {
       const el=document.getElementById('hpp-saved-list'); if(!el)return;
       const current=(db.costSheets||[]).map(function(x){
@@ -3356,17 +3424,50 @@
       // Saat aplikasi dibuka: tarik & gabungkan data dari cloud (AMAN, tidak menimpa)
       pullAndMerge();
     });
+    window.CSKMaterialMasterBridge = {
+      getData: function () { return { materials: db.materials || [], costSheets: db.costSheets || [], purchaseOrders: db.purchaseOrders || [], inventoryTransactions: db.inventoryTransactions || [], inventoryReservations: db.inventoryReservations || [] }; },
+      isOwner: function () { return isOwnerSession(); },
+      save: async function () {
+        saveDB(true);
+        if (window.CSKAuth && window.CSKAuth.isReady && window.CSKAuth.isReady()) {
+          var verified = await window.CSKAuth.sync(true);
+          if (!verified) throw new Error('Master material belum terverifikasi di Google Sheets.');
+        } else if (db.settings && db.settings.googleSheetUrl) {
+          throw new Error('Login dan koneksi Google Sheets harus aktif untuk menyimpan master material.');
+        }
+        return true;
+      },
+      replaceMaterials: function (rows) { db.materials = Array.isArray(rows) ? rows : []; saveDB(true); },
+      toast: function (message, isError) { showToast(message, !!isError); }
+    };
+
     window.CSKInventoryBridge = {
       getData: function () {
-        return { materials: db.materials || [], projects: db.projects || [], purchaseOrders: db.purchaseOrders || [], inventoryTransactions: db.inventoryTransactions || [] };
+        return { materials: db.materials || [], projects: db.projects || [], costSheets: db.costSheets || [], salesOrders: db.salesOrders || [], purchaseOrders: db.purchaseOrders || [], inventoryTransactions: db.inventoryTransactions || [], inventoryReservations: db.inventoryReservations || [] };
       },
       isOwner: function () { return isOwnerSession(); },
       getIdentity: function () { return window.CSKAuth && window.CSKAuth.getIdentity ? window.CSKAuth.getIdentity() : null; },
+      reserveSalesOrderStock: function (salesOrderId) {
+        if (!window.CSKAuth || !window.CSKAuth.reserveSalesOrderStock) return Promise.reject(new Error('Layanan reservasi stok belum siap.'));
+        return window.CSKAuth.reserveSalesOrderStock(salesOrderId);
+      },
+      releaseSalesOrderReservation: function (salesOrderId, reason) {
+        if (!window.CSKAuth || !window.CSKAuth.releaseSalesOrderReservation) return Promise.reject(new Error('Layanan pelepasan reservasi belum siap.'));
+        return window.CSKAuth.releaseSalesOrderReservation(salesOrderId, reason);
+      },
       save: async function () {
         saveDB(true);
         if (!window.CSKAuth || !window.CSKAuth.isReady || !window.CSKAuth.isReady()) throw new Error("Login dan koneksi Google Sheets harus aktif sebelum mencatat stok.");
         var verified = await window.CSKAuth.sync(true);
         if (!verified) throw new Error("Transaksi stok belum terverifikasi di Google Sheets. Periksa koneksi lalu sinkronkan kembali.");
+        try {
+          var latest = await window.CSKAuth.getData();
+          var cloud = latest && latest.data ? latest.data : {};
+          if (Array.isArray(cloud.inventoryTransactions)) db.inventoryTransactions = cloud.inventoryTransactions;
+          if (Array.isArray(cloud.inventoryReservations)) db.inventoryReservations = cloud.inventoryReservations;
+        } catch (refreshError) {
+          console.warn("Inventory read-back refresh failed:", refreshError);
+        }
         return true;
       },
       toast: function (message, isError) { showToast(message, !!isError); }
@@ -3390,6 +3491,7 @@
 
     window.CSKCustomCostingBridge = {
       getMaterials: function () { return Array.isArray(db.materials) ? db.materials : []; },
+      isMaterialSelectable: function (material) { return isMaterialSelectable(material); },
       getCurrentProjectId: function () { const node=document.getElementById('hpp-project'); return node ? node.value : ''; },
       addLine: function (line) {
         const projectId=this.getCurrentProjectId();
@@ -3411,6 +3513,7 @@
   </script>
   <script src="./csk-pdf.js"></script>
   <script src="./catalog-manager.js"></script>
+  <script src="./material-master.js"></script>
   <script src="./custom-costing-engine.js"></script>
   <script src="./custom-costing.js"></script>
   <script src="./commercial-documents.js"></script>

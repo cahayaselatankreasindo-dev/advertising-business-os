@@ -83,7 +83,7 @@
   }
   function resetDb() {
     if (typeof db === 'undefined') return;
-    ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','legacyCostings','projectCosts','services','purchaseOrders','quotationSnapshots','quotations','invoices','invoicePayments','salesOrders','inventoryTransactions'].forEach(function (key) { db[key] = []; });
+    ['leads','clients','projects','finance','memory','marketingSpend','materials','costSheets','legacyCostings','projectCosts','services','purchaseOrders','quotationSnapshots','quotations','invoices','invoicePayments','salesOrders','inventoryTransactions','inventoryReservations'].forEach(function (key) { db[key] = []; });
     db.settings = { googleSheetUrl: apiUrl(), lastSync: '', lastSyncError: '' };
     db.role = 'team';
   }
@@ -98,6 +98,8 @@
     var owner = !!(identity && identity.role === 'owner');
     db.legacyCostings = owner && Array.isArray(data && data.legacyCostings) ? data.legacyCostings : [];
     db.projectCosts = owner && Array.isArray(data && data.projectCosts) ? data.projectCosts : [];
+    // Reservations are server-owned; never include them in browser sync payloads.
+    db.inventoryReservations = owner && Array.isArray(data && data.inventoryReservations) ? data.inventoryReservations : [];
   }
 
   function readSaved(key) {
@@ -171,6 +173,7 @@
   async function verifySync(payload) {
     var result = await get('get_data');
     var data = result.data || {};
+    setLegacyReadOnlyCollections(data);
     var checked = [];
     collectionsForRole().forEach(function (key) {
       var expected = Array.isArray(payload[key]) ? payload[key] : [];
@@ -316,6 +319,7 @@
         db[collection] = mergeById(cloud[collection], local[collection]);
       });
       db.invoicePayments = identity.role === 'owner' && Array.isArray(cloud.invoicePayments) ? cloud.invoicePayments : [];
+      db.inventoryReservations = identity.role === 'owner' && Array.isArray(cloud.inventoryReservations) ? cloud.inventoryReservations : [];
       db.settings = db.settings || {};
       db.settings.googleSheetUrl = url;
       db.settings.lastSync = cloud.lastSynced || '';
@@ -432,6 +436,7 @@
       setLegacyReadOnlyCollections(cloud);
       collectionsForRole().forEach(function (key) { db[key] = mergeById(cloud[key], db[key]); });
       db.invoicePayments = identity.role === 'owner' && Array.isArray(cloud.invoicePayments) ? cloud.invoicePayments : [];
+      db.inventoryReservations = identity.role === 'owner' && Array.isArray(cloud.inventoryReservations) ? cloud.inventoryReservations : [];
       db.settings.lastSync = cloud.lastSynced || new Date().toISOString();
       db.settings.lastSyncError = '';
       saveScoped();
@@ -513,12 +518,55 @@
       throw new Error('PAYMENT_NOT_VERIFIED_CHECK_AND_RETRY');
     }
     db.invoicePayments = paymentRows;
+    db.inventoryReservations = Array.isArray(cloud.inventoryReservations) ? cloud.inventoryReservations : [];
     db.finance = financeRows;
     db.invoices = Array.isArray(cloud.invoices) ? cloud.invoices : db.invoices;
     saveScoped();
     if (typeof renderAll === 'function') renderAll();
     if (typeof updateCloudIndicator === 'function') updateCloudIndicator();
     return { payment: stored, finance: finance };
+  }
+
+  async function changeSalesOrderReservation(action, salesOrderId, reason) {
+    if (!ready || !identity) throw new Error('AUTH_REQUIRED');
+    if (identity.role !== 'owner') throw new Error('FORBIDDEN_STOCK_RESERVATION');
+    var id = String(salesOrderId || '').trim();
+    if (!id) throw new Error('SALES_ORDER_ID_REQUIRED');
+    if (syncRunning) throw new Error('SYNC_IN_PROGRESS_TRY_AGAIN');
+    if (action === 'release_sales_order_reservation' && !String(reason || '').trim()) throw new Error('RESERVATION_RELEASE_REASON_REQUIRED');
+    var synced = await syncNow(true);
+    if (!synced) throw new Error('SALES_ORDER_SYNC_REQUIRED_BEFORE_RESERVATION');
+    var previousRows = Array.isArray(db.inventoryReservations) ? db.inventoryReservations : [];
+    var previousActiveCount = previousRows.filter(function(row) { return String(row.salesOrderId) === id && String(row.status) === 'active'; }).length;
+    await post({ action: action, salesOrderId: id, reason: String(reason || '') });
+    var response = await get('get_data');
+    var cloud = response.data || {};
+    var rows = Array.isArray(cloud.inventoryReservations) ? cloud.inventoryReservations : [];
+    var active = rows.filter(function(row) { return String(row.salesOrderId) === id && String(row.status) === 'active'; });
+    if (action === 'reserve_sales_order_stock' && !active.length) {
+      throw new Error('RESERVATION_NOT_VERIFIED_CHECK_STOCK_HPP_AND_MATERIAL_UNITS');
+    }
+    if (action === 'release_sales_order_reservation' && active.length) {
+      throw new Error('RESERVATION_RELEASE_NOT_VERIFIED');
+    }
+    setLegacyReadOnlyCollections(cloud);
+    db.inventoryReservations = rows;
+    db.settings.lastSync = cloud.lastSynced || new Date().toISOString();
+    db.settings.lastSyncError = '';
+    saveScoped();
+    if (typeof renderAll === 'function') renderAll();
+    if (typeof updateCloudIndicator === 'function') updateCloudIndicator();
+    return {
+      status: action === 'reserve_sales_order_stock' ? 'reserved' : (active.length ? 'active' : 'released'),
+      reservations: active,
+      releasedLines: action === 'release_sales_order_reservation' ? Math.max(0, previousActiveCount - active.length) : 0
+    };
+  }
+  async function reserveSalesOrderStock(salesOrderId) {
+    return changeSalesOrderReservation('reserve_sales_order_stock', salesOrderId, '');
+  }
+  async function releaseSalesOrderReservation(salesOrderId, reason) {
+    return changeSalesOrderReservation('release_sales_order_reservation', salesOrderId, reason);
   }
 
   window.CSKAuth = {
@@ -529,6 +577,8 @@
     pull: function () { return window.pullAndMerge(); },
     deleteRecord: function (sheet, id) { return window.deleteOnCloud(sheet, id); },
     getData: function () { return get('get_data'); },
+    reserveSalesOrderStock: reserveSalesOrderStock,
+    releaseSalesOrderReservation: releaseSalesOrderReservation,
     recordInvoicePayment: recordInvoicePayment
   };
 

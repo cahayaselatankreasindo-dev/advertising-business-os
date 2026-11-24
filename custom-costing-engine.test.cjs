@@ -3,6 +3,28 @@ const assert=require('node:assert/strict');
 const engine=require('./custom-costing-engine');
 const approx=(actual,expected,label)=>assert.ok(Math.abs(actual-expected)<1e-9,label+': expected '+expected+', got '+actual);
 
+approx(engine.getBaseUsageUnitPrice({
+  purchasePrice:120000,purchaseUnit:'batang',unit:'m',conversionFactor:6,
+  wasteRate:10,unitPrice:22000
+}),20000,'custom costing starts from base purchase cost before applying the selected waste allowance');
+approx(engine.getBaseUsageUnitPrice({
+  purchasePrice:0,purchaseUnit:'lembar',unit:'lembar',conversionFactor:1,
+  wasteRate:10,unitPrice:110000
+}),100000,'legacy same-unit material price has the stored waste allowance removed before custom costing');
+assert.throws(()=>engine.getBaseUsageUnitPrice({
+  purchasePrice:0,purchaseUnit:'roll',unit:'m2',conversionFactor:10,
+  wasteRate:10,unitPrice:10000
+}),/Harga dasar per satuan pakai/,'different purchase and usage units require an actual purchase price');
+assert.throws(()=>engine.getBaseUsageUnitPrice({
+  purchasePrice:120000,purchaseUnit:'batang',unit:'m',conversionFactor:0,
+  wasteRate:10,unitPrice:22000
+}),/Faktor konversi/,'invalid purchase conversion is rejected');
+assert.throws(()=>engine.getBaseUsageUnitPrice({
+  purchasePrice:120000,purchaseUnit:'batang',unit:'m',conversionFactor:6,
+  wasteRate:101,unitPrice:22000
+}),/Waste master/,'master waste above 100 percent is rejected');
+
+
 const sheet=engine.calculateSheetCutList({
   sheetWidthMm:1220,sheetHeightMm:2440,kerfMm:3,wasteRate:0,allowRotation:true,
   parts:[{widthMm:500,heightMm:500,qty:8}]
