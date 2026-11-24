@@ -404,8 +404,7 @@
     var result=rows.map(function(line){
       var actual=actualByMaterial[String(line.materialId)]||{qty:0,cost:0,estimated:false};
       var estimate=line.estimatedTotalCost===null||line.estimatedTotalCost===undefined||line.estimatedTotalCost===''?null:Number.isFinite(Number(line.estimatedTotalCost))?Number(line.estimatedTotalCost):null;
-      var rowComplete=complete&&estimate!==null;
-      if(estimate===null)complete=false;
+      var rowComplete=actualComplete&&estimate!==null;
       if(actual.estimated)estimated=true;
       return{
         materialId:line.materialId,name:line.name||'',unit:line.unit||'',
