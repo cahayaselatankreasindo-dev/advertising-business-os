@@ -52,6 +52,7 @@ async function createSalesOrderFromQuotation(quotationId){
   if(!project)throw new Error('Proyek belum terhubung dengan quotation.');
   var built=E().buildOrder(q,project,d.salesOrders,{date:E().localDate()});
   if(built.existing){notify('Sales Order sudah tersedia.');renderSalesOrders();return built.order;}
+  prepareInitialMaterialReservation(built.order,d);
   d.salesOrders.unshift(built.order);
   await persist();
   renderSalesOrders();
@@ -65,14 +66,41 @@ async function updateSalesOrderStatus(id,nextStatus){
   if(!b||!b.isOwner())throw new Error('Perubahan Sales Order hanya dapat dilakukan Owner.');
   var d=data(),order=d.salesOrders.find(function(x){return String(x.id)===String(id);});
   if(!order)throw new Error('Sales Order tidak ditemukan.');
-  var q=quoteFor(order.quotationId,d),payment=summary(order,d);
+  var q=quoteFor(order.quotationId,d),payment=summary(order,d),transitionOrder=order,transitionNote='';
+  if(nextStatus==='ready_production'){
+   var snapshot=Array.isArray(order.materialRequirements)&&order.materialRequirements.length?order.materialRequirements:buildMaterialReservationSnapshot(order.projectId,d);
+   var candidate=Object.assign({},order,{status:'ready_production',materialRequirements:snapshot});
+   var report=reservationReportForCandidate(candidate,d);
+   var shortageRows=report.requirements.filter(function(row){return row.shortage>0;});
+   if(report.errors.length||shortageRows.length){
+    var reason=report.errors.length?report.errors.join(' '):'Stok tidak cukup untuk: '+shortageRows.map(function(row){return row.name+' kurang '+qtyFormat(row.shortage)+' '+row.unit;}).join(', ')+'.';
+    if(order.status==='awaiting_material'){notify('Belum dapat melepas produksi. '+reason,true);return;}
+    nextStatus='awaiting_material';transitionNote='Menunggu material. '+reason;
+   }else{
+    transitionOrder=candidate;
+    transitionNote='Reservasi material otomatis dibuat berdasarkan snapshot HPP.';
+   }
+  }else if(nextStatus==='in_production'&&order.status==='quality_check'){
+   var reworkSnapshot=Array.isArray(order.materialRequirements)&&order.materialRequirements.length?order.materialRequirements:buildMaterialReservationSnapshot(order.projectId,d);
+   var reworkCandidate=Object.assign({},order,{status:'in_production',materialRequirements:reworkSnapshot});
+   var reworkReport=reservationReportForCandidate(reworkCandidate,d);
+   var reworkShortages=reworkReport.requirements.filter(function(row){return row.shortage>0;});
+   if(reworkReport.errors.length||reworkShortages.length){
+    var reworkReason=reworkReport.errors.length?reworkReport.errors.join(' '):'Stok untuk rework belum cukup: '+reworkShortages.map(function(row){return row.name+' kurang '+qtyFormat(row.shortage)+' '+row.unit;}).join(', ')+'.';
+    throw new Error(reworkReason);
+   }
+   transitionOrder=reworkCandidate;
+   transitionNote='Reservasi material untuk pekerjaan ulang diaktifkan kembali.';
+  }else if(nextStatus==='quality_check'){
+   transitionNote='Reservasi sisa material yang belum dikeluarkan dilepas kembali ke stok tersedia.';
+  }
   var identity=b.getIdentity();
-  var updated=E().transition(order,nextStatus,payment,identity&&identity.email||'Owner',new Date().toISOString());
+  var updated=E().transition(transitionOrder,nextStatus,payment,identity&&identity.email||'Owner',new Date().toISOString(),transitionNote);
   var index=d.salesOrders.findIndex(function(x){return String(x.id)===String(id);});
   d.salesOrders[index]=updated;
   var project=d.projects.find(function(p){return String(p.id)===String(order.projectId);});
   if(project){
-   var projectStatus={ready_production:'plan',in_production:'ongoing',quality_check:'review',ready_delivery:'review',delivered:'done',closed:'done',cancelled:'cancelled'};
+   var projectStatus={awaiting_material:'plan',ready_production:'plan',in_production:'ongoing',quality_check:'review',ready_delivery:'review',delivered:'done',closed:'done',cancelled:'cancelled'};
    if(projectStatus[nextStatus])project.status=projectStatus[nextStatus];
   }
   await persist();
@@ -91,6 +119,39 @@ function openProject(id){
  if(!order)return;
  if(typeof w.nav==='function')w.nav('projects');
  notify('Proyek: '+(order.projectName||order.projectId));
+}
+function buildMaterialReservationSnapshot(projectId,d){
+ var sheet=(d.costSheets||[]).find(function(row){return String(row.projectId)===String(projectId);});
+ if(!sheet)throw new Error('HPP proyek belum tersedia. Lengkapi HPP sebelum melepas produksi.');
+ var plan=w.CSKInventoryEngine.calculateHppRequirements(sheet,d.materials||{});
+ if(plan.errors.length)throw new Error(plan.errors.join(' '));
+ if(!plan.requirements.length)throw new Error('HPP belum memiliki material yang dapat direservasi.');
+ return plan.requirements.map(function(row){return{materialId:row.materialId,name:row.name,unit:row.unit,required:row.required};});
+}
+function reservationReportForCandidate(candidate,d){
+ var balances=w.CSKInventoryEngine.calculateBalances(d.materials||[],d.inventoryTransactions||[]);
+ var orders=(d.salesOrders||[]).filter(function(row){return String(row.id)!==String(candidate.id);});
+ orders.push(candidate);
+ return w.CSKInventoryEngine.calculateOpenSalesOrderCommitments(orders,d.costSheets||[],d.materials||[],d.inventoryTransactions||[],balances);
+}
+function prepareInitialMaterialReservation(order,d){
+ if(order.status!=='ready_production')return;
+ try{
+  var snapshot=buildMaterialReservationSnapshot(order.projectId,d);
+  var report=reservationReportForCandidate(Object.assign({},order,{materialRequirements:snapshot}),d);
+  var shortages=report.requirements.filter(function(row){return row.shortage>0;});
+  if(report.errors.length||shortages.length){
+   var reason=report.errors.length?report.errors.join(' '):'Stok belum cukup untuk '+shortages.map(function(row){return row.name+' kurang '+qtyFormat(row.shortage)+' '+row.unit;}).join(', ')+'.';
+   order.status='awaiting_material';
+   order.history.push({date:new Date().toISOString(),status:'awaiting_material',actor:'System',note:'Menunggu material. '+reason});
+  }else{
+   order.materialRequirements=snapshot;
+   order.history.push({date:new Date().toISOString(),status:'ready_production',actor:'System',note:'Reservasi material otomatis dibuat berdasarkan snapshot HPP.'});
+  }
+ }catch(error){
+  order.status='awaiting_material';
+  order.history.push({date:new Date().toISOString(),status:'awaiting_material',actor:'System',note:'Menunggu material. '+(error.message||String(error))});
+ }
 }
 function openPurchaseOrderQty(projectId,materialId,d){
  return(d.purchaseOrders||[]).filter(function(po){return String(po.projectId)===String(projectId)&&['draft','ordered'].indexOf(String(po.status||'').toLowerCase())>=0;}).reduce(function(sum,po){
@@ -171,11 +232,11 @@ function renderSalesOrders(){
   var active=filter==='all'?orders:orders.filter(function(o){return o.status===filter;});
   var candidates=quoteCandidates(d);
   var stats=[
-   ['Menunggu DP',counts.awaiting_dp,'amber'],['Siap Produksi',counts.ready_production,'blue'],
+   ['Menunggu DP',counts.awaiting_dp,'amber'],['Menunggu Material',counts.awaiting_material,'orange'],['Siap Produksi',counts.ready_production,'blue'],
    ['Dalam Produksi',counts.in_production,'cyan'],['Quality Control',counts.quality_check,'violet'],
    ['Siap Dikirim',counts.ready_delivery,'indigo'],['Selesai / Ditutup',counts.closed+counts.delivered,'emerald']
   ];
-  var html='<div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 mb-5">'+stats.map(function(x){return'<div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-[10px] text-slate-500">'+x[0]+'</div><b class="text-xl text-slate-900">'+x[1]+'</b></div>';}).join('')+'</div>';
+  var html='<div class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2 mb-5">'+stats.map(function(x){return'<div class="bg-white border border-slate-200 rounded-xl p-3"><div class="text-[10px] text-slate-500">'+x[0]+'</div><b class="text-xl text-slate-900">'+x[1]+'</b></div>';}).join('')+'</div>';
   html+='<section class="bg-white border border-slate-200 rounded-2xl p-4 mb-5"><div class="flex flex-wrap justify-between items-start gap-3"><div><h2 class="font-bold text-sm">Quotation siap dikonversi</h2><p class="text-xs text-slate-500 mt-1">Hanya quotation berstatus Disetujui yang dapat menjadi Sales Order.</p></div><span class="text-xs text-slate-500">'+candidates.length+' menunggu konversi</span></div>';
   if(!candidates.length)html+='<div class="mt-3 rounded-xl bg-slate-50 p-4 text-xs text-slate-500">Belum ada quotation disetujui yang belum memiliki Sales Order.</div>';
   else html+='<div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">'+candidates.map(function(q){return'<article class="border border-slate-200 rounded-xl p-3"><div class="flex justify-between gap-3"><div class="min-w-0"><b class="text-sm">'+esc(q.docNo||q.id)+'</b><div class="text-xs text-slate-600 mt-1">'+esc(q.client||'-')+' · '+esc(q.projectName||'-')+'</div><div class="text-[11px] text-slate-400 mt-1">'+esc(q.date||'-')+' · DP '+Number(q.dpPercent||0)+'%</div></div><b class="text-sm whitespace-nowrap">'+money(q.total)+'</b></div><button data-so-action="create" data-id="'+esc(q.id)+'" class="mt-3 w-full min-h-10 rounded-lg bg-slate-900 text-white text-xs font-bold">Buat Sales Order</button></article>';}).join('')+'</div>';
