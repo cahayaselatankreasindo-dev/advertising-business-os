@@ -38,8 +38,9 @@ function ensureBound(){
  });
  page.addEventListener('change',function(event){
   if(event.target&&event.target.id==='inv-material'){updateUnitHint();}
+   if(event.target&&event.target.id==='inv-unit-cost'){event.target.dataset.manual='1';}
   if(event.target&&event.target.id==='inv-po'){if(event.target.value)applyPurchaseOrderSelection(event.target.value);else restoreAllMaterialOptions();}
-  if(event.target&&event.target.id==='inv-movement'){updateMovementFields();}
+  if(event.target&&event.target.id==='inv-movement'){updateMovementFields();updateUnitHint();}
  });
  bound=true;
 }
@@ -89,6 +90,29 @@ function applyPurchaseOrderSelection(poId){
  var hint=el('inv-unit-hint');if(hint)hint.textContent=remaining.length?'Penerimaan PO '+po.id+'. '+remaining.length+' jenis material masih memiliki sisa. Kuantitas maksimum mengikuti sisa tiap material.':'Seluruh kuantitas PO sudah tercatat sebagai penerimaan.';
  updateMovementFields();updateUnitHint();
 }
+function updateCostInput(){
+ var d=data(),movement=el('inv-movement')&&el('inv-movement').value,material=(d.materials||[]).find(function(row){return String(row.id)===String(el('inv-material')&&el('inv-material').value);});
+ var wrap=el('inv-cost-wrap'),input=el('inv-unit-cost'),hint=el('inv-unit-cost-hint');
+ var visible=['opening','receipt','adjustment_in'].indexOf(String(movement))>=0;
+ if(wrap)wrap.style.display=visible?'':'none';
+ if(!input||!visible||!material)return;
+ var value=Number(material.unitPrice)||0,locked=false,note='Harga master per satuan stok.';
+ var poId=el('inv-po')&&el('inv-po').value;
+ if(movement==='receipt'&&poId){
+  var po=(d.purchaseOrders||[]).find(function(row){return String(row.id)===String(poId);});
+  var line=purchaseOrderItems(po).find(function(row){return String(row.materialId)===String(material.id);});
+  var poPrice=Number(line&&line.unitPrice)||0;
+  if(poPrice>0){value=poPrice;locked=true;note='Harga diambil dari item Purchase Order dan tidak dapat diubah.';}
+ }
+ if(movement==='adjustment_in'){
+  var valuation=E().calculateInventoryValuation(d.materials||[],d.inventoryTransactions||[]);
+  var average=Number(valuation.averageCost[String(material.id)])||0;
+  if(average>0){value=average;locked=true;note='Stok tersedia; penyesuaian masuk memakai biaya rata-rata berjalan.';}
+ }
+ if(!input.dataset.manual||locked)input.value=value>0?String(value):'';
+ input.disabled=locked;
+ if(hint)hint.textContent=note+(value>0?' Nilai: '+money(value)+' / '+(material.unit||'unit')+'.':' Isi harga pokok sebelum menyimpan.');
+}
 function updateUnitHint(){
  var d=data(),m=d.materials.find(function(x){return String(x.id)===String(el('inv-material')&&el('inv-material').value);});
  var hint=el('inv-unit-hint');if(hint)hint.textContent=m?'Satuan stok: '+(m.unit||'-')+'. Kuantitas wajib dicatat dalam satuan ini.':'Pilih material untuk melihat satuan stok.';
@@ -100,6 +124,7 @@ function updateUnitHint(){
   var remaining=Math.max(0,ordered-received);qtyInput.max=remaining;
   if(Number(qtyInput.value)>remaining)qtyInput.value=remaining;
  }
+ updateCostInput();
 }
 function applyPickingPrefill(){
  var d=data(),material=el('inv-material'),project=el('inv-project'),quantity=el('inv-qty');
@@ -128,7 +153,7 @@ function formHtml(d,defaultMovement){
  var purchaseOrders=(d.purchaseOrders||[]).filter(function(p){return String(p.status||'').toLowerCase()==='ordered';});
  var types=Object.keys(E().MOVEMENTS);
  var options=types.map(function(t){return'<option value="'+t+'" '+(t===(defaultMovement||'opening')?'selected':'')+'>'+esc(movementLabel(t))+'</option>';}).join('');
- return'<section class="bg-white border border-slate-200 rounded-2xl p-4 mb-5"><div class="flex justify-between items-start gap-3"><div><h2 class="font-bold text-sm">Catat Pergerakan Stok</h2><p class="text-xs text-slate-500 mt-1">Setiap transaksi tersimpan sebagai ledger permanen dan tidak dapat diedit atau dihapus.</p></div><button type="button" data-inv-action="close" class="px-3 py-2 border rounded-lg text-xs">Tutup</button></div><form id="inventory-entry-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4"><label class="block text-[11px] font-bold text-slate-600">Jenis transaksi<select id="inv-movement" class="mt-1 w-full border rounded-lg p-2.5 text-xs">'+options+'</select></label><label class="block text-[11px] font-bold text-slate-600">Material<select id="inv-material" required class="mt-1 w-full border rounded-lg p-2.5 text-xs"><option value="">Pilih material</option>'+materials.map(function(m){return'<option value="'+esc(m.id)+'">'+esc(m.name)+' · '+esc(m.unit||'-')+'</option>';}).join('')+'</select></label><label class="block text-[11px] font-bold text-slate-600">Kuantitas<input id="inv-qty" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="Contoh: 25"></label><div id="inv-unit-hint" class="sm:col-span-2 lg:col-span-3 rounded-lg bg-blue-50 p-2.5 text-[11px] text-blue-800">Pilih material untuk melihat satuan stok.</div><label class="block text-[11px] font-bold text-slate-600">Tanggal transaksi<input id="inv-date" type="date" required value="'+E().localDate()+'" class="mt-1 w-full border rounded-lg p-2.5 text-xs"></label><label id="inv-project-wrap" class="block text-[11px] font-bold text-slate-600">Proyek<select id="inv-project" class="mt-1 w-full border rounded-lg p-2.5 text-xs"><option value="">Pilih proyek</option>'+projects.map(function(p){return'<option value="'+esc(p.id)+'">'+esc(p.title||p.client||p.id)+'</option>';}).join('')+'</select></label><label id="inv-supplier-wrap" class="block text-[11px] font-bold text-slate-600">Supplier<input id="inv-supplier" class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="Nama supplier"></label><label id="inv-po-wrap" class="block text-[11px] font-bold text-slate-600">Purchase Order<select id="inv-po" class="mt-1 w-full border rounded-lg p-2.5 text-xs"><option value="">Tanpa PO</option>'+purchaseOrders.map(function(p){return'<option value="'+esc(p.id)+'">'+esc(p.id)+' · '+esc(p.supplier||'Supplier')+' · '+esc(p.projectName||'')+'</option>';}).join('')+'</select></label><label class="block text-[11px] font-bold text-slate-600">Referensi / dokumen<input id="inv-reference" class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="No. surat jalan / nota / bukti"></label><label id="inv-notes-wrap" class="block text-[11px] font-bold text-slate-600 sm:col-span-2">Catatan / alasan<input id="inv-notes" class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="Wajib untuk penyesuaian stok"></label><div class="sm:col-span-2 lg:col-span-3 flex flex-wrap items-center justify-between gap-2"><p class="text-[10px] text-slate-500">Saldo awal hanya boleh satu kali dan harus menjadi transaksi pertama material. Pengeluaran/retur wajib dikaitkan ke proyek.</p><button id="inv-save" type="submit" class="px-5 py-2.5 rounded-lg bg-slate-900 text-white text-xs font-bold">Simpan Saldo Awal</button></div></form></section>';
+ return'<section class="bg-white border border-slate-200 rounded-2xl p-4 mb-5"><div class="flex justify-between items-start gap-3"><div><h2 class="font-bold text-sm">Catat Pergerakan Stok</h2><p class="text-xs text-slate-500 mt-1">Setiap transaksi tersimpan sebagai ledger permanen dan tidak dapat diedit atau dihapus.</p></div><button type="button" data-inv-action="close" class="px-3 py-2 border rounded-lg text-xs">Tutup</button></div><form id="inventory-entry-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4"><label class="block text-[11px] font-bold text-slate-600">Jenis transaksi<select id="inv-movement" class="mt-1 w-full border rounded-lg p-2.5 text-xs">'+options+'</select></label><label class="block text-[11px] font-bold text-slate-600">Material<select id="inv-material" required class="mt-1 w-full border rounded-lg p-2.5 text-xs"><option value="">Pilih material</option>'+materials.map(function(m){return'<option value="'+esc(m.id)+'">'+esc(m.name)+' · '+esc(m.unit||'-')+'</option>';}).join('')+'</select></label><label class="block text-[11px] font-bold text-slate-600">Kuantitas<input id="inv-qty" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="Contoh: 25"></label><label id="inv-cost-wrap" class="block text-[11px] font-bold text-slate-600">Harga pokok per satuan stok (Rp)<input id="inv-unit-cost" type="number" min="1" step="0.01" class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="Harga pokok per unit"><span id="inv-unit-cost-hint" class="block mt-1 text-[10px] font-normal text-slate-500">Harga pokok mengikuti Master Material.</span></label><div id="inv-unit-hint" class="sm:col-span-2 lg:col-span-3 rounded-lg bg-blue-50 p-2.5 text-[11px] text-blue-800">Pilih material untuk melihat satuan stok.</div><label class="block text-[11px] font-bold text-slate-600">Tanggal transaksi<input id="inv-date" type="date" required value="'+E().localDate()+'" class="mt-1 w-full border rounded-lg p-2.5 text-xs"></label><label id="inv-project-wrap" class="block text-[11px] font-bold text-slate-600">Proyek<select id="inv-project" class="mt-1 w-full border rounded-lg p-2.5 text-xs"><option value="">Pilih proyek</option>'+projects.map(function(p){return'<option value="'+esc(p.id)+'">'+esc(p.title||p.client||p.id)+'</option>';}).join('')+'</select></label><label id="inv-supplier-wrap" class="block text-[11px] font-bold text-slate-600">Supplier<input id="inv-supplier" class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="Nama supplier"></label><label id="inv-po-wrap" class="block text-[11px] font-bold text-slate-600">Purchase Order<select id="inv-po" class="mt-1 w-full border rounded-lg p-2.5 text-xs"><option value="">Tanpa PO</option>'+purchaseOrders.map(function(p){return'<option value="'+esc(p.id)+'">'+esc(p.id)+' · '+esc(p.supplier||'Supplier')+' · '+esc(p.projectName||'')+'</option>';}).join('')+'</select></label><label class="block text-[11px] font-bold text-slate-600">Referensi / dokumen<input id="inv-reference" class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="No. surat jalan / nota / bukti"></label><label id="inv-notes-wrap" class="block text-[11px] font-bold text-slate-600 sm:col-span-2">Catatan / alasan<input id="inv-notes" class="mt-1 w-full border rounded-lg p-2.5 text-xs" placeholder="Wajib untuk penyesuaian stok"></label><div class="sm:col-span-2 lg:col-span-3 flex flex-wrap items-center justify-between gap-2"><p class="text-[10px] text-slate-500">Saldo awal hanya boleh satu kali dan harus menjadi transaksi pertama material. Pengeluaran/retur wajib dikaitkan ke proyek.</p><button id="inv-save" type="submit" class="px-5 py-2.5 rounded-lg bg-slate-900 text-white text-xs font-bold">Simpan Saldo Awal</button></div></form></section>';
 }
 async function saveInventoryTransaction(){
  var b=bridge(),button=el('inv-save'),d=null,added=null;
@@ -139,7 +164,7 @@ async function saveInventoryTransaction(){
   var result=E().validateTransaction({
    materialId:el('inv-material').value,movement:el('inv-movement').value,qty:el('inv-qty').value,
    unit:material&&material.unit,date:el('inv-date').value,projectId:el('inv-project').value,
-   supplier:el('inv-supplier').value,purchaseOrderId:el('inv-po').value,
+   supplier:el('inv-supplier').value,purchaseOrderId:el('inv-po').value,unitCost:el('inv-unit-cost')&&el('inv-unit-cost').value,
    reference:el('inv-reference').value,notes:el('inv-notes').value,
    createdBy:identity&&identity.email||'Owner'
   },{materials:d.materials,projects:d.projects,purchaseOrders:d.purchaseOrders,transactions:d.inventoryTransactions,salesOrders:d.salesOrders,costSheets:d.costSheets});
@@ -226,6 +251,7 @@ function renderInventory(defaultMovement){
   updateMovementFields();
   if(formOpen&&prefillPurchaseOrderId)applyPurchaseOrderSelection(prefillPurchaseOrderId);
   if(formOpen&&prefillProjectId&&prefillMaterialId)applyPickingPrefill();
+  if(formOpen){updateUnitHint();updateMovementFields();}
  }catch(error){page.innerHTML='<div class="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">'+esc(error.message||String(error))+'</div>';}
 }
 w.renderInventory=renderInventory;
