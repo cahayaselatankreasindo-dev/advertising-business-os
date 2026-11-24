@@ -250,10 +250,10 @@ if (FIELD_MAP) {
     ['id','transactionNo','materialId','materialName','movement','qty','unit','date','projectId','projectName','purchaseOrderId','supplier','reference','notes','createdAt','createdBy'],
     'FIELD_MAP.Inventory_Transactions fields terpetakan lengkap');
   eq(FIELD_MAP.Sales_Orders.headers,
-    ['ID','NomorSO','QuotationID','NomorQuotation','ProjectID','NamaProyek','Klien','WhatsAppKlien','EmailKlien','TanggalOrder','TanggalPengiriman','ItemsJSON','Total','DPPersen','DPWajib','Status','RiwayatJSON','Catatan','CreatedAt','UpdatedAt'],
+    ['ID','NomorSO','QuotationID','NomorQuotation','ProjectID','NamaProyek','Klien','WhatsAppKlien','EmailKlien','TanggalOrder','TanggalPengiriman','ItemsJSON','Total','DPPersen','DPWajib','Status','RiwayatJSON','Catatan','CreatedAt','UpdatedAt','MaterialRequirementsJSON'],
     'FIELD_MAP.Sales_Orders mempertahankan snapshot order dan riwayat');
   eq(FIELD_MAP.Sales_Orders.fields,
-    ['id','orderNo','quotationId','quotationNo','projectId','projectName','client','clientPhone','clientEmail','orderDate','deliveryDate','itemsJson','total','dpPercent','dpRequiredAmount','status','historyJson','notes','createdAt','updatedAt'],
+    ['id','orderNo','quotationId','quotationNo','projectId','projectName','client','clientPhone','clientEmail','orderDate','deliveryDate','itemsJson','total','dpPercent','dpRequiredAmount','status','historyJson','notes','createdAt','updatedAt','materialRequirementsJson'],
     'FIELD_MAP.Sales_Orders fields terpetakan lengkap');
   eq(FIELD_MAP.Leads.headers.slice(-3),
     ['NextFollowUp','LastContactAt','FollowUpNote'],
