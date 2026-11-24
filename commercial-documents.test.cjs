@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { calculateCommercialTotals, validateCommercialDocument, nextDocumentNumber, findExistingProjectForDocument, summarizeInvoicePayments } = require('./commercial-documents.js');
+const { calculateCommercialTotals, validateCommercialDocument, buildQuotationLinesFromCostSheet, nextDocumentNumber, findExistingProjectForDocument, summarizeInvoicePayments } = require('./commercial-documents.js');
 const html = fs.readFileSync('index.html', 'utf8');
 const source = fs.readFileSync('commercial-documents.js', 'utf8');
 const guard = fs.readFileSync('security/guard.js', 'utf8');
@@ -33,6 +33,33 @@ assert.match(validateCommercialDocument({ ...validCommercialDocument, discount: 
 assert.match(validateCommercialDocument({ ...validCommercialDocument, taxRate: 100.01 }).errors[0], /Tarif pajak/);
 assert.match(validateCommercialDocument({ ...validCommercialDocument, dpPercent: 100 }).errors[0], /Persentase DP/);
 assert.match(validateCommercialDocument({ ...validCommercialDocument, lines: [] }).errors[0], /minimal satu item/);
+
+const hppSheet = {
+  id: 'HPP-P-HPP-01',
+  projectId: 'P-HPP-01',
+  projectName: 'Display Booth Premium',
+  items: [
+    { itemType: 'material', materialId: 'MAT-01', name: 'Akrilik 5 mm', qty: 2, unit: 'lembar', unitPrice: 100000 },
+    { itemType: 'service', serviceId: 'SRV-01', name: 'Fabrikasi Display', qty: 1, unit: 'job', unitPrice: 150000 }
+  ],
+  labor: 100000,
+  other: 25000,
+  total: 475000,
+  margin: 30,
+  price: 678572,
+  updatedAt: '2026-11-24T10:00:00.000Z'
+};
+const hppLines = buildQuotationLinesFromCostSheet(hppSheet);
+assert.equal(hppLines.length, 4, 'HPP import keeps material, service, labor, and other-cost components visible');
+assert.equal(hppLines.reduce((sum, line) => sum + line.qty * line.unitPrice, 0), hppSheet.price, 'allocated quotation line values reconcile exactly to the saved HPP selling price');
+assert.equal(hppLines[0].qty, 1);
+assert.equal(hppLines[0].unit, 'Lot');
+assert.match(hppLines[0].description, /2 lembar/, 'original HPP consumption quantity remains visible in the quotation description');
+assert.ok(hppLines.every(line => line.sourceCostSheetId === hppSheet.id));
+assert.ok(hppLines.every(line => line.marginPercent === 30));
+assert.throws(() => buildQuotationLinesFromCostSheet({ ...hppSheet, price: hppSheet.price + 1 }), /Harga penawaran HPP/);
+assert.throws(() => buildQuotationLinesFromCostSheet({ ...hppSheet, total: hppSheet.total + 1 }), /Total HPP tidak konsisten/);
+
 const leadQueueProject = { id: 'P-LEAD', notes: 'Antrean otomatis dari Lead [LEAD-L1]' };
 assert.equal(findExistingProjectForDocument([leadQueueProject], { id: 'INV1', leadId: 'L1' }, '', 'INV1'), leadQueueProject);
 assert.equal(findExistingProjectForDocument([leadQueueProject], { id: 'INV2', leadId: 'L2' }, '', 'INV2'), null);
@@ -57,6 +84,8 @@ for (const name of [
 assert.ok(source.includes('sourceInvoiceId:sourceI'));
 assert.ok(source.includes('function syncProjectCommercialFields(project,sourceDoc)'), 'linked project commercial fields have a dedicated sync helper');
 assert.ok(source.includes('projectDeadline'), 'documents keep project deadline separate from payment due date or quotation validity');
+assert.ok(source.includes('cd-project-link') && source.includes('data-action=\"import-hpp\"'), 'quotation editor can link a project and import its saved HPP');
+assert.ok(source.includes('function selectCommercialProject(id)') && source.includes('function importHppIntoQuotation()'), 'project selection and HPP import have dedicated workflows');
 assert.ok(source.includes('data-action=\"download\"'), 'document editor exposes a direct PDF download action');
 assert.ok(source.includes('data-action=\"download-existing\"'), 'saved documents expose a direct PDF download action');
 assert.ok(source.includes("dueDate:plus(t,k==='quotation'?14:7)"), 'quotation validity defaults to 14 days and invoice due date to 7 days');
