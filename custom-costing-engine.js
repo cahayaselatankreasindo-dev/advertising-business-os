@@ -19,7 +19,8 @@
     const unit=String(material.unit||'').trim();
     const purchaseUnit=String(material.purchaseUnit||unit).trim();
     const purchasePrice=Number(material.purchasePrice);
-    const factor=Number(material.conversionFactor)||1;
+    const rawFactor=material.conversionFactor;
+    const factor=rawFactor===undefined||rawFactor===null||rawFactor===''?1:Number(rawFactor);
     const unitPrice=Number(material.unitPrice);
     const waste=Number(material.wasteRate)||0;
     if(!Number.isFinite(waste)||waste<0||waste>100)throw new Error('Waste master harus 0 sampai 100 persen.');
