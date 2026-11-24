@@ -58,17 +58,17 @@ function fixture(){
  });
 }
 function transaction(id,no,movement,qty,date,extra){
- const extras=extra||{};
- const defaultCostSource=['issue','return','adjustment_out'].includes(movement)?'moving_average':
-   movement==='receipt'&&extras.purchaseOrderId?'purchase_order':'master_fallback';
+ var source=movement==='opening'?'opening_manual':movement==='receipt'?(extra&&extra.purchaseOrderId?'purchase_order':'manual_receipt'):movement==='adjustment_in'?'adjustment_manual':'moving_average';
+ var reference=movement==='opening'?'OPENING-VALUATION-'+id:movement==='receipt'&&!(extra&&extra.purchaseOrderId)?'SUPPLIER-INVOICE-'+id:'';
+ var cost=100000;
  return Object.assign({
   id:'ITX-'+id,transactionNo:no,materialId:material.id,materialName:material.name,
   movement:movement,qty:qty,unit:'m2',date:date,projectId:'',projectName:'',
-  purchaseOrderId:'',supplier:'',unitCost:100000,totalCost:Math.round(qty*100000),
-  costSource:defaultCostSource,costingMethod:'moving_average',reference:'',notes:'',
-  createdAt:date+'T08:00:00.000Z',createdBy:'owner@example.test'
- },extras);
+  purchaseOrderId:'',supplier:'',unitCost:cost,totalCost:Math.round(qty*cost),costSource:source,costingMethod:'moving_average',
+  reference:reference,notes:'',createdAt:date+'T08:00:00.000Z',createdBy:'owner@example.test'
+ },extra||{});
 }
+
 const opening=transaction('INV-00000001','STK-CSK-2026-00001','opening',5,'2026-11-01');
 function stockedFixture(qty){
  const ss=fixture();
@@ -77,13 +77,13 @@ function stockedFixture(qty){
  return ss;
 }
 let reservedStock=stockedFixture(5);
-const reservedIssue=transaction('INV-RESERVED-ISSUE1','STK-CSK-2026-00021','issue',2,'2026-11-03',{projectId:project.id,projectName:project.title});
+const reservedIssue=transaction('INV-RESERVED-ISSUE1','STK-CSK-2026-00021','issue',2,'2026-11-03',{projectId:project.id,projectName:project.title,costSource:'moving_average'});
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(reservedStock,[reservedIssue],[],[reservationOrder]),true,'project may issue material within its own reservation');
-const excessProjectIssue=transaction('INV-RESERVED-ISSUE2','STK-CSK-2026-00022','issue',5,'2026-11-03',{projectId:project.id,projectName:project.title});
+const excessProjectIssue=transaction('INV-RESERVED-ISSUE2','STK-CSK-2026-00022','issue',5,'2026-11-03',{projectId:project.id,projectName:project.title,costSource:'moving_average'});
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[excessProjectIssue],[],[reservationOrder]),/INVENTORY_ISSUE_EXCEEDS_PROJECT_RESERVATION/,'project cannot issue more than its remaining HPP reservation');
-const unreservedProjectIssue=transaction('INV-RESERVED-ISSUE3','STK-CSK-2026-00023','issue',2,'2026-11-03',{projectId:otherProject.id,projectName:otherProject.title});
+const unreservedProjectIssue=transaction('INV-RESERVED-ISSUE3','STK-CSK-2026-00023','issue',2,'2026-11-03',{projectId:otherProject.id,projectName:otherProject.title,costSource:'moving_average'});
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[unreservedProjectIssue],[],[reservationOrder]),/INVENTORY_MOVEMENT_BREACHES_RESERVATION/,'another project cannot consume stock reserved to an active production order');
-const reservedAdjustment=transaction('INV-RESERVED-ADJ01','STK-CSK-2026-00024','adjustment_out',2,'2026-11-03',{notes:'Selisih stock opname'});
+const reservedAdjustment=transaction('INV-RESERVED-ADJ01','STK-CSK-2026-00024','adjustment_out',2,'2026-11-03',{notes:'Selisih stock opname',costSource:'moving_average'});
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[reservedAdjustment],[],[reservationOrder]),/INVENTORY_ADJUSTMENT_BREACHES_RESERVATION/,'stock adjustment cannot reduce stock below active project reservations');
 const releasedOrder=Object.assign({},reservationOrder,{status:'quality_check'});
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[unreservedProjectIssue],[],[releasedOrder]),true,'QC releases unissued material back to available stock');
