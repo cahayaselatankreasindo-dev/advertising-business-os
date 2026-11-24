@@ -106,11 +106,12 @@
       var qty=n(tx.qty),snapshot=costs[String(tx.id||'')]||{};
       var unitCost=n(snapshot.unitCost)||n(tx.unitCost),totalCost=n(snapshot.totalCost)||n(tx.totalCost);
       if(totalCost<=0&&unitCost>0)totalCost=Math.round(qty*unitCost);
+      if(snapshot.estimated||tx.costSource==='master_fallback'||tx.costSource==='legacy_master_fallback')estimated=true;
       if(tx.movement==='issue'){netQty+=qty;netCost+=totalCost;}
       else{netQty-=qty;netCost-=totalCost;}
     });
     netQty=Math.max(0,netQty);netCost=Math.max(0,netCost);
-    return{qty:netQty,totalCost:netCost,averageCost:netQty>0?netCost/netQty:0};
+    return{qty:netQty,totalCost:netCost,averageCost:netQty>0?netCost/netQty:0,estimated:estimated};
   }
   function validateTransaction(input,context){
     context=context||{};
