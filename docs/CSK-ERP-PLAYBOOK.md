@@ -543,3 +543,24 @@ Actual-versus-estimated material cost is now available in Sales Order detail usi
 - Backend rejects manipulated issue costs and PO receipt costs.
 - HPP material cost snapshots are frozen at production release; missing cost estimates remain unknown rather than zero.
 - Legacy cost fallback is flagged as estimated.
+
+
+## 22. Actual material cost reconciliation PDF — 25 November 2026
+
+### Delivered on the internal Business OS feature branch
+- Added an Owner-only “Unduh Rekonsiliasi Biaya PDF” action in Sales Order material costing.
+- Generates a branded landscape A4 PDF with project/Sales Order identifiers, HPP estimate, net material issue cost, cost variance, material-level quantities and costs, valuation completeness, and verification signatures.
+- The PDF uses the frozen HPP material cost snapshot for released Sales Orders and the current HPP only for legacy orders that do not yet have a frozen snapshot; the source is explicitly labelled.
+- The report marks incomplete cost data rather than treating missing values as zero. Legacy Master Material fallback is identified as an estimate.
+- The report is marked temporary until the Sales Order is delivered/closed. Net issues less returns represent material cost assigned to the project, not proof that all issued material has been consumed.
+- Long material lists paginate across landscape A4 pages.
+
+### Accounting boundary
+- This is a material-cost reconciliation report, not a full job-costing or profit-and-loss statement.
+- Labor, service, machine time, overhead, scrap/offcut, wastage, taxes, and other project costs remain separate cost components.
+- A final project margin must not be declared until all material returns, supplier invoices, labor/services, and project expenses are reconciled.
+
+### Tests
+- Cost report normalization preserves unknown HPP estimates as null.
+- Landscape A4 dimensions, multi-page pagination, and download API are covered by PDF regression tests.
+- Inventory cost variance is suppressed when actual cost valuation is incomplete.
