@@ -187,7 +187,8 @@ assert.match(backend,/LockService\.getScriptLock\(\)/,'stock reservation is prot
 assert.match(backend,/RESERVATION_STOCK_INSUFFICIENT/,'stock reservation rejects competing orders when free stock is insufficient');
 assert.match(backend,/Inventory_Reservations/,'reservation records use a dedicated server-owned sheet');
 assert.match(backend,/releaseSalesOrderReservation_/,'Owner can release an active Sales Order reservation');
-assert.match(backend,/releaseTerminalSalesOrderReservations_\(ss, payload\.salesOrders, identity\)/,'terminal Sales Order status automatically releases active reservations');
+assert.match(backend,/releaseTerminalSalesOrderReservations_\(ss, payload\.salesOrders, identity, true\)/,'terminal Sales Order status automatically releases active reservations');
+assert.match(backend,/reconcileConsumedReservations_\(ss\)/,'fully consumed reservations are closed after stock issues sync');
 assert.match(guard,/inventoryTransactions/,'owner sync includes inventory ledger');
 assert.match(guard,/inventory/,'inventory navigation is Owner-only');
 assert.match(guard,/reserveSalesOrderStock/,'authenticated client exposes verified reserve action');
@@ -195,6 +196,7 @@ assert.match(guard,/releaseSalesOrderReservation/,'authenticated client exposes 
 assert.match(guard,/inventoryReservations = identity\.role === 'owner'/,'reservation state is read from cloud and never added to generic sync collections');
 assert.match(html,/reserveSalesOrderStock: function/,'Business OS bridge exposes reservation actions to Inventory UI');
 assert.match(ui,/renderReservationPanel/,'Inventory UI displays locked Sales Order reservations');
+assert.match(ui,/inv-sales-order/,'Inventory issue form supports Sales Order-linked material consumption');
 assert.match(ui,/data-inv-action="reserve-so"/,'Owner can lock stock from the Inventory page');
 assert.match(ui,/data-inv-action="release-so"/,'Owner can release an active stock reservation');
 assert.match(html,/id="page-inventory"/,'inventory page is mounted in Business OS');
