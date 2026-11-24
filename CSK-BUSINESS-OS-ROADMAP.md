@@ -203,3 +203,15 @@ No phase in this plan requires a new database or authentication provider.
 ## 14. Architecture scope confirmation — 24 November 2026
 
 The Owner confirmed that CSK Business OS should continue using the existing Google Apps Script + Google Sheets architecture and that Supabase is not required now. All current development, tests, and release planning must stay within this architecture. Supabase-related documents are parked as historical/future reference only. No Supabase tools, project changes, schema migrations, or authentication changes are in scope unless the Owner explicitly reopens that decision.
+
+
+## 15. Dashboard workflow improvement — 24 November 2026
+
+- Dashboard project queue now prioritises overdue deadlines, deadlines today, upcoming deadlines, and projects without a deadline. Project statuses are labelled separately as Perencanaan, Pengerjaan, and Review klien.
+- Dashboard lead queue now prioritises overdue follow-ups, follow-ups today, scheduled follow-ups, and unscheduled leads. Won/Lost leads are excluded.
+- Added an Owner-only `Buat Penawaran` quick action that opens the existing quotation editor; Team users do not see this finance-restricted action.
+- Four dashboard quick actions use a balanced 2×2 layout on mobile.
+- Local calendar dates are used for due-state calculations to avoid UTC date shifts. WhatsApp links use opener isolation.
+- Added dashboard regression tests and included them in the security and source regression suites. Both suites passed on commit `2fa697836080d6cab35b44c2665cec29a0b24a63`.
+- PWA manifest and service worker cache versions are aligned at `3.2.11`.
+- No live Google Sheets rows, Apps Script deployment, or production credentials were changed.
