@@ -193,6 +193,9 @@ assert.match(ui,/calculateOpenSalesOrderCommitments/,'inventory UI calculates cr
 assert.match(ui,/Komitmen Material Sales Order/,'inventory page shows the active production material commitment panel');
 assert.match(ui,/Estimasi bebas/,'inventory page distinguishes physical stock from estimated free stock');
 assert.match(ui,/monitoring, bukan reservasi stok yang terkunci/,'inventory UI clearly labels commitments as advisory, not locked reservations');
+assert.match(ui,/Stock Reservation · Terkunci/,'inventory UI exposes the locked stock reservation panel');
+assert.match(ui,/reserve-so/,'inventory UI supports server-side stock reservation');
+assert.match(ui,/release-so/,'inventory UI supports reservation release');
 assert.match(salesUI,/calculateHppRequirements/,'Sales Order material plan uses HPP and verified unit conversion');
 assert.match(salesUI,/createDraftPOFromShortage/,'Sales Order can create supplier-grouped draft POs from HPP shortages');
 assert.match(salesUI,/openPurchaseOrderQty/,'shortage planner subtracts quantities already covered by draft or ordered POs');
