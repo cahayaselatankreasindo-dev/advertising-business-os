@@ -60,6 +60,27 @@ assert.equal(costVariance.estimatedTotalCost,1200);
 assert.equal(costVariance.actualTotalCost,750);
 assert.equal(costVariance.varianceCost,-450);
 assert.equal(costVariance.complete,true,'actual-versus-estimated material cost is complete when all unit-cost snapshots and HPP estimates exist');
+const returnCostMaterials=[{id:'MAT-RET',name:'Material Retur',unit:'m2',unitPrice:999}];
+const returnCostProjects=[{id:'PRJ-RET',title:'Project Return Cost'}];
+const returnCostLedger=[
+ {id:'RET-OPEN',materialId:'MAT-RET',movement:'opening',qty:10,unit:'m2',date:'2026-11-01',unitCost:100,totalCost:1000,costSource:'opening_manual',costingMethod:'moving_average'},
+ {id:'RET-ISSUE',materialId:'MAT-RET',movement:'issue',qty:5,unit:'m2',date:'2026-11-02',projectId:'PRJ-RET',unitCost:100,totalCost:500,costSource:'moving_average',costingMethod:'moving_average'},
+ {id:'RET-RECEIPT',materialId:'MAT-RET',movement:'receipt',qty:10,unit:'m2',date:'2026-11-03',unitCost:200,totalCost:2000,costSource:'manual_receipt',costingMethod:'moving_average'}
+];
+const returnedAtIssueCost=E.validateTransaction({
+ materialId:'MAT-RET',movement:'return',qty:2,unit:'m2',date:'2026-11-04',projectId:'PRJ-RET'
+},{materials:returnCostMaterials,projects:returnCostProjects,transactions:returnCostLedger});
+assert.equal(returnedAtIssueCost.transaction.unitCost,100,'project return reverses the weighted-average cost recorded when the material was issued');
+assert.equal(returnedAtIssueCost.transaction.totalCost,200);
+assert.equal(returnedAtIssueCost.transaction.costSource,'project_issue_average');
+const returnValuation=E.calculateInventoryValuation(returnCostMaterials,returnCostLedger.concat([returnedAtIssueCost.transaction]));
+assert.equal(returnValuation.balances['MAT-RET'],17);
+assert.equal(returnValuation.stockValue['MAT-RET'],2700,'return restores the original issue cost, not the newer average after a later receipt');
+const returnCostVariance=E.calculateMaterialCostVariance(
+ [{materialId:'MAT-RET',name:'Material Retur',unit:'m2',required:5,estimatedTotalCost:500}],
+ 'PRJ-RET',returnCostLedger.concat([returnedAtIssueCost.transaction])
+);
+assert.equal(returnCostVariance.actualTotalCost,300,'project actual material cost nets returns at their original issue value');
 
 assert.throws(()=>E.validateTransaction({
  materialId:'MAT-ACR',movement:'issue',qty:1,unit:'m2',date:'2026-11-15',projectId:''
