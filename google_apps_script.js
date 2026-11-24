@@ -830,6 +830,13 @@ function calculateActiveProjectReservations_(ss, orders, transactions) {
     var requirements = [];
     if (snapshotOrder) {
       requirements = normalizeMaterialRequirementSnapshot_(parseSalesOrderMaterialRequirements_(snapshotOrder));
+      var snapshotSeen = Object.create(null);
+      requirements.forEach(function(line) {
+        var materialId = String(line.materialId || "");
+        if (snapshotSeen[materialId]) errors.push("Snapshot reservasi memiliki material duplikat pada proyek " + (project.projectName || projectId) + ".");
+        snapshotSeen[materialId] = true;
+        if (!Number.isFinite(Number(line.required)) || Number(line.required) <= 0) errors.push("Kuantitas snapshot reservasi tidak valid pada proyek " + (project.projectName || projectId) + ".");
+      });
       project.orders.forEach(function(order) {
         var snapshot = parseSalesOrderMaterialRequirements_(order);
         if (snapshot.length && JSON.stringify(normalizeMaterialRequirementSnapshot_(snapshot)) !== JSON.stringify(requirements)) {
