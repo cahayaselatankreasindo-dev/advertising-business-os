@@ -67,6 +67,17 @@ assert.throws(()=>E.validateTransaction({
  purchaseOrderId:'PO-001'
 },{materials,projects,purchaseOrders:[{...po,status:'draft'}],transactions:[]}),/berstatus Dipesan/);
 
+const hollowMaterial={id:'MAT-HOLLOW-6M',name:'Hollow hitam 2 × 2 cm, tebal 1 mm',sku:'H-H-2X2-1',unit:'m',purchaseUnit:'batang',conversionFactor:6,unitPrice:20000,purchasePrice:120000,status:'active'};
+const hollowPO={id:'PO-HOLLOW-001',supplier:'Supplier Hollow',status:'ordered',items:[{materialId:hollowMaterial.id,sku:hollowMaterial.sku,name:hollowMaterial.name,qty:2,unit:'batang',purchaseUnit:'batang',usageUnit:'m',conversionFactor:6,unitPrice:120000,usageUnitPrice:20000}]};
+const hollowReceipt=E.validateTransaction({
+ materialId:hollowMaterial.id,movement:'receipt',qty:6,unit:'m',date:'2026-11-20',purchaseOrderId:hollowPO.id
+},{materials:[hollowMaterial],projects,purchaseOrders:[hollowPO],transactions:[]});
+assert.equal(hollowReceipt.transaction.qty,6,'one 6m bar is received into stock as six meters');
+assert.equal(hollowReceipt.transaction.unit,'m','stock ledger always stores usage units');
+assert.throws(()=>E.validateTransaction({
+ materialId:hollowMaterial.id,movement:'receipt',qty:7,unit:'m',date:'2026-11-21',purchaseOrderId:hollowPO.id
+},{materials:[hollowMaterial],projects,purchaseOrders:[hollowPO],transactions:[hollowReceipt.transaction]}),/melebihi sisa/,'receipt cannot exceed two purchased bars after conversion');
+
 const reservationOrder={id:'SO-INV-UI-0001',projectId:'PRJ-001',status:'in_production'};
 const reservation={id:'RSV-UI-0001',salesOrderId:reservationOrder.id,materialId:'MAT-ACR',qty:4,unit:'m2',status:'active'};
 const reservedOpening=tx('00000020','STK-CSK-2026-00020','opening',5,'2026-11-01');
