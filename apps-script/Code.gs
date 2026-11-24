@@ -1118,13 +1118,24 @@ function releaseSalesOrderReservation_(ss, salesOrderId, reason, identity) {
 
 // Inventory ledger is append-only. Every stock movement is checked against master data
 // and the full dated ledger before any new row is merged.
-function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, incomingPurchaseOrders) {
+function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, incomingPurchaseOrders, incomingSalesOrders) {
   if (!Array.isArray(incomingTransactions)) throw new Error("INVALID_INVENTORY_TRANSACTIONS");
   ensureSheet(ss, "Inventory_Transactions", FIELD_MAP.Inventory_Transactions.headers);
   var existing = readSheetData(ss, "Inventory_Transactions");
   var materials = readSheetData(ss, "Materials");
   var projects = readSheetData(ss, "Projects");
   var purchaseOrders = readSheetData(ss, "Purchase_Orders");
+  var terminalSalesOrders = {};
+  (incomingSalesOrders || []).forEach(function(order) {
+    if (order && ["cancelled", "delivered", "closed"].indexOf(String(order.status || "").toLowerCase()) >= 0) terminalSalesOrders[String(order.id || "")] = true;
+  });
+  var reservedByMaterial = {};
+  readSheetData(ss, "Inventory_Reservations").filter(function(row) {
+    return String(row.status) === "active" && !terminalSalesOrders[String(row.salesOrderId || "")];
+  }).forEach(function(row) {
+    var materialId = String(row.materialId || "");
+    reservedByMaterial[materialId] = Number(reservedByMaterial[materialId] || 0) + Math.max(0, Number(row.qty) || 0);
+  });
   (incomingPurchaseOrders || []).forEach(function(incomingPO) {
     var copy = Object.assign({}, incomingPO);
     if (Array.isArray(incomingPO.items)) copy.itemsJson = JSON.stringify(incomingPO.items);
@@ -1208,6 +1219,11 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
       openingSeen[materialId] = true;
     }
     movementSeen[materialId] = true;
+    if (newRows.some(function(row) { return String(row.id) === String(tx.id); }) &&
+        ["issue", "adjustment_out"].indexOf(String(tx.movement)) >= 0) {
+      var reservedQty = Number(reservedByMaterial[materialId] || 0);
+      if (Number(tx.qty) > before - reservedQty + 0.000001) throw new Error("INVENTORY_STOCK_RESERVED");
+    }
     var after = before + Number(tx.qty) * direction;
     if (after < -0.000001) throw new Error("INVENTORY_INSUFFICIENT_STOCK");
     balances[materialId] = Math.max(0, after);
@@ -1248,13 +1264,14 @@ function doPost(e) {
         if (payload.costSheets) mergeSummary.Cost_Sheets = mergeSheet(ss, "Cost_Sheets", payload.costSheets.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
         if (payload.services) mergeSummary.Services = mergeSheet(ss, "Services", payload.services);
         if (payload.purchaseOrders) validatePurchaseOrderReceiptStatuses_(ss, payload.purchaseOrders, payload.inventoryTransactions || []);
-        if (payload.inventoryTransactions) validateInventoryTransactionsBeforeMerge_(ss, payload.inventoryTransactions, payload.purchaseOrders || []);
+        if (payload.inventoryTransactions) validateInventoryTransactionsBeforeMerge_(ss, payload.inventoryTransactions, payload.purchaseOrders || [], payload.salesOrders || []);
         if (payload.purchaseOrders) mergeSummary.Purchase_Orders = mergeSheet(ss, "Purchase_Orders", payload.purchaseOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); return y; }));
         if (payload.salesOrders) {
           validateSalesOrdersBeforeMerge_(ss, payload.salesOrders);
           mergeSummary.Sales_Orders = mergeSheet(ss, "Sales_Orders", payload.salesOrders.map(function(x){ var y = Object.assign({}, x); y.itemsJson = JSON.stringify(x.items || []); y.historyJson = JSON.stringify(x.history || []); y.sourceCostSheetSnapshotJson = JSON.stringify(x.sourceCostSheetSnapshot || null); return y; }));
-          if (identity.role === "owner") releaseTerminalSalesOrderReservations_(ss, payload.salesOrders, identity);
-          mergeSummary.ReleasedReservations = releaseTerminalSalesOrderReservations_(ss, payload.salesOrders, identity);
+          mergeSummary.ReleasedReservations = identity.role === "owner"
+            ? releaseTerminalSalesOrderReservations_(ss, payload.salesOrders, identity)
+            : 0;
         }
         if (payload.inventoryTransactions) {
           mergeSummary.Inventory_Transactions = mergeSheet(ss, "Inventory_Transactions", payload.inventoryTransactions);
