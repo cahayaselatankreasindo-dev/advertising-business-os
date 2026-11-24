@@ -159,6 +159,9 @@
         errors.push('Satuan HPP '+item.unit+' untuk '+material.name+' tidak cocok dengan satuan stok '+stockUnit+' atau satuan beli '+purchaseUnit+'.');
         return;
       }
+      var wasteRate=snapshot&&Object.prototype.hasOwnProperty.call(snapshot,'wasteRate')?Number(snapshot.wasteRate):(snapshot?0:n(material.wasteRate));
+      if(!Number.isFinite(wasteRate)||wasteRate<0||wasteRate>100){errors.push('Waste allowance '+material.name+' harus 0 sampai 100 persen.');return;}
+      stockQty*=1+wasteRate/100;
       var key=String(material.id);
       if(!grouped[key])grouped[key]={materialId:material.id,name:String(snapshot&&snapshot.name||material.name||item.name||''),unit:stockUnit,required:0,onHand:n((balances||{})[key])};
       grouped[key].required+=stockQty;
