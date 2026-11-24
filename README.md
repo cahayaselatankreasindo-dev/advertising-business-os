@@ -240,3 +240,16 @@ Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke 
 - GitHub Actions source-checks and tests pass on the internal feature branch.
 
 Next: server-enforced reservation at production release, partial pick/issue/return, and purchase-unit conversion at receiving. No live deployment, migration, or merge to main has been performed.
+
+
+## Production Material Reservation & Picking
+
+- Material reservations are created automatically when a Sales Order moves to **Ready Production** after the required DP is verified.
+- The reservation uses an immutable snapshot of the project's HPP material quantities and verified purchase-to-stock unit conversions.
+- If physical stock is insufficient, the Sales Order moves to **Waiting for Material** and cannot be released to production until stock is replenished.
+- Only Sales Orders in Ready Production or In Production hold reservations. Entering Quality Control releases unissued quantities; returning to production for rework reactivates the original HPP snapshot.
+- Inventory shows physical stock, reserved stock, free stock, shortages, and a project-level picking list.
+- Picking creates an append-only project issue transaction. The system caps each issue at the project's outstanding reservation and physical stock.
+- Project returns restore stock and reduce the net material already consumed. Returns cannot exceed prior issues.
+- Server-side validation prevents another project or a stock adjustment from consuming material already reserved for active production.
+- These controls are enforced in Apps Script and covered by workflow/backend regression tests. Production deployment and Google Sheets migration remain separate release steps.
