@@ -406,7 +406,7 @@
     var result=rows.map(function(line){
       var actual=actualByMaterial[String(line.materialId)]||{qty:0,cost:0,estimated:false};
       var estimate=line.estimatedTotalCost===null||line.estimatedTotalCost===undefined||line.estimatedTotalCost===''?null:Number.isFinite(Number(line.estimatedTotalCost))?Number(line.estimatedTotalCost):null;
-      var rowComplete=actualComplete&&estimate!==null;
+      var rowComplete=actualComplete&&hasActualMovement&&estimate!==null;
       if(actual.estimated)estimated=true;
       return{
         materialId:line.materialId,name:line.name||'',unit:line.unit||'',
@@ -414,7 +414,7 @@
         estimatedCost:estimate,actualCost:Math.round(actual.cost),
         varianceCost:rowComplete?Math.round(actual.cost-estimate):null,
         variancePct:rowComplete&&estimate>0?(actual.cost-estimate)/estimate*100:null,
-        estimated:actual.estimated,rowComplete:rowComplete
+        estimated:actual.estimated,actualCostComplete:actualComplete,rowComplete:rowComplete
       };
     });
     return{
