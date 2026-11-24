@@ -79,6 +79,14 @@ function stockedFixture(qty){
 let reservedStock=stockedFixture(5);
 const reservedIssue=transaction('INV-RESERVED-ISSUE1','STK-CSK-2026-00021','issue',2,'2026-11-03',{projectId:project.id,projectName:project.title,costSource:'moving_average'});
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(reservedStock,[reservedIssue],[],[reservationOrder]),true,'project may issue material within its own reservation');
+const issueAtWrongCost=transaction('INV-RESERVED-BADCOST','STK-CSK-2026-00025','issue',2,'2026-11-03',{
+ projectId:project.id,projectName:project.title,unitCost:125000,totalCost:250000,costSource:'moving_average'
+});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[issueAtWrongCost],[],[reservationOrder]),/INVENTORY_COST_SNAPSHOT_MISMATCH/,'backend rejects a project issue cost that differs from the current moving weighted average');
+const receiptAtWrongPOCost=transaction('INV-PO-BADCOST','STK-CSK-2026-00026','receipt',1,'2026-11-03',{
+ purchaseOrderId:po.id,supplier:po.supplier,unitCost:125000,totalCost:125000,costSource:'purchase_order'
+});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(fixture(),[receiptAtWrongPOCost]),/INVENTORY_COST_SNAPSHOT_MISMATCH/,'backend enforces the unit cost recorded on the supplier Purchase Order');
 const excessProjectIssue=transaction('INV-RESERVED-ISSUE2','STK-CSK-2026-00022','issue',5,'2026-11-03',{projectId:project.id,projectName:project.title,costSource:'moving_average'});
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(stockedFixture(5),[excessProjectIssue],[],[reservationOrder]),/INVENTORY_ISSUE_EXCEEDS_PROJECT_RESERVATION/,'project cannot issue more than its remaining HPP reservation');
 const unreservedProjectIssue=transaction('INV-RESERVED-ISSUE3','STK-CSK-2026-00023','issue',2,'2026-11-03',{projectId:otherProject.id,projectName:otherProject.title,costSource:'moving_average'});
