@@ -21,7 +21,7 @@ const byCode = code => catalog.materialFamilies.find(x => x.familyCode === code)
 assert.ok(byCode('PAP-HVS').attributes.grammageGsm.includes(80));
 assert.ok(byCode('WOOD-PLY').attributes.thicknessMm.includes(18));
 assert.ok(byCode('WOOD-SOLID').attributes.species.includes('Jati'));
-assert.deepEqual(byCode('ACR-CLEAR').attributes.thicknessMm, [1,2,3,4,5,6,8,10,12,15,20,25]);
+assert.deepEqual(byCode('ACR-CLEAR').attributes.thicknessMm, [0.8,1,1.5,2,2.5,3,4,5,6,8,10,12,15,18,20,25,30]);
 assert.ok(byCode('ACR-COLOR').attributes.colors.includes('Hitam'));
 assert.ok(byCode('FLEXI').attributes.rollWidthsMm.includes(3200));
 assert.ok(byCode('STEEL-HOLLOW').attributes.standardLengthMm.includes(6000));
