@@ -230,6 +230,7 @@ const deploy=fs.readFileSync('apps-script/Code.gs','utf8');
 const guard=fs.readFileSync('security/guard.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
 const ui=fs.readFileSync('inventory.js','utf8');
+const inventoryEngineSource=fs.readFileSync('inventory-engine.js','utf8');
 const salesUI=fs.readFileSync('sales-orders.js','utf8');
 const sw=fs.readFileSync('sw.js','utf8');
 const auth=fs.readFileSync('backend-auth.test.cjs','utf8');
@@ -266,6 +267,7 @@ assert.match(ui,/maximumFractionDigits:4/,'stock quantities display the precisio
 assert.match(ui,/step="0\.0001"/,'picking form accepts converted stock quantities to four decimal places');
 assert.match(ui,/inv-sales-order/,'Inventory issue form supports Sales Order-linked material consumption');
 assert.match(ui,/inv-reservation-id/,'Inventory issue form attaches the exact reservation row to each stock issue');
+assert.match(inventoryEngineSource,/if\(\['issue','return','adjustment_out'\]\.indexOf\(input\.movement\)>=0\)/,'reservation stock invariant is also enforced for returns');
 assert.match(ui,/returning\?Math\.max\(0,netIssued\):remaining/,'return form limits quantity to net material issued from the selected reservation');
 assert.match(ui,/Retur ditautkan ke/,'return UI confirms that the material return is linked to the originating Sales Order');
 assert.match(backend,/ReservationID/,'inventory ledger schema stores an immutable reservation reference');
