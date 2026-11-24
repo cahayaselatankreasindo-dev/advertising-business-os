@@ -976,11 +976,17 @@ function validatePurchaseOrderReceiptStatuses_(ss, incomingPurchaseOrders, incom
 function validateMaterialsBeforeMerge_(ss, incomingMaterials) {
   if (!Array.isArray(incomingMaterials)) return true;
   var seenSku = {};
+  var existingSkuOwner = {};
+  readSheetData(ss, "Materials").forEach(function(existingMaterial) {
+    var existingSku = String(existingMaterial.sku || "").trim().toUpperCase();
+    if (existingSku) existingSkuOwner[existingSku] = String(existingMaterial.id || "");
+  });
   incomingMaterials.forEach(function(material) {
     if (!material || !String(material.id || "").trim()) throw new Error("MATERIAL_ID_REQUIRED");
     var sku = String(material.sku || "").trim().toUpperCase();
     if (sku) {
       if (seenSku[sku]) throw new Error("DUPLICATE_MATERIAL_SKU");
+      if (existingSkuOwner[sku] && existingSkuOwner[sku] !== String(material.id)) throw new Error("DUPLICATE_MATERIAL_SKU");
       seenSku[sku] = true;
     }
     var status = String(material.status || "").toLowerCase();
