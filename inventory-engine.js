@@ -412,15 +412,15 @@
         materialId:line.materialId,name:line.name||'',unit:line.unit||'',
         estimatedQty:n(line.required),actualQty:Math.max(0,actual.qty),
         estimatedCost:estimate,actualCost:Math.round(actual.cost),
-        varianceCost:estimate===null?null:Math.round(actual.cost-estimate),
-        variancePct:estimate>0?(actual.cost-estimate)/estimate*100:null,
+        varianceCost:rowComplete?Math.round(actual.cost-estimate):null,
+        variancePct:rowComplete&&estimate>0?(actual.cost-estimate)/estimate*100:null,
         estimated:actual.estimated,rowComplete:rowComplete
       };
     });
     return{
       rows:result,estimatedTotalCost:result.every(function(row){return row.estimatedCost!==null;})?Math.round(result.reduce(function(sum,row){return sum+row.estimatedCost;},0)):null,
       actualTotalCost:Math.round(result.reduce(function(sum,row){return sum+row.actualCost;},0)),
-      varianceCost:result.every(function(row){return row.varianceCost!==null;})?Math.round(result.reduce(function(sum,row){return sum+row.varianceCost;},0)):null,
+      varianceCost:actualComplete&&result.every(function(row){return row.estimatedCost!==null;})?Math.round(result.reduce(function(sum,row){return sum+row.actualCost-row.estimatedCost;},0)):null,
       complete:actualComplete,varianceComplete:actualComplete&&result.every(function(row){return row.estimatedCost!==null;}),estimated:estimated
     };
   }
