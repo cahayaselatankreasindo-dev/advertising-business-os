@@ -139,6 +139,12 @@ const openingLater=transaction('INV-00000012','STK-CSK-2026-00012','opening',5,'
 assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(fixture(),[receiptFirst,openingLater]),/INVENTORY_OPENING_MUST_BE_FIRST/,'opening balance cannot be entered after stock movements');
 
 
+const productionGateCase=reservationFixture(5,'SO-INV-PROD-GATE-001',4);
+const productionGateOrder={...productionGateCase.order,status:'in_production',items:JSON.parse(productionGateCase.order.itemsJson),sourceCostSheetSnapshot:productionGateCase.snapshot};
+assert.throws(()=>context.validateSalesOrdersBeforeMerge_(productionGateCase.ss,[productionGateOrder]),/SALES_ORDER_STOCK_RESERVATION_REQUIRED/,'Sales Order cannot enter production before its HPP materials are reserved');
+context.reserveSalesOrderStock_(productionGateCase.ss,productionGateCase.order.id,{role:'owner',email:'owner@example.test'});
+assert.equal(context.validateSalesOrdersBeforeMerge_(productionGateCase.ss,[productionGateOrder]),true,'Sales Order can enter production after all HPP materials have active reservations');
+
 function reservationFixture(stockQty, orderId, reservationQty, secondOrderId) {
  const f=fixture();
  const snapshot={id:'HPP-INV-001',projectId:project.id,projectName:project.title,items:[{itemType:'material',materialId:material.id,name:material.name,qty:reservationQty,unit:'m2'}]};
