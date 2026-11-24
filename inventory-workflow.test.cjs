@@ -193,6 +193,8 @@ assert.match(ui,/Komitmen Material Sales Order/,'inventory page shows the active
 assert.match(ui,/Estimasi bebas/,'inventory page distinguishes physical stock from estimated free stock');
 assert.match(ui,/monitoring, bukan reservasi stok yang terkunci/,'inventory UI clearly labels commitments as advisory, not locked reservations');
 assert.match(salesUI,/calculateHppRequirements/,'Sales Order material plan uses HPP and verified unit conversion');
+assert.match(salesUI,/order\.sourceCostSheetSnapshot/,'Sales Order material plan and draft PO use the saved HPP snapshot');
+assert.match(fs.readFileSync('inventory-engine.js','utf8'),/snapshot\.conversionFactor/,'inventory demand uses saved HPP conversion factors instead of current master values');
 assert.match(salesUI,/createDraftPOFromShortage/,'Sales Order can create supplier-grouped draft POs from HPP shortages');
 assert.match(salesUI,/openPurchaseOrderQty/,'shortage planner subtracts quantities already covered by draft or ordered POs');
 assert.match(salesUI,/Buat Draft PO dari Kekurangan/,'owner can start purchasing from the shortage panel');
