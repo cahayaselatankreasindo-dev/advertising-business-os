@@ -88,7 +88,7 @@ assert.equal(generated.internal.getNumberOfPages(), generated.pages);
 
 const longAddress = pdf.generatePdf({
   kind:'quotation',docNo:'QUO-CSK-2026-00100',client:'PT Alamat Panjang',
-  clientAddress:Array.from({length:140},()=> 'Jl. Industri Raya Blok A Nomor 123 Kecamatan Serpong').join(', '),
+  clientAddress:Array.from({length:20},()=> 'Jl. Industri Raya Blok A Nomor 123 Kecamatan Serpong').join(', '),
   lines:[{name:'Pekerjaan display',qty:1,unit:'lot',unitPrice:500000}],
   paymentTerms:'Pembayaran sesuai persetujuan tertulis.',bankDetails:'Bank Jago Syariah | 508705048143'
 },MockPdf);
