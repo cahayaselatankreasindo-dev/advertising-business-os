@@ -361,3 +361,11 @@ nav.pillar-mobile-nav .mob-btn[aria-current="page"] i {
     print-color-adjust: exact;
   }
 }
+
+
+/* Four dashboard quick actions form a balanced 2×2 grid on mobile. */
+@media (max-width: 767px) {
+  #page-dashboard > div:first-child > div:last-child button:last-child {
+    grid-column: auto !important;
+  }
+}
