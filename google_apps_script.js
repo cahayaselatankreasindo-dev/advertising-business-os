@@ -1732,6 +1732,7 @@ function cskAssertPayloadAllowed_(identity, payload) {
 
   if (action === "sync_all") {
     if (Object.prototype.hasOwnProperty.call(payload, "invoicePayments")) throw new Error("PAYMENT_LEDGER_SERVER_ONLY");
+    if (Object.prototype.hasOwnProperty.call(payload, "inventoryReservations")) throw new Error("INVENTORY_RESERVATIONS_SERVER_ONLY");
     if (Object.prototype.hasOwnProperty.call(payload, "legacyCostings") ||
         Object.prototype.hasOwnProperty.call(payload, "projectCosts")) {
       throw new Error("LEGACY_COST_DATA_READ_ONLY");
