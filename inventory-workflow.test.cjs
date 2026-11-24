@@ -172,6 +172,8 @@ assert.match(backend,/validateInventoryTransactionsBeforeMerge_\(ss, payload\.in
 assert.match(backend,/INVENTORY_TRANSACTION_IMMUTABLE/,'backend prevents edits to existing stock transactions');
 assert.match(backend,/INVENTORY_INSUFFICIENT_STOCK/,'backend prevents negative stock');
 assert.match(backend,/INVENTORY_RECEIPT_EXCEEDS_PURCHASE_ORDER/,'backend caps receipts to PO quantity');
+assert.match(backend,/INVENTORY_ISSUE_EXCEEDS_PROJECT_RESERVATION/,'backend caps material picking to the active project reservation');
+assert.match(backend,/INVENTORY_MOVEMENT_BREACHES_RESERVATION/,'backend prevents other projects from consuming reserved stock');
 assert.match(backend,/validatePurchaseOrderReceiptStatuses_/,'backend validates PO completion against inventory receipts');
 assert.match(backend,/PURCHASE_ORDER_RECEIPT_INCOMPLETE/,'new versioned POs cannot be marked received before all items are received');
 assert.match(backend,/inventoryControlVersion/,'legacy Purchase Orders remain compatible while new POs require receipt control');
@@ -187,11 +189,12 @@ assert.match(ui,/Reservasi Material & Picking List/,'inventory page shows locked
 assert.match(ui,/Stok tersedia/,'inventory page distinguishes physical stock from stock available after reservations');
 assert.match(ui,/data-inv-action="pick"/,'inventory picking list can prefill a project-linked stock issue');
 assert.match(ui,/applyPickingPrefill/,'picking action opens a prefilled issue transaction');
+assert.match(ui,/sisa reservasi/,'picking form displays the remaining project reservation');
 assert.match(salesUI,/calculateHppRequirements/,'Sales Order material plan uses HPP and verified unit conversion');
 assert.match(salesUI,/createDraftPOFromShortage/,'Sales Order can create supplier-grouped draft POs from HPP shortages');
 assert.match(salesUI,/openPurchaseOrderQty/,'shortage planner subtracts quantities already covered by draft or ordered POs');
 assert.match(salesUI,/Buat Draft PO dari Kekurangan/,'owner can start purchasing from the shortage panel');
-assert.match(salesUI,/belum dikurangi reservasi order lain/,'material planner distinguishes physical stock from reservations');
+assert.match(salesUI,/Reservasi lain/,'Sales Order material planner deducts stock reserved by other production projects');
 assert.match(sw,/inventory-engine\.js/,'inventory engine is cached');
 assert.match(sw,/inventory\.js/,'inventory UI is cached');
 assert.match(auth,/INVENTORY_LEDGER_SERVER_ONLY/,'backend RBAC test covers append-only inventory protection');
