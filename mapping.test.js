@@ -245,10 +245,10 @@ if (FIELD_MAP) {
     ['id','projectId','projectName','supplier','date','itemsJson','total','status','createdAt','updatedAt','inventoryControlVersion'],
     'Purchase Orders inventory control version terpetakan');
   eq(FIELD_MAP.Inventory_Transactions.headers,
-    ['ID','NomorTransaksi','MaterialID','NamaMaterial','JenisPergerakan','Qty','Satuan','Tanggal','ProjectID','NamaProyek','PurchaseOrderID','Supplier','Referensi','Catatan','CreatedAt','CreatedBy','SalesOrderID'],
+    ['ID','NomorTransaksi','MaterialID','NamaMaterial','JenisPergerakan','Qty','Satuan','Tanggal','ProjectID','NamaProyek','PurchaseOrderID','Supplier','Referensi','Catatan'',CreatedAt','CreatedBy','SalesOrderID','ReservationID'],
     'FIELD_MAP.Inventory_Transactions mempertahankan append-only stock ledger dan relasi Sales Order');
   eq(FIELD_MAP.Inventory_Transactions.fields,
-    ['id','transactionNo','materialId','materialName','movement','qty','unit','date','projectId','projectName','purchaseOrderId','supplier','reference','notes','createdAt','createdBy','salesOrderId'],
+    ['id','transactionNo','materialId','materialName','movement','qty','unit','date','projectId','projectName','purchaseOrderId','supplier','reference','notes'',createdAt','createdBy','salesOrderId','reservationId'],
     'FIELD_MAP.Inventory_Transactions fields terpetakan lengkap termasuk salesOrderId');
   eq(FIELD_MAP.Inventory_Reservations.headers,
     ['ID','NomorReservasi','SalesOrderID','NomorSO','ProjectID','NamaProyek','MaterialID','NamaMaterial','Qty','Satuan','Status','CreatedAt','CreatedBy','ReleasedAt','ReleaseReason'],
