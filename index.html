@@ -1495,12 +1495,17 @@
       return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
     }
     function isMaterialSelectable(material) {
-      const status=String(material && material.status || 'active');
-      const factor=Number(material && material.conversionFactor)||1;
-      const legacyManual=String(material && material.sku || '').indexOf('MAT-MANUAL-')===0 && purchaseUnit===unit && factor===1 && Number(material && material.unitPrice)>0;
-      return !!material && status==='active' && Number(material.unitPrice)>0 && purchasePrice>0 &&
-        factor>0 && !!unit && !!purchaseUnit &&
-        (legacyManual || (!!String(material.supplierName||'').trim() && !!String(material.priceSource||'').trim() && !!String(material.priceDate||'').trim()));
+      if(!material)return false;
+      const status=String(material.status||'active');
+      const unit=String(material.unit||'').trim();
+      const purchaseUnit=String(material.purchaseUnit||unit).trim();
+      const unitPrice=Number(material.unitPrice);
+      const purchasePrice=Number(material.purchasePrice)||(purchaseUnit===unit?unitPrice:0);
+      const factor=Number(material.conversionFactor)||1;
+      const legacyManual=String(material.sku||'').indexOf('MAT-MANUAL-')===0&&purchaseUnit===unit&&factor===1&&Number.isFinite(unitPrice)&&unitPrice>0;
+      const verifiedSupplier=!!String(material.supplierName||'').trim()&&!!String(material.priceSource||'').trim()&&!!String(material.priceDate||'').trim();
+      return status==='active'&&Number.isFinite(unitPrice)&&unitPrice>0&&Number.isFinite(purchasePrice)&&purchasePrice>0&&
+        Number.isFinite(factor)&&factor>0&&!!unit&&!!purchaseUnit&&(legacyManual||verifiedSupplier);
     }
 
     function showToast(msg, isError) {
@@ -2192,7 +2197,7 @@
       if(!id || !Number.isFinite(qty) || qty<=0) return showToast('Pilih material atau jasa dan kuantitas lebih dari nol.',true);
       if(type==='service') {
         const service=(db.services||[]).find(x=>x.id===id);
-        if(!service || !Number.isFinite(Number(service.costPrice)) || Number(service.costPrice)<=0) return showToast('Jasa belum memiliki biaya dasar/HPP. Lengkapi biaya jasa terlebih dahulu.',true);
+        if(!service || service.status==='inactive' || !Number.isFinite(Number(service.costPrice)) || Number(service.costPrice)<=0) return showToast('Produk/jasa belum aktif atau belum memiliki biaya dasar/HPP. Lengkapi katalog terlebih dahulu.',true);
         const unitPrice=Number(service.costPrice);
         hppLines.push({itemType:'service',serviceId:service.id,name:service.name,unit:service.unit||'job',qty,unitPrice,subtotal:qty*unitPrice});
       } else {
@@ -2239,15 +2244,37 @@
       calculateHpp();
     }
     function removeHppLine(i) { hppLines.splice(i,1); renderHppEstimate(); }
-    function saveHppEstimate() {
+    async function saveHppEstimate() {
+      if(!isOwnerSession())return showToast('Penyimpanan HPP hanya dapat dilakukan oleh Owner.',true);
       const projectId=document.getElementById('hpp-project').value, project=db.projects.find(p=>p.id===projectId);
-      if(!project) return showToast('Pilih proyek terlebih dahulu.',true);
-      if(!hppLines.length) return showToast('Tambahkan minimal satu material.',true);
-      const totals=calculateHpp(); if(!totals)return;
-      const record={id:'HPP-'+projectId,projectId,projectName:project.title||'',items:hppLines.map(x=>({...x})),...totals,updatedAt:new Date().toISOString()};
-      const idx=db.costSheets.findIndex(x=>x.id===record.id); if(idx>=0) db.costSheets[idx]=record; else db.costSheets.push(record);
-      project.hpp=totals.total; project.estimatedCost=totals.total; project.suggestedPrice=totals.price;
-      saveDB(); renderHppSaved(); showToast('HPP proyek tersimpan dan disinkronkan.');
+      if(!project)return showToast('Pilih proyek terlebih dahulu.',true);
+      if(!hppLines.length)return showToast('Tambahkan minimal satu material atau jasa.',true);
+      const totals=calculateHpp();if(!totals)return;
+      const record={id:'HPP-'+projectId,projectId,projectName:project.title||'',items:hppLines.map(x=>JSON.parse(JSON.stringify(x))),...totals,updatedAt:new Date().toISOString()};
+      const idx=db.costSheets.findIndex(x=>x.id===record.id);
+      const previousSheet=idx>=0?JSON.parse(JSON.stringify(db.costSheets[idx])):null;
+      const projectFields=['hpp','estimatedCost','suggestedPrice'];
+      const previousProjectFields={};
+      projectFields.forEach(function(key){previousProjectFields[key]={exists:Object.prototype.hasOwnProperty.call(project,key),value:project[key]};});
+      if(idx>=0)db.costSheets[idx]=record;else db.costSheets.push(record);
+      project.hpp=totals.total;project.estimatedCost=totals.total;project.suggestedPrice=totals.price;
+      saveDB(true);
+      const cloudConfigured=!!(db.settings&&db.settings.googleSheetUrl);
+      if(cloudConfigured){
+        try{
+          if(!window.CSKAuth||typeof window.CSKAuth.isReady!=='function'||!window.CSKAuth.isReady())throw new Error('Login dan koneksi Google Sheets harus aktif sebelum HPP disimpan.');
+          const verified=await window.CSKAuth.sync(true);
+          if(!verified)throw new Error('Sinkronisasi HPP ke Google Sheets belum terverifikasi. Periksa koneksi lalu coba lagi.');
+        }catch(error){
+          if(idx>=0)db.costSheets[idx]=previousSheet;else db.costSheets=db.costSheets.filter(x=>x.id!==record.id);
+          projectFields.forEach(function(key){if(previousProjectFields[key].exists)project[key]=previousProjectFields[key].value;else delete project[key];});
+          saveDB(true);
+          showToast('HPP belum tersimpan ke cloud. Perubahan lokal dibatalkan: '+String(error&&error.message||error),true);
+          return;
+        }
+      }
+      renderHppSaved();
+      showToast(cloudConfigured?'HPP proyek tersimpan dan terverifikasi di Google Sheets.':'HPP tersimpan secara lokal. Hubungkan Google Sheets untuk sinkronisasi cloud.');
     }
     function deleteHppEstimate(projectId) {
       const record=(db.costSheets||[]).find(x=>x.projectId===projectId); if(!record)return;
@@ -3424,6 +3451,7 @@
 
     window.CSKCustomCostingBridge = {
       getMaterials: function () { return Array.isArray(db.materials) ? db.materials : []; },
+      isMaterialSelectable: function (material) { return isMaterialSelectable(material); },
       getCurrentProjectId: function () { const node=document.getElementById('hpp-project'); return node ? node.value : ''; },
       addLine: function (line) {
         const projectId=this.getCurrentProjectId();
