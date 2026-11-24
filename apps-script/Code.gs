@@ -1218,10 +1218,14 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
           !allowedCostSources[String(tx.movement)] || allowedCostSources[String(tx.movement)].indexOf(String(tx.costSource || "")) < 0) {
         throw new Error("INVALID_INVENTORY_COST_SNAPSHOT");
       }
+      var costSource = String(tx.costSource || "");
+      if (["opening_manual","manual_receipt"].indexOf(costSource) >= 0 && !String(tx.reference || "").trim()) {
+        throw new Error("INVENTORY_COST_REFERENCE_REQUIRED");
+      }
       var valuationBefore = calculateInventoryValuationServer_(materials, priorLedger);
       var averageBefore = Number(valuationBefore.averageCost[String(tx.materialId)] || 0);
       var masterCost = Number(material.unitPrice) || 0;
-      var expectedCost = unitCost, expectedSource = String(tx.costSource || "");
+      var expectedCost = unitCost, expectedSource = costSource;
       if (String(tx.movement) === "return") {
         var projectIssueCost = calculateProjectNetIssueCostServer_(projectId, tx.materialId, priorLedger, valuationBefore);
         expectedCost = projectIssueCost.averageCost || averageBefore || masterCost;
@@ -1234,9 +1238,12 @@ function validateInventoryTransactionsBeforeMerge_(ss, incomingTransactions, inc
         var costPO = purchaseOrders.find(function(po) { return String(po.id) === String(tx.purchaseOrderId); });
         var costItems = [];
         try { costItems = JSON.parse(costPO && costPO.itemsJson || "[]"); } catch (costParseError) { costItems = []; }
-        var costLine = costItems.find(function(item) { return String(item.materialId) === String(tx.materialId); });
-        var poCost = Number(costLine && costLine.unitPrice) || 0;
+        var matchingCostLines = costItems.filter(function(item) { return String(item.materialId) === String(tx.materialId); });
+        var poQty = matchingCostLines.reduce(function(sum,item) { return sum + Math.max(0,Number(item.qty) || 0); },0);
+        var poCostTotal = matchingCostLines.reduce(function(sum,item) { return sum + Math.max(0,Number(item.qty) || 0) * Math.max(0,Number(item.unitPrice) || 0); },0);
+        var poCost = poQty > 0 ? poCostTotal / poQty : 0;
         if (poCost > 0) { expectedCost = poCost; expectedSource = "purchase_order"; }
+        else if (costSource !== "manual_receipt" || !String(tx.reference || "").trim()) throw new Error("INVENTORY_PO_COST_MISSING");
       }
       if (expectedCost <= 0) throw new Error("INVENTORY_COST_SOURCE_REQUIRED");
       if (Math.abs(unitCost - expectedCost) > 0.02 || String(tx.costSource || "") !== expectedSource) {
