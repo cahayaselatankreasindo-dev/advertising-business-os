@@ -132,10 +132,13 @@ assert.throws(()=>context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.ord
 const orderStatusColumn=map.Sales_Orders.fields.indexOf('status');
 reserveCase.ss.sheets.Sales_Orders.rows[1][orderStatusColumn]='in_production';
 assert.equal(context.reserveSalesOrderStock_(reserveCase.ss,reserveCase.order.id,{role:'owner',email:'owner@example.test'}).status,'already_reserved','existing reservation remains idempotent after production starts');
+const reservedIssue=transaction('RESV-ISSUE-0001','STK-CSK-2026-00020','issue',2,'2026-11-21',{projectId:project.id,projectName:project.title});
+assert.throws(()=>context.validateInventoryTransactionsBeforeMerge_(reserveCase.ss,[reservedIssue],[],[]),/INVENTORY_STOCK_RESERVED/,'stock issue cannot consume quantity reserved for another production order');
 assert.throws(()=>context.releaseSalesOrderReservation_(reserveCase.ss,reserveCase.order.id,'',{role:'owner',email:'owner@example.test'}),/RESERVATION_RELEASE_REASON_REQUIRED/,'manual release requires an audit reason');
 const releasedReservationResult=context.releaseSalesOrderReservation_(reserveCase.ss,reserveCase.order.id,'Test release by Owner',{role:'owner',email:'owner@example.test'});
-assert.equal(released.releasedLines,1,'Owner can release all active reservation rows');
+assert.equal(releasedReservationResult.releasedLines,1,'Owner can release all active reservation rows');
 assert.equal(reserveCase.ss.sheets.Inventory_Reservations.rows[1][map.Inventory_Reservations.fields.indexOf('status')],'released','released reservation is retained in history');
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(reserveCase.ss,[reservedIssue],[],[]),true,'stock issue is allowed after reservation release');
 
 const competing=reservationFixture(5,'SO-INV-00000002',4);
 const competingSecond={...competing.order,id:'SO-INV-00000003',orderNo:'SO-CSK-2026-00002',quotationId:'QUO-INV-00002',quotationNo:'QUO-CSK-2026-00002'};
@@ -150,6 +153,8 @@ assert.throws(()=>context.reserveSalesOrderStock_(shortage.ss,shortage.order.id,
 
 const terminal=reservationFixture(5,'SO-INV-00000006',4);
 assert.equal(context.reserveSalesOrderStock_(terminal.ss,terminal.order.id,{role:'owner',email:'owner@example.test'}).status,'reserved');
+const terminalIssue=transaction('RESV-ISSUE-0002','STK-CSK-2026-00021','issue',2,'2026-11-21',{projectId:project.id,projectName:project.title});
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(terminal.ss,[terminalIssue],[],[{id:terminal.order.id,status:'cancelled'}]),true,'same-sync cancellation releases its reservation for inventory issue validation');
 assert.equal(context.releaseTerminalSalesOrderReservations_(terminal.ss,[{id:terminal.order.id,status:'cancelled'}],{role:'owner',email:'owner@example.test'}),1,'cancelled Sales Orders automatically release their reservations');
 assert.equal(terminal.ss.sheets.Inventory_Reservations.rows[1][map.Inventory_Reservations.fields.indexOf('status')],'released','automatic release keeps reservation audit history');
 
