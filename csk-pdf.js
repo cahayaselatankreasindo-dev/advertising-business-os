@@ -688,6 +688,198 @@ async function downloadMaterialUsageReport(input) {
   }
 }
 
+
+function normalizeMaterialCostReport(input) {
+  input = input || {};
+  var lines = Array.isArray(input.lines) ? input.lines.map(function(line) {
+    var estimatedCost = line.estimatedCost === null || line.estimatedCost === undefined || line.estimatedCost === '' ? null : Number(line.estimatedCost);
+    var varianceCost = line.varianceCost === null || line.varianceCost === undefined || line.varianceCost === '' ? null : Number(line.varianceCost);
+    var variancePct = line.variancePct === null || line.variancePct === undefined || line.variancePct === '' ? null : Number(line.variancePct);
+    return {
+      name:cleanText(line.name || 'Material'),
+      unit:cleanText(line.unit || '-'),
+      estimatedQty:Math.max(0,number(line.estimatedQty)),
+      actualQty:Math.max(0,number(line.actualQty)),
+      estimatedCost:Number.isFinite(estimatedCost) ? Math.max(0,estimatedCost) : null,
+      actualCost:Math.max(0,number(line.actualCost)),
+      varianceCost:Number.isFinite(varianceCost) ? varianceCost : null,
+      variancePct:Number.isFinite(variancePct) ? variancePct : null,
+      estimated:!!line.estimated,
+      rowComplete:!!line.rowComplete
+    };
+  }) : [];
+  var estimatedTotalCost = input.estimatedTotalCost === null || input.estimatedTotalCost === undefined || input.estimatedTotalCost === '' ? null : Number(input.estimatedTotalCost);
+  var varianceCost = input.varianceCost === null || input.varianceCost === undefined || input.varianceCost === '' ? null : Number(input.varianceCost);
+  return {
+    title:cleanText(input.title || 'LAPORAN REKONSILIASI BIAYA MATERIAL'),
+    docNo:cleanText(input.docNo || 'DRAFT'),
+    orderNo:cleanText(input.orderNo || '-'),
+    projectId:cleanText(input.projectId || ''),
+    projectName:cleanText(input.projectName || '-'),
+    status:cleanText(input.status || ''),
+    source:cleanText(input.source || 'Snapshot HPP'),
+    date:input.date || '',
+    estimatedTotalCost:Number.isFinite(estimatedTotalCost) ? Math.max(0,estimatedTotalCost) : null,
+    actualTotalCost:Math.max(0,number(input.actualTotalCost)),
+    varianceCost:Number.isFinite(varianceCost) ? varianceCost : null,
+    complete:input.complete!==false,
+    estimated:!!input.estimated,
+    varianceComplete:input.varianceComplete!==false,
+    isFinal:!!input.isFinal,
+    valuationMethod:cleanText(input.valuationMethod || 'Moving Weighted Average (WAC)'),
+    lines:lines
+  };
+}
+function materialCostFilename(input) {
+  var d=normalizeMaterialCostReport(input);
+  var project=(d.projectId||d.projectName||'PROJECT').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,28);
+  var order=(d.orderNo||'DRAFT').replace(/[^a-zA-Z0-9_-]+/g,'-');
+  return 'MATERIAL-COST-'+project+'-'+order+'.pdf';
+}
+function drawMaterialCostHeader(pdf,d,continuation) {
+  var pageWidth=pdf.internal.pageSize.getWidth();
+  setColor(pdf,'setFillColor',COLORS.orange);
+  pdf.rect(0,0,pageWidth,4,'F');
+  drawText(pdf,COMPANY.name,14,16,13,'bold',COLORS.ink);
+  drawText(pdf,COMPANY.tagline,14,22,6.8,'bold',COLORS.orange);
+  drawText(pdf,COMPANY.contact,14,30,6.6,'normal',COLORS.muted);
+  setColor(pdf,'setFillColor',COLORS.ink);
+  pdf.roundedRect(pageWidth-73,10,59,27,2,2,'F');
+  drawText(pdf,continuation?'REKONSILIASI BIAYA - LANJUTAN':d.title,pageWidth-69,18,7.1,'bold',COLORS.white,51);
+  drawText(pdf,d.docNo,pageWidth-69,26,8.2,'bold',COLORS.white,51);
+  drawText(pdf,'Tanggal: '+formatDate(d.date),pageWidth-69,32,6.2,'normal',COLORS.white,51);
+  pdf.setDrawColor.apply(pdf,COLORS.line);
+  pdf.line(14,42,pageWidth-14,42);
+  return 49;
+}
+function drawMaterialCostTableHeader(pdf,y) {
+  var x=[14,23,113,129,149,178,210,246,283];
+  var labels=['No','Material','Satuan','Qty HPP','Net keluar','Estimasi HPP','Aktual','Selisih'];
+  setColor(pdf,'setFillColor',COLORS.ink);
+  pdf.rect(14,y-6,269,10,'F');
+  pdf.setFont('helvetica','bold');
+  pdf.setFontSize(6.1);
+  setColor(pdf,'setTextColor',COLORS.white);
+  pdf.text(labels[0],x[0]+2,y);
+  pdf.text(labels[1],x[1]+2,y);
+  pdf.text(labels[2],x[2]+2,y);
+  pdf.text(labels[3],x[4]-2,y,{align:'right'});
+  pdf.text(labels[4],x[5]-2,y,{align:'right'});
+  pdf.text(labels[5],x[6]-2,y,{align:'right'});
+  pdf.text(labels[6],x[7]-2,y,{align:'right'});
+  pdf.text(labels[7],x[8]-2,y,{align:'right'});
+  return x;
+}
+function drawMaterialCostRow(pdf,line,index,y,x) {
+  var nameLines=pdf.splitTextToSize(line.name||'Material',86);
+  var height=Math.max(9,3+nameLines.length*3.5);
+  pdf.setDrawColor.apply(pdf,COLORS.line);
+  pdf.line(14,y+height,283,y+height);
+  pdf.setFont('helvetica','normal');
+  pdf.setFontSize(6.5);
+  setColor(pdf,'setTextColor',COLORS.muted);
+  pdf.text(String(index+1),x[0]+2,y+4);
+  pdf.setFont('helvetica','bold');
+  pdf.setFontSize(6.6);
+  setColor(pdf,'setTextColor',COLORS.ink);
+  pdf.text(nameLines,x[1]+2,y+4);
+  pdf.setFont('helvetica','normal');
+  pdf.setFontSize(6.2);
+  pdf.text(line.unit||'-',x[2]+2,y+4);
+  pdf.text(String(line.estimatedQty),x[4]-2,y+4,{align:'right'});
+  pdf.text(String(line.actualQty),x[5]-2,y+4,{align:'right'});
+  pdf.text(line.estimatedCost===null?'-':formatRupiah(line.estimatedCost),x[6]-2,y+4,{align:'right'});
+  pdf.text(formatRupiah(line.actualCost),x[7]-2,y+4,{align:'right'});
+  pdf.setFont('helvetica','bold');
+  var variance=line.varianceCost===null?'-':(line.varianceCost>0?'+':'')+formatRupiah(line.varianceCost);
+  pdf.text(variance,x[8]-2,y+4,{align:'right'});
+  return height;
+}
+function generateMaterialCostPdf(input,jsPDF) {
+  var d=normalizeMaterialCostReport(input);
+  if(!d.lines.length)throw new Error('Tidak ada rincian biaya material untuk dilaporkan.');
+  var pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4',compress:true});
+  var pageWidth=pdf.internal.pageSize.getWidth(),pageHeight=pdf.internal.pageSize.getHeight();
+  pdf.setProperties({
+    title:'Rekonsiliasi Biaya Material - '+d.orderNo,
+    subject:'Perbandingan estimasi HPP material dan biaya net pengeluaran proyek CSK',
+    author:COMPANY.name,
+    creator:'CSK Business OS'
+  });
+  var y=drawMaterialCostHeader(pdf,d,false);
+  setColor(pdf,'setFillColor',COLORS.paper);
+  pdf.roundedRect(14,y,269,21,2,2,'F');
+  drawText(pdf,'PROYEK',18,y+6,6,'bold',COLORS.orange);
+  drawText(pdf,d.projectName,18,y+12,9,'bold',COLORS.ink,120);
+  drawText(pdf,'PROJECT ID: '+(d.projectId||'-'),18,y+18,6.2,'normal',COLORS.muted,120);
+  drawText(pdf,'SALES ORDER',205,y+6,6,'bold',COLORS.orange);
+  drawText(pdf,d.orderNo,205,y+13,7.2,'bold',COLORS.ink,72);
+  drawText(pdf,'Status: '+(d.status||'-')+' · '+(d.isFinal?'FINAL':'SEMENTARA'),205,y+19,6.2,'bold',d.isFinal?COLORS.green:COLORS.orange,72);
+  y+=27;
+  var cardGap=5,cardWidth=(269-cardGap*2)/3;
+  var cards=[
+    {label:'ESTIMASI HPP MATERIAL',value:d.estimatedTotalCost===null?'Belum tersedia':formatRupiah(d.estimatedTotalCost),color:COLORS.ink},
+    {label:d.complete?'BIAYA AKTUAL NET KELUAR':'BIAYA AKTUAL (PARSIAL)',value:formatRupiah(d.actualTotalCost),color:COLORS.ink},
+    {label:d.varianceComplete?'SELISIH BIAYA MATERIAL': 'SELISIH BELUM LENGKAP',value:d.varianceCost===null?'Belum dapat dihitung':(d.varianceCost>0?'+':'')+formatRupiah(d.varianceCost),color:d.varianceCost>0? [185,28,28]:d.varianceCost<0?COLORS.green:COLORS.ink}
+  ];
+  cards.forEach(function(card,index){
+    var x=14+index*(cardWidth+cardGap);
+    setColor(pdf,'setFillColor',index===2?COLORS.paleOrange:COLORS.paper);
+    pdf.roundedRect(x,y,cardWidth,18,2,2,'F');
+    drawText(pdf,card.label,x+4,y+6,5.8,'bold',COLORS.muted,cardWidth-8);
+    drawText(pdf,card.value,x+4,y+13,8,'bold',card.color,cardWidth-8);
+  });
+  y+=24;
+  drawText(pdf,'RINCIAN ESTIMASI DAN BIAYA AKTUAL PER MATERIAL',14,y+2,7.3,'bold',COLORS.ink);
+  drawText(pdf,'Sumber estimasi: '+d.source+' · Metode valuasi: '+d.valuationMethod,14,y+8,6.1,'normal',COLORS.muted);
+  y+=15;
+  var x=drawMaterialCostTableHeader(pdf,y);
+  y+=5;
+  d.lines.forEach(function(line,index){
+    var rowHeight=Math.max(9,3+pdf.splitTextToSize(line.name||'Material',86).length*3.5);
+    if(y+rowHeight>pageHeight-35){
+      pdf.addPage();
+      y=drawMaterialCostHeader(pdf,d,true)+5;
+      x=drawMaterialCostTableHeader(pdf,y);
+      y+=5;
+    }
+    y+=drawMaterialCostRow(pdf,line,index,y,x);
+  });
+  if(y+39>pageHeight-18){pdf.addPage();y=drawMaterialCostHeader(pdf,d,true)+7;}else y+=7;
+  setColor(pdf,'setFillColor',COLORS.paleOrange);
+  pdf.roundedRect(14,y,269,22,2,2,'F');
+  drawText(pdf,'CATATAN PEMBACAAN',18,y+6,6,'bold',COLORS.orange);
+  drawText(pdf,'Biaya aktual adalah biaya net material yang dikeluarkan ke proyek (issue dikurangi retur), bukan bukti bahwa seluruh material telah habis terpakai.',18,y+12,6.2,'normal',COLORS.ink,260);
+  var note=d.isFinal?'Status order sudah selesai/ditutup. Pastikan seluruh sisa material telah diretur sebelum menjadikan selisih sebagai hasil final.':'Laporan masih sementara karena order belum ditutup; material yang masih berada di proyek dapat memengaruhi biaya akhir.';
+  if(!d.complete)note+=' Valuasi belum lengkap; sebagian transaksi belum memiliki snapshot biaya yang dapat dihitung.';
+  if(d.estimated)note+=' Sebagian biaya memakai fallback harga Master dan bersifat estimasi.';
+  drawText(pdf,note,18,y+18,5.9,'normal',COLORS.muted,260);
+  y+=30;
+  drawText(pdf,'Disusun oleh',18,y,7,'normal',COLORS.muted);
+  drawText(pdf,'Diverifikasi Finance / Produksi',165,y,7,'normal',COLORS.muted);
+  pdf.setDrawColor.apply(pdf,COLORS.line);
+  pdf.line(18,y+22,95,y+22);
+  pdf.line(165,y+22,260,y+22);
+  drawText(pdf,'Nama & tanda tangan',18,y+27,6,'normal',COLORS.muted);
+  drawText(pdf,'Nama & tanda tangan',165,y+27,6,'normal',COLORS.muted);
+  addFooter(pdf);
+  return pdf;
+}
+async function downloadMaterialCostReport(input) {
+  try {
+    var d=normalizeMaterialCostReport(input);
+    var jsPDF=await loadJsPdf();
+    var pdf=generateMaterialCostPdf(d,jsPDF);
+    var filename=materialCostFilename(d);
+    pdf.save(filename);
+    notify('Laporan biaya material PDF berhasil dibuat: '+filename,false);
+    return{ok:true,filename:filename};
+  } catch(error) {
+    notify('Laporan biaya material PDF belum berhasil dibuat. '+String(error&&error.message||error),true);
+    return{ok:false,error:String(error&&error.message||error)};
+  }
+}
+
 var api = {
   normalizeDocument: normalizeDocument,
   makeFilename: makeFilename,
@@ -701,7 +893,11 @@ var api = {
   normalizeMaterialUsageReport: normalizeMaterialUsageReport,
   materialUsageFilename: materialUsageFilename,
   generateMaterialUsagePdf: generateMaterialUsagePdf,
-  downloadMaterialUsageReport: downloadMaterialUsageReport
+  downloadMaterialUsageReport: downloadMaterialUsageReport,
+  normalizeMaterialCostReport: normalizeMaterialCostReport,
+  materialCostFilename: materialCostFilename,
+  generateMaterialCostPdf: generateMaterialCostPdf,
+  downloadMaterialCostReport: downloadMaterialCostReport
 };
 if (w) w.CSKPDF = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
