@@ -235,6 +235,46 @@ async function downloadMaterialUsageReport(salesOrderId){
   return result;
  }catch(error){notify(error.message||String(error),true);return{ok:false,error:error.message||String(error)};}
 }
+async function downloadMaterialCostReport(salesOrderId){
+ try{
+  var b=bridge();if(!b||!b.isOwner())throw new Error('Laporan biaya material hanya dapat diunduh oleh Owner.');
+  var d=data(),order=(d.salesOrders||[]).find(function(row){return String(row.id)===String(salesOrderId);});
+  if(!order)throw new Error('Sales Order tidak ditemukan.');
+  if(!w.CSKInventoryEngine)throw new Error('Mesin Inventory belum tersedia.');
+  if(!w.CSKPDF||typeof w.CSKPDF.downloadMaterialCostReport!=='function')throw new Error('Mesin PDF biaya material belum tersedia. Muat ulang aplikasi.');
+  var balances=w.CSKInventoryEngine.calculateBalances(d.materials||[],d.inventoryTransactions||[]);
+  var plan=materialPlanForOrder(order,d,balances);
+  if(plan.errors.length)throw new Error('Perbaiki data HPP terlebih dahulu: '+plan.errors.join(' '));
+  if(!plan.requirements.length)throw new Error('Belum ada rincian material untuk direkonsiliasi.');
+  var cost=w.CSKInventoryEngine.calculateMaterialCostVariance(plan.requirements,order.projectId,d.inventoryTransactions||[],d.materials||[]);
+  var lines=cost.rows.map(function(row){return{
+   name:row.name,unit:row.unit,estimatedQty:row.estimatedQty,actualQty:row.actualQty,
+   estimatedCost:row.estimatedCost,actualCost:row.actualCost,varianceCost:row.varianceCost,
+   variancePct:row.variancePct,estimated:row.estimated,rowComplete:row.rowComplete
+  };});
+  var result=await w.CSKPDF.downloadMaterialCostReport({
+   title:'LAPORAN REKONSILIASI BIAYA MATERIAL',
+   docNo:'MCR-'+String(order.orderNo||order.id),
+   orderNo:String(order.orderNo||order.id),
+   projectId:String(order.projectId||''),
+   projectName:String(order.projectName||order.projectId||'-'),
+   status:E().statusLabel(order.status),
+   source:Array.isArray(order.materialRequirements)&&order.materialRequirements.length?'Snapshot HPP (dibekukan)':'HPP saat ini (belum dibekukan)',
+   date:E().localDate(),
+   estimatedTotalCost:cost.estimatedTotalCost,
+   actualTotalCost:cost.actualTotalCost,
+   varianceCost:cost.varianceCost,
+   complete:cost.complete,
+   estimated:cost.estimated,
+   varianceComplete:cost.varianceComplete,
+   isFinal:['delivered','closed'].indexOf(String(order.status||''))>=0,
+   valuationMethod:'Moving Weighted Average (WAC)',
+   lines:lines
+  });
+  if(!result||!result.ok)throw new Error(result&&result.error||'PDF rekonsiliasi biaya material belum berhasil dibuat.');
+  return result;
+ }catch(error){notify(error.message||String(error),true);return{ok:false,error:error.message||String(error)};}
+}
 async function createDraftPOFromShortage(salesOrderId){
  var b=bridge(),created=[];
  try{
@@ -286,8 +326,8 @@ function materialPlanHtml(order,d,balances){
  var materialCost=w.CSKInventoryEngine.calculateMaterialCostVariance(plan.requirements,order.projectId,d.inventoryTransactions||[],d.materials||[]);
  var costSummary='<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 my-3">'+
   '<div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] text-slate-500">Estimasi HPP material</div><b class="text-sm">'+(materialCost.estimatedTotalCost===null?'Belum tersedia':money(materialCost.estimatedTotalCost))+'</b></div>'+
-  '<div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] text-slate-500">Biaya material tercatat</div><b class="text-sm">'+money(materialCost.actualTotalCost)+'</b><div class="text-[10px] text-slate-500">'+(materialCost.complete?(materialCost.estimated?'Valuasi memakai fallback harga Master':'Valuasi tercatat lengkap'):'Valuasi belum lengkap')+'</div></div>'+
-  '<div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] text-slate-500">Selisih tercatat vs estimasi HPP</div><b class="text-sm '+(materialCost.varianceCost===null?'text-slate-500':materialCost.varianceCost>0?'text-red-700':materialCost.varianceCost<0?'text-emerald-700':'text-slate-900')+'">'+(materialCost.varianceCost===null?'Belum dapat dihitung':(materialCost.varianceCost>0?'+':'')+money(materialCost.varianceCost))+'</b></div></div>'+
+  '<div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] text-slate-500">Biaya aktual net keluar</div><b class="text-sm">'+money(materialCost.actualTotalCost)+'</b><div class="text-[10px] text-slate-500">'+(materialCost.complete?(materialCost.estimated?'Valuasi memakai fallback harga Master':'Valuasi tercatat lengkap'):'Valuasi belum lengkap')+'</div></div>'+
+  '<div class="rounded-lg bg-slate-50 p-3"><div class="text-[10px] text-slate-500">Selisih biaya material (sementara)</div><b class="text-sm '+(materialCost.varianceCost===null?'text-slate-500':materialCost.varianceCost>0?'text-red-700':materialCost.varianceCost<0?'text-emerald-700':'text-slate-900')+'">'+(materialCost.varianceCost===null?'Belum dapat dihitung':(materialCost.varianceCost>0?'+':'')+money(materialCost.varianceCost))+'</b></div></div>'+
   (materialCost.estimated?'<p class="text-[10px] text-amber-700 mb-2">Sebagian transaksi lama menggunakan fallback harga Master Material. Nilai biaya aktual tersebut bersifat estimasi, bukan bukti harga pembelian historis.</p>':'');
  var rows=rowsData.map(function(item){
   var pendingPO=openPurchaseOrderQty(order.projectId,item.materialId,d),toBuy=Math.max(0,item.shortage-pendingPO);
@@ -300,8 +340,9 @@ function materialPlanHtml(order,d,balances){
  var hasShortage=rowsData.some(function(x){return x.shortage>0;});
  var poButton=plan.errors.length===0&&hasBuyableShortage?'<button data-so-action="create-po" data-id="'+esc(order.id)+'" class="mt-3 px-3 py-2 rounded-lg bg-emerald-700 text-white text-[11px] font-bold">Buat Draft PO dari Kekurangan</button>':hasShortage&&plan.errors.length===0?'<p class="mt-3 text-[10px] text-blue-700">Kekurangan stok sudah tercakup dalam Draft/PO berjalan.</p>':'';
  var reportButton=allErrors.length===0&&rowsData.length?'<button data-so-action="usage-report" data-id="'+esc(order.id)+'" class="mt-3 ml-2 px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-[11px] font-bold">Unduh Laporan Pengeluaran Material PDF</button>':'';
+ var costReportButton=allErrors.length===0&&rowsData.length?'<button data-so-action="cost-report" data-id="'+esc(order.id)+'" class="mt-3 ml-2 px-3 py-2 rounded-lg bg-slate-900 text-white text-[11px] font-bold">Unduh Rekonsiliasi Biaya PDF</button>':'';
  var state=allErrors.length?'<span class="text-amber-700 font-bold">Perlu pemeriksaan</span>':!hasShortage?'<span class="text-emerald-700 font-bold">Kebutuhan tercukupi</span>':hasBuyableShortage?'<span class="text-amber-700 font-bold">Perlu pembelian</span>':'<span class="text-blue-700 font-bold">PO sedang berjalan</span>';
- return'<details class="mt-3 rounded-xl border border-slate-200 p-3"><summary class="cursor-pointer text-xs font-bold text-slate-700">Kebutuhan material & Actual Costing · '+rowsData.length+' jenis · '+state+'</summary>'+costSummary+'<div class="overflow-x-auto mt-2"><table class="w-full text-[11px] min-w-[1080px]"><thead class="text-slate-500"><tr><th class="text-left py-2">Material</th><th class="text-right py-2">HPP</th><th class="text-right py-2">Net keluar</th><th class="text-right py-2">Selisih vs HPP</th><th class="text-right py-2">Sisa kebutuhan</th><th class="text-right py-2">Stok fisik</th><th class="text-right py-2">Reservasi lain</th><th class="text-right py-2">Tersedia untuk proyek</th><th class="text-right py-2">Kekurangan</th><th class="text-right py-2">Sudah dipesan</th><th class="text-right py-2">Perlu PO</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+errorHtml+poButton+reportButton+'<p class="text-[10px] text-slate-400 mt-2">Perhitungan memakai snapshot HPP dan mengurangi stok yang sudah direservasi proyek lain. Biaya material dihitung dari snapshot transaksi Inventory dengan metode Moving Weighted Average. Penerimaan berbasis PO memakai harga PO yang disetujui, sedangkan penerimaan manual memakai biaya pada dokumen supplier. Nilai ini belum menggantikan rekonsiliasi faktur supplier. Selisih positif berarti biaya tercatat lebih tinggi daripada estimasi HPP; selisih negatif berarti lebih rendah. Draft PO tetap memerlukan pemeriksaan Owner sebelum diterbitkan.</p></details>';
+ return'<details class="mt-3 rounded-xl border border-slate-200 p-3"><summary class="cursor-pointer text-xs font-bold text-slate-700">Kebutuhan material & Actual Costing · '+rowsData.length+' jenis · '+state+'</summary>'+costSummary+'<div class="overflow-x-auto mt-2"><table class="w-full text-[11px] min-w-[1080px]"><thead class="text-slate-500"><tr><th class="text-left py-2">Material</th><th class="text-right py-2">HPP</th><th class="text-right py-2">Net keluar</th><th class="text-right py-2">Selisih vs HPP</th><th class="text-right py-2">Sisa kebutuhan</th><th class="text-right py-2">Stok fisik</th><th class="text-right py-2">Reservasi lain</th><th class="text-right py-2">Tersedia untuk proyek</th><th class="text-right py-2">Kekurangan</th><th class="text-right py-2">Sudah dipesan</th><th class="text-right py-2">Perlu PO</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+errorHtml+poButton+reportButton+'<p class="text-[10px] text-slate-400 mt-2">Perhitungan memakai snapshot HPP dan mengurangi stok yang sudah direservasi proyek lain. Biaya material dihitung dari snapshot transaksi Inventory dengan metode Moving Weighted Average. Penerimaan berbasis PO memakai harga PO yang disetujui, sedangkan penerimaan manual memakai biaya pada dokumen supplier. Nilai ini belum menggantikan rekonsiliasi faktur supplier. Selisih biaya membandingkan biaya net material yang sudah dikeluarkan dengan estimasi HPP. Nilainya masih sementara sampai material sisa diretur dan pekerjaan ditutup. Draft PO tetap memerlukan pemeriksaan Owner sebelum diterbitkan.</p></details>';
 }
 function qtyFormat(value){return Number(value||0).toLocaleString('id-ID',{maximumFractionDigits:3});}
 function quoteCandidates(d){
