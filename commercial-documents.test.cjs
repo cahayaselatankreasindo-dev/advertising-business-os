@@ -39,7 +39,7 @@ const hppSheet = {
   projectId: 'P-HPP-01',
   projectName: 'Display Booth Premium',
   items: [
-    { itemType: 'material', materialId: 'MAT-01', name: 'Akrilik 5 mm', qty: 2, unit: 'lembar', unitPrice: 100000 },
+    { itemType: 'material', materialId: 'MAT-01', name: 'Akrilik 5 mm', qty: 2, unit: 'lembar', unitPrice: 100000, costingMethod: 'sheet', costingDetails: { method: 'sheet', sourceMode: 'whole', summary: '<b>2 lembar</b> untuk 4 komponen; yield 78.5%.', result: { placements: [{ sheet: 1 }] } } },
     { itemType: 'service', serviceId: 'SRV-01', name: 'Fabrikasi Display', qty: 1, unit: 'job', unitPrice: 150000 }
   ],
   labor: 100000,
@@ -55,6 +55,10 @@ assert.equal(Math.round(hppLines.reduce((sum, line) => sum + line.qty * line.uni
 assert.equal(hppLines[0].qty, 2, 'original HPP quantity is preserved');
 assert.equal(hppLines[0].unit, 'lembar', 'original HPP unit is preserved');
 assert.match(hppLines[0].description, /2 lembar/, 'original HPP consumption quantity remains visible in the quotation description');
+assert.match(hppLines[0].description, /Kalkulasi: 2 lembar for 4 komponen; yield 78\.5%\./, 'custom costing summary remains readable in the quotation description');
+assert.equal(hppLines[0].sourceCostingSummary, '2 lembar untuk 4 komponen; yield 78.5%.');
+assert.equal(hppLines[0].sourceCostingMode, 'whole');
+assert.equal(hppLines[0].sourceCostingMethod, 'sheet');
 assert.ok(hppLines.every(line => line.sourceCostSheetId === hppSheet.id));
 assert.ok(hppLines.every(line => line.marginPercent === 30));
 assert.throws(() => buildQuotationLinesFromCostSheet({ ...hppSheet, price: hppSheet.price + 1 }), /Harga penawaran HPP/);
