@@ -702,6 +702,8 @@ function normalizeMaterialCostReport(input) {
       actualQty:Math.max(0,number(line.actualQty)),
       estimatedCost:Number.isFinite(estimatedCost) ? Math.max(0,estimatedCost) : null,
       actualCost:Math.max(0,number(line.actualCost)),
+      actualCostComplete:line.actualCostComplete!==false,
+      hasActualMovement:input.hasActualMovement!==false,
       varianceCost:Number.isFinite(varianceCost) ? varianceCost : null,
       variancePct:Number.isFinite(variancePct) ? variancePct : null,
       estimated:!!line.estimated,
@@ -727,6 +729,7 @@ function normalizeMaterialCostReport(input) {
     estimated:!!input.estimated,
     varianceComplete:input.varianceComplete!==false,
     hasActualMovement:input.hasActualMovement!==false,
+    hasUnplannedActualMaterials:!!input.hasUnplannedActualMaterials,
     isFinal:!!input.isFinal,
     valuationMethod:cleanText(input.valuationMethod || 'Moving Weighted Average (WAC)'),
     lines:lines
@@ -856,6 +859,7 @@ function generateMaterialCostPdf(input,jsPDF) {
   if(!d.complete)note+=' Valuasi belum lengkap; sebagian transaksi belum memiliki snapshot biaya yang dapat dihitung.';
   if(d.estimated)note+=' Sebagian biaya memakai fallback harga Master dan bersifat estimasi.';
   if(d.estimatedTotalCost===null)note+=' Sebagian harga estimasi HPP belum tersedia sehingga selisih total tidak dapat dihitung.';
+  if(d.hasUnplannedActualMaterials)note+=' Ada pengeluaran material yang tidak tercantum pada snapshot HPP; periksa daftar material dan perbarui estimasi sebelum menetapkan selisih total.';
   drawText(pdf,note,18,y+18,5.9,'normal',COLORS.muted,260);
   y+=30;
   drawText(pdf,'Disusun oleh',18,y,7,'normal',COLORS.muted);
