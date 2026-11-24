@@ -19,8 +19,8 @@ assert.ok(manager.includes('await w.CSKAuth.sync(true)'), 'service and product a
 assert.ok(manager.includes('database.services=services.filter(function(item){return item.id!==record.id;});'), 'failed service sync rolls back local activation');
 assert.ok(manager.includes("price<=0"), 'zero-priced materials cannot be activated');
 assert.ok(manager.includes("!supplier||!source||!date"), 'material activation requires supplier, price source, and price date');
-assert.ok(manager.includes('unitPrice=baseUnitPrice'), 'stored usage-unit price remains the base converted purchase price');
-assert.ok(manager.includes('wasteRate:waste'), 'waste allowance is stored separately for HPP quantity calculation');
+assert.ok(manager.includes('unitPrice=baseUnitPrice*(1+waste/100)'), 'stored HPP usage price includes the master waste allowance exactly once');
+assert.ok(manager.includes('wasteRate:waste'), 'waste allowance is stored separately for costing and inventory planning');
 assert.ok(manager.includes('await w.CSKAuth.sync(true)'), 'material activation waits for verified Google Sheets read-back');
 assert.ok(manager.includes('HPP setelah waste'), 'catalog price preview distinguishes base price and waste-adjusted HPP');
 assert.ok(backend.includes('"HargaBeli"') && backend.includes('"FaktorKonversi"'), 'Materials schema stores purchase price and conversion factor');
