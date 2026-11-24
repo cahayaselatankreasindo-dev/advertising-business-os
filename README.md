@@ -253,3 +253,13 @@ Next: server-enforced reservation at production release, partial pick/issue/retu
 - Project returns restore stock and reduce the net material already consumed. Returns cannot exceed prior issues.
 - Server-side validation prevents another project or a stock adjustment from consuming material already reserved for active production.
 - These controls are enforced in Apps Script and covered by workflow/backend regression tests. Production deployment and Google Sheets migration remain separate release steps.
+
+
+## Production Material Reservation & Picking
+
+- Sales Orders can wait in `Menunggu Material` when HPP or available stock is not ready.
+- Entering `Siap Produksi` freezes HPP material requirements on the Sales Order and reserves stock after other active project reservations.
+- Reservations remain active through `Dalam Produksi`; entering Quality Control releases unissued quantities. Rework reactivates the original frozen HPP snapshot.
+- Inventory shows physical stock, reserved stock, free stock, and a project/material picking list.
+- Picking issues are prefilled from the list and capped by remaining reservation and physical stock. Returns cannot exceed previous issues; other projects cannot consume reserved stock.
+- Server-side checks and a serialized sync critical section prevent double allocation. Reservation snapshots are immutable after production release.
