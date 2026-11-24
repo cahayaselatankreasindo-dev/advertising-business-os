@@ -240,6 +240,13 @@ assert.equal(context.reserveSalesOrderStock_(deliveredTerminal.ss,deliveredTermi
 const deliveredGenericIssue=transaction('RESV-ISSUE-0003','STK-CSK-2026-00022','issue',2,'2026-11-22',{projectId:project.id,projectName:project.title});
 assert.equal(context.validateInventoryTransactionsBeforeMerge_(deliveredTerminal.ss,[deliveredGenericIssue],[],[{id:deliveredTerminal.order.id,status:'delivered'}]),true,'delivered Sales Order reservations no longer block unrelated stock issues');
 assert.equal(context.releaseTerminalSalesOrderReservations_(deliveredTerminal.ss,[{id:deliveredTerminal.order.id,status:'delivered'}],{role:'owner',email:'owner@example.test'}),1,'delivered Sales Orders automatically release unused reservations');
+const persistedTerminal=reservationFixture(5,'SO-INV-00000010',4);
+assert.equal(context.reserveSalesOrderStock_(persistedTerminal.ss,persistedTerminal.order.id,{role:'owner',email:'owner@example.test'}).status,'reserved');
+persistedTerminal.ss.sheets.Sales_Orders.rows[1][map.Sales_Orders.fields.indexOf('status')]='cancelled';
+const persistedTerminalIssue=transaction('RESV-ISSUE-0004','STK-CSK-2026-00024','issue',2,'2026-11-23',{projectId:project.id,projectName:project.title});
+assert.equal(context.validateInventoryTransactionsBeforeMerge_(persistedTerminal.ss,[persistedTerminalIssue],[],[]),true,'persisted terminal Sales Order status releases stock even when omitted from the incoming sync payload');
+assert.equal(context.releaseTerminalSalesOrderReservations_(persistedTerminal.ss,[],{role:'owner',email:'owner@example.test'}),1,'persisted terminal Sales Orders are reconciled even without an incoming Sales Order payload');
+assert.equal(persistedTerminal.ss.sheets.Inventory_Reservations.rows[1][map.Inventory_Reservations.fields.indexOf('status')],'released','persisted terminal reservation is retained as released audit history');
 
 
 const notReady=reservationFixture(5,'SO-INV-00000004',2);
