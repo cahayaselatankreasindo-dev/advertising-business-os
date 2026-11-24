@@ -250,6 +250,12 @@ if (FIELD_MAP) {
   eq(FIELD_MAP.Inventory_Transactions.fields,
     ['id','transactionNo','materialId','materialName','movement','qty','unit','date','projectId','projectName','purchaseOrderId','supplier','reference','notes','createdAt','createdBy'],
     'FIELD_MAP.Inventory_Transactions fields terpetakan lengkap');
+  eq(FIELD_MAP.Inventory_Reservations.headers,
+    ['ID','NomorReservasi','SalesOrderID','NomorSO','ProjectID','NamaProyek','MaterialID','NamaMaterial','Qty','Satuan','Status','CreatedAt','CreatedBy','ReleasedAt','ReleaseReason'],
+    'FIELD_MAP.Inventory_Reservations headers terpetakan lengkap');
+  eq(FIELD_MAP.Inventory_Reservations.fields,
+    ['id','reservationNo','salesOrderId','orderNo','projectId','projectName','materialId','materialName','qty','unit','status','createdAt','createdBy','releasedAt','releaseReason'],
+    'FIELD_MAP.Inventory_Reservations fields terpetakan lengkap');
   eq(FIELD_MAP.Sales_Orders.headers,
     ['ID','NomorSO','QuotationID','NomorQuotation','ProjectID','NamaProyek','Klien','WhatsAppKlien','EmailKlien','TanggalOrder','TanggalPengiriman','ItemsJSON','Total','DPPersen','DPWajib','Status','RiwayatJSON','Catatan','CreatedAt','UpdatedAt','SourceCostSheetSnapshotJSON'],
     'FIELD_MAP.Sales_Orders mempertahankan snapshot order dan riwayat');
