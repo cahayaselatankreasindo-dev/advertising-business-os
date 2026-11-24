@@ -162,16 +162,28 @@ function drawHeader(pdf, d, continuation) {
   return 53;
 }
 function drawInfoCard(pdf, x, y, width, title, rows) {
-  setColor(pdf, 'setFillColor', COLORS.paper);
-  pdf.roundedRect(x, y, width, 42, 2, 2, 'F');
-  drawText(pdf, title, x + 4, y + 6, 6.5, 'bold', COLORS.orange);
+  var visibleRows = (rows || []).filter(function(row) { return row && row.value; });
   var cursor = y + 12;
-  rows.forEach(function(row, index) {
-    if (!row || !row.value) return;
+  var height = 30;
+  visibleRows.forEach(function(row, index) {
     var text = (row.label ? row.label + ': ' : '') + row.value;
-    var h = drawText(pdf, text, x + 4, cursor, index === 0 ? 8 : 7, index === 0 ? 'bold' : 'normal', index === 0 ? COLORS.ink : COLORS.muted, width - 8);
+    var size = index === 0 ? 8 : 7;
+    var lines = pdf.splitTextToSize(cleanText(text), width - 8);
+    var textHeight = Math.max(1, lines.length) * size * 0.42;
+    cursor += Math.max(4, textHeight + 1);
+  });
+  height = Math.max(height, cursor - y + 4);
+  setColor(pdf, 'setFillColor', COLORS.paper);
+  pdf.roundedRect(x, y, width, height, 2, 2, 'F');
+  drawText(pdf, title, x + 4, y + 6, 6.5, 'bold', COLORS.orange);
+  cursor = y + 12;
+  visibleRows.forEach(function(row, index) {
+    var text = (row.label ? row.label + ': ' : '') + row.value;
+    var size = index === 0 ? 8 : 7;
+    var h = drawText(pdf, text, x + 4, cursor, size, index === 0 ? 'bold' : 'normal', index === 0 ? COLORS.ink : COLORS.muted, width - 8);
     cursor += Math.max(4, h + 1);
   });
+  return height;
 }
 function drawTableHeader(pdf, y) {
   var x = [14, 23, 99, 114, 131, 162, 196];
@@ -219,6 +231,37 @@ function drawRow(pdf, row, index, y, x) {
   pdf.text(formatRupiah(row.lineTotal), x[6] - 2, y + 4, { align: 'right' });
   return height;
 }
+function drawTextBlock(pdf, document, label, value, x, y, width, pageHeight) {
+  var lines = pdf.splitTextToSize(cleanText(value), width);
+  var fontSize = 7;
+  var lineHeight = fontSize * 0.42;
+  var bottom = pageHeight - 25;
+  var index = 0;
+  var first = true;
+  var cursor = y;
+  while (index < lines.length) {
+    if (cursor + 14 > bottom) {
+      pdf.addPage();
+      cursor = drawHeader(pdf, document, true) + 6;
+    }
+    drawText(pdf, first ? label : label + ' (LANJUTAN)', x, cursor + 4, 6.5, 'bold', COLORS.orange);
+    cursor += 9;
+    var available = Math.max(1, Math.floor((bottom - cursor - 3) / lineHeight));
+    var chunk = lines.slice(index, index + available);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(fontSize);
+    setColor(pdf, 'setTextColor', COLORS.ink);
+    pdf.text(chunk, x, cursor);
+    cursor += chunk.length * lineHeight + 5;
+    index += chunk.length;
+    first = false;
+    if (index < lines.length) {
+      pdf.addPage();
+      cursor = drawHeader(pdf, document, true) + 6;
+    }
+  }
+  return cursor + 3;
+}
 function addFooter(pdf) {
   var count = pdf.internal.getNumberOfPages();
   var pageWidth = pdf.internal.pageSize.getWidth();
@@ -243,20 +286,20 @@ function generatePdf(input, jsPDF) {
     creator: 'CSK Business OS'
   });
   var y = drawHeader(pdf, d, false);
-  drawInfoCard(pdf, 14, y, 88, 'DITUJUKAN KEPADA', [
+  var leftCardHeight = drawInfoCard(pdf, 14, y, 88, 'DITUJUKAN KEPADA', [
     { value: d.client || 'Nama pelanggan belum diisi' },
     { value: d.contactPerson, label: 'PIC' },
     { value: d.clientPhone, label: 'Telepon' },
     { value: d.clientEmail, label: 'Email' },
     { value: d.clientAddress, label: 'Alamat' }
   ]);
-  drawInfoCard(pdf, 108, y, 88, 'INFORMASI PEKERJAAN', [
+  var rightCardHeight = drawInfoCard(pdf, 108, y, 88, 'INFORMASI PEKERJAAN', [
     { value: d.projectName || '-' },
     { value: d.projectId, label: 'Project ID' },
     { value: d.projectDeadline ? formatDate(d.projectDeadline) : '', label: 'Deadline proyek' },
     { value: d.status ? d.status.toUpperCase() : '', label: 'Status' }
   ]);
-  y += 51;
+  y += Math.max(leftCardHeight, rightCardHeight) + 9;
   drawText(pdf, 'RINCIAN PRODUK DAN JASA', 14, y, 8, 'bold', COLORS.ink);
   y += 8;
   var x = drawTableHeader(pdf, y);
@@ -306,36 +349,25 @@ function generatePdf(input, jsPDF) {
   y += totalsHeight + 8;
 
   if (d.contractTotal != null || d.paymentSummary) {
-    if (y + 17 > pageHeight - 30) { pdf.addPage(); y = drawHeader(pdf, d, true) + 4; }
-    setColor(pdf, 'setFillColor', COLORS.paleOrange);
-    pdf.roundedRect(14, y, 182, 15, 2, 2, 'F');
     var summary = d.paymentSummary || ('Nilai kontrak: ' + formatRupiah(d.contractTotal));
-    drawText(pdf, summary, 18, y + 9, 7.2, 'bold', COLORS.ink, 174);
-    y += 21;
+    var summaryLines = pdf.splitTextToSize(cleanText(summary), 174);
+    var summaryHeight = Math.max(15, 8 + summaryLines.length * 3.2);
+    if (y + summaryHeight > pageHeight - 30) { pdf.addPage(); y = drawHeader(pdf, d, true) + 4; }
+    setColor(pdf, 'setFillColor', COLORS.paleOrange);
+    pdf.roundedRect(14, y, 182, summaryHeight, 2, 2, 'F');
+    drawText(pdf, summary, 18, y + 7, 7.2, 'bold', COLORS.ink, 174);
+    y += summaryHeight + 6;
   }
   var leftWidth = 94, rightX = 128;
   var terms = [];
   if (d.paymentTerms) terms.push({ label: 'KETENTUAN PEMBAYARAN', text: d.paymentTerms });
   if (d.terms) terms.push({ label: 'SYARAT DAN KETENTUAN', text: d.terms });
   if (d.notes) terms.push({ label: 'CATATAN', text: d.notes });
-  var termsHeight = terms.reduce(function(sum, item) {
-    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7);
-    return sum + 7 + pdf.splitTextToSize(item.text, leftWidth).length * 3.6;
-  }, 0);
-  if (y + Math.max(termsHeight, 37) > pageHeight - 25) {
-    pdf.addPage();
-    y = drawHeader(pdf, d, true) + 5;
-  }
   terms.forEach(function(item) {
-    drawText(pdf, item.label, 14, y + 4, 6.5, 'bold', COLORS.orange);
-    var h = drawText(pdf, item.text, 14, y + 9, 7, 'normal', COLORS.ink, leftWidth);
-    y += h + 13;
+    y = drawTextBlock(pdf, d, item.label, item.text, 14, y, leftWidth, pageHeight);
   });
   if (d.bankDetails) {
-    if (y + 14 > pageHeight - 25) { pdf.addPage(); y = drawHeader(pdf, d, true) + 5; }
-    drawText(pdf, 'INFORMASI PEMBAYARAN', 14, y + 4, 6.5, 'bold', COLORS.orange);
-    var bankHeight = drawText(pdf, d.bankDetails, 14, y + 9, 7, 'normal', COLORS.ink, leftWidth);
-    y += bankHeight + 13;
+    y = drawTextBlock(pdf, d, 'INFORMASI PEMBAYARAN', d.bankDetails, 14, y, leftWidth, pageHeight);
   }
   var signY = Math.max(y, pageHeight - 62);
   if (signY + 42 > pageHeight - 18) {
