@@ -99,7 +99,7 @@ function readRows(selector,kind){
   });
 }
 function makeLine(m,qty,unit,unitPrice,details){
-  return{itemType:'material',materialId:m.id,name:m.name+' · '+details.label,unit:unit,qty:qty,unitPrice:unitPrice,subtotal:qty*unitPrice,costingMethod:details.method,costingDetails:details,priceSnapshot:{purchasePrice:Number(m.purchasePrice)||0,unitPrice:Number(m.unitPrice)||0,priceDate:m.priceDate||'',supplierName:m.supplierName||''}};
+  return{itemType:'material',materialId:m.id,name:m.name+' · '+details.label,unit:unit,qty:qty,unitPrice:unitPrice,subtotal:qty*unitPrice,costingMethod:details.method,costingDetails:details,materialSnapshot:{unit:m.unit||'',purchaseUnit:m.purchaseUnit||'',conversionFactor:Number(m.conversionFactor)||0,updatedAt:m.updatedAt||''},priceSnapshot:{purchasePrice:Number(m.purchasePrice)||0,unitPrice:Number(m.unitPrice)||0,priceDate:m.priceDate||'',supplierName:m.supplierName||''}};
 }
 function calculate(){
   var m=selectedMaterial();if(!m){notify('Pilih material terlebih dahulu.',true);return;}
