@@ -262,7 +262,7 @@
           if(!material){errors.push('Material reservasi tidak ditemukan untuk proyek '+(project.projectName||projectId)+': '+String(line.materialId||'-')+'.');return null;}
           if(String(line.unit||'')!==String(material.unit||'')){errors.push('Satuan snapshot reservasi tidak cocok untuk '+material.name+'.');return null;}
           if(!Number.isFinite(Number(line.required))||required<=0){errors.push('Kuantitas reservasi tidak valid untuk '+material.name+'.');return null;}
-          return{materialId:material.id,name:String(line.name||material.name||''),unit:material.unit,required:required,estimatedUnitCost:Number.isFinite(Number(line.estimatedUnitCost))?Number(line.estimatedUnitCost):null,estimatedTotalCost:Number.isFinite(Number(line.estimatedTotalCost))?Number(line.estimatedTotalCost):null};
+          return{materialId:material.id,name:String(line.name||material.name||''),unit:material.unit,required:required,estimatedUnitCost:line.estimatedUnitCost===null||line.estimatedUnitCost===undefined||line.estimatedUnitCost===''?null:Number.isFinite(Number(line.estimatedUnitCost))?Number(line.estimatedUnitCost):null,estimatedTotalCost:line.estimatedTotalCost===null||line.estimatedTotalCost===undefined||line.estimatedTotalCost===''?null:Number.isFinite(Number(line.estimatedTotalCost))?Number(line.estimatedTotalCost):null};
         }).filter(Boolean);
         project.reservationSource='snapshot';
         project.reservationOrderNo=String(snapshotOrder.orderNo||snapshotOrder.id||'');
@@ -367,7 +367,7 @@
     });
     var result=rows.map(function(line){
       var actual=actualByMaterial[String(line.materialId)]||{qty:0,cost:0,estimated:false};
-      var estimate=Number.isFinite(Number(line.estimatedTotalCost))?Number(line.estimatedTotalCost):null;
+      var estimate=line.estimatedTotalCost===null||line.estimatedTotalCost===undefined||line.estimatedTotalCost===''?null:Number.isFinite(Number(line.estimatedTotalCost))?Number(line.estimatedTotalCost):null;
       var rowComplete=complete&&estimate!==null;
       if(estimate===null)complete=false;
       if(actual.estimated)estimated=true;
