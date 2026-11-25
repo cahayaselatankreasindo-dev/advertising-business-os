@@ -457,11 +457,11 @@ function assertSyncSchemaReady_(ss, identity, payload) {
     }
     if (payload && payload.quotations !== undefined) add("Cost_Sheets");
     if (payload && payload.invoices !== undefined) {
-      ["Commercial_Quotations", "Invoice_Payments", "Finance"].forEach(add);
+      ["Cost_Sheets", "Commercial_Quotations", "Invoice_Payments", "Finance"].forEach(add);
     }
-    if (payload && Array.isArray(payload.finance) && payload.finance.some(function (row) {
-      return String(row && row.id || "").toUpperCase().indexOf("FIN-PAY-") === 0;
-    })) add("Invoice_Payments");
+    // Finance validation always reads the immutable Invoice Payments ledger,
+    // even when the incoming Finance rows are ordinary non-payment entries.
+    if (payload && payload.finance !== undefined) add("Invoice_Payments");
   }
   requiredSheets.forEach(function (sheetName) {
     assertSheetContractReady_(ss, sheetName);

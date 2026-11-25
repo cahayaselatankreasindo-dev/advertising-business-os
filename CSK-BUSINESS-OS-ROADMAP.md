@@ -356,3 +356,11 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - autoTriggerPillars independently validates all three CRM sheet contracts before creating or updating any Client/Project record, including when invoked by a direct Apps Script trigger.
 - Regression tests cover a missing Project tab blocking an unrelated Finance sync before any Finance write, and a missing Client tab blocking a Deal Won status change without changing the Lead.
 - Development branch only. No production Apps Script deployment, live Google Sheets write, schema migration, or public website change.
+
+
+## 23. Finance and Invoice dependency preflight — 25 November 2026
+
+- Finance sync now requires the Invoice Payments ledger because the server-side Finance validator reads it to protect derived payment journal rows, including when the incoming Finance rows are ordinary expenses or income.
+- Invoice sync now preflights Cost Sheets because commercial document validation reads the current HPP snapshot source.
+- Regression tests prove that missing Invoice Payments or Cost Sheets blocks the full sync before an earlier Lead collection can be written and never recreates the missing tab.
+- Development branch only. No production Apps Script deployment, live Google Sheets write, schema migration, or public website change.
