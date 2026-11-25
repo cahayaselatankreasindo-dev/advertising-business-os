@@ -425,3 +425,12 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - Added regression tests for idempotent Finance writes, invalid values, payment-ledger ID protection, Owner-only access, and UI/cloud verification behavior.
 - Bumped the PWA cache and manifest to 3.2.29 for the updated application assets.
 - Development branch only; no live Google Sheets writes or Apps Script deployment.
+
+
+## 31. Read-only Invoice-to-Finance reconciliation — 25 November 2026
+
+- Added a dedicated Finance reconciliation engine that compares each Invoice Payments ledger entry with its derived Finance journal using the same finance ID, date, type, category, amount, and description contract as the Apps Script backend.
+- Finance now displays a reconciliation panel for matched payments, missing journals, mismatched entries, duplicate Finance journals, orphan payment journals, invalid payment links, and duplicate payment IDs.
+- The panel is read-only. It does not rewrite financial records; missing journals are directed to the existing Invoice payment history retry/verification flow, while mismatched or orphaned entries require Owner review.
+- Added unit tests for clean matches and each discrepancy class. Added the engine to the PWA precache and bumped the cache/manifest to 3.2.30.
+- Development branch only; no live Google Sheets writes or Apps Script deployment.
