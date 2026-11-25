@@ -364,3 +364,11 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - Invoice sync now preflights Cost Sheets because commercial document validation reads the current HPP snapshot source.
 - Regression tests prove that missing Invoice Payments or Cost Sheets blocks the full sync before an earlier Lead collection can be written and never recreates the missing tab.
 - Development branch only. No production Apps Script deployment, live Google Sheets write, schema migration, or public website change.
+
+
+## 24. PWA asset-cache completeness — 25 November 2026
+
+- Added the Master Material module (`material-master.js`) and the CSK material seed (`data/csk-material-master-seed.json`) to the Service Worker precache. Previously the Master Material UI and its 101-SKU import seed were not guaranteed to be available offline after installation.
+- Bumped the Service Worker cache and web manifest version together to 3.2.28 so existing clients install the updated asset list.
+- Added an automated PWA cache-integrity test that compares all local scripts and stylesheets referenced by `index.html`, plus both catalog/material data seeds, against the precache list and verifies the cache/manifest version match. Static asset network failures now return a network error instead of incorrectly serving `index.html` as JavaScript/CSS/data; only navigation requests use the HTML fallback.
+- Development branch only; no deployment or production data changes.
