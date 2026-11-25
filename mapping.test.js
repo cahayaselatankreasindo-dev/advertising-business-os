@@ -765,6 +765,35 @@ eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat 
 
 
 // ---------- 9f. Sinkronisasi tidak boleh memigrasikan skema secara otomatis ----------
+// Owner sync also runs Deal Won conversion; its CRM dependencies must be preflighted
+// before unrelated collections (for example Finance) can be written.
+const crmDependencyProjectsBefore = sheets['Projects'];
+const crmDependencyFinanceBefore = JSON.stringify(sheets['Finance'].rows);
+delete sheets['Projects'];
+const crmDependencySync = callDoPost({
+  action: 'sync_all',
+  finance: [{ id: 'F-SCHEMA-GUARD-CRM', date: '2026-11-25', type: 'expense', category: 'Test', amount: 1, description: 'Must not be written' }]
+}, OWNER_SESSION);
+eq(crmDependencySync.status, 'error', 'sync: missing CRM automation dependency blocks Owner sync');
+eq(crmDependencySync.code, 'SCHEMA_SETUP_REQUIRED:SHEET_MISSING:Projects', 'sync: missing CRM dependency returns setup-required error');
+eq(JSON.stringify(sheets['Finance'].rows), crmDependencyFinanceBefore, 'sync: CRM dependency failure happens before Finance write');
+eq(Object.prototype.hasOwnProperty.call(sheets, 'Projects'), false, 'sync: CRM automation does not recreate a missing Project tab');
+sheets['Projects'] = crmDependencyProjectsBefore;
+
+// Changing a Lead to Deal Won must validate Client/Project dependencies before
+// writing the status, so a failed conversion cannot leave a half-completed Lead.
+const crmUpdateClientsBefore = sheets['Clients'];
+sheets['Leads'].appendRow(['L-SCHEMA-GUARD','2026-11-25','Schema Guard','081','Test',0,'new','','','','','','','','','','','']);
+delete sheets['Clients'];
+const crmUpdateStatus = callDoPost({
+  action: 'update_status', sheet: 'Leads', id: 'L-SCHEMA-GUARD', status: 'won'
+}, OWNER_SESSION);
+eq(crmUpdateStatus.status, 'error', 'update_status: missing CRM dependency blocks Deal Won transition');
+eq(crmUpdateStatus.code, 'SCHEMA_SETUP_REQUIRED:SHEET_MISSING:Clients', 'update_status: missing Client tab returns setup-required error');
+const crmUpdateLeadRow = sheets['Leads'].rows.find(row => String(row[0]) === 'L-SCHEMA-GUARD');
+eq(crmUpdateLeadRow[6], 'new', 'update_status: Lead status remains unchanged when conversion dependencies are missing');
+sheets['Clients'] = crmUpdateClientsBefore;
+
 const schemaGuardLeadsBefore = JSON.stringify(sheets['Leads'].rows);
 const schemaGuardReservations = sheets['Inventory_Reservations'];
 delete sheets['Inventory_Reservations'];

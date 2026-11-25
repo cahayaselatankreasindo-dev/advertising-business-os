@@ -404,6 +404,13 @@ function assertSheetContractReady_(ss, sheetName) {
   return sheet;
 }
 
+function assertLeadConversionSchemaReady_(ss) {
+  ["Leads", "Clients", "Projects"].forEach(function(sheetName) {
+    assertSheetContractReady_(ss, sheetName);
+  });
+  return true;
+}
+
 function assertSyncSchemaReady_(ss, identity, payload) {
   var requiredSheets = [];
   function add(sheetName) {
@@ -429,6 +436,9 @@ function assertSyncSchemaReady_(ss, identity, payload) {
   if (identity && identity.role === "team") {
     ["Leads", "Clients", "Projects"].forEach(add);
   } else {
+    // Owner sync always runs autoTriggerPillars after the merge. Its Lead-to-Client/Project
+    // conversion path therefore needs all three CRM sheets ready before the first write.
+    ["Leads", "Clients", "Projects"].forEach(add);
     Object.keys(payloadMap).forEach(function (key) {
       if (payload && Object.prototype.hasOwnProperty.call(payload, key) && payload[key] !== undefined) {
         add(payloadMap[key]);
@@ -1750,6 +1760,8 @@ function doPost(e) {
         var headers = statusSheet.getRange(1, 1, 1, statusSheet.getLastColumn()).getValues()[0];
         var statusCol = headers.findIndex(function(h){ return String(h).trim().toLowerCase() === "status"; });
         if (statusCol < 0) throw new Error("STATUS_COLUMN_NOT_FOUND");
+        var triggersLeadConversion = identity.role === "owner" && statusSheetName === "Leads" && isDealMenang(status);
+        if (triggersLeadConversion) assertLeadConversionSchemaReady_(ss);
         statusSheet.getRange(statusRow, statusCol + 1).setValue(status);
         if (identity.role === "owner" && (statusSheetName === "Leads" || statusSheetName === "Leads_CRM") && isDealMenang(status)) autoTriggerPillars(ss, id);
         return jsonResponse({ status: "success", message: "Status diperbarui.", row: statusRow });
@@ -2231,6 +2243,8 @@ function autoTriggerPillars(ss, forceLeadId) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    // Validate every CRM dependency before creating or updating any related record.
+    assertLeadConversionSchemaReady_(ss);
     const leadsSheet = ss.getSheetByName("Leads");
     if (!leadsSheet || leadsSheet.getLastRow() <= 1) return { financeCreated: 0, projectCreated: 0, clientCreated: 0 };
     const leads = readSheetData(ss, "Leads");
