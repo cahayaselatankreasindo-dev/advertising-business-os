@@ -62,6 +62,8 @@ jobs:
           node --check mapping.test.js
           node --check backend-auth.test.cjs
           node --check finance-integrity.test.cjs
+          node --check finance-engine.js
+          node --check finance-engine.test.cjs
           node --check crm-upgrade.js
           node --check crm-upgrade.test.cjs
           node --check deal-conversion.test.cjs
@@ -106,6 +108,8 @@ jobs:
         run: node invoice-integrity.test.cjs
       - name: Finance manual-entry and payment-ledger integrity tests
         run: node finance-integrity.test.cjs
+      - name: Finance Invoice-payment reconciliation tests
+        run: node finance-engine.test.cjs
       - name: Photo LAB private-access regression tests
         run: node photo-lab.test.cjs
       - name: PWA asset cache integrity tests
