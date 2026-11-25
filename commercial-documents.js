@@ -342,10 +342,19 @@ async function saveCommercialDocument(){
  delete doc.kind;
  doc.updatedAt=new Date().toISOString();
  if(!doc.createdAt)doc.createdAt=doc.updatedAt;
- var a=arr(kind),i=a.findIndex(function(x){return String(x.id)===String(doc.id);});
+ var a=arr(kind),previousCollection=JSON.parse(JSON.stringify(a)),i=a.findIndex(function(x){return String(x.id)===String(doc.id);});
  if(i>=0)a[i]=JSON.parse(JSON.stringify(doc));
  else a.push(JSON.parse(JSON.stringify(doc)));
- await persistCommercialChanges((kind==='quotation'?'Quotation':'Invoice')+' tersimpan');
+ var cloudRequired=!!(db.settings&&db.settings.googleSheetUrl);
+ var persisted=await persistCommercialChanges((kind==='quotation'?'Quotation':'Invoice')+' tersimpan');
+ if(cloudRequired&&!persisted){
+  if(kind==='quotation')db.quotations=previousCollection;
+  else db.invoices=previousCollection;
+  if(typeof saveDB==='function')saveDB(true);
+  say('Dokumen dikembalikan ke data tersimpan terakhir karena verifikasi Google Sheets gagal. Perubahan masih terbuka di editor; periksa koneksi lalu simpan ulang.',true);
+  return false;
+ }
+ return persisted;
 }
 function downloadCommercialDocumentPdf(){if(!doc||!validateCurrentDocumentForOutput())return;if(!w.CSKPDF||typeof w.CSKPDF.downloadDocument!=='function')return say('Mesin PDF belum tersedia. Muat ulang aplikasi dan coba lagi.',true);return w.CSKPDF.downloadDocument(Object.assign({},doc,{kind:kind,title:kind==='quotation'?'QUOTATION / SURAT PENAWARAN':'INVOICE / TAGIHAN'}));}
 function printCommercialDocument(){if(!doc||!validateCurrentDocumentForOutput())return;preview();w.print();}

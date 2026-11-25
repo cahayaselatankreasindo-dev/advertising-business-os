@@ -388,3 +388,12 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - Added one cross-module regression that links approved Quotation and HPP snapshot to Sales Order creation, verified DP production release, HPP material commitment, reservation-linked issue and return, linked PO receipt, reorder alert clearing, delivery, and fully paid close.
 - The test verifies that underpaid DP cannot release production, committed stock is deducted before reorder calculations, issued stock reduces outstanding HPP commitment, PO receipt updates stock balance, and terminal Sales Orders stop reserving materials.
 - This is a deterministic code-level simulation using test fixtures; it does not connect to or write to a live Google Sheet.
+
+
+## 27. Commercial document cloud-save rollback — 25 November 2026
+
+- Quotation and Invoice saves now snapshot the last local collection before attempting a cloud write.
+- When a configured Google Sheets sync fails or cannot be verified, the app restores the last confirmed local Quotation/Invoice collection and persists that rollback. The editor retains the in-progress document so the Owner can retry after fixing the connection.
+- Local-only mode remains unchanged; this rollback is activated only when a Google Sheets endpoint is configured.
+- Regression assertions cover both Quotation and Invoice rollback paths and the retry guidance.
+- Development branch only; no live Sheet writes or Apps Script deployment.
