@@ -335,5 +335,6 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - Reservation, inventory, invoice-payment, and generic record-write paths now fail with `SCHEMA_SETUP_REQUIRED` when their required sheet contract is absent or incomplete.
 - Added regression coverage proving a missing sheet or header blocks the entire sync, does not create/append schema, and does not partially write an earlier collection.
 - Canonical `google_apps_script.js` and deployment mirror `apps-script/Code.gs` are updated together and remain byte-identical.
-- This change is isolated to a feature branch. No Apps Script deployment, production Google Sheets write, schema migration, Supabase change, or public website deployment has been performed.
-- CI must pass on the exact PR head before this change is accepted into the development integration branch.
+- PR #37 was squash-merged into `feature/csk-inventory-bridge-fix-20261124` as commit `bec68295586a18f298aeb78b25d62ee7b10abbb3` after both PR-head workflows passed.
+- Post-merge CSK Security Tests passed on the exact integrated commit. The canonical Apps Script source and deployment mirror remain byte-identical.
+- The integrated branch remains isolated from `main`; no Apps Script deployment, production Google Sheets write, schema migration, Supabase change, or public website deployment has been performed.
