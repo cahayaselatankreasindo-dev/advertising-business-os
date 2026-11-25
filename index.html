@@ -724,6 +724,10 @@
           </div>
         </div>
 
+        <div id="finance-reconciliation" class="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-sm">
+          <div class="text-sm text-slate-500">Memeriksa kecocokan pembayaran Invoice...</div>
+        </div>
+
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           <div class="p-4 border-b border-slate-100 font-semibold text-sm text-slate-800">
             Riwayat Transaksi Terbaru
@@ -2454,6 +2458,29 @@
       document.getElementById('fin-income').innerText=formatRp(income);
       document.getElementById('fin-expense').innerText=formatRp(expense);
       document.getElementById('fin-balance').innerText=formatRp(income-expense);
+      const reconciliationEl=document.getElementById('finance-reconciliation');
+      if(reconciliationEl){
+        const reconciliation=window.CSKFinanceEngine&&typeof window.CSKFinanceEngine.reconcileInvoicePayments==='function'
+          ? window.CSKFinanceEngine.reconcileInvoicePayments(db.invoicePayments||[],db.finance||[])
+          : null;
+        if(!reconciliation){
+          reconciliationEl.innerHTML='<div class="text-sm text-red-700">Mesin rekonsiliasi belum tersedia. Muat ulang aplikasi.</div>';
+        } else if(!reconciliation.totalPaymentRows){
+          reconciliationEl.innerHTML='<div class="flex flex-wrap items-center justify-between gap-2"><b class="text-sm text-slate-800">Rekonsiliasi Pembayaran Invoice</b><span class="text-[10px] rounded-full px-2 py-1 bg-slate-100 text-slate-600">Belum ada pembayaran</span></div><p class="text-xs text-slate-500 mt-2">Belum ada transaksi pada ledger Invoice Payments yang perlu dicocokkan dengan jurnal Finance.</p>';
+        } else if(reconciliation.isReconciled){
+          reconciliationEl.innerHTML='<div class="flex flex-wrap items-center justify-between gap-2"><b class="text-sm text-slate-800">Rekonsiliasi Pembayaran Invoice</b><span class="text-[10px] rounded-full px-2 py-1 bg-emerald-50 text-emerald-700 font-semibold"><i class="fa fa-check-circle mr-1"></i>Sesuai</span></div><p class="text-xs text-slate-600 mt-2">'+reconciliation.matched+' dari '+reconciliation.totalPaymentRows+' pembayaran memiliki jurnal Finance yang cocok berdasarkan tanggal, jenis, kategori, nominal, dan referensi.</p>';
+        } else {
+          const issueGroups=[
+            ['Jurnal belum ada',reconciliation.missing],
+            ['Isi jurnal berbeda',reconciliation.mismatched],
+            ['Jurnal ganda',reconciliation.duplicateFinance],
+            ['Jurnal tanpa sumber pembayaran',reconciliation.orphanFinance],
+            ['Data ledger tidak valid',reconciliation.invalidPayments],
+            ['ID pembayaran ganda',reconciliation.duplicatePayments]
+          ].filter(group=>group[1].length);
+          reconciliationEl.innerHTML='<div class="flex flex-wrap items-center justify-between gap-2"><b class="text-sm text-slate-800">Rekonsiliasi Pembayaran Invoice</b><span class="text-[10px] rounded-full px-2 py-1 bg-amber-50 text-amber-800 font-semibold"><i class="fa fa-exclamation-triangle mr-1"></i>Perlu pemeriksaan</span></div><p class="text-xs text-slate-600 mt-2">'+reconciliation.issueCount+' ketidaksesuaian ditemukan dari '+reconciliation.totalPaymentRows+' catatan pembayaran.</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">'+issueGroups.map(group=>'<div class="rounded-lg border border-amber-100 bg-amber-50/50 p-3"><div class="flex justify-between gap-2 text-xs"><b class="text-slate-700">'+group[0]+'</b><b class="text-amber-800">'+group[1].length+'</b></div><div class="text-[10px] text-slate-500 mt-1 break-words">'+escapeInvoiceHtml(group[1].slice(0,4).join(', '))+(group[1].length>4?' dan lainnya':'')+'</div></div>').join('')+'</div><p class="text-[11px] text-slate-500 mt-3">Jurnal yang hilang dapat diverifikasi ulang melalui riwayat pembayaran pada Invoice terkait. Jurnal yang berbeda, ganda, atau tanpa sumber harus diperiksa Owner sebelum dikoreksi. Panel ini hanya membaca data dan tidak mengubah transaksi.</p>';
+        }
+      }
       const tableEl=document.getElementById('finance-table');
       if(!db.finance.length) {
         tableEl.innerHTML='<div class="p-6 text-center text-xs text-stone-400">Belum ada transaksi tercatat.</div>';
@@ -3569,6 +3596,7 @@
     };
 
   </script>
+  <script src="./finance-engine.js"></script>
   <script src="./csk-pdf.js"></script>
   <script src="./catalog-manager.js"></script>
   <script src="./material-master.js"></script>
