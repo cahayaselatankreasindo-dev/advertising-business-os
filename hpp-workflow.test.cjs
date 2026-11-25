@@ -16,6 +16,30 @@ function compile(name,asyncFunction,sandbox){
   return vm.runInNewContext('('+extractFunction(name,asyncFunction)+')',sandbox,{filename:'index.html:'+name});
 }
 const isMaterialSelectable=compile('isMaterialSelectable',false,{Number,String});
+
+const calculateHppTotals=compile('calculateHppTotals',false,{Number,Math});
+const marginCheck=calculateHppTotals([{name:'Akrilik',qty:1,unitPrice:1000}],0,0,30);
+assert.equal(marginCheck.total,1000);
+assert.equal(marginCheck.price,1429,'30 percent gross margin is calculated against selling price, not as a 30 percent markup');
+assert.equal(marginCheck.profit,429);
+assert.ok(marginCheck.profit/marginCheck.price*100>=30);
+assert.throws(()=>calculateHppTotals([{name:'Akrilik',qty:'abc',unitPrice:1000}],0,0,30),/Kuantitas item HPP ke-1/,'invalid HPP quantity is not silently converted to zero');
+assert.throws(()=>calculateHppTotals([{name:'Akrilik',qty:1,unitPrice:-1}],0,0,30),/Harga biaya item HPP ke-1/,'negative HPP cost is rejected');
+assert.throws(()=>calculateHppTotals([{name:'Akrilik',qty:1,unitPrice:Infinity}],0,0,30),/Harga biaya item HPP ke-1/,'non-finite HPP cost is rejected');
+
+const materialUnitItem={itemType:'material',materialId:'MAT-ACR-03',name:'Akrilik',unit:'lembar',qty:2,unitPrice:100000};
+const unitMessages=[];
+const unitSandbox={hppLines:[materialUnitItem],showToast(message,isError){unitMessages.push({message,isError:!!isError});},renderHppEstimate(){},Number,String,Math};
+compile('setHppLineField',false,unitSandbox)(0,'unit','m2');
+assert.equal(materialUnitItem.unit,'lembar','material usage unit cannot be changed without a controlled unit conversion');
+assert.equal(unitMessages[0].isError,true);
+const serviceUnitItem={itemType:'service',serviceId:'SRV-01',name:'Fabrikasi',unit:'job',qty:1,unitPrice:50000};
+unitSandbox.hppLines=[serviceUnitItem];
+compile('setHppLineField',false,unitSandbox)(0,'unit','lot');
+assert.equal(serviceUnitItem.unit,'lot','service units remain editable');
+assert.ok(html.includes('Satuan material mengikuti Master Material'),'material HPP unit is visibly locked to its master unit');
+assert.ok(html.includes('Rumus harga penawaran: total HPP ÷ (1 − margin ÷ 100)'),'HPP gross-margin basis is explained beside the input');
+
 const verifiedMaterial={
   id:'MAT-ACR-03',sku:'ACR-03',name:'Akrilik bening 3 mm',category:'Akrilik',
   unit:'m2',purchaseUnit:'lembar',purchasePrice:120000,conversionFactor:3.2,
