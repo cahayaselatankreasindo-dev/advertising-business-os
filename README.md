@@ -59,6 +59,19 @@ Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertis
 - Snapshot HPP disimpan pada kolom JSON tambahan di Commercial_Quotations dan Sales_Orders. Fungsi setupSheet menambahkan kolom yang belum ada di sisi kanan tanpa menghapus kolom/data lama.
 - Ringkasan metode custom costing (misalnya potong lembar/roll, potong profil, konversi kemasan, luas, panjang, atau volume) ikut terbaca pada deskripsi quotation; detail kalkulasi lengkap tetap tersimpan pada snapshot HPP sumber.
 
+
+## Inventory, Sales Order, dan Pengadaan
+
+- Sales Order hanya dapat dibuat dari Quotation yang sudah disetujui dan menyimpan snapshot HPP yang digunakan saat penawaran dibuat.
+- Sales Order dengan DP wajib menunggu pembayaran DP yang sudah diverifikasi sebelum status produksi dapat dilepas.
+- Kebutuhan material dihitung dari snapshot HPP Sales Order, bukan dari HPP proyek terbaru yang mungkin sudah berubah.
+- Stok dicatat melalui ledger pergerakan: saldo awal, penerimaan, pengeluaran proyek, retur, dan penyesuaian. Saldo tidak diedit langsung.
+- Reservasi material mengurangi stok tersedia. Pengeluaran dan retur yang terkait Sales Order harus menunjuk reservasi yang sama dan tidak boleh melebihi sisa reservasi atau jumlah yang telah dikeluarkan.
+- Penerimaan barang yang terhubung ke Purchase Order divalidasi terhadap material, satuan, faktor konversi, dan sisa kuantitas PO.
+- Master Material menyediakan batas minimum stok (*reorder point*) per SKU. Inventory menampilkan rekomendasi pengadaan berdasarkan stok fisik dikurangi komitmen Sales Order aktif.
+- Rekomendasi reorder bersifat informatif. Sistem tidak membuat atau mengirim PO otomatis; Owner harus memeriksa stok fisik dan PO yang masih berjalan sebelum membuat pembelian.
+- Material dari seed awal tetap berstatus Draft/Template dan harga pembelian maupun HPP bernilai nol sampai diverifikasi. Jangan mengaktifkan SKU atau memakai harga asumsi sebagai harga transaksi.
+
 ## 🔐 Autentikasi dan Hak Akses
 
 Aplikasi menggunakan login email + PIN. Peran ditentukan dan diverifikasi oleh backend Apps Script; pilihan role pada antarmuka bukan mekanisme keamanan.
