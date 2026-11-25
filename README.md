@@ -208,7 +208,7 @@ Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke 
 ## Schema Migration Safety
 
 - Normal application sync is data-only. It must not create missing tabs or append missing columns.
-- Before an Owner sync, the backend validates every mapped sheet; Team sync validates the Leads, Clients, and Projects contracts. A failed preflight blocks the entire sync before any record is written.
+- Before a normal full Owner sync, the backend validates every mapped sheet included in its collections plus the dependencies used by inventory and commercial validators; Team sync validates the Leads, Clients, and Projects contracts. A failed preflight blocks the entire sync before any record is written.
 - Missing sheets or required headers return an explicit `SCHEMA_SETUP_REQUIRED` error. Do not try to repair this by repeatedly clicking Sync.
 - `setupSheet()` is the explicit schema-migration operation. Run it only on an approved TEST spreadsheet after backup and header preflight. Review any proposed tabs and appended columns before production approval.
 - Keep `google_apps_script.js` and `apps-script/Code.gs` byte-identical. No schema setup, deployment, or production write is performed by CI.
