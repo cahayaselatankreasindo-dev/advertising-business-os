@@ -2461,10 +2461,14 @@
       }
       tableEl.innerHTML=db.finance.slice().reverse().map(f=>{
         const isIncome=f.type==='income';
+        const paymentLinked=String(f.id||'').toUpperCase().indexOf('FIN-PAY-')===0||(db.invoicePayments||[]).some(p=>String(p.financeId||'')===String(f.id));
+        const deleteControl=paymentLinked
+          ? '<span class="text-[10px] text-slate-400 font-semibold whitespace-nowrap" title="Dikelola melalui ledger pembayaran Invoice"><i class="fa fa-lock mr-1"></i>Ledger Invoice</span>'
+          : '<button onclick="deleteFinance(\\''+escapeInvoiceHtml(f.id)+'\\')" aria-label="Hapus transaksi" class="w-9 h-9 rounded-lg border border-stone-200 text-stone-400 hover:text-red-600"><i class="fa fa-trash"></i></button>';
         return '<article class="p-4 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-stone-50/70">'+
           '<div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><span class="inline-flex px-2 py-1 rounded-full text-[10px] font-semibold '+(isIncome?'bg-emerald-50 text-emerald-700':'bg-red-50 text-red-700')+'">'+(isIncome?'Pemasukan':'Pengeluaran')+'</span><span class="text-[11px] text-stone-400">'+escapeInvoiceHtml(f.date||'-')+'</span></div>'+
           '<div class="font-semibold text-sm text-stone-800 mt-1 break-words">'+escapeInvoiceHtml(f.description||'Transaksi')+'</div><div class="text-xs text-stone-500 mt-1">'+escapeInvoiceHtml(f.category||'Tanpa kategori')+'</div></div>'+
-          '<div class="flex items-center justify-between sm:justify-end gap-3"><span class="font-bold text-sm whitespace-nowrap '+(isIncome?'text-emerald-700':'text-red-600')+'">'+(isIncome?'+ ':'− ')+formatRp(f.amount)+'</span><button onclick="deleteFinance(\''+escapeInvoiceHtml(f.id)+'\')" aria-label="Hapus transaksi" class="w-9 h-9 rounded-lg border border-stone-200 text-stone-400 hover:text-red-600"><i class="fa fa-trash"></i></button></div></article>';
+          '<div class="flex items-center justify-between sm:justify-end gap-3"><span class="font-bold text-sm whitespace-nowrap '+(isIncome?'text-emerald-700':'text-red-600')+'">'+(isIncome?'+ ':'− ')+formatRp(f.amount)+'</span>'+deleteControl+'</div></article>';
       }).join('');
     }
 
@@ -3011,30 +3015,71 @@
       });
     }
 
-    function submitFinance(e) {
+    async function submitFinance(e) {
       e.preventDefault();
+      if (!isOwnerSession()) return showToast('Pencatatan Finance hanya dapat dilakukan oleh Owner.', true);
+      const form=e.currentTarget||e.target;
+      if (form.dataset.submitting==='1') return;
+      const type=document.getElementById('fin-type').value;
+      const date=document.getElementById('fin-date').value;
+      const category=document.getElementById('fin-category').value.trim();
+      const amount=Number(document.getElementById('fin-amount').value);
+      const description=document.getElementById('fin-desc').value.trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)||isNaN(new Date(date+'T00:00:00').getTime())||new Date(date+'T00:00:00').toISOString().slice(0,10)!==date) return showToast('Tanggal transaksi tidak valid.', true);
+      if (type!=='income'&&type!=='expense') return showToast('Tipe transaksi tidak valid.', true);
+      if (!category||category.length>100) return showToast('Kategori transaksi wajib diisi dan maksimal 100 karakter.', true);
+      if (!Number.isSafeInteger(amount)||amount<=0) return showToast('Nominal harus berupa bilangan Rupiah positif tanpa desimal.', true);
+      if (!description||description.length>500) return showToast('Keterangan wajib diisi dan maksimal 500 karakter.', true);
+      const fingerprint=[date,type,category,amount,description].join('\u001f');
+      const pendingId=form.dataset.pendingFinanceFingerprint===fingerprint?form.dataset.pendingFinanceId:'';
       const fin = {
-        id: Date.now().toString(),
-        type: document.getElementById('fin-type').value,
-        date: document.getElementById('fin-date').value,
-        category: document.getElementById('fin-category').value,
-        amount: Number(document.getElementById('fin-amount').value || 0),
-        description: document.getElementById('fin-desc').value
+        id: pendingId||('FIN-MANUAL-'+Date.now()+'-'+Math.random().toString(36).slice(2,8).toUpperCase()),
+        type:type,date:date,category:category,amount:amount,description:description
       };
-      db.finance.unshift(fin);
-      saveDB();
-      closeModal('modal-finance');
-      e.target.reset();
-      showToast('Transaksi berhasil dicatat!');
+      if ((db.finance||[]).some(row=>String(row.id)===fin.id)) return showToast('ID transaksi sudah ada. Muat ulang Finance sebelum mencoba lagi.', true);
+      form.dataset.submitting='1';
+      const submitButton=form.querySelector('[type="submit"]');
+      if(submitButton)submitButton.disabled=true;
+      try {
+        if(db.settings&&db.settings.googleSheetUrl){
+          if(!window.CSKAuth||typeof window.CSKAuth.recordFinanceTransaction!=='function') throw new Error('Autentikasi Finance belum siap. Muat ulang aplikasi.');
+          form.dataset.pendingFinanceId=fin.id;
+          form.dataset.pendingFinanceFingerprint=fingerprint;
+          await window.CSKAuth.recordFinanceTransaction(fin);
+        } else {
+          db.finance.unshift(fin);
+          saveDB(true);
+        }
+        delete form.dataset.pendingFinanceId;
+        delete form.dataset.pendingFinanceFingerprint;
+        closeModal('modal-finance');
+        form.reset();
+        updateFinanceCategories();
+        showToast('Transaksi berhasil dicatat'+((db.settings&&db.settings.googleSheetUrl)?' dan diverifikasi di Google Sheets.':' di penyimpanan lokal.'));
+      } catch(error) {
+        showToast('Transaksi belum tersimpan: '+String(error&&error.message||error),true);
+      } finally {
+        delete form.dataset.submitting;
+        if(submitButton)submitButton.disabled=false;
+      }
     }
 
-    function deleteFinance(id) {
-      if (confirm('Hapus transaksi ini?')) {
-        db.finance = db.finance.filter(f => f.id !== id);
-        saveDB(true);
-        deleteOnCloud('Finance', id);
-        showToast('Transaksi dihapus.');
+    async function deleteFinance(id) {
+      if (!requireOwnerForDelete()) return;
+      const row=(db.finance||[]).find(f=>String(f.id)===String(id));
+      if(!row)return showToast('Transaksi tidak ditemukan.',true);
+      const paymentLinked=String(row.id||'').toUpperCase().indexOf('FIN-PAY-')===0||(db.invoicePayments||[]).some(p=>String(p.financeId||'')===String(row.id));
+      if(paymentLinked)return showToast('Transaksi pembayaran Invoice dilindungi ledger. Kelola melalui riwayat pembayaran Invoice.',true);
+      if(!confirm('Hapus transaksi ini?'))return;
+      if(db.settings&&db.settings.googleSheetUrl){
+        const synced=await syncWithGoogle(true);
+        if(!synced)return showToast('Finance belum tersinkronisasi. Penghapusan dibatalkan; coba lagi setelah sinkronisasi berhasil.',true);
+        const verified=await deleteOnCloud('Finance',id);
+        if(!verified)return;
       }
+      db.finance=db.finance.filter(f=>String(f.id)!==String(id));
+      saveDB(true);
+      showToast('Transaksi dihapus'+((db.settings&&db.settings.googleSheetUrl)?' dan diverifikasi di Google Sheets.':' dari penyimpanan lokal.'));
     }
 
     function submitMarketing(e) {
