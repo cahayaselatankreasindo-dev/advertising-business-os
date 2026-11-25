@@ -527,6 +527,34 @@
     return { payment: stored, finance: finance };
   }
 
+  async function recordFinanceTransaction(transaction) {
+    if (!ready || !identity) throw new Error('AUTH_REQUIRED');
+    if (identity.role !== 'owner') throw new Error('FORBIDDEN_FINANCE_WRITE');
+    if (!transaction || !transaction.id) throw new Error('FINANCE_TRANSACTION_REQUIRED');
+    if (syncRunning) throw new Error('SYNC_IN_PROGRESS_TRY_AGAIN');
+    var synced = await syncNow(true);
+    if (!synced) throw new Error('FINANCE_SYNC_REQUIRED_BEFORE_WRITE');
+    await post({ action: 'record_finance_transaction', transaction: transaction });
+    var response = await get('get_data');
+    var rows = response.data && Array.isArray(response.data.finance) ? response.data.finance : [];
+    var stored = rows.find(function(row) { return String(row.id) === String(transaction.id); });
+    if (!stored ||
+        String(stored.date).slice(0, 10) !== String(transaction.date) ||
+        String(stored.type).toLowerCase() !== String(transaction.type).toLowerCase() ||
+        String(stored.category) !== String(transaction.category) ||
+        Number(stored.amount) !== Number(transaction.amount) ||
+        String(stored.description) !== String(transaction.description)) {
+      throw new Error('FINANCE_TRANSACTION_NOT_VERIFIED_CHECK_AND_RETRY');
+    }
+    db.finance = rows;
+    db.settings.lastSync = response.data.lastSynced || new Date().toISOString();
+    db.settings.lastSyncError = '';
+    saveScoped();
+    if (typeof renderAll === 'function') renderAll();
+    if (typeof updateCloudIndicator === 'function') updateCloudIndicator();
+    return { transaction: stored };
+  }
+
   async function changeSalesOrderReservation(action, salesOrderId, reason) {
     if (!ready || !identity) throw new Error('AUTH_REQUIRED');
     if (identity.role !== 'owner') throw new Error('FORBIDDEN_STOCK_RESERVATION');
@@ -579,6 +607,7 @@
     getData: function () { return get('get_data'); },
     reserveSalesOrderStock: reserveSalesOrderStock,
     releaseSalesOrderReservation: releaseSalesOrderReservation,
+    recordFinanceTransaction: recordFinanceTransaction,
     recordInvoicePayment: recordInvoicePayment
   };
 
