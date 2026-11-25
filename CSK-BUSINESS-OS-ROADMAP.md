@@ -346,3 +346,12 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - Report includes mapped and legacy read-only tab presence, row counts, missing/duplicate/extra headers, and unclassified auxiliary tabs. It does not read business row values.
 - Added regression coverage showing the audit reports a missing tab without recreating it and leaves all spreadsheet rows unchanged.
 - Use this report on the approved TEST copy first; it can also be run against production in read-only mode if an owner explicitly chooses to inspect the live schema. No deployment or live execution has been performed.
+
+
+## 21. CRM conversion preflight hardening — 25 November 2026
+
+- Owner sync_all now preflights Leads, Clients, and Projects because every Owner sync invokes the automatic Deal Won conversion path after collection merges.
+- update_status preflights all three CRM dependencies before changing a Lead to Deal Won; a missing Client or Project tab therefore cannot leave the Lead status partially changed.
+- autoTriggerPillars independently validates all three CRM sheet contracts before creating or updating any Client/Project record, including when invoked by a direct Apps Script trigger.
+- Regression tests cover a missing Project tab blocking an unrelated Finance sync before any Finance write, and a missing Client tab blocking a Deal Won status change without changing the Lead.
+- Development branch only. No production Apps Script deployment, live Google Sheets write, schema migration, or public website change.
