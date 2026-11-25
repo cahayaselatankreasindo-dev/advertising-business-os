@@ -338,3 +338,11 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - PR #37 was squash-merged into `feature/csk-inventory-bridge-fix-20261124` as commit `bec68295586a18f298aeb78b25d62ee7b10abbb3` after both PR-head workflows passed.
 - Post-merge CSK Security Tests passed on the exact integrated commit. The canonical Apps Script source and deployment mirror remain byte-identical.
 - The integrated branch remains isolated from `main`; no Apps Script deployment, production Google Sheets write, schema migration, Supabase change, or public website deployment has been performed.
+
+
+## 21. Read-only spreadsheet schema audit — 25 November 2026
+
+- Added `auditCSKSchemaReadOnly()` and a CSK Security menu entry for owners to inspect the bound spreadsheet without changing it.
+- Report includes mapped and legacy read-only tab presence, row counts, missing/duplicate/extra headers, and unclassified auxiliary tabs. It does not read business row values.
+- Added regression coverage showing the audit reports a missing tab without recreating it and leaves all spreadsheet rows unchanged.
+- Use this report on the approved TEST copy first; it can also be run against production in read-only mode if an owner explicitly chooses to inspect the live schema. No deployment or live execution has been performed.
