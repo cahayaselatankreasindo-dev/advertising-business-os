@@ -347,3 +347,12 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - Added regression coverage showing the audit reports a missing tab without recreating it and leaves all spreadsheet rows unchanged.
 - PR #38 was squash-merged into `feature/csk-inventory-bridge-fix-20261124` as commit `4f3350bcac42fb4242340348adffd8d1252bf3bd` after both PR-head workflows passed; post-merge CSK Security Tests also passed.
 - Use this report on the approved TEST copy first; it can also be run against production in read-only mode if an owner explicitly chooses to inspect the live schema. The function has not been executed against any live spreadsheet and no Apps Script deployment has been performed.
+
+
+## 22. CRM conversion preflight hardening — 25 November 2026
+
+- Owner sync_all now preflights Leads, Clients, and Projects because every Owner sync invokes the automatic Deal Won conversion path after collection merges.
+- update_status preflights all three CRM dependencies before changing a Lead to Deal Won; a missing Client or Project tab therefore cannot leave the Lead status partially changed.
+- autoTriggerPillars independently validates all three CRM sheet contracts before creating or updating any Client/Project record, including when invoked by a direct Apps Script trigger.
+- Regression tests cover a missing Project tab blocking an unrelated Finance sync before any Finance write, and a missing Client tab blocking a Deal Won status change without changing the Lead.
+- Development branch only. No production Apps Script deployment, live Google Sheets write, schema migration, or public website change.
