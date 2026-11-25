@@ -221,7 +221,7 @@ Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke 
 - Workflow: Awaiting DP → Ready Production → In Production → Quality Control → Ready Delivery → Delivered → Closed. QC can send work back to production for rework.
 - Closing is blocked until all linked invoices are fully paid.
 - Sales Orders are Owner-only. Team accounts do not receive the Sales Order collection.
-- Inventory commitment monitoring, material demand calculation, supplier-grouped Draft PO creation, and PO-linked goods receiving are available. Locked stock reservation, material pick/issue workflow, and offcut tracking remain future phases.
+- Inventory commitment monitoring, material demand calculation, locked Sales Order reservations, material picking, partial issue/return, supplier-grouped Draft PO creation, and PO-linked goods receiving are implemented in the development branch. Reorder suggestions, offcut tracking, and stock valuation remain future phases.
 
 
 ## Inventory & Stock Ledger
@@ -250,7 +250,7 @@ Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke 
 - Apps Script independently recalculates and validates new/financially changed commercial document totals before accepting writes. Unchanged legacy financial snapshots remain compatible.
 - Inventory now shows physical stock separately from estimated free stock after active Sales Order material commitments.
 - Active commitments include Ready Production, In Production, Quality Control, and Ready Delivery. Project HPP requirements are aggregated once per project; project issues and returns reduce or restore outstanding demand.
-- Missing HPP or invalid unit conversions are surfaced as unresolved. This is monitoring only, not a locked stock reservation.
+- Missing HPP or invalid unit conversions are surfaced as unresolved. Production release requires verified DP and atomic stock reservation; competing orders cannot reserve the same available balance.
 - GitHub Actions source-checks and tests pass on the internal feature branch.
 
-Next: server-enforced reservation at production release, partial pick/issue/return, and purchase-unit conversion at receiving. No live deployment, migration, or merge to main has been performed.
+Next: complete isolated TEST spreadsheet and Apps Script acceptance, real-device browser/PDF QA, and Owner-reviewed schema migration. No live deployment, production migration, or merge to main has been performed.
