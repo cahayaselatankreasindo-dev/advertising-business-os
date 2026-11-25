@@ -406,3 +406,12 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - When inventory is tracked in whole sheets/rolls/bars, the UI directs the user to the existing whole-purchase mode instead. Existing whole-unit purchase costing is unchanged.
 - Added engine regression tests for supported and incompatible stock units.
 - Development branch only; no production data or schema changes.
+
+
+## 29. Project and invoice conversion cloud rollback — 25 November 2026
+
+- Applied the same verified-cloud-write rollback rule to create/link Project from Quotation or Invoice, and to convert an approved Quotation into an Invoice.
+- If a configured Google Sheets sync fails, the app restores the last confirmed Projects, Quotations, and Invoices collections instead of leaving an unverified local conversion visible after reload.
+- Local-only mode remains unchanged. Failed invoice conversion no longer opens an editor for a document that was not confirmed in Google Sheets.
+- Regression checks cover snapshots and rollback paths for both project linking/creation and invoice conversion.
+- Development branch only; no live Sheets write or Apps Script deployment.
