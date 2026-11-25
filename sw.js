@@ -1,7 +1,7 @@
 // Service Worker — CSK Business OS
 // Strategi: NETWORK-FIRST untuk HTML (biar update app langsung kepakai),
 // cache-first untuk aset statis (logo, manifest, dan stylesheet aplikasi).
-const CACHE_NAME = 'csk-business-os-v3.2.27';
+const CACHE_NAME = 'csk-business-os-v3.2.28';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   './commercial-documents.js',
   './csk-pdf.js',
   './catalog-manager.js',
+  './material-master.js',
   './custom-costing-engine.js',
   './custom-costing.js',
   './sales-order-engine.js',
@@ -20,7 +21,8 @@ const ASSETS = [
   './inventory.js',
   './csk-visual-refresh.css',
   './csk-ui-components.css',
-  './data/advertising-catalog-seed.json'
+  './data/advertising-catalog-seed.json',
+  './data/csk-material-master-seed.json'
 ];
 
 self.addEventListener('install', event => {
