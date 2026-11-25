@@ -415,3 +415,13 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - Local-only mode remains unchanged. Failed invoice conversion no longer opens an editor for a document that was not confirmed in Google Sheets.
 - Regression checks cover snapshots and rollback paths for both project linking/creation and invoice conversion.
 - Development branch only; no live Sheets write or Apps Script deployment.
+
+
+## 30. Finance manual-entry and payment-ledger integrity — 25 November 2026
+
+- Added a dedicated, Owner-only, idempotent backend action for manual Finance entries. It validates date, transaction type, category, positive whole-Rupiah amount, description length, and reserves the `FIN-PAY-` namespace for Invoice payment journals.
+- The authenticated client pre-syncs current data, submits the manual transaction, reads Finance back from Google Sheets, and updates local state only after the row is verified. A retry of the same form payload reuses its transaction ID to prevent duplicate entries after an uncertain response.
+- Finance now hides deletion controls for Invoice-payment journal rows. Manual Finance deletion waits for a successful pre-sync and verified cloud deletion before removing the local row; local-only mode remains supported.
+- Added regression tests for idempotent Finance writes, invalid values, payment-ledger ID protection, Owner-only access, and UI/cloud verification behavior.
+- Bumped the PWA cache and manifest to 3.2.29 for the updated application assets.
+- Development branch only; no live Google Sheets writes or Apps Script deployment.
