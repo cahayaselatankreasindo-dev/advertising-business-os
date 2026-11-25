@@ -68,7 +68,9 @@ self.addEventListener('fetch', event => {
   // CACHE-FIRST untuk aset statis
   event.respondWith(
     caches.match(event.request).then(cached => {
-      return cached || fetch(event.request).catch(() => caches.match('./index.html'));
+      // A missing JS/CSS/data asset must not receive index.html with a false 200 response.
+      // Navigation requests already have their own HTML fallback above.
+      return cached || fetch(event.request).catch(() => Response.error());
     })
   );
 });
