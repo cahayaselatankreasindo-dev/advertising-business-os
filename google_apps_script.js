@@ -1712,6 +1712,11 @@ function doPost(e) {
         return jsonResponse({ status: "success", result: releaseResult });
       }
 
+      case "record_finance_transaction": {
+        var financeResult = recordFinanceTransaction_(ss, payload.transaction, identity);
+        return jsonResponse({ status: "success", result: financeResult });
+      }
+
       case "record_invoice_payment": {
         var paymentResult = recordInvoicePayment_(ss, payload.payment, identity);
         return jsonResponse({ status: "success", result: paymentResult });
@@ -1776,6 +1781,54 @@ function doPost(e) {
     }
   } catch (err) {
     return jsonResponse({ status: "error", code: String(err && err.message || err), message: "Permintaan ditolak atau gagal diproses." });
+  }
+}
+
+// Catat transaksi Finance manual secara idempoten dan terpisah dari jurnal pembayaran Invoice.
+function recordFinanceTransaction_(ss, rawTransaction, identity) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    if (!identity || identity.role !== "owner") throw new Error("FORBIDDEN_FINANCE_WRITE");
+    var raw = rawTransaction || {};
+    var id = String(raw.id || "").trim();
+    var date = String(raw.date || "").trim();
+    var type = String(raw.type || "").trim().toLowerCase();
+    var category = String(raw.category || "").trim();
+    var description = String(raw.description || "").trim();
+    var amount = Number(raw.amount);
+    if (!/^FIN-MANUAL-[A-Za-z0-9_-]{8,80}$/.test(id)) throw new Error("INVALID_FINANCE_ID");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("INVALID_FINANCE_DATE");
+    var parsedDate = new Date(date + "T00:00:00Z");
+    if (isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) throw new Error("INVALID_FINANCE_DATE");
+    if (type !== "income" && type !== "expense") throw new Error("INVALID_FINANCE_TYPE");
+    if (!category || category.length > 100) throw new Error("INVALID_FINANCE_CATEGORY");
+    if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("INVALID_FINANCE_AMOUNT");
+    if (!description || description.length > 500) throw new Error("INVALID_FINANCE_DESCRIPTION");
+    assertSheetContractReady_(ss, "Finance");
+    assertSheetContractReady_(ss, "Invoice_Payments");
+    var paymentRows = readSheetData(ss, "Invoice_Payments");
+    if (paymentRows.some(function(payment) {
+      return String(payment.financeId || "") === id || ("FIN-PAY-" + String(payment.id || "")) === id;
+    })) throw new Error("FINANCE_PAYMENT_ID_RESERVED");
+    var financeRows = readSheetData(ss, "Finance");
+    var matches = financeRows.filter(function(row) { return String(row.id || "") === id; });
+    if (matches.length > 1) throw new Error("FINANCE_DUPLICATE_ID");
+    var transaction = { id: id, date: date, type: type, category: category, amount: amount, description: description };
+    if (matches.length === 1) {
+      var existing = matches[0];
+      var same = String(existing.date || "").slice(0, 10) === date &&
+        String(existing.type || "").toLowerCase() === type &&
+        String(existing.category || "") === category &&
+        Number(existing.amount) === amount &&
+        String(existing.description || "") === description;
+      if (!same) throw new Error("FINANCE_ID_CONFLICT");
+      return { duplicate: true, transaction: transaction };
+    }
+    insertRecord(ss, "Finance", transaction);
+    return { duplicate: false, transaction: transaction };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -2143,6 +2196,11 @@ function cskAssertPayloadAllowed_(identity, payload) {
     if (!String(payload.salesOrderId || "").trim()) throw new Error("SALES_ORDER_ID_REQUIRED");
     if (action === "release_sales_order_reservation" && !String(payload.reason || "").trim()) throw new Error("RESERVATION_RELEASE_REASON_REQUIRED");
     if (action === "release_sales_order_reservation" && String(payload.reason || "").length > 200) throw new Error("RESERVATION_RELEASE_REASON_TOO_LONG");
+    return true;
+  }
+  if (action === "record_finance_transaction") {
+    if (role !== "owner") throw new Error("FORBIDDEN_FINANCE_WRITE");
+    if (!payload.transaction || typeof payload.transaction !== "object") throw new Error("FINANCE_TRANSACTION_REQUIRED");
     return true;
   }
   if (action === "record_invoice_payment") {
