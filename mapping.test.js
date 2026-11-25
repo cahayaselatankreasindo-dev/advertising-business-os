@@ -31,7 +31,7 @@ function makeSheet(headers) {
     getLastRow() { return this.rows.length; },
     getLastColumn() { return this.rows.length ? this.rows[0].length : 0; },
     getSheetByName() { return null; },
-    getName() { return 'stub'; },
+    getName() { return this.name || 'stub'; },
     getDataRange() {
       const self = this;
       return { getValues() { return self.rows.map(r => r.slice()); } };
@@ -82,7 +82,7 @@ const SpreadsheetAppStub = {
     return {
       getSheetByName(name) { return sheets[name] || null; },
       insertSheet(name) { sheets[name] = makeSheet([]); return sheets[name]; },
-      getSheets() { return Object.keys(sheets).map(k => sheets[k]); },
+      getSheets() { return Object.keys(sheets).map(k => { sheets[k].name = k; return sheets[k]; }); },
       getName() { return 'CSK TEST'; },
       deleteSheet(s) { /* noop di stub */ },
     };
