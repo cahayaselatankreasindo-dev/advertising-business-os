@@ -120,6 +120,7 @@ function calculate(){
       result=E.calculateSheetCutList({sheetWidthMm:sw,sheetHeightMm:sh,kerfMm:kerf,wasteRate:waste,allowRotation:el('cc-rotate').checked,parts:readRows('#cc-part-rows .cc-part','part').map(function(p){return p;})});
       var price=Number(m.purchasePrice);if(!Number.isFinite(price)||price<=0)throw new Error('Harga beli per lembar/roll belum diisi dan diverifikasi pada master material.');
       if(source==='stock'){
+        E.assertStockCuttingUnit(activeMethod,m.unit);
         var area=result.chargedAreaMm2/1000000,stockArea=result.sheetAreaMm2/1000000;
         line=makeLine(m,area,'m2',price/stockArea,{method:activeMethod,sourceMode:source,label:'Pemakaian stok/offcut',summary:result.sheetsUsed+' lembar/roll ekuivalen; '+result.piecesCount+' komponen; biaya proporsional luas.',result:result,input:{sheetWidthMm:sw,sheetHeightMm:sh,kerfMm:kerf,wasteRate:waste,parts:readRows('#cc-part-rows .cc-part','part')}});
       }else{
@@ -130,6 +131,7 @@ function calculate(){
       result=E.calculateBarCutList({stockLengthMm:num('cc-stock-length'),kerfMm:num('cc-kerf')||0,wasteRate:waste,cuts:readRows('#cc-cut-rows .cc-part','cut')});
       var barPrice=Number(m.purchasePrice);if(!Number.isFinite(barPrice)||barPrice<=0)throw new Error('Harga beli per batang belum diisi dan diverifikasi pada master material.');
       if(source==='stock'){
+        E.assertStockCuttingUnit(activeMethod,m.unit);
         var usedM=result.chargedLengthMm/1000,stockM=num('cc-stock-length')/1000;
         line=makeLine(m,usedM,'m',barPrice/stockM,{method:activeMethod,sourceMode:source,label:'Pemakaian stok profil',summary:result.barsUsed+' batang ekuivalen; '+result.piecesCount+' potongan; biaya proporsional panjang.',result:result,input:{stockLengthMm:num('cc-stock-length'),kerfMm:num('cc-kerf'),wasteRate:waste,cuts:readRows('#cc-cut-rows .cc-part','cut')}});
       }else{
