@@ -459,6 +459,70 @@ function assertSyncSchemaReady_(ss, identity, payload) {
   return true;
 }
 
+function auditCSKSchemaReadOnly() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var actualSheets = ss.getSheets();
+  var actualNames = actualSheets.map(function(sheet) { return sheet.getName(); });
+  function inspect(name, expectedHeaders, category) {
+    var sheet = ss.getSheetByName(name);
+    if (!sheet) {
+      return {
+        name: name, category: category, exists: false, rowCount: 0,
+        expectedHeaderCount: expectedHeaders.length, actualHeaderCount: 0,
+        missingHeaders: expectedHeaders.slice(), duplicateHeaders: [], extraHeaders: [], valid: false
+      };
+    }
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+    var headers = lastRow > 0 && lastCol > 0
+      ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) { return String(h || "").trim(); })
+      : [];
+    var normalized = headers.map(function(h) { return h.toLowerCase(); });
+    var counts = Object.create(null);
+    normalized.forEach(function(h) { if (h) counts[h] = (counts[h] || 0) + 1; });
+    var duplicates = Object.keys(counts).filter(function(h) { return counts[h] > 1; });
+    var expected = expectedHeaders.map(function(h) { return String(h).trim().toLowerCase(); });
+    var missing = expectedHeaders.filter(function(h) { return normalized.indexOf(String(h).trim().toLowerCase()) < 0; });
+    var extra = headers.filter(function(h) { return h && expected.indexOf(h.toLowerCase()) < 0; });
+    return {
+      name: name, category: category, exists: true, rowCount: Math.max(0, lastRow - 1),
+      expectedHeaderCount: expectedHeaders.length, actualHeaderCount: headers.length,
+      missingHeaders: missing, duplicateHeaders: duplicates, extraHeaders: extra,
+      valid: lastRow > 0 && missing.length === 0 && duplicates.length === 0
+    };
+  }
+  var mappedSheets = Object.keys(FIELD_MAP).map(function(name) {
+    return inspect(name, FIELD_MAP[name].headers, "mapped");
+  });
+  var legacySheets = Object.keys(LEGACY_READ_MAP).map(function(name) {
+    return inspect(name, Object.keys(LEGACY_READ_MAP[name]), "legacy_read_only");
+  });
+  var knownNames = Object.create(null);
+  Object.keys(FIELD_MAP).concat(Object.keys(LEGACY_READ_MAP)).forEach(function(name) { knownNames[name] = true; });
+  var unclassified = actualNames.filter(function(name) { return !knownNames[name]; });
+  var summary = {
+    actualSheetCount: actualNames.length,
+    mappedSheetCount: mappedSheets.length,
+    missingMappedSheets: mappedSheets.filter(function(row) { return !row.exists; }).length,
+    mappedSheetsWithMissingHeaders: mappedSheets.filter(function(row) { return row.exists && row.missingHeaders.length > 0; }).length,
+    mappedSheetsWithDuplicateHeaders: mappedSheets.filter(function(row) { return row.duplicateHeaders.length > 0; }).length,
+    legacySheetCount: legacySheets.length,
+    missingLegacySheets: legacySheets.filter(function(row) { return !row.exists; }).length,
+    unclassifiedSheetCount: unclassified.length,
+    mappedDataRows: mappedSheets.reduce(function(sum, row) { return sum + row.rowCount; }, 0)
+  };
+  var report = {
+    generatedAt: new Date().toISOString(),
+    spreadsheetName: typeof ss.getName === "function" ? ss.getName() : "",
+    summary: summary,
+    mappedSheets: mappedSheets,
+    legacyReadOnlySheets: legacySheets,
+    unclassifiedSheets: unclassified
+  };
+  Logger.log(JSON.stringify(report, null, 2));
+  return report;
+}
+
 function findRowById(sheet, id) {
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return -1;
@@ -2415,5 +2479,6 @@ function onOpen(e) {
     .createMenu("CSK Security")
     .addItem("Setup PIN Owner & Tim", "setupCSKPinCredentialsFromPrompt")
     .addItem("Rotasi PIN Owner & Tim", "rotateCSKPinCredentialsFromPrompt")
+    .addItem("Audit Struktur (Read-only)", "auditCSKSchemaReadOnly")
     .addToUi();
 }

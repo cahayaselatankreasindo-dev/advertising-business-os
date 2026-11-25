@@ -31,7 +31,7 @@ function makeSheet(headers) {
     getLastRow() { return this.rows.length; },
     getLastColumn() { return this.rows.length ? this.rows[0].length : 0; },
     getSheetByName() { return null; },
-    getName() { return 'stub'; },
+    getName() { return this.name || 'stub'; },
     getDataRange() {
       const self = this;
       return { getValues() { return self.rows.map(r => r.slice()); } };
@@ -82,7 +82,8 @@ const SpreadsheetAppStub = {
     return {
       getSheetByName(name) { return sheets[name] || null; },
       insertSheet(name) { sheets[name] = makeSheet([]); return sheets[name]; },
-      getSheets() { return Object.keys(sheets).map(k => sheets[k]); },
+      getSheets() { return Object.keys(sheets).map(k => { sheets[k].name = k; return sheets[k]; }); },
+      getName() { return 'CSK TEST'; },
       deleteSheet(s) { /* noop di stub */ },
     };
   },
@@ -793,6 +794,24 @@ eq(missingHeaderSync.code, 'SCHEMA_SETUP_REQUIRED:HEADERS_MISSING:Materials:Harg
 eq(schemaGuardMaterials.rows[0][purchasePriceHeaderIndex], 'HargaBeli_MISSING', 'sync: missing header is not appended or silently repaired');
 eq(JSON.stringify(sheets['Leads'].rows), schemaGuardLeadsBeforeHeaderTest, 'sync: no record is written before schema preflight completes');
 schemaGuardMaterials.rows[0][purchasePriceHeaderIndex] = originalPurchasePriceHeader;
+
+// ---------- 9g. Audit struktur spreadsheet bersifat read-only ----------
+const auditMissingSheet = sheets['Inventory_Reservations'];
+delete sheets['Inventory_Reservations'];
+const auditBefore = JSON.stringify(Object.keys(sheets).sort().map(name => [name, sheets[name].rows]));
+const auditWithMissingTab = sandbox.auditCSKSchemaReadOnly();
+eq(auditWithMissingTab.summary.missingMappedSheets, 1, 'read-only audit identifies one missing mapped sheet');
+eq(auditWithMissingTab.mappedSheets.find(row => row.name === 'Inventory_Reservations').exists, false, 'read-only audit identifies the missing Inventory Reservations tab');
+eq(Object.prototype.hasOwnProperty.call(sheets, 'Inventory_Reservations'), false, 'read-only audit does not recreate a missing tab');
+eq(JSON.stringify(Object.keys(sheets).sort().map(name => [name, sheets[name].rows])), auditBefore, 'read-only audit does not modify any spreadsheet rows');
+sheets['Inventory_Reservations'] = auditMissingSheet;
+const completeAuditBefore = JSON.stringify(Object.keys(sheets).sort().map(name => [name, sheets[name].rows]));
+const completeAudit = sandbox.auditCSKSchemaReadOnly();
+eq(completeAudit.spreadsheetName, 'CSK TEST', 'read-only audit reports the spreadsheet name');
+eq(completeAudit.summary.missingMappedSheets, 0, 'read-only audit confirms all mapped tabs exist after restoration');
+eq(completeAudit.summary.mappedSheetsWithMissingHeaders, 0, 'read-only audit confirms mapped headers are complete');
+eq(completeAudit.summary.mappedSheetsWithDuplicateHeaders, 0, 'read-only audit confirms mapped headers are unambiguous');
+eq(JSON.stringify(Object.keys(sheets).sort().map(name => [name, sheets[name].rows])), completeAuditBefore, 'complete read-only audit leaves all spreadsheet data unchanged');
 
 // ---------- 10. Ringkasan ----------
 console.log(`\nmapping.test.js: ${pass} lolos, ${fail} gagal`);
