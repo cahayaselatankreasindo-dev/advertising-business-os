@@ -25,6 +25,19 @@ const balances=E.calculateBalances(materials,ledger);
 assert.equal(balances['MAT-ACR'],4);
 assert.equal(E.getBalance('MAT-ACR',balances),4);
 assert.equal(E.getBalance('MAT-HOL',balances),0);
+const reorderMaterials=[
+ {id:'MAT-ACR',sku:'ACR-03',name:'Akrilik Clear 3mm',unit:'m2',status:'active',reorderPoint:5},
+ {id:'MAT-HOL',sku:'HOL-22',name:'Hollow 2x2',unit:'m',status:'active',reorderPoint:10},
+ {id:'MAT-NO-POINT',name:'Tanpa batas minimum',unit:'pcs',status:'active'},
+ {id:'MAT-DRAFT',name:'Draft material',unit:'pcs',status:'draft',reorderPoint:50}
+];
+const reorderRows=E.calculateReorderSuggestions(reorderMaterials,{'MAT-ACR':4,'MAT-HOL':20},[{materialId:'MAT-ACR',committed:1},{materialId:'MAT-HOL',committed:0}]);
+assert.equal(reorderRows.length,1,'only active materials below their configured reorder point are suggested');
+assert.equal(reorderRows[0].materialId,'MAT-ACR');
+assert.equal(reorderRows[0].available,3,'reorder calculation deducts active Sales Order commitments from physical stock');
+assert.equal(reorderRows[0].shortage,2,'suggested replenishment is the gap to the configured reorder point');
+assert.equal(E.calculateReorderSuggestions(reorderMaterials,{'MAT-ACR':5,'MAT-HOL':20},[]).length,0,'materials at or above reorder point are not flagged');
+
 assert.equal(E.nextTransactionNumber(ledger,'2026-11-20'),'STK-CSK-2026-00006');
 
 assert.throws(()=>E.calculateBalances(materials,[receipt,{...opening,date:'2026-11-06',createdAt:'2026-11-06T08:00:00.000Z'}]),/transaksi stok pertama/,'opening balance must be the first ledger movement');
