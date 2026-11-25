@@ -343,6 +343,7 @@ const postRes = callDoPost({
   memory: [{ id: 'M9', date: '2026-09-10', category: 'SOP', title: 't', content: 'c' }],
   marketingSpend: [{ id: 'K9', date: '2026-09-10', platform: 'TikTok Ads', campaign: 'k', budget: 200000, spent: 100000, leadsGenerated: 5, notes: '' }],
 });
+console.log('DEBUG sync_all initial response:', postRes);
 eq(postRes.status, 'success', 'sync_all status success');
 
 // (a) Data LAMA harus tetap ada (ini inti fix — tidak boleh terhapus)
