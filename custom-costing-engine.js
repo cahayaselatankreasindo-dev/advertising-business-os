@@ -14,6 +14,20 @@
     if(!Number.isFinite(n)||n<0)throw new Error(label+' tidak boleh negatif.');
     return n;
   }
+  function assertStockCuttingUnit(method,stockUnit){
+    var unit=String(stockUnit||'').trim().toLowerCase().replace(/\s+/g,'');
+    var sheetUnits=['m2','m²','sqm','meterpersegi'];
+    var linearUnits=['m','meter','metre'];
+    if(method==='sheet'||method==='roll'){
+      if(sheetUnits.indexOf(unit)<0)throw new Error('Mode stok/offcut lembar atau roll memerlukan satuan stok Master Material m². Jika stok dicatat per lembar/roll, pilih pembelian lembar/roll utuh.');
+      return true;
+    }
+    if(method==='bar'){
+      if(linearUnits.indexOf(unit)<0)throw new Error('Mode stok profil memerlukan satuan stok Master Material meter (m). Jika stok dicatat per batang, pilih pembelian batang utuh.');
+      return true;
+    }
+    throw new Error('Metode pemotongan stok tidak dikenal.');
+  }
   function getBaseUsageUnitPrice(material){
     if(!material||typeof material!=='object')throw new Error('Data material tidak tersedia.');
     const unit=String(material.unit||'').trim();
@@ -201,5 +215,5 @@
     const volumeM3=w*h*d*qty/1000000000*(1+waste/100);
     return {lineQty:volumeM3,lineUnit:'m3',lineUnitPrice:positive(input.unitPrice,'Harga per m3'),totalCost:volumeM3*Number(input.unitPrice),volumeM3};
   }
-  return {getBaseUsageUnitPrice,calculateSheetCutList,calculateBarCutList,calculatePackCost,calculateAreaCost,calculateLinearCost,calculateVolumeCost};
+  return {assertStockCuttingUnit,getBaseUsageUnitPrice,calculateSheetCutList,calculateBarCutList,calculatePackCost,calculateAreaCost,calculateLinearCost,calculateVolumeCost};
 });

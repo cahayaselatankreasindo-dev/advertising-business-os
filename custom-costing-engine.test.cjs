@@ -3,6 +3,14 @@ const assert=require('node:assert/strict');
 const engine=require('./custom-costing-engine');
 const approx=(actual,expected,label)=>assert.ok(Math.abs(actual-expected)<1e-9,label+': expected '+expected+', got '+actual);
 
+assert.equal(engine.assertStockCuttingUnit('sheet','m2'),true);
+assert.equal(engine.assertStockCuttingUnit('roll','m²'),true);
+assert.equal(engine.assertStockCuttingUnit('bar','m'),true);
+assert.throws(()=>engine.assertStockCuttingUnit('sheet','lembar'),/memerlukan satuan stok Master Material m²/,'offcut area mode cannot create an HPP unit that inventory cannot reconcile');
+assert.throws(()=>engine.assertStockCuttingUnit('roll','roll'),/memerlukan satuan stok Master Material m²/,'roll offcut requires square-meter stock tracking');
+assert.throws(()=>engine.assertStockCuttingUnit('bar','batang'),/memerlukan satuan stok Master Material meter/,'profile offcut requires meter stock tracking');
+assert.throws(()=>engine.assertStockCuttingUnit('unknown','m'),/Metode pemotongan stok tidak dikenal/);
+
 approx(engine.getBaseUsageUnitPrice({
   purchasePrice:120000,purchaseUnit:'batang',unit:'m',conversionFactor:6,
   wasteRate:10,unitPrice:22000

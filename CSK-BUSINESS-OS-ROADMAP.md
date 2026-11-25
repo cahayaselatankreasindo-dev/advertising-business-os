@@ -397,3 +397,12 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - Local-only mode remains unchanged; this rollback is activated only when a Google Sheets endpoint is configured.
 - Regression assertions cover both Quotation and Invoice rollback paths and the retry guidance.
 - Development branch only; no live Sheet writes or Apps Script deployment.
+
+
+## 28. Custom cutting stock-unit guard — 25 November 2026
+
+- Added a shared validation gate for sheet/roll offcut costing and profile/bar offcut costing.
+- Sheet/roll stock mode now requires the material inventory unit to be square metres (m²); bar/profile stock mode requires metres (m). This prevents HPP quantities from being written in m²/metres while the Inventory engine expects a different stock unit such as lembar, roll, or batang.
+- When inventory is tracked in whole sheets/rolls/bars, the UI directs the user to the existing whole-purchase mode instead. Existing whole-unit purchase costing is unchanged.
+- Added engine regression tests for supported and incompatible stock units.
+- Development branch only; no production data or schema changes.

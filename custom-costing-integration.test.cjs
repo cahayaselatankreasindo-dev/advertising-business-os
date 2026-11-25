@@ -17,6 +17,7 @@ assert.ok(ui.includes('b.isMaterialSelectable'),'custom costing only offers mate
 assert.ok(ui.includes('function baseUsagePrice(material)'),'custom costing derives a base unit price before applying waste');
 assert.ok(ui.includes('Harga dasar pakai sebelum waste'),'custom costing explains the price basis to the operator');
 assert.ok(engine.includes('function getBaseUsageUnitPrice(material)'),'the costing engine exposes a single waste-safe base price helper');
+assert.ok(ui.includes('E.assertStockCuttingUnit(activeMethod,m.unit)'), 'stock/offcut mode validates that HPP line units match the inventory stock unit');
 assert.ok(ui.includes("addLine(pendingLine)"),'calculated custom line is added through HPP bridge');
 assert.ok(ui.includes('costingDetails'),'calculation details are retained with the HPP line');
 assert.ok(ui.includes('materialSnapshot:{name:m.name||\'\',unit:m.unit||\'\',purchaseUnit:m.purchaseUnit||\'\',conversionFactor:Number(m.conversionFactor)||0'), 'custom costing captures the material unit conversion snapshot');
