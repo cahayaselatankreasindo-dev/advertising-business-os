@@ -256,7 +256,17 @@
     }).sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
     return{activeOrderCount:activeOrderCount,activeProjectCount:projectIds.length,requirements:requirements,errors:errors,ready:errors.length===0};
   }
+  function calculateReorderSuggestions(materials,balances,commitments){
+    var commitmentMap=Object.create(null);
+    (Array.isArray(commitments)?commitments:[]).forEach(function(row){commitmentMap[String(row.materialId)]=n(row.committed);});
+    return(Array.isArray(materials)?materials:[]).filter(function(material){
+      return String(material.status||'active')==='active'&&Number.isFinite(Number(material.reorderPoint))&&Number(material.reorderPoint)>0;
+    }).map(function(material){
+      var id=String(material.id),onHand=n((balances||{})[id]),committed=n(commitmentMap[id]),available=onHand-committed,threshold=n(material.reorderPoint);
+      return{materialId:id,sku:String(material.sku||''),name:String(material.name||id),unit:String(material.unit||''),onHand:onHand,committed:committed,available:available,reorderPoint:threshold,shortage:Math.max(0,threshold-available),needsReorder:available<threshold};
+    }).filter(function(row){return row.needsReorder;}).sort(function(a,b){return b.shortage-a.shortage||a.name.localeCompare(b.name);});
+  }
   function getBalance(materialId,balances){return n((balances||{})[String(materialId)]);}
   function movementLabel(value){return MOVEMENTS[value]?MOVEMENTS[value].label:String(value||'-');}
-  return{MOVEMENTS:MOVEMENTS,localDate:localDate,nextTransactionNumber:nextTransactionNumber,sortTransactions:sortTransactions,calculateBalances:calculateBalances,validateTransaction:validateTransaction,getBalance:getBalance,calculateHppRequirements:calculateHppRequirements,calculateOpenSalesOrderCommitments:calculateOpenSalesOrderCommitments,movementLabel:movementLabel};
+  return{MOVEMENTS:MOVEMENTS,localDate:localDate,nextTransactionNumber:nextTransactionNumber,sortTransactions:sortTransactions,calculateBalances:calculateBalances,validateTransaction:validateTransaction,getBalance:getBalance,calculateHppRequirements:calculateHppRequirements,calculateOpenSalesOrderCommitments:calculateOpenSalesOrderCommitments,calculateReorderSuggestions:calculateReorderSuggestions,movementLabel:movementLabel};
 });
