@@ -136,6 +136,7 @@ assert.ok(backend.includes('function validateCommercialDocumentsBeforeMerge_(ss,
 assert.ok(backend.includes('validateCommercialDocumentsBeforeMerge_(ss, "Commercial_Quotations", incomingQuotations)'), 'server validates quotation writes');
 assert.ok(backend.includes('validateCommercialDocumentsBeforeMerge_(ss, "Invoices", incomingInvoices)'), 'server validates invoice writes');
 assert.ok(backend.includes('COMMERCIAL_DISCOUNT_EXCEEDS_SUBTOTAL'), 'server rejects discounts above subtotal');
+assert.ok(backend.includes('COMMERCIAL_DOCUMENT_LINE_UNIT_REQUIRED'), 'server rejects quotation and invoice lines without a unit');
 assert.ok(backend.includes('COMMERCIAL_DOCUMENT_TOTAL_MISMATCH_'), 'server independently verifies subtotal, tax, and total snapshots');
 assert.match(guard, /'quotationSnapshots','quotations','invoices'/);
 assert.ok(guard.includes("db.invoicePayments = identity.role === 'owner'"));

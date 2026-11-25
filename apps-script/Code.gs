@@ -826,6 +826,7 @@ function validateCommercialDocumentsBeforeMerge_(ss, sheetName, incomingRows) {
     var subtotalRaw = 0;
     lines.forEach(function(line) {
       if (!line || !String(line.name || "").trim()) throw new Error("COMMERCIAL_DOCUMENT_LINE_NAME_REQUIRED");
+      if (!line || !String(line.unit || "").trim()) throw new Error("COMMERCIAL_DOCUMENT_LINE_UNIT_REQUIRED");
       var qty = Number(line.qty);
       var unitPrice = Number(line.unitPrice);
       if (!Number.isFinite(qty) || qty <= 0) throw new Error("INVALID_COMMERCIAL_DOCUMENT_QUANTITY");
