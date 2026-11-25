@@ -356,3 +356,11 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - autoTriggerPillars independently validates all three CRM sheet contracts before creating or updating any Client/Project record, including when invoked by a direct Apps Script trigger.
 - Regression tests cover a missing Project tab blocking an unrelated Finance sync before any Finance write, and a missing Client tab blocking a Deal Won status change without changing the Lead.
 - Development branch only. No production Apps Script deployment, live Google Sheets write, schema migration, or public website change.
+
+
+## 23. PWA asset-cache completeness — 25 November 2026
+
+- Added the Master Material module (`material-master.js`) and the CSK material seed (`data/csk-material-master-seed.json`) to the Service Worker precache. Previously the Master Material UI and its 101-SKU import seed were not guaranteed to be available offline after installation.
+- Bumped the Service Worker cache and web manifest version together to 3.2.28 so existing clients install the updated asset list.
+- Added an automated PWA cache-integrity test that compares all local scripts and stylesheets referenced by `index.html`, plus both catalog/material data seeds, against the precache list and verifies the cache/manifest version match.
+- Development branch only; no deployment or production data changes.
