@@ -404,10 +404,55 @@ function assertSheetContractReady_(ss, sheetName) {
   return sheet;
 }
 
-function assertSyncSchemaReady_(ss, identity) {
-  var requiredSheets = identity && identity.role === "owner"
-    ? Object.keys(FIELD_MAP)
-    : ["Leads", "Clients", "Projects"];
+function assertSyncSchemaReady_(ss, identity, payload) {
+  var requiredSheets = [];
+  function add(sheetName) {
+    if (requiredSheets.indexOf(sheetName) < 0) requiredSheets.push(sheetName);
+  }
+  var payloadMap = {
+    leads: "Leads",
+    clients: "Clients",
+    projects: "Projects",
+    finance: "Finance",
+    memory: "Memory",
+    marketingSpend: "Marketing_Spend",
+    materials: "Materials",
+    costSheets: "Cost_Sheets",
+    services: "Services",
+    purchaseOrders: "Purchase_Orders",
+    salesOrders: "Sales_Orders",
+    inventoryTransactions: "Inventory_Transactions",
+    quotationSnapshots: "Quotations",
+    quotations: "Commercial_Quotations",
+    invoices: "Invoices"
+  };
+  if (identity && identity.role === "team") {
+    ["Leads", "Clients", "Projects"].forEach(add);
+  } else {
+    Object.keys(payloadMap).forEach(function (key) {
+      if (payload && Object.prototype.hasOwnProperty.call(payload, key) && payload[key] !== undefined) {
+        add(payloadMap[key]);
+      }
+    });
+    // Preflight every read dependency used by inventory and commercial validators,
+    // so a missing secondary tab cannot cause a partial multi-collection sync.
+    if (payload && payload.purchaseOrders !== undefined) {
+      ["Inventory_Transactions", "Materials"].forEach(add);
+    }
+    if (payload && payload.salesOrders !== undefined) {
+      ["Cost_Sheets", "Commercial_Quotations", "Invoices", "Invoice_Payments", "Projects", "Inventory_Reservations"].forEach(add);
+    }
+    if (payload && payload.inventoryTransactions !== undefined) {
+      ["Inventory_Reservations", "Materials", "Projects", "Purchase_Orders", "Sales_Orders"].forEach(add);
+    }
+    if (payload && payload.quotations !== undefined) add("Cost_Sheets");
+    if (payload && payload.invoices !== undefined) {
+      ["Commercial_Quotations", "Invoice_Payments", "Finance"].forEach(add);
+    }
+    if (payload && Array.isArray(payload.finance) && payload.finance.some(function (row) {
+      return String(row && row.id || "").toUpperCase().indexOf("FIN-PAY-") === 0;
+    })) add("Invoice_Payments");
+  }
   requiredSheets.forEach(function (sheetName) {
     assertSheetContractReady_(ss, sheetName);
   });
@@ -1534,7 +1579,7 @@ function doPost(e) {
       case "sync_all": {
         // Schema migration is an explicit setup operation. Sync must be read/write-only
         // against an already prepared contract and must fail before any record is changed.
-        assertSyncSchemaReady_(ss, identity);
+        assertSyncSchemaReady_(ss, identity, payload);
         if (identity.role === "team") cskAssertTeamLeadTransitions_(ss, payload.leads || []);
         var mergeSummary = {};
         if (payload.leads)          mergeSummary.Leads           = mergeSheet(ss, "Leads", payload.leads);
