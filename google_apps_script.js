@@ -1817,7 +1817,10 @@ function recordFinanceTransaction_(ss, rawTransaction, identity) {
     var transaction = { id: id, date: date, type: type, category: category, amount: amount, description: description };
     if (matches.length === 1) {
       var existing = matches[0];
-      var same = String(existing.date || "").slice(0, 10) === date &&
+      var existingDate = existing.date instanceof Date
+        ? Utilities.formatDate(existing.date, ss.getSpreadsheetTimeZone(), "yyyy-MM-dd")
+        : String(existing.date || "").slice(0, 10);
+      var same = existingDate === date &&
         String(existing.type || "").toLowerCase() === type &&
         String(existing.category || "") === category &&
         Number(existing.amount) === amount &&
@@ -2189,6 +2192,7 @@ function cskAssertPayloadAllowed_(identity, payload) {
   // Enforce this on the server so hiding a button cannot be bypassed from the browser.
   if (action === "delete" && role !== "owner") throw new Error("FORBIDDEN_DELETE");
   if ((action === "insert" || action === "delete") && String(payload.sheet || "") === "Invoice_Payments") throw new Error("PAYMENT_LEDGER_SERVER_ONLY");
+  if (action === "insert" && String(payload.sheet || "") === "Finance") throw new Error("FINANCE_WRITE_ENDPOINT_REQUIRED");
   if (String(payload.sheet || "") === "Inventory_Transactions" && action !== "sync_all") throw new Error("INVENTORY_LEDGER_SERVER_ONLY");
   if (String(payload.sheet || "") === "Inventory_Reservations" && action !== "sync_all") throw new Error("INVENTORY_RESERVATIONS_SERVER_ONLY");
   if (action === "reserve_sales_order_stock" || action === "release_sales_order_reservation") {
