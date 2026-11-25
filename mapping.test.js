@@ -765,6 +765,39 @@ eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat 
 
 
 // ---------- 9f. Sinkronisasi tidak boleh memigrasikan skema secara otomatis ----------
+// Finance validation always reads the server-owned Invoice Payments ledger.
+const financePaymentLedgerBefore = sheets['Invoice_Payments'];
+const financePaymentRowsBefore = JSON.stringify(sheets['Finance'].rows);
+const financeGuardLeadsBefore = JSON.stringify(sheets['Leads'].rows);
+delete sheets['Invoice_Payments'];
+const missingPaymentLedgerSync = callDoPost({
+  action: 'sync_all',
+  leads: [{ id: 'L-SCHEMA-GUARD-PAYMENT', date: '2026-11-25', name: 'Must Not Write', status: 'new' }],
+  finance: [{ id: 'F-SCHEMA-GUARD-PAYMENT', date: '2026-11-25', type: 'expense', category: 'Test', amount: 1, description: 'Must not be written' }]
+}, OWNER_SESSION);
+eq(missingPaymentLedgerSync.status, 'error', 'sync: missing payment ledger blocks Finance sync');
+eq(missingPaymentLedgerSync.code, 'SCHEMA_SETUP_REQUIRED:SHEET_MISSING:Invoice_Payments', 'sync: finance preflight requires Invoice Payments ledger');
+eq(JSON.stringify(sheets['Finance'].rows), financePaymentRowsBefore, 'sync: missing payment ledger prevents Finance write');
+eq(JSON.stringify(sheets['Leads'].rows), financeGuardLeadsBefore, 'sync: missing payment ledger prevents earlier CRM write');
+eq(Object.prototype.hasOwnProperty.call(sheets, 'Invoice_Payments'), false, 'sync: missing payment ledger is not recreated');
+sheets['Invoice_Payments'] = financePaymentLedgerBefore;
+
+// Invoice validation reads Cost Sheets to verify HPP snapshots. Missing Cost Sheets
+// must block the whole sync before another collection is committed.
+const invoiceCostSheetsBefore = sheets['Cost_Sheets'];
+const invoiceGuardLeadsBefore = JSON.stringify(sheets['Leads'].rows);
+delete sheets['Cost_Sheets'];
+const missingInvoiceCostSheetSync = callDoPost({
+  action: 'sync_all',
+  leads: [{ id: 'L-SCHEMA-GUARD-INVOICE', date: '2026-11-25', name: 'Must Not Write', status: 'new' }],
+  invoices: []
+}, OWNER_SESSION);
+eq(missingInvoiceCostSheetSync.status, 'error', 'sync: missing Cost Sheets blocks invoice validation');
+eq(missingInvoiceCostSheetSync.code, 'SCHEMA_SETUP_REQUIRED:SHEET_MISSING:Cost_Sheets', 'sync: invoice preflight requires Cost Sheets');
+eq(JSON.stringify(sheets['Leads'].rows), invoiceGuardLeadsBefore, 'sync: missing Cost Sheets prevents earlier CRM write');
+eq(Object.prototype.hasOwnProperty.call(sheets, 'Cost_Sheets'), false, 'sync: missing Cost Sheets is not recreated');
+sheets['Cost_Sheets'] = invoiceCostSheetsBefore;
+
 // Owner sync also runs Deal Won conversion; its CRM dependencies must be preflighted
 // before unrelated collections (for example Finance) can be written.
 const crmDependencyProjectsBefore = sheets['Projects'];
