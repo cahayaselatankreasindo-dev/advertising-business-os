@@ -205,6 +205,10 @@ Script memeriksa login PIN/RBAC, lalu memastikan Deployment ID yang diberikan me
 Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke repository.
 
 
+### Read-only spreadsheet schema audit
+
+Run `auditCSKSchemaReadOnly()` from the Apps Script editor or the **CSK Security → Audit Struktur (Read-only)** menu. The report includes mapped-tab presence, row counts, missing/duplicate/extra headers, legacy read-only tabs, and unclassified auxiliary tabs. It returns metadata only and never creates tabs, appends headers, or changes business records.
+
 ## Schema Migration Safety
 
 - Normal application sync is data-only. It must not create missing tabs or append missing columns.
