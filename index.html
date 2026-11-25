@@ -2464,7 +2464,7 @@
         const paymentLinked=String(f.id||'').toUpperCase().indexOf('FIN-PAY-')===0||(db.invoicePayments||[]).some(p=>String(p.financeId||'')===String(f.id));
         const deleteControl=paymentLinked
           ? '<span class="text-[10px] text-slate-400 font-semibold whitespace-nowrap" title="Dikelola melalui ledger pembayaran Invoice"><i class="fa fa-lock mr-1"></i>Ledger Invoice</span>'
-          : '<button onclick="deleteFinance(\\''+escapeInvoiceHtml(f.id)+'\\')" aria-label="Hapus transaksi" class="w-9 h-9 rounded-lg border border-stone-200 text-stone-400 hover:text-red-600"><i class="fa fa-trash"></i></button>';
+          : '<button onclick="deleteFinance(\''+escapeInvoiceHtml(f.id)+'\')" aria-label="Hapus transaksi" class="w-9 h-9 rounded-lg border border-stone-200 text-stone-400 hover:text-red-600"><i class="fa fa-trash"></i></button>';
         return '<article class="p-4 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-stone-50/70">'+
           '<div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><span class="inline-flex px-2 py-1 rounded-full text-[10px] font-semibold '+(isIncome?'bg-emerald-50 text-emerald-700':'bg-red-50 text-red-700')+'">'+(isIncome?'Pemasukan':'Pengeluaran')+'</span><span class="text-[11px] text-stone-400">'+escapeInvoiceHtml(f.date||'-')+'</span></div>'+
           '<div class="font-semibold text-sm text-stone-800 mt-1 break-words">'+escapeInvoiceHtml(f.description||'Transaksi')+'</div><div class="text-xs text-stone-500 mt-1">'+escapeInvoiceHtml(f.category||'Tanpa kategori')+'</div></div>'+
