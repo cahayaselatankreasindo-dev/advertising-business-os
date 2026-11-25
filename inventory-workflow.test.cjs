@@ -31,7 +31,7 @@ const reorderMaterials=[
  {id:'MAT-NO-POINT',name:'Tanpa batas minimum',unit:'pcs',status:'active'},
  {id:'MAT-DRAFT',name:'Draft material',unit:'pcs',status:'draft',reorderPoint:50}
 ];
-const reorderRows=E.calculateReorderSuggestions(reorderMaterials,{'MAT-ACR':4,'MAT-HOL':20},{'MAT-ACR':[{materialId:'MAT-ACR',committed:1}],'MAT-HOL':[{materialId:'MAT-HOL',committed:0}]});
+const reorderRows=E.calculateReorderSuggestions(reorderMaterials,{'MAT-ACR':4,'MAT-HOL':20},[{materialId:'MAT-ACR',committed:1},{materialId:'MAT-HOL',committed:0}]);
 assert.equal(reorderRows.length,1,'only active materials below their configured reorder point are suggested');
 assert.equal(reorderRows[0].materialId,'MAT-ACR');
 assert.equal(reorderRows[0].available,3,'reorder calculation deducts active Sales Order commitments from physical stock');
