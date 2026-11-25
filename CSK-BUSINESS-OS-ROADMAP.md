@@ -372,3 +372,12 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - Bumped the Service Worker cache and web manifest version together to 3.2.28 so existing clients install the updated asset list.
 - Added an automated PWA cache-integrity test that compares all local scripts and stylesheets referenced by `index.html`, plus both catalog/material data seeds, against the precache list and verifies the cache/manifest version match. Static asset network failures now return a network error instead of incorrectly serving `index.html` as JavaScript/CSS/data; only navigation requests use the HTML fallback.
 - Development branch only; no deployment or production data changes.
+
+
+## 25. Reorder planning — 25 November 2026
+
+- Added an Owner-configurable reorder point to each Master Material SKU. A zero value disables reorder monitoring; no minimum stock is guessed or auto-populated.
+- Inventory now shows reorder suggestions when physical stock less active Sales Order commitments falls below the configured threshold.
+- Suggestions show physical stock, committed stock, available stock, threshold, and the gap to replenish. They do not create or send Purchase Orders automatically; the Owner must review open POs and physical stock first.
+- Added regression tests for commitment deduction, below/at/above-threshold behavior, and exclusion of Draft materials.
+- Development branch only; no production schema migration, Apps Script deployment, or live Google Sheets write.
