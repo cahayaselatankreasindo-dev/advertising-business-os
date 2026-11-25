@@ -769,7 +769,8 @@ const schemaGuardReservations = sheets['Inventory_Reservations'];
 delete sheets['Inventory_Reservations'];
 const missingSheetSync = callDoPost({
   action: 'sync_all',
-  leads: [{ id: 'SCHEMA-GUARD-MISSING-SHEET', date: '2026-11-25', name: 'Must Not Be Written', phone: '', source: 'Test', value: 0, status: 'new', notes: '' }]
+  leads: [{ id: 'SCHEMA-GUARD-MISSING-SHEET', date: '2026-11-25', name: 'Must Not Be Written', phone: '', source: 'Test', value: 0, status: 'new', notes: '' }],
+  inventoryTransactions: []
 }, OWNER_SESSION);
 eq(missingSheetSync.status, 'error', 'sync: missing mapped sheet blocks the whole sync');
 eq(missingSheetSync.code, 'SCHEMA_SETUP_REQUIRED:SHEET_MISSING:Inventory_Reservations', 'sync: missing sheet returns an explicit setup-required error');
@@ -784,7 +785,8 @@ const schemaGuardLeadsBeforeHeaderTest = JSON.stringify(sheets['Leads'].rows);
 schemaGuardMaterials.rows[0][purchasePriceHeaderIndex] = 'HargaBeli_MISSING';
 const missingHeaderSync = callDoPost({
   action: 'sync_all',
-  leads: [{ id: 'SCHEMA-GUARD-MISSING-HEADER', date: '2026-11-25', name: 'Must Not Be Written', phone: '', source: 'Test', value: 0, status: 'new', notes: '' }]
+  leads: [{ id: 'SCHEMA-GUARD-MISSING-HEADER', date: '2026-11-25', name: 'Must Not Be Written', phone: '', source: 'Test', value: 0, status: 'new', notes: '' }],
+  materials: []
 }, OWNER_SESSION);
 eq(missingHeaderSync.status, 'error', 'sync: missing required header blocks the whole sync');
 eq(missingHeaderSync.code, 'SCHEMA_SETUP_REQUIRED:HEADERS_MISSING:Materials:HargaBeli', 'sync: missing header returns the exact missing contract field');
