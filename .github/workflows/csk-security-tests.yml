@@ -65,6 +65,7 @@ jobs:
           node --check deal-conversion.test.cjs
           node --check csk-visual-refresh.test.cjs
           node --check csk-ui-components.test.cjs
+          node --check pwa-assets.test.cjs
           node --check dashboard.test.cjs
       - name: Mapping and RBAC integration tests
         run: node mapping.test.js
@@ -100,6 +101,8 @@ jobs:
         run: node invoice-integrity.test.cjs
       - name: Photo LAB private-access regression tests
         run: node photo-lab.test.cjs
+      - name: PWA asset cache integrity tests
+        run: node pwa-assets.test.cjs
       - name: CSK colorful UI visual-system tests
         run: node csk-visual-refresh.test.cjs
       - name: CSK shared UI component tests
