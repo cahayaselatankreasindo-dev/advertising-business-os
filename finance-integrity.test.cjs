@@ -50,7 +50,7 @@ vm.runInNewContext(
 );
 const owner = { email: 'cahayaselatankreasindo@gmail.com', role: 'owner' };
 const team = { email: 'zefdas@gmail.com', role: 'team' };
-const ss = {};
+const ss = { getSpreadsheetTimeZone() { return 'UTC'; } };
 const transaction = {
   id: 'FIN-MANUAL-20261125-ABC123',
   date: '2026-11-25',
