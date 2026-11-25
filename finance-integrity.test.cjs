@@ -40,7 +40,8 @@ const sandbox = {
   },
   readSheetData,
   assertSheetContractReady_,
-  insertRecord
+  insertRecord,
+  Utilities: { formatDate(date, _timezone, _pattern) { return date.toISOString().slice(0, 10); } }
 };
 vm.runInNewContext(
   extractFunction(backend, 'recordFinanceTransaction_') +
@@ -67,6 +68,9 @@ assert.deepEqual({ ...tables.Finance[0] }, transaction);
 const retry = sandbox.recordFinanceTransaction(ss, transaction, owner);
 assert.equal(retry.duplicate, true, 'retrying the exact same ID and payload is idempotent');
 assert.equal(tables.Finance.length, 1, 'idempotent retry never duplicates a Finance row');
+tables.Finance[0].date = new Date('2026-11-25T00:00:00.000Z');
+assert.equal(sandbox.recordFinanceTransaction(ss, transaction, owner).duplicate, true, 'idempotent retry normalizes Google Sheets Date cells using the spreadsheet timezone');
+tables.Finance[0].date = transaction.date;
 assert.throws(() => sandbox.recordFinanceTransaction(ss, { ...transaction, amount: 175000 }, owner), /FINANCE_ID_CONFLICT/);
 assert.throws(() => sandbox.recordFinanceTransaction(ss, { ...transaction, id: 'FIN-PAY-PAY-00000001' }, owner), /INVALID_FINANCE_ID/);
 assert.throws(() => sandbox.recordFinanceTransaction(ss, { ...transaction, id: 'FIN-MANUAL-20261125-BADTYPE', type: 'transfer' }, owner), /INVALID_FINANCE_TYPE/);
@@ -88,6 +92,7 @@ assert.equal(lockStats.acquired, lockStats.released, 'every manual Finance write
 assert.equal(backend, mirror, 'Apps Script source and deployment mirror remain byte-for-byte identical');
 assert.ok(backend.includes('case "record_finance_transaction"'), 'backend exposes a dedicated Finance write action');
 assert.ok(backend.includes('if (action === "record_finance_transaction")'), 'payload guard restricts Finance write action');
+assert.ok(backend.includes('if (action === "insert" && String(payload.sheet || "") === "Finance")'), 'generic insert cannot bypass the validated Finance endpoint');
 assert.ok(guard.includes('async function recordFinanceTransaction(transaction)'), 'authenticated client has a Finance write workflow');
 assert.ok(guard.includes('recordFinanceTransaction: recordFinanceTransaction'), 'Finance write workflow is exposed through CSKAuth');
 assert.ok(guard.includes('FINANCE_TRANSACTION_NOT_VERIFIED_CHECK_AND_RETRY'), 'Finance write requires read-back verification');
