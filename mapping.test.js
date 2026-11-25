@@ -185,8 +185,8 @@ function seed(name, headers, dataRows) {
   dataRows.forEach(r => s.appendRow(r));
   sheets[name] = s;
 }
-seed('Leads', ['ID','Tanggal','Nama','WhatsApp','Sumber','EstimasiNilai','Status','Catatan','NextFollowUp','LastContactAt','FollowUpNote'], [
-  ['L1','2026-09-01','Budi','081','IG','8000000','won','ok','','',''],
+seed('Leads', ['ID','Tanggal','Nama','WhatsApp','Sumber','EstimasiNilai','Status','Catatan','Email','Website','Industri','PIC','JabatanPIC','LinkedIn','SkorPrioritas','NextFollowUp','LastContactAt','FollowUpNote'], [
+  ['L1','2026-09-01','Budi','081','IG','8000000','won','ok','','','','','','','','','',''],
 ]);
 seed('Clients', ['ID','NamaKlien','WhatsApp','TotalProyek','TotalBelanja','Catatan','Rating_Review'], [
   ['C1','Budi','081',1,8000000,'loyal','5 | Sangat puas'],
