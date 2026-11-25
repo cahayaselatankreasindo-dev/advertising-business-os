@@ -62,6 +62,7 @@ function fixture(){
   return new FakeSpreadsheet({
     Commercial_Quotations:new FakeSheet([map.Commercial_Quotations.headers,rowFor('Commercial_Quotations',quote)]),
     Projects:new FakeSheet([map.Projects.headers,rowFor('Projects',project)]),
+    Sales_Orders:new FakeSheet([map.Sales_Orders.headers]),
     Invoices:new FakeSheet([map.Invoices.headers]),
     Invoice_Payments:new FakeSheet([map.Invoice_Payments.headers])
   });

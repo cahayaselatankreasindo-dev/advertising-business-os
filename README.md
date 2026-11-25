@@ -205,6 +205,14 @@ Script memeriksa login PIN/RBAC, lalu memastikan Deployment ID yang diberikan me
 Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke repository.
 
 
+## Schema Migration Safety
+
+- Normal application sync is data-only. It must not create missing tabs or append missing columns.
+- Before a normal full Owner sync, the backend validates every mapped sheet included in its collections plus the dependencies used by inventory and commercial validators; Team sync validates the Leads, Clients, and Projects contracts. A failed preflight blocks the entire sync before any record is written.
+- Missing sheets or required headers return an explicit `SCHEMA_SETUP_REQUIRED` error. Do not try to repair this by repeatedly clicking Sync.
+- `setupSheet()` is the explicit schema-migration operation. Run it only on an approved TEST spreadsheet after backup and header preflight. Review any proposed tabs and appended columns before production approval.
+- Keep `google_apps_script.js` and `apps-script/Code.gs` byte-identical. No schema setup, deployment, or production write is performed by CI.
+
 ## Sales Order & Production Workflow
 
 - Approved quotations can be converted into one linked Sales Order; duplicate orders from the same quotation are blocked.
@@ -218,22 +226,23 @@ Jangan menaruh file `.clasprc.json`, PIN, session ID, atau kredensial Google ke 
 
 ## Inventory & Stock Ledger
 
-- Owner-only inventory balance and transaction history by material.
-- Movements: opening balance, receipt, project issue, project return, adjustment in/out.
-- Stock is measured in the material master usage unit; opening stock is never assumed.
+- Owner-only inventory balance, locked Sales Order reservations, picking list, and append-only transaction history by material.
+- Movements: opening balance, receipt, project issue, project return, adjustment in/out. Opening stock is never assumed.
+- Material issue from a reserved Sales Order must reference the same Sales Order and reservation. Partial issue reduces the remaining reserved quantity; partial return is linked to the original reservation and restores its available balance.
+- Reservation state is reconciled from the persisted Sales Order and transaction ledger. Cancelled, delivered, or closed Sales Orders release unused reservations while preserving released rows for audit history.
+- Stock is measured in the Material Master usage unit. Purchase-unit conversion is applied only when a verified conversion factor exists.
 - The ledger is append-only. Corrections require a documented adjustment; stock cannot go negative.
-- PO-linked receipts are checked against ordered materials, units, and cumulative PO quantities.
-- New POs can only be marked Received when all ordered quantities have been recorded in Inventory; cancellation is blocked after a receipt. Historical POs remain compatible with the first sync.
-- Purchase-unit conversion is applied when a verified Material Master conversion factor exists. Active Sales Order commitments are shown separately from physical stock. Locked reservations, partial pick/issue/return workflows, reorder suggestions, offcut tracking, and stock valuation remain subsequent phases.
+- PO-linked receipts are checked against ordered materials, units, conversion factors, and cumulative PO quantities. New POs can only be marked Received when all ordered quantities have been recorded in Inventory; cancellation is blocked after a receipt.
+- Physical stock, active reservations, and free stock are shown separately. Reorder suggestions, offcut tracking, and stock valuation remain future phases.
 
 
 ## HPP Material Planning & Draft Purchasing
 
-- Sales Orders compare their immutable HPP material snapshot with physical stock. New Sales Orders copy the approved quotation snapshot; older orders without a snapshot retain a clearly labelled legacy fallback to the current project HPP.
+- Sales Orders compare their immutable HPP material snapshot with physical stock and locked reservations. New Sales Orders copy the approved quotation snapshot; older orders without a snapshot retain a clearly labelled legacy fallback to the current project HPP.
 - HPP purchase-unit quantities convert to stock units only when a verified Material Master conversion factor exists.
-- The shortage view includes physical stock, existing Draft/Ordered PO coverage, and remaining purchase quantity.
+- The shortage view includes physical stock, existing Draft/Ordered PO coverage, active reservations, and remaining purchase quantity.
 - Owner can create supplier-grouped Draft POs from uncovered shortages. Drafts are not issued automatically and require review.
-- The Inventory page reports physical stock, active project commitments, estimated free stock, and shortages separately. This is an advisory calculation; it does not lock stock or prevent another order from using the same physical balance.
+- Production release requires the agreed DP to be verified and stock to be reserved atomically. Competing Sales Orders cannot reserve the same available balance.
 
 ## Commercial Document Validation & Inventory Commitments — 24 November 2026
 

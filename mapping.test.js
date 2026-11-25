@@ -185,8 +185,8 @@ function seed(name, headers, dataRows) {
   dataRows.forEach(r => s.appendRow(r));
   sheets[name] = s;
 }
-seed('Leads', ['ID','Tanggal','Nama','WhatsApp','Sumber','EstimasiNilai','Status','Catatan'], [
-  ['L1','2026-09-01','Budi','081','IG','8000000','won','ok'],
+seed('Leads', ['ID','Tanggal','Nama','WhatsApp','Sumber','EstimasiNilai','Status','Catatan','Email','Website','Industri','PIC','JabatanPIC','LinkedIn','SkorPrioritas','NextFollowUp','LastContactAt','FollowUpNote'], [
+  ['L1','2026-09-01','Budi','081','IG','8000000','won','ok','','','','','','','','','',''],
 ]);
 seed('Clients', ['ID','NamaKlien','WhatsApp','TotalProyek','TotalBelanja','Catatan','Rating_Review'], [
   ['C1','Budi','081',1,8000000,'loyal','5 | Sangat puas'],
@@ -762,6 +762,37 @@ eq(callDoGet(TEAM_SESSION).status, 'error', 'auth: sesi yang logout tidak dapat 
  eq(callDoPost({ action:'sync_all', invoicePayments:[{ id:'PAY-SPOOF-001' }] }, OWNER_SESSION).status, 'error', 'Invoice payment ledger cannot be client-synced');
  eq(callDoPost({ action:'delete', sheet:'Invoice_Payments', id:payment1.id }, OWNER_SESSION).status, 'error', 'Invoice payment ledger cannot be deleted through generic endpoint');
 
+
+// ---------- 9f. Sinkronisasi tidak boleh memigrasikan skema secara otomatis ----------
+const schemaGuardLeadsBefore = JSON.stringify(sheets['Leads'].rows);
+const schemaGuardReservations = sheets['Inventory_Reservations'];
+delete sheets['Inventory_Reservations'];
+const missingSheetSync = callDoPost({
+  action: 'sync_all',
+  leads: [{ id: 'SCHEMA-GUARD-MISSING-SHEET', date: '2026-11-25', name: 'Must Not Be Written', phone: '', source: 'Test', value: 0, status: 'new', notes: '' }],
+  inventoryTransactions: []
+}, OWNER_SESSION);
+eq(missingSheetSync.status, 'error', 'sync: missing mapped sheet blocks the whole sync');
+eq(missingSheetSync.code, 'SCHEMA_SETUP_REQUIRED:SHEET_MISSING:Inventory_Reservations', 'sync: missing sheet returns an explicit setup-required error');
+eq(Object.prototype.hasOwnProperty.call(sheets, 'Inventory_Reservations'), false, 'sync: missing sheet is not created automatically');
+eq(JSON.stringify(sheets['Leads'].rows), schemaGuardLeadsBefore, 'sync: no earlier collection is written when a later required sheet is missing');
+sheets['Inventory_Reservations'] = schemaGuardReservations;
+
+const schemaGuardMaterials = sheets['Materials'];
+const purchasePriceHeaderIndex = schemaGuardMaterials.rows[0].findIndex(h => String(h).trim().toLowerCase() === 'hargabeli'.toLowerCase());
+const originalPurchasePriceHeader = schemaGuardMaterials.rows[0][purchasePriceHeaderIndex];
+const schemaGuardLeadsBeforeHeaderTest = JSON.stringify(sheets['Leads'].rows);
+schemaGuardMaterials.rows[0][purchasePriceHeaderIndex] = 'HargaBeli_MISSING';
+const missingHeaderSync = callDoPost({
+  action: 'sync_all',
+  leads: [{ id: 'SCHEMA-GUARD-MISSING-HEADER', date: '2026-11-25', name: 'Must Not Be Written', phone: '', source: 'Test', value: 0, status: 'new', notes: '' }],
+  materials: []
+}, OWNER_SESSION);
+eq(missingHeaderSync.status, 'error', 'sync: missing required header blocks the whole sync');
+eq(missingHeaderSync.code, 'SCHEMA_SETUP_REQUIRED:HEADERS_MISSING:Materials:HargaBeli', 'sync: missing header returns the exact missing contract field');
+eq(schemaGuardMaterials.rows[0][purchasePriceHeaderIndex], 'HargaBeli_MISSING', 'sync: missing header is not appended or silently repaired');
+eq(JSON.stringify(sheets['Leads'].rows), schemaGuardLeadsBeforeHeaderTest, 'sync: no record is written before schema preflight completes');
+schemaGuardMaterials.rows[0][purchasePriceHeaderIndex] = originalPurchasePriceHeader;
 
 // ---------- 10. Ringkasan ----------
 console.log(`\nmapping.test.js: ${pass} lolos, ${fail} gagal`);

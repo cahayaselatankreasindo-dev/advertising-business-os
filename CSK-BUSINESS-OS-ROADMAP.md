@@ -325,3 +325,15 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - PR #36 passed both CI workflows: CSK Security Tests and CSK business source regression checks. The merged commit has the same Git tree as the tested PR head.
 - The canonical Apps Script source and `google_apps_script.js` mirror remain byte-identical.
 - No production deployment, live Google Sheets write/schema migration, Supabase change, Script Properties change, or public website deployment was performed.
+
+
+## 20. Explicit schema migration gate — 25 November 2026
+
+- Normal `sync_all` is now data-only. It preflights the mapped sheet contracts before the first record write and refuses to create tabs or append missing headers.
+- Owner sync checks all mapped business sheets, including the server-owned Invoice Payments and Inventory Reservations ledgers. Team sync checks only Leads, Clients, and Projects.
+- `ensureSheet` and `ensureAllHeaders` are strict by default. Only the explicit `setupSheet()` operation passes the schema-mutation flag to create tabs or append columns.
+- Reservation, inventory, invoice-payment, and generic record-write paths now fail with `SCHEMA_SETUP_REQUIRED` when their required sheet contract is absent or incomplete.
+- Added regression coverage proving a missing sheet or header blocks the entire sync, does not create/append schema, and does not partially write an earlier collection.
+- Canonical `google_apps_script.js` and deployment mirror `apps-script/Code.gs` are updated together and remain byte-identical.
+- This change is isolated to a feature branch. No Apps Script deployment, production Google Sheets write, schema migration, Supabase change, or public website deployment has been performed.
+- CI must pass on the exact PR head before this change is accepted into the development integration branch.
