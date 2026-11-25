@@ -10,6 +10,7 @@ function validateCommercialDocument(document){
  lines.forEach(function(line,index){
   var label='baris '+(index+1),qty=Number(line&&line.qty),price=Number(line&&line.unitPrice);
   if(!line||!String(line.name||'').trim())errors.push('Nama item pada '+label+' wajib diisi.');
+  if(!line||!String(line.unit||'').trim())errors.push('Satuan item pada '+label+' wajib diisi.');
   if(!Number.isFinite(qty)||qty<=0)errors.push('Kuantitas item pada '+label+' harus berupa angka lebih dari nol.');
   if(!line||line.unitPrice===undefined||line.unitPrice===null||String(line.unitPrice).trim()===''||!Number.isFinite(price)||price<0)errors.push('Harga satuan item pada '+label+' tidak valid. Harga harus berupa angka nol atau lebih.');
   if(Number.isFinite(qty)&&qty>0&&Number.isFinite(price)&&price>=0)subtotal+=qty*price;
@@ -286,6 +287,18 @@ function addCommercialMasterItem(){if(!doc)return;var v=el('cd-master').value;if
 function addCommercialManualLine(){if(!doc)return;doc.lines.push({id:'L-'+Date.now(),name:'Item baru',description:'',qty:1,unit:'unit',unitPrice:0});renderLines();preview();}
 function removeCommercialLine(i){if(!doc)return;doc.lines.splice(i,1);renderLines();preview();}
 function readForm(){[['cd-lead','leadId'],['cd-client','client'],['cd-phone','clientPhone'],['cd-email','clientEmail'],['cd-contact','contactPerson'],['cd-address','clientAddress'],['cd-project','projectName'],['cd-number','docNo'],['cd-status','status'],['cd-date','date'],['cd-due','dueDate'],['cd-project-deadline','projectDeadline'],['cd-payment','paymentTerms'],['cd-terms','terms'],['cd-notes','notes']].forEach(function(x){doc[x[1]]=el(x[0]).value.trim();});doc.discount=String(el('cd-discount').value)===''?0:Number(el('cd-discount').value);doc.taxRate=String(el('cd-tax').value)===''?0:Number(el('cd-tax').value);doc.dpPercent=String(el('cd-dp').value)===''?50:Number(el('cd-dp').value);}
+function validateCurrentDocumentForOutput(){
+ if(!doc)return false;
+ readForm();
+ if(!String(doc.client||'').trim()){say('Nama pelanggan wajib diisi.',true);return false;}
+ if(!String(doc.docNo||'').trim()){say('Nomor dokumen wajib diisi.',true);return false;}
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(String(doc.date||''))||!/^\d{4}-\d{2}-\d{2}$/.test(String(doc.dueDate||''))){say('Tanggal dokumen dan jatuh tempo/masa berlaku wajib valid.',true);return false;}
+ if(doc.projectDeadline&&!/^\d{4}-\d{2}-\d{2}$/.test(String(doc.projectDeadline))){say('Deadline proyek tidak valid.',true);return false;}
+ var validation=validateCommercialDocument(doc);
+ if(!validation.valid){say(validation.errors[0],true);return false;}
+ Object.assign(doc,calculateCommercialTotals(doc.lines,doc.discount,doc.taxRate));
+ return true;
+}
 async function persistCommercialChanges(successMessage){
  if(typeof saveDB==='function')saveDB(true);
  if(!w.CSKAuth||typeof w.CSKAuth.isReady!=='function'||!w.CSKAuth.isReady()||typeof w.CSKAuth.sync!=='function'){
@@ -334,9 +347,9 @@ async function saveCommercialDocument(){
  else a.push(JSON.parse(JSON.stringify(doc)));
  await persistCommercialChanges((kind==='quotation'?'Quotation':'Invoice')+' tersimpan');
 }
-function downloadCommercialDocumentPdf(){if(!doc)return;readForm();var totals=calculateCommercialTotals(doc.lines,doc.discount,doc.taxRate);Object.assign(doc,totals);if(!w.CSKPDF||typeof w.CSKPDF.downloadDocument!=='function')return say('Mesin PDF belum tersedia. Muat ulang aplikasi dan coba lagi.',true);return w.CSKPDF.downloadDocument(Object.assign({},doc,{kind:kind,title:kind==='quotation'?'QUOTATION / SURAT PENAWARAN':'INVOICE / TAGIHAN'}));}
-function printCommercialDocument(){if(!doc)return;readForm();preview();w.print();}
-function copyCommercialDocumentWA(){if(!doc)return;readForm();var t=calculateCommercialTotals(doc.lines,doc.discount,doc.taxRate),msg='*'+(kind==='quotation'?'QUOTATION':'INVOICE')+' — CAHAYA SELATAN KREASINDO*\nNo: '+doc.docNo+'\nKlien: '+doc.client+'\nTanggal: '+doc.date+' · Jatuh tempo/berlaku: '+doc.dueDate+'\nDeadline proyek: '+(doc.projectDeadline||'-')+'\nPekerjaan: '+(doc.projectName||'-')+'\n'+doc.lines.map(function(x){return x.name+' × '+x.qty+' '+x.unit+' = '+rp(n(x.qty)*n(x.unitPrice));}).join('\n')+'\nSubtotal: '+rp(t.subtotal)+'\nDiskon: '+rp(t.discount)+'\nPajak: '+rp(t.taxAmount)+'\n*TOTAL: '+rp(t.total)+'*\n\nKetentuan: '+(doc.paymentTerms||'-')+'\nSyarat: '+(doc.terms||'-')+'\nWA 0888-8533-488';if(w.navigator.clipboard&&w.navigator.clipboard.writeText)w.navigator.clipboard.writeText(msg).then(function(){say('Teks dokumen disalin.');}).catch(function(){say('Clipboard tidak tersedia.',true);});else say('Clipboard tidak tersedia.',true);}
+function downloadCommercialDocumentPdf(){if(!doc||!validateCurrentDocumentForOutput())return;if(!w.CSKPDF||typeof w.CSKPDF.downloadDocument!=='function')return say('Mesin PDF belum tersedia. Muat ulang aplikasi dan coba lagi.',true);return w.CSKPDF.downloadDocument(Object.assign({},doc,{kind:kind,title:kind==='quotation'?'QUOTATION / SURAT PENAWARAN':'INVOICE / TAGIHAN'}));}
+function printCommercialDocument(){if(!doc||!validateCurrentDocumentForOutput())return;preview();w.print();}
+function copyCommercialDocumentWA(){if(!doc||!validateCurrentDocumentForOutput())return;var t=calculateCommercialTotals(doc.lines,doc.discount,doc.taxRate),msg='*'+(kind==='quotation'?'QUOTATION':'INVOICE')+' — CAHAYA SELATAN KREASINDO*\nNo: '+doc.docNo+'\nKlien: '+doc.client+'\nTanggal: '+doc.date+' · Jatuh tempo/berlaku: '+doc.dueDate+'\nDeadline proyek: '+(doc.projectDeadline||'-')+'\nPekerjaan: '+(doc.projectName||'-')+'\n'+doc.lines.map(function(x){return x.name+' × '+x.qty+' '+x.unit+' = '+rp(n(x.qty)*n(x.unitPrice));}).join('\n')+'\nSubtotal: '+rp(t.subtotal)+'\nDiskon: '+rp(t.discount)+'\nPajak: '+rp(t.taxAmount)+'\n*TOTAL: '+rp(t.total)+'*\n\nKetentuan: '+(doc.paymentTerms||'-')+'\nSyarat: '+(doc.terms||'-')+'\nWA 0888-8533-488';if(w.navigator.clipboard&&w.navigator.clipboard.writeText)w.navigator.clipboard.writeText(msg).then(function(){say('Teks dokumen disalin.');}).catch(function(){say('Clipboard tidak tersedia.',true);});else say('Clipboard tidak tersedia.',true);}
 async function createProjectFromDocument(k,id){
  if(typeof isOwnerSession!=='function'||!isOwnerSession())return say('Dokumen komersial hanya dapat dikelola Owner.',true);
  var d=arr(k).find(function(x){return String(x.id)===String(id);});
