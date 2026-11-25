@@ -234,6 +234,8 @@ seed('Project_Costs', [
 
 // ---------- 5. Tes KONTRAK: FIELD_MAP harus ada & lengkap ----------
 const FIELD_MAP = sandbox.FIELD_MAP;
+// Finance sync requires the server-owned payment ledger even for ordinary Finance rows.
+seed('Invoice_Payments', FIELD_MAP.Invoice_Payments.headers, []);
 eq(typeof FIELD_MAP, 'object', 'FIELD_MAP diekspor sebagai objek');
 if (FIELD_MAP) {
   eq(Object.keys(FIELD_MAP).sort(),
@@ -467,6 +469,8 @@ legacyProjectSheet.rows[0] = ['ID','NAMAPROYEK','klien','NILAIPROYEK','STATUS','
 legacyProjectSheet.headers = legacyProjectSheet.rows[0].slice();
 const legacyProjectRecord = legacyProjectSheet.rows.find(row => String(row[0]) === 'P1').slice();
 
+// Remove the seeded ledger here so this migration test still proves setupSheet creates it.
+delete sheets['Invoice_Payments'];
 sandbox.setupSheet();
 
 const h2 = sheets['Leads'].rows[0].map(h => String(h).trim().toLowerCase());
