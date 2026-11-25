@@ -28,3 +28,8 @@ assert.equal(cacheName[1], 'csk-business-os-v' + manifest.version, 'service work
 assert.equal(manifest.version, '3.2.28', 'asset changes increment the installed PWA version');
 
 console.log('CSK PWA asset cache integrity tests passed (' + localScripts.length + ' scripts, ' + localStyles.length + ' stylesheets, ' + requiredData.length + ' data seeds).');
+
+const staticAssetHandler = sw.match(/\/\/ CACHE-FIRST untuk aset statis[\\s\\S]*?\n  \);/);
+assert.ok(staticAssetHandler, 'static asset handler exists');
+assert.ok(staticAssetHandler[0].includes('Response.error()'), 'offline static asset misses fail as network errors');
+assert.ok(!staticAssetHandler[0].includes("caches.match('./index.html')"), 'HTML navigation fallback is not returned for JavaScript/CSS/data requests');
