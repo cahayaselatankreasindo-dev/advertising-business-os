@@ -15,7 +15,7 @@
     return n;
   }
   function assertStockCuttingUnit(method,stockUnit){
-    var unit=String(stockUnit||'').trim().toLowerCase().replace(/\\s+/g,'');
+    var unit=String(stockUnit||'').trim().toLowerCase().replace(/\s+/g,'');
     var sheetUnits=['m2','m²','sqm','meterpersegi'];
     var linearUnits=['m','meter','metre'];
     if(method==='sheet'||method==='roll'){
