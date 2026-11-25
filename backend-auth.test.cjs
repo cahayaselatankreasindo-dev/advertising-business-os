@@ -185,10 +185,16 @@ assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
 }), /COMMERCIAL_DOCUMENT_REQUIRES_SYNC/, 'Owner must use guarded sync for quotation creation');
 assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
   action: 'insert', sheet: 'Finance', data: { id: 'FIN-PAY-FORGED' }
-}), /PAYMENT_FINANCE_SERVER_ONLY/, 'payment Finance rows cannot be forged through generic insert');
-assert.equal(roleSandbox.authorizePayload({ role: 'owner' }, {
+}), /FINANCE_WRITE_ENDPOINT_REQUIRED/, 'payment Finance rows cannot be forged through generic insert');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
   action: 'insert', sheet: 'Finance', data: { id: 'FIN-EXP-001' }
-}), true, 'Owner may still add ordinary Finance records');
+}), /FINANCE_WRITE_ENDPOINT_REQUIRED/, 'all manual Finance rows must use the validated Finance write endpoint');
+assert.equal(roleSandbox.authorizePayload({ role: 'owner' }, {
+  action: 'record_finance_transaction', transaction: { id: 'FIN-MANUAL-TEST-0001' }
+}), true, 'Owner may add manual Finance rows through the dedicated validated endpoint');
+assert.throws(() => roleSandbox.authorizePayload({ role: 'team' }, {
+  action: 'record_finance_transaction', transaction: { id: 'FIN-MANUAL-TEST-0001' }
+}), /FORBIDDEN_FINANCE_WRITE/, 'Team cannot create Finance transactions through the dedicated endpoint');
 assert.throws(() => roleSandbox.authorizePayload({ role: 'owner' }, {
   action: 'sync_all', invoicePayments: []
 }), /PAYMENT_LEDGER_SERVER_ONLY/, 'payment ledger cannot be overwritten by generic sync');
