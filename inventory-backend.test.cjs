@@ -45,7 +45,9 @@ function fixture(){
   Materials:new FakeSheet([map.Materials.headers,rowFor('Materials',material)]),
   Projects:new FakeSheet([map.Projects.headers,rowFor('Projects',project)]),
   Purchase_Orders:new FakeSheet([map.Purchase_Orders.headers,rowFor('Purchase_Orders',po)]),
-  Inventory_Transactions:new FakeSheet([map.Inventory_Transactions.headers])
+  Sales_Orders:new FakeSheet([map.Sales_Orders.headers]),
+  Inventory_Transactions:new FakeSheet([map.Inventory_Transactions.headers]),
+  Inventory_Reservations:new FakeSheet([map.Inventory_Reservations.headers])
  });
 }
 const validMasterMaterial={id:'MAT-MASTER-001',sku:'H-H-2X2-1',name:'Hollow hitam 2 × 2 cm, tebal 1 mm',category:'Besi hollow',unit:'m',unitPrice:20000,purchaseUnit:'batang',purchasePrice:120000,conversionFactor:6,supplierName:'Supplier Hollow',priceSource:'Invoice supplier',priceDate:'2026-11-20',status:'active'};
