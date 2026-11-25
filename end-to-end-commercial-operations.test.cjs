@@ -48,7 +48,7 @@ assert.equal(balances[materials[0].id], 10);
 let commitments = Inventory.calculateOpenSalesOrderCommitments(orders, [], materials, ledger, balances);
 assert.equal(commitments.ready, true);
 assert.equal(commitments.activeOrderCount, 1);
-assert.equal(commitments.requirements[0].required, 3);
+assert.equal(commitments.requirements[0].projects[0].required, 3);
 assert.equal(commitments.requirements[0].committed, 3);
 assert.equal(commitments.requirements[0].availableAfterCommitments, 7);
 let reorder = Inventory.calculateReorderSuggestions(materials, balances, commitments.requirements);
