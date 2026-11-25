@@ -162,6 +162,12 @@ assert.ok(source.includes('async function persistCommercialChanges('));
 assert.ok(source.includes('await w.CSKAuth.sync(true)'));
 assert.ok(source.includes('saveDB(true)'));
 assert.ok(source.includes('await persistCommercialChanges('));
+assert.ok(source.includes('previousCollection=JSON.parse(JSON.stringify(a))'), 'commercial document save keeps a pre-write snapshot for cloud rollback');
+assert.ok(source.includes('var persisted=await persistCommercialChanges('), 'commercial document save checks cloud verification result');
+assert.ok(source.includes('if(cloudRequired&&!persisted)'), 'failed cloud verification restores the last confirmed document collection');
+assert.ok(source.includes("db.quotations=previousCollection;"), 'failed quotation sync restores the confirmed quotation collection');
+assert.ok(source.includes("db.invoices=previousCollection;"), 'failed invoice sync restores the confirmed invoice collection');
+assert.ok(source.includes("Dokumen dikembalikan ke data tersimpan terakhir karena verifikasi Google Sheets gagal"), 'rollback tells the Owner that the edited document remains open for retry');
 assert.ok(source.includes('berhasil disimpan dan diverifikasi di Google Sheets'));
 assert.match(guard, /if \(syncTimer\) \{ clearTimeout\(syncTimer\); syncTimer = null; \}/);
 
