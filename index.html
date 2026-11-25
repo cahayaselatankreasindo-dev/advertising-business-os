@@ -626,9 +626,9 @@
             </div>
             <span id="project-profitability-count" class="text-xs text-slate-500"></span>
           </div>
-          <div id="project-profitability-kpis" class="grid grid-cols-2 xl:grid-cols-4 gap-3"></div>
+          <div id="project-profitability-kpis" class="grid grid-cols-2 xl:grid-cols-5 gap-3"></div>
           <div class="overflow-x-auto rounded-xl border border-slate-100">
-            <table class="min-w-[900px] w-full text-xs">
+            <table class="min-w-[1100px] w-full text-xs">
               <thead class="bg-slate-50 text-slate-500">
                 <tr>
                   <th class="text-left p-3 font-semibold">Proyek</th>
@@ -636,7 +636,9 @@
                   <th class="text-right p-3 font-semibold">HPP estimasi</th>
                   <th class="text-right p-3 font-semibold">Biaya tercatat</th>
                   <th class="text-right p-3 font-semibold">Laba estimasi</th>
+                  <th class="text-right p-3 font-semibold">Margin estimasi</th>
                   <th class="text-right p-3 font-semibold">Laba biaya tercatat</th>
+                  <th class="text-right p-3 font-semibold">Margin tercatat</th>
                   <th class="text-right p-3 font-semibold">Kas masuk</th>
                 </tr>
               </thead>
@@ -2096,7 +2098,7 @@
       const note = document.getElementById('project-profitability-note');
       const count = document.getElementById('project-profitability-count');
       if (!engine || typeof engine.calculatePortfolio !== 'function') {
-        if (rows) rows.innerHTML = '<tr><td colspan="7" class="p-4 text-red-700">Mesin profitabilitas belum tersedia. Muat ulang aplikasi.</td></tr>';
+        if (rows) rows.innerHTML = '<tr><td colspan="9" class="p-4 text-red-700">Mesin profitabilitas belum tersedia. Muat ulang aplikasi.</td></tr>';
         return;
       }
       const report = engine.calculatePortfolio({
@@ -2108,10 +2110,12 @@
         invoicePayments: db.invoicePayments || []
       });
       const totals = report.totals;
+      const percent = value => value === null || !Number.isFinite(Number(value)) ? '—' : Number(value).toFixed(1) + '%';
       const cards = [
         ['Nilai kontrak / proyek', totals.contractValue, 'fa-file-text-o', 'text-slate-900'],
         ['HPP estimasi tersimpan', totals.estimatedHpp, 'fa-calculator', 'text-cyan-700'],
         ['Biaya aktual tercatat', totals.recordedCosts, 'fa-list-alt', 'text-amber-700'],
+        ['Laba estimasi', totals.estimatedProfit, 'fa-line-chart', 'text-emerald-700'],
         ['Kas masuk terverifikasi', totals.cashReceived, 'fa-money', 'text-emerald-700']
       ];
       if (kpis) kpis.innerHTML = cards.map(card =>
@@ -2138,15 +2142,17 @@
               '<td class="p-3 text-right tabular-nums">' + (row.recordedCostCount ? formatRp(row.recordedCost) : '—') + '</td>' +
               '<td class="p-3 text-right tabular-nums ' + (row.estimatedProfit !== null && row.estimatedProfit < 0 ? 'text-red-700' : 'text-emerald-700') + '">' +
                 (row.estimatedProfit === null ? '—' : formatRp(row.estimatedProfit)) + '</td>' +
+              '<td class="p-3 text-right tabular-nums">' + percent(row.estimatedMarginPct) + '</td>' +
               '<td class="p-3 text-right tabular-nums ' + (row.recordedProfit !== null && row.recordedProfit < 0 ? 'text-red-700' : 'text-amber-700') + '">' +
                 (row.recordedProfit === null ? '—' : formatRp(row.recordedProfit)) + '</td>' +
+              '<td class="p-3 text-right tabular-nums">' + percent(row.recordedMarginPct) + '</td>' +
               '<td class="p-3 text-right tabular-nums text-emerald-700">' + (row.cashReceived ? formatRp(row.cashReceived) : '—') + '</td>' +
             '</tr>';
           }).join('');
         }
       }
       if (note) {
-        note.textContent = 'Cara baca: laba estimasi = nilai kontrak dikurangi HPP tersimpan. Laba biaya tercatat = nilai kontrak dikurangi catatan pada arsip Project_Costs. Angka biaya tercatat belum merupakan laba final. Arsip biaya lama bersifat read-only; biaya yang belum dicatat dan nilai material yang belum dinilai dari ledger inventory tidak otomatis masuk perhitungan. Periksa peringatan per proyek sebelum memakai angka ini untuk keputusan bisnis.';
+        note.textContent = 'Cara baca: laba estimasi = nilai kontrak dikurangi HPP tersimpan; margin estimasi = laba estimasi dibagi nilai kontrak. Laba biaya tercatat = nilai kontrak dikurangi catatan pada arsip Project_Costs; margin tercatat = laba biaya tercatat dibagi nilai kontrak. Angka biaya tercatat belum merupakan laba final. Arsip biaya lama bersifat read-only; biaya yang belum dicatat dan nilai material yang belum dinilai dari ledger inventory tidak otomatis masuk perhitungan. Periksa peringatan per proyek sebelum memakai angka ini untuk keputusan bisnis.';
       }
     }
 
