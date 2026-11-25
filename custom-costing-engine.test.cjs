@@ -34,6 +34,13 @@ assert.equal(sheet.piecesCount,8);
 assert.ok(sheet.yieldPercent>0&&sheet.yieldPercent<100);
 assert.equal(sheet.placements.length,8);
 
+assert.throws(()=>engine.calculateSheetCutList({
+  sheetWidthMm:1000,sheetHeightMm:2000,parts:[{widthMm:100,heightMm:100,qty:1.5}]
+}),/bilangan bulat/,'sheet cut-list quantities must be whole pieces');
+assert.throws(()=>engine.calculateBarCutList({
+  stockLengthMm:6000,cuts:[{lengthMm:1000,qty:1.5}]
+}),/bilangan bulat/,'bar cut-list quantities must be whole pieces');
+
 const rotatedDefault=engine.calculateSheetCutList({
   sheetWidthMm:100,sheetHeightMm:200,kerfMm:0,
   parts:[{widthMm:150,heightMm:80,qty:1}]

@@ -33,6 +33,7 @@
   }
   function wasteAdjustedQty(qty,waste){
     const q=positive(qty,'Kuantitas');
+    if(!Number.isSafeInteger(q))throw new Error('Kuantitas potongan harus berupa bilangan bulat.');
     const w=nonNegative(waste||0,'Waste');
     if(w>100)throw new Error('Waste maksimal 100%.');
     return Math.ceil(q*(1+w/100));

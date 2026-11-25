@@ -33,6 +33,7 @@ assert.match(validateCommercialDocument({ ...validCommercialDocument, discount: 
 assert.match(validateCommercialDocument({ ...validCommercialDocument, taxRate: 100.01 }).errors[0], /Tarif pajak/);
 assert.match(validateCommercialDocument({ ...validCommercialDocument, dpPercent: 100 }).errors[0], /Persentase DP/);
 assert.match(validateCommercialDocument({ ...validCommercialDocument, lines: [] }).errors[0], /minimal satu item/);
+assert.match(validateCommercialDocument({ ...validCommercialDocument, lines: [{ ...validCommercialDocument.lines[0], unit: ' ' }] }).errors[0], /Satuan/,'quotation and invoice items require a non-empty unit');
 
 const hppSheet = {
   id: 'HPP-P-HPP-01',
@@ -86,6 +87,10 @@ for (const name of [
   'createInvoiceFromQuotation', 'selectCommercialLead', 'addCommercialMasterItem',
   'saveCommercialDocument', 'downloadCommercialDocumentPdf', 'printCommercialDocument', 'copyCommercialDocumentWA'
 ]) assert.ok(source.includes('function ' + name + '(') || source.includes('w.' + name + '='));
+assert.ok(source.includes('function validateCurrentDocumentForOutput()'),'PDF, print, and WhatsApp output share one validation gate');
+assert.ok(source.includes('downloadCommercialDocumentPdf(){if(!doc||!validateCurrentDocumentForOutput())return;'));
+assert.ok(source.includes('printCommercialDocument(){if(!doc||!validateCurrentDocumentForOutput())return;'));
+assert.ok(source.includes('copyCommercialDocumentWA(){if(!doc||!validateCurrentDocumentForOutput())return;'));
 assert.ok(source.includes('sourceInvoiceId:sourceI'));
 assert.ok(source.includes('function syncProjectCommercialFields(project,sourceDoc)'), 'linked project commercial fields have a dedicated sync helper');
 assert.ok(source.includes('projectDeadline'), 'documents keep project deadline separate from payment due date or quotation validity');
