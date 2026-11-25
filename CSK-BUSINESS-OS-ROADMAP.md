@@ -345,4 +345,5 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - Added `auditCSKSchemaReadOnly()` and a CSK Security menu entry for owners to inspect the bound spreadsheet without changing it.
 - Report includes mapped and legacy read-only tab presence, row counts, missing/duplicate/extra headers, and unclassified auxiliary tabs. It does not read business row values.
 - Added regression coverage showing the audit reports a missing tab without recreating it and leaves all spreadsheet rows unchanged.
-- Use this report on the approved TEST copy first; it can also be run against production in read-only mode if an owner explicitly chooses to inspect the live schema. No deployment or live execution has been performed.
+- PR #38 was squash-merged into `feature/csk-inventory-bridge-fix-20261124` as commit `4f3350bcac42fb4242340348adffd8d1252bf3bd` after both PR-head workflows passed; post-merge CSK Security Tests also passed.
+- Use this report on the approved TEST copy first; it can also be run against production in read-only mode if an owner explicitly chooses to inspect the live schema. The function has not been executed against any live spreadsheet and no Apps Script deployment has been performed.
