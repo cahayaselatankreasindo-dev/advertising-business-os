@@ -67,6 +67,7 @@ jobs:
           node --check csk-ui-components.test.cjs
           node --check pwa-assets.test.cjs
           node --check dashboard.test.cjs
+          node --check end-to-end-commercial-operations.test.cjs
       - name: Mapping and RBAC integration tests
         run: node mapping.test.js
       - name: Commercial Document Center tests
@@ -85,6 +86,8 @@ jobs:
           node hpp-workflow.test.cjs
       - name: Commercial workflow simulation
         run: node commercial-workflow.test.cjs
+      - name: End-to-end production and inventory operations
+        run: node end-to-end-commercial-operations.test.cjs
       - name: Backend security policy tests
         run: node backend-auth.test.cjs
       - name: Dashboard prioritisation and status tests

@@ -381,3 +381,10 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - Suggestions show physical stock, committed stock, available stock, threshold, and the gap to replenish. They do not create or send Purchase Orders automatically; the Owner must review open POs and physical stock first.
 - Added regression tests for commitment deduction, below/at/above-threshold behavior, and exclusion of Draft materials.
 - Development branch only; no production schema migration, Apps Script deployment, or live Google Sheets write.
+
+
+## 26. End-to-end operational contract — 25 November 2026
+
+- Added one cross-module regression that links approved Quotation and HPP snapshot to Sales Order creation, verified DP production release, HPP material commitment, reservation-linked issue and return, linked PO receipt, reorder alert clearing, delivery, and fully paid close.
+- The test verifies that underpaid DP cannot release production, committed stock is deducted before reorder calculations, issued stock reduces outstanding HPP commitment, PO receipt updates stock balance, and terminal Sales Orders stop reserving materials.
+- This is a deterministic code-level simulation using test fixtures; it does not connect to or write to a live Google Sheet.
