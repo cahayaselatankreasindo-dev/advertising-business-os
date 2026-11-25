@@ -1817,7 +1817,7 @@ function recordFinanceTransaction_(ss, rawTransaction, identity) {
     var transaction = { id: id, date: date, type: type, category: category, amount: amount, description: description };
     if (matches.length === 1) {
       var existing = matches[0];
-      var existingDate = existing.date instanceof Date
+      var existingDate = Object.prototype.toString.call(existing.date) === "[object Date]"
         ? Utilities.formatDate(existing.date, ss.getSpreadsheetTimeZone(), "yyyy-MM-dd")
         : String(existing.date || "").slice(0, 10);
       var same = existingDate === date &&
