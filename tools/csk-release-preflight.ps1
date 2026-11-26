@@ -68,7 +68,7 @@ try {
     if ($LASTEXITCODE -ne 0 -or $nodeVersion -notmatch "^v\d+\.\d+\.\d+") {
         throw "Node.js tidak ditemukan. Instal Node.js 20 atau lebih baru."
     }
-    $nodeMajor = [int](($nodeVersion.TrimStart("v").Split("."))[0])
+    $nodeMajor = [int](($nodeVersion -replace "^v", "").Split(".")[0])
     if ($nodeMajor -lt 20) {
         throw "Node.js 20 atau lebih baru diperlukan. Versi saat ini: $nodeVersion"
     }
@@ -206,7 +206,7 @@ try {
 
     $outputRoot = [System.IO.Path]::GetFullPath($OutputDirectory)
     $repoPrefix = $rootNormalized + [System.IO.Path]::DirectorySeparatorChar
-    if ($outputRoot.StartsWith($repoPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+    if ($outputRoot -eq $rootNormalized -or $outputRoot.StartsWith($repoPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw "Folder output harus berada di luar repository agar tidak ikut ter-commit."
     }
     if (-not (Test-Path -LiteralPath $outputRoot -PathType Container)) {
@@ -238,6 +238,8 @@ try {
             $normalizedPath -match "(^|/)\.clasp\.json$" -or
             $normalizedPath -match "(^|/)\.clasprc\.json$" -or
             $normalizedPath -match "(^|/)\.env[^/]*$" -or
+            $normalizedPath -match "(^|/)node_modules(/|$)" -or
+            $normalizedPath -match "(^|/)dist(/|$)" -or
             $normalizedPath -match "(^|/)[^/]+\.test\.(js|cjs|mjs)$" -or
             $normalizedPath -match "^CSK-SUPABASE-"
         ) {
