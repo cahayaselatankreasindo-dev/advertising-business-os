@@ -443,4 +443,5 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - Valid rows update only the latest master purchase price and derived usage-unit price. Draft SKUs remain Draft; no material is auto-activated.
 - Existing HPP, quotation, invoice, Sales Order snapshots, and inventory/payment ledgers are not rewritten. No Sheets schema migration or new tab is introduced.
 - Regression tests cover CSV quoting, semicolon/comma delimiters, Indonesian number/date formats, duplicate rows, invalid data, historical-date protection, unit mismatch, formula-injection-safe template export, and preservation of Draft status.
+- Bumped the PWA cache and manifest to 3.2.32 so installed clients fetch the updated cache-first Master Material asset.
 - Remaining: populate the CSV only from verified supplier documents; then run the isolated Apps Script/Sheets TEST acceptance and real-device browser/PDF QA. No production prices are fabricated.

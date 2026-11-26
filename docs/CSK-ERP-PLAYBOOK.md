@@ -440,3 +440,5 @@ Master Material menyediakan dua tindakan baru: **Unduh Template Harga** dan **Im
 Impor hanya memperbarui harga beli terbaru, harga per satuan pakai, supplier, sumber harga, tanggal harga, dan waktu pembaruan. Satuan, faktor konversi, waste, spesifikasi, dan transaksi tidak diubah. Snapshot HPP, quotation, invoice, Sales Order, serta histori transaksi yang sudah tersimpan tidak dihitung ulang. Fitur ini tidak membuat histori harga supplier terpisah; simpan dokumen sumber pembelian sebagai bukti.
 
 Template menampilkan SKU non-template dari katalog awal 101 baris; kode kelompok/template dikecualikan. Harga tidak diisi otomatis dan tidak boleh ditebak.
+
+- PWA cache and web manifest are aligned at version 3.2.32 for the updated Master Material importer; verify the service-worker refresh on installed clients during device QA.

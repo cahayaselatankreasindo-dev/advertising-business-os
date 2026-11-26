@@ -25,7 +25,7 @@ assert.ok(cached.has('./data/csk-material-master-seed.json'), 'PWA precache incl
 const cacheName = sw.match(/const CACHE_NAME = ['"]([^'"]+)['"]/);
 assert.ok(cacheName, 'service worker cache version is declared');
 assert.equal(cacheName[1], 'csk-business-os-v' + manifest.version, 'service worker and manifest versions stay aligned');
-assert.equal(manifest.version, '3.2.31', 'asset changes increment the installed PWA version');
+assert.equal(manifest.version, '3.2.32', 'asset changes increment the installed PWA version');
 
 console.log('CSK PWA asset cache integrity tests passed (' + localScripts.length + ' scripts, ' + localStyles.length + ' stylesheets, ' + requiredData.length + ' data seeds).');
 
