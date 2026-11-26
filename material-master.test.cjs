@@ -118,3 +118,9 @@ assert.ok(!templateCsv.includes('H-H;'), 'template family codes are excluded');
 const formulaTemplate = priceTools.buildPriceTemplateCsv([{sku:'SKU-1',name:'=HYPERLINK("x")',status:'draft',purchaseUnit:'pcs',unit:'pcs',conversionFactor:1,wasteRate:0}]);
 assert.ok(formulaTemplate.includes("'=HYPERLINK"), 'CSV template neutralizes formula-like text');
 console.log('CSK supplier price CSV import tests passed.');
+
+const formulaSupplierCsv = [
+ 'sku,purchase_price,supplier_name,price_source,price_date',
+ 'H-H-2X2-1,100000,=IMPORTXML("https://example.invalid"),Invoice,2026-11-26'
+].join('\n');
+assert.ok(priceTools.validatePriceImport(formulaSupplierCsv, importMaterials).errors[0].reason.includes('karakter formula spreadsheet'), 'formula-like supplier text is rejected before any Sheets write');
