@@ -144,8 +144,8 @@ function canonicalHeader(value){
  return aliases[key]||key;
 }
 function parseLocaleNumber(value){
- var text=String(value==null?'':value).trim().replace(/rp/ig,'').replace(/\s/g,'').replace(/[^\d,.-]/g,'');
- if(!text)return NaN;
+ var text=String(value==null?'':value).trim().replace(/^rp\s*/i,'').replace(/\s/g,'');
+ if(!text||! /^[+-]?\d[\d,.-]*$/.test(text))return NaN;
  if(text.indexOf(',')>=0&&text.indexOf('.')>=0){
   if(text.lastIndexOf(',')>text.lastIndexOf('.'))text=text.replace(/\./g,'').replace(',','.');
   else text=text.replace(/,/g,'');
@@ -206,7 +206,7 @@ function validatePriceImport(csvText,materials){
    if(!reason&&material.priceDate){var oldDate=normalizePriceDate(material.priceDate);if(oldDate&&priceDate<oldDate)reason='Tanggal harga lebih lama daripada harga yang sedang tersimpan.';}
   }
   if(reason)errors.push({row:record.rowNumber,sku:sku,reason:reason});
-  else validRows.push({row:record.rowNumber,materialId:material.id,sku:sku,purchasePrice:price,supplierName:supplier,priceSource:source,priceDate:priceDate});
+  else validRows.push({row:record.rowNumber,materialId:material.id,sku:sku,purchasePrice:price,supplierName:supplier,priceSource:source,priceDate:priceDate,purchaseUnit:String(material.purchaseUnit||material.unit||''),usageUnit:String(material.unit||''),conversionFactor:Number(material.conversionFactor),wasteRate:Number(material.wasteRate||0)});
  });
  return{validRows:validRows,errors:errors,totalRows:records.length};
 }
@@ -214,14 +214,16 @@ function applyPriceImport(materials,importRows,updatedAt){
  var rows=(materials||[]).map(function(m){return Object.assign({},m);}),stamp=updatedAt||new Date().toISOString();
  (importRows||[]).forEach(function(entry){
   var material=rows.find(function(m){return String(m.id)===String(entry.materialId);});
-  if(!material||material.status==='template')throw new Error('MATERIAL_IMPORT_TARGET_INVALID:'+String(entry.sku||''));
+  if(!material||material.status==='template'||String(material.sku||'').toUpperCase()!==String(entry.sku||'').toUpperCase())throw new Error('MATERIAL_IMPORT_TARGET_INVALID:'+String(entry.sku||''));
   var factor=Number(material.conversionFactor),waste=Number(material.wasteRate||0),price=Number(entry.purchasePrice);
+  var supplier=String(entry.supplierName||'').trim(),source=String(entry.priceSource||'').trim(),priceDate=normalizePriceDate(entry.priceDate);
   if(!Number.isFinite(factor)||factor<=0||!Number.isFinite(waste)||waste<0||waste>100||!Number.isFinite(price)||price<=0)throw new Error('MATERIAL_IMPORT_VALUES_INVALID:'+String(entry.sku||''));
+  if(!supplier||supplier.length>180||!source||source.length>240||/^[\\s]*[=+\\-@]/.test(supplier)||/^[\\s]*[=+\\-@]/.test(source)||!priceDate)throw new Error('MATERIAL_IMPORT_TEXT_INVALID:'+String(entry.sku||''));
   material.purchasePrice=price;
   material.unitPrice=(price/factor)*(1+waste/100);
-  material.supplierName=String(entry.supplierName||'').trim();
-  material.priceSource=String(entry.priceSource||'').trim();
-  material.priceDate=String(entry.priceDate||'');
+  material.supplierName=supplier;
+  material.priceSource=source;
+  material.priceDate=priceDate;
   material.updatedAt=stamp;
  });
  return rows;
@@ -257,8 +259,9 @@ async function handlePriceImportFile(file){
  var summary=el('mm-price-import-summary'),preview=el('mm-price-import-preview'),apply=el('csk-material-price-import').querySelector('[data-mmp-action="apply"]');
  try{
   summary.textContent='Membaca dan memeriksa '+file.name+'...';preview.innerHTML='';apply.disabled=true;apply.classList.add('opacity-50');
-  var text=await readPriceFile(file);stagedPriceImport=validatePriceImport(text,getRows());
-  renderPriceImportPreview(stagedPriceImport);
+  if(Number(file.size)>1024*1024)throw new Error('Ukuran file CSV melebihi batas 1 MB.');
+  var text=await readPriceFile(file);stagedPriceImport={csvText:text,result:validatePriceImport(text,getRows())};
+  renderPriceImportPreview(stagedPriceImport.result);
  }catch(error){stagedPriceImport=null;summary.textContent='Gagal membaca CSV: '+String(error&&error.message||error);preview.innerHTML='';}
 }
 function renderPriceImportPreview(result){
@@ -272,11 +275,17 @@ function renderPriceImportPreview(result){
 }
 async function applyPriceImportFromModal(){
  var b=bridge();if(!b||!b.isOwner())return notify('Impor harga supplier hanya dapat dilakukan oleh Owner.',true);
- if(!stagedPriceImport||!stagedPriceImport.validRows.length)return notify('Tidak ada baris harga valid untuk diterapkan.',true);
- var valid=stagedPriceImport.validRows.length,invalid=stagedPriceImport.errors.length;
+ if(!stagedPriceImport||!stagedPriceImport.result||!stagedPriceImport.result.validRows.length)return notify('Tidak ada baris harga valid untuk diterapkan.',true);
+ var latest=validatePriceImport(stagedPriceImport.csvText,getRows());
+ if(JSON.stringify(latest)!==JSON.stringify(stagedPriceImport.result)){
+  stagedPriceImport.result=latest;
+  renderPriceImportPreview(latest);
+  return notify('Master Material berubah sejak pratinjau. Periksa hasil validasi terbaru sebelum menerapkan harga.',true);
+ }
+ var valid=latest.validRows.length,invalid=latest.errors.length;
  if(!w.confirm('Terapkan '+valid+' harga supplier yang valid? '+invalid+' baris tidak valid akan dilewati. SKU Draft tetap Draft dan tidak diaktifkan otomatis.'))return;
  try{
-  var nextRows=applyPriceImport(getRows(),stagedPriceImport.validRows,new Date().toISOString());
+  var nextRows=applyPriceImport(getRows(),latest.validRows,new Date().toISOString());
   await save(nextRows);el('csk-material-price-import').classList.add('hidden');stagedPriceImport=null;render();
   notify('Impor harga selesai: '+valid+' SKU diperbarui, '+invalid+' baris dilewati. Periksa dokumen sumber sebelum mengaktifkan SKU.');
  }catch(error){notify('Impor harga gagal disimpan: '+String(error&&error.message||error),true);}

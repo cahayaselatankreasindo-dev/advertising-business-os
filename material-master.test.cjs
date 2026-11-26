@@ -124,3 +124,7 @@ const formulaSupplierCsv = [
  'H-H-2X2-1,100000,=IMPORTXML("https://example.invalid"),Invoice,2026-11-26'
 ].join('\n');
 assert.ok(priceTools.validatePriceImport(formulaSupplierCsv, importMaterials).errors[0].reason.includes('karakter formula spreadsheet'), 'formula-like supplier text is rejected before any Sheets write');
+assert.ok(Number.isNaN(priceTools.parseLocaleNumber('Rp 1.200.000 supplier')), 'unrecognized text is not silently stripped from a price');
+assert.equal(validation.validRows[0].conversionFactor,6,'staged rows retain the conversion factor used in preview');
+assert.equal(validation.validRows[0].wasteRate,5,'staged rows retain the waste rate used in preview');
+assert.throws(()=>priceTools.applyPriceImport(importMaterials,[{materialId:'m1',sku:'H-H-2X2-1',purchasePrice:1000,supplierName:'=IMPORTXML(x)',priceSource:'Invoice',priceDate:'2026-11-26'}]),/MATERIAL_IMPORT_TEXT_INVALID/,'the apply layer also rejects formula-like supplier data');
