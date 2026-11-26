@@ -218,7 +218,7 @@ function applyPriceImport(materials,importRows,updatedAt){
   var factor=Number(material.conversionFactor),waste=Number(material.wasteRate||0),price=Number(entry.purchasePrice);
   var supplier=String(entry.supplierName||'').trim(),source=String(entry.priceSource||'').trim(),priceDate=normalizePriceDate(entry.priceDate);
   if(!Number.isFinite(factor)||factor<=0||!Number.isFinite(waste)||waste<0||waste>100||!Number.isFinite(price)||price<=0)throw new Error('MATERIAL_IMPORT_VALUES_INVALID:'+String(entry.sku||''));
-  if(!supplier||supplier.length>180||!source||source.length>240||/^[\\s]*[=+\\-@]/.test(supplier)||/^[\\s]*[=+\\-@]/.test(source)||!priceDate)throw new Error('MATERIAL_IMPORT_TEXT_INVALID:'+String(entry.sku||''));
+  if(!supplier||supplier.length>180||!source||source.length>240||/^[\s]*[=+\-@]/.test(supplier)||/^[\s]*[=+\-@]/.test(source)||!priceDate)throw new Error('MATERIAL_IMPORT_TEXT_INVALID:'+String(entry.sku||''));
   material.purchasePrice=price;
   material.unitPrice=(price/factor)*(1+waste/100);
   material.supplierName=supplier;
