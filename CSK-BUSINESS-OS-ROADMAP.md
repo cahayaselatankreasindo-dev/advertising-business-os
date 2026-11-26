@@ -434,3 +434,13 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - The panel is read-only. It does not rewrite financial records; missing journals are directed to the existing Invoice payment history retry/verification flow, while mismatched or orphaned entries require Owner review.
 - Added unit tests for clean matches and each discrepancy class. Added the engine to the PWA precache and bumped the cache/manifest to 3.2.30.
 - Development branch only; no live Google Sheets writes or Apps Script deployment.
+
+
+## 33. Bulk supplier price import — 26 November 2026
+
+- Added Owner-only CSV template export and supplier-price import to Master Material.
+- Import uses exact existing SKU matches, validates supplier/source/date and locale-formatted Rupiah, rejects duplicate/unknown/template SKUs, stale price dates, and unit/conversion/waste mismatches.
+- Valid rows update only the latest master purchase price and derived usage-unit price. Draft SKUs remain Draft; no material is auto-activated.
+- Existing HPP, quotation, invoice, Sales Order snapshots, and inventory/payment ledgers are not rewritten. No Sheets schema migration or new tab is introduced.
+- Regression tests cover CSV quoting, semicolon/comma delimiters, Indonesian number/date formats, duplicate rows, invalid data, historical-date protection, unit mismatch, formula-injection-safe template export, and preservation of Draft status.
+- Remaining: populate the CSV only from verified supplier documents; then run the isolated Apps Script/Sheets TEST acceptance and real-device browser/PDF QA. No production prices are fabricated.
