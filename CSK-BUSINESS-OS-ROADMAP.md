@@ -444,16 +444,15 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - The profitability panel is read-only. Estimated HPP and recorded-cost indicators are shown separately; recorded-cost profitability remains indicative because current inventory records do not provide a sufficient historical material-valuation snapshot.
 - The development branch now includes 53 material reference families, 41 product/service families, and 101 initial Master Material rows. The 101 rows are Draft/Template with zero supplier prices; they are not approved purchasing prices and must not be activated without evidence.
 - Added a Windows PowerShell release preflight that rejects `main` and dirty working trees, requires Node.js 20+, verifies Apps Script source parity and PWA version parity, runs the complete regression suite, and creates a ZIP with a SHA-256 manifest.
-- Added a Windows GitHub Actions workflow to build and upload the package as `csk-business-os-development-package`. The package excludes the real `.clasp.json`, backups, test files, and Supabase planning documents; it includes only a placeholder Apps Script TEST configuration.
+- Added a Windows GitHub Actions workflow to build and upload the package as `csk-business-os-development-package`. The workflow passed on PR #55 (run 45809380731). The artifact contains 44 files; all 43 listed SHA-256 checksums were verified. It excludes the real `.clasp.json`, backups, test files, and Supabase planning documents; it includes only a placeholder Apps Script TEST configuration.
 - The package builder does not execute `clasp push`, `clasp deploy`, `setupSheet()`, or any Google Sheets write. It is explicitly marked DEVELOPMENT / TEST ONLY.
 - The Admin installation and upgrade procedure is documented in `docs/CSK-ADMIN-INSTALL-UPGRADE.md`.
 
 ### Remaining release gates
 
-1. Pass the new Windows release-package workflow on this PR and inspect the ZIP artifact contents.
-2. Complete browser QA on desktop Chrome/Edge, iPhone Safari, and Android Chrome, including PDF Save to Files/download and Service Worker refresh.
-3. Create an isolated TEST spreadsheet and Apps Script project, then run read-only schema audit and Owner/Team acceptance.
-4. Perform the complete Quotation → Invoice/payment → Sales Order → reservation → picking/return → PO receipt → delivery/settlement workflow in TEST.
-5. Obtain explicit Owner approval before any production backup, schema setup, Apps Script deployment, or frontend release.
+1. Complete browser QA on desktop Chrome/Edge, iPhone Safari, and Android Chrome, including PDF Save to Files/download and Service Worker refresh.
+2. Create an isolated TEST spreadsheet and Apps Script project, then run read-only schema audit and Owner/Team acceptance.
+3. Perform the complete Quotation → Invoice/payment → Sales Order → reservation → picking/return → PO receipt → delivery/settlement workflow in TEST.
+4. Obtain explicit Owner approval before any production backup, schema setup, Apps Script deployment, or frontend release.
 
 No production Google Sheets write, production Apps Script deployment, merge to `main`, Supabase change, DNS change, or public website deployment has been performed.
