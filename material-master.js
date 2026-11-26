@@ -212,28 +212,31 @@ function validatePriceImport(csvText,materials){
    if(!reason&&material.priceDate){var oldDate=normalizePriceDate(material.priceDate);if(oldDate&&priceDate<oldDate)reason='Tanggal harga lebih lama daripada harga yang sedang tersimpan.';}
   }
   if(reason)errors.push({row:record.rowNumber,sku:sku,reason:reason});
-  else validRows.push({row:record.rowNumber,materialId:material.id,sku:sku,purchasePrice:price,supplierName:supplier,priceSource:source,priceDate:priceDate,purchaseUnit:String(material.purchaseUnit||material.unit||''),usageUnit:String(material.unit||''),conversionFactor:Number(material.conversionFactor),wasteRate:Number(material.wasteRate||0)});
+  else validRows.push({row:record.rowNumber,materialId:material.id,sku:sku,purchasePrice:price,supplierName:supplier,priceSource:source,priceDate:priceDate,purchaseUnit:String(material.purchaseUnit||material.unit||''),usageUnit:String(material.unit||''),conversionFactor:Number(material.conversionFactor),wasteRate:Number(material.wasteRate||0),currentStatus:String(material.status||'active'),currentPriceDate:normalizePriceDate(material.priceDate)||''});
  });
  return{validRows:validRows,errors:errors,totalRows:records.length};
 }
 function applyPriceImport(materials,importRows,updatedAt){
- var rows=(materials||[]).map(function(m){return Object.assign({},m);}),stamp=updatedAt||new Date().toISOString(),seenTargets=Object.create(null);
+ var rows=(materials||[]).map(function(m){return Object.assign({},m);}),stamp=updatedAt||new Date().toISOString(),seenTargets=Object.create(null),seenSkus=Object.create(null);
  (importRows||[]).forEach(function(entry){
-  var targetId=String(entry.materialId||'');
-  if(!targetId||seenTargets[targetId])throw new Error('MATERIAL_IMPORT_DUPLICATE_TARGET:'+String(entry.sku||''));
-  seenTargets[targetId]=true;
+  var targetId=String(entry.materialId||''),targetSku=String(entry.sku||'').toUpperCase();
+  if(!targetId||!targetSku||seenTargets[targetId]||seenSkus[targetSku])throw new Error('MATERIAL_IMPORT_DUPLICATE_TARGET:'+targetSku);
+  seenTargets[targetId]=true;seenSkus[targetSku]=true;
+  var matches=rows.filter(function(m){return String(m.sku||'').toUpperCase()===targetSku;});
   var material=rows.find(function(m){return String(m.id)===targetId;});
-  if(!material||material.status==='template'||String(material.sku||'').toUpperCase()!==String(entry.sku||'').toUpperCase())throw new Error('MATERIAL_IMPORT_TARGET_INVALID:'+String(entry.sku||''));
+  if(!material||matches.length!==1||material.status==='template'||String(material.sku||'').toUpperCase()!==targetSku)throw new Error('MATERIAL_IMPORT_TARGET_INVALID:'+targetSku);
   var factor=Number(material.conversionFactor),waste=Number(material.wasteRate||0),price=Number(entry.purchasePrice);
   var supplier=String(entry.supplierName||'').trim(),source=String(entry.priceSource||'').trim(),priceDate=normalizePriceDate(entry.priceDate);
-  if(!Number.isFinite(factor)||factor<=0||!Number.isFinite(waste)||waste<0||waste>100||!Number.isSafeInteger(price)||price<=0)throw new Error('MATERIAL_IMPORT_VALUES_INVALID:'+String(entry.sku||''));
-  if(!supplier||supplier.length>180||!source||source.length>240||/^[\\s]*[=+\\-@]/.test(supplier)||/^[\\s]*[=+\\-@]/.test(source)||!priceDate)throw new Error('MATERIAL_IMPORT_TEXT_INVALID:'+String(entry.sku||''));
+  if(!Number.isFinite(factor)||factor<=0||!Number.isFinite(waste)||waste<0||waste>100||!Number.isSafeInteger(price)||price<=0)throw new Error('MATERIAL_IMPORT_VALUES_INVALID:'+targetSku);
+  if(!supplier||supplier.length>180||!source||source.length>240||/^\s*[=+\-@]/.test(supplier)||/^\s*[=+\-@]/.test(source)||!priceDate)throw new Error('MATERIAL_IMPORT_TEXT_INVALID:'+targetSku);
   function sameNumber(left,right){return Math.abs(left-right)<=Math.max(0.000000001,Math.abs(right)*0.000001);}
-  if(entry.purchaseUnit!==undefined&&String(entry.purchaseUnit).trim().toLowerCase()!==String(material.purchaseUnit||material.unit||'').trim().toLowerCase())throw new Error('MATERIAL_IMPORT_UNIT_CHANGED:'+String(entry.sku||''));
-  if(entry.usageUnit!==undefined&&String(entry.usageUnit).trim().toLowerCase()!==String(material.unit||'').trim().toLowerCase())throw new Error('MATERIAL_IMPORT_UNIT_CHANGED:'+String(entry.sku||''));
-  if(entry.conversionFactor!==undefined&&(!Number.isFinite(Number(entry.conversionFactor))||!sameNumber(Number(entry.conversionFactor),factor)))throw new Error('MATERIAL_IMPORT_CONVERSION_CHANGED:'+String(entry.sku||''));
-  if(entry.wasteRate!==undefined&&(!Number.isFinite(Number(entry.wasteRate))||!sameNumber(Number(entry.wasteRate),waste)))throw new Error('MATERIAL_IMPORT_WASTE_CHANGED:'+String(entry.sku||''));
-  if(material.priceDate){var oldDate=normalizePriceDate(material.priceDate);if(oldDate&&priceDate<oldDate)throw new Error('MATERIAL_IMPORT_DATE_OLDER:'+String(entry.sku||''));}
+  if(entry.purchaseUnit===undefined||String(entry.purchaseUnit).trim().toLowerCase()!==String(material.purchaseUnit||material.unit||'').trim().toLowerCase())throw new Error('MATERIAL_IMPORT_UNIT_CHANGED:'+targetSku);
+  if(entry.usageUnit===undefined||String(entry.usageUnit).trim().toLowerCase()!==String(material.unit||'').trim().toLowerCase())throw new Error('MATERIAL_IMPORT_UNIT_CHANGED:'+targetSku);
+  if(entry.conversionFactor===undefined||!Number.isFinite(Number(entry.conversionFactor))||!sameNumber(Number(entry.conversionFactor),factor))throw new Error('MATERIAL_IMPORT_CONVERSION_CHANGED:'+targetSku);
+  if(entry.wasteRate===undefined||!Number.isFinite(Number(entry.wasteRate))||!sameNumber(Number(entry.wasteRate),waste))throw new Error('MATERIAL_IMPORT_WASTE_CHANGED:'+targetSku);
+  if(entry.currentStatus===undefined||String(entry.currentStatus)!==String(material.status||'active'))throw new Error('MATERIAL_IMPORT_STATUS_CHANGED:'+targetSku);
+  if(entry.currentPriceDate===undefined||(normalizePriceDate(entry.currentPriceDate)||'')!==(normalizePriceDate(material.priceDate)||''))throw new Error('MATERIAL_IMPORT_PRICE_DATE_CHANGED:'+targetSku);
+  if(material.priceDate){var oldDate=normalizePriceDate(material.priceDate);if(oldDate&&priceDate<oldDate)throw new Error('MATERIAL_IMPORT_DATE_OLDER:'+targetSku);}
   material.purchasePrice=price;
   material.unitPrice=(price/factor)*(1+waste/100);
   material.supplierName=supplier;

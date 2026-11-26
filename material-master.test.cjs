@@ -100,7 +100,7 @@ const duplicateMasterMaterials = importMaterials.concat([Object.assign({}, impor
 const duplicateMasterCsv = [
  'sku,purchase_price,supplier_name,price_source,price_date',
  'H-H-2X2-1,100000,Vendor,Invoice,2026-11-26'
-].join('\\n');
+].join('\n');
 const duplicateMasterValidation = priceTools.validatePriceImport(duplicateMasterCsv, duplicateMasterMaterials);
 assert.equal(duplicateMasterValidation.validRows.length, 0, 'an ambiguous SKU in the current master must not receive a price');
 assert.ok(duplicateMasterValidation.errors[0].reason.includes('lebih dari satu kali pada Master Material'));
@@ -108,7 +108,7 @@ assert.ok(duplicateMasterValidation.errors[0].reason.includes('lebih dari satu k
 const fractionalPriceCsv = [
  'sku,purchase_price,supplier_name,price_source,price_date',
  'H-H-2X2-1,1000.50,Vendor,Invoice,2026-11-26'
-].join('\\n');
+].join('\n');
 const fractionalPriceValidation = priceTools.validatePriceImport(fractionalPriceCsv, importMaterials);
 assert.equal(fractionalPriceValidation.validRows.length, 0, 'fractional Rupiah must not be imported');
 assert.ok(fractionalPriceValidation.errors[0].reason.includes('Rupiah bulat'));
@@ -146,6 +146,14 @@ assert.throws(()=>priceTools.applyPriceImport(importMaterials,[validation.validR
 const fractionalApplyRow = Object.assign({}, validation.validRows[0], {purchasePrice:1000.5});
 assert.throws(()=>priceTools.applyPriceImport(importMaterials,[fractionalApplyRow]),/MATERIAL_IMPORT_VALUES_INVALID/,'the apply layer independently rejects fractional Rupiah');
 
+const changedStatusMaterials = importMaterials.map(x=>Object.assign({},x));
+changedStatusMaterials[0].status='active';
+assert.throws(()=>priceTools.applyPriceImport(changedStatusMaterials,[validation.validRows[0]]),/MATERIAL_IMPORT_STATUS_CHANGED/,'the apply layer rejects a status change since preview');
+const changedPriceDateMaterials = importMaterials.map(x=>Object.assign({},x));
+changedPriceDateMaterials[0].priceDate='2026-11-25';
+assert.throws(()=>priceTools.applyPriceImport(changedPriceDateMaterials,[validation.validRows[0]]),/MATERIAL_IMPORT_PRICE_DATE_CHANGED/,'the apply layer rejects a current-price-date change since preview');
+const duplicateMasterApply = importMaterials.concat([Object.assign({},importMaterials[0],{id:'m1-duplicate'})]);
+assert.throws(()=>priceTools.applyPriceImport(duplicateMasterApply,[validation.validRows[0]]),/MATERIAL_IMPORT_TARGET_INVALID/,'the apply layer independently rejects ambiguous master SKUs');
 const formulaSupplierCsv = [
  'sku,purchase_price,supplier_name,price_source,price_date',
  'H-H-2X2-1,100000,=IMPORTXML("https://example.invalid"),Invoice,2026-11-26'
@@ -154,4 +162,4 @@ assert.ok(priceTools.validatePriceImport(formulaSupplierCsv, importMaterials).er
 assert.ok(Number.isNaN(priceTools.parseLocaleNumber('Rp 1.200.000 supplier')), 'unrecognized text is not silently stripped from a price');
 assert.equal(validation.validRows[0].conversionFactor,6,'staged rows retain the conversion factor used in preview');
 assert.equal(validation.validRows[0].wasteRate,5,'staged rows retain the waste rate used in preview');
-assert.throws(()=>priceTools.applyPriceImport(importMaterials,[{materialId:'m1',sku:'H-H-2X2-1',purchasePrice:1000,supplierName:'=IMPORTXML(x)',priceSource:'Invoice',priceDate:'2026-11-26'}]),/MATERIAL_IMPORT_TEXT_INVALID/,'the apply layer also rejects formula-like supplier data');
+assert.throws(()=>priceTools.applyPriceImport(importMaterials,[Object.assign({},validation.validRows[0],{purchasePrice:1000,supplierName:' =IMPORTXML(x)'})]),/MATERIAL_IMPORT_TEXT_INVALID/,'the apply layer also rejects formula-like supplier data, including leading whitespace');
