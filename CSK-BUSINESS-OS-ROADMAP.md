@@ -1,6 +1,6 @@
 # CSK Business OS — Product & Architecture Roadmap
 
-Last updated: 24 November 2026
+Last updated: 26 November 2026
 
 ## 1. Product direction
 
@@ -16,12 +16,13 @@ The internal repository is `cahayaselatankreasindo-dev/advertising-business-os`.
 
 The current application is a responsive single-page HTML application using Tailwind CDN, Chart.js, and JavaScript modules. Its current backend and data layer use Google Apps Script and Google Sheets.
 
-The active development branch `feature/csk-colorful-ui-20261124` contains the current integrated work (including the earlier HPP base from `feature/hpp-material-conversion-20261120`):
+The active development integration branch `feature/csk-inventory-bridge-fix-20261124` contains the current integrated candidate (including the earlier HPP base from `feature/hpp-material-conversion-20261120` and the colorful UI foundation):
 - CRM, clients, projects, finance, marketing spend, and business memory.
 - HPP and custom material costing for sheet, roll, profile/bar, pack conversion, area, linear length, volume, and waste.
 - Commercial quotations, invoice documents, payment records, and PDF generation.
 - Sales Orders with approval, DP-release, and settlement controls.
-- Inventory movement ledger, PO-linked receipts, and shortage-based draft purchase suggestions.
+- Inventory movement ledger, atomic Sales Order reservations, picking, partial issue/return, PO-linked receipts, and shortage/reorder suggestions.
+- Finance payment reconciliation and Owner-only project profitability indicators.
 
 The feature branch is not a production release. Live schema migration, Apps Script deployment, and merge to `main` have not been completed. Existing release gates and security boundaries must remain in force.
 
@@ -434,3 +435,25 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - The panel is read-only. It does not rewrite financial records; missing journals are directed to the existing Invoice payment history retry/verification flow, while mismatched or orphaned entries require Owner review.
 - Added unit tests for clean matches and each discrepancy class. Added the engine to the PWA precache and bumped the cache/manifest to 3.2.30.
 - Development branch only; no live Google Sheets writes or Apps Script deployment.
+
+
+## 32. Admin install/upgrade package and release preflight — 26 November 2026
+
+- The integrated development branch is `feature/csk-inventory-bridge-fix-20261124`; PR #54 added the Owner-only project profitability overview and merged into that branch on 26 November 2026.
+- PR #54 head validation passed **CSK Security Tests** (run 45652911504) and **CSK business source regression checks** (run 45652911449). The security workflow completed all syntax, mapping/RBAC, commercial, inventory, finance, profitability, PWA, and UI test steps successfully.
+- The profitability panel is read-only. Estimated HPP and recorded-cost indicators are shown separately; recorded-cost profitability remains indicative because current inventory records do not provide a sufficient historical material-valuation snapshot.
+- The development branch now includes 53 material reference families, 41 product/service families, and 101 initial Master Material rows. The 101 rows are Draft/Template with zero supplier prices; they are not approved purchasing prices and must not be activated without evidence.
+- Added a Windows PowerShell release preflight that rejects `main` and dirty working trees, requires Node.js 20+, verifies Apps Script source parity and PWA version parity, runs the complete regression suite, and creates a ZIP with a SHA-256 manifest.
+- Added a Windows GitHub Actions workflow to build and upload the package as `csk-business-os-development-package`. The package excludes the real `.clasp.json`, backups, test files, and Supabase planning documents; it includes only a placeholder Apps Script TEST configuration.
+- The package builder does not execute `clasp push`, `clasp deploy`, `setupSheet()`, or any Google Sheets write. It is explicitly marked DEVELOPMENT / TEST ONLY.
+- The Admin installation and upgrade procedure is documented in `docs/CSK-ADMIN-INSTALL-UPGRADE.md`.
+
+### Remaining release gates
+
+1. Pass the new Windows release-package workflow on this PR and inspect the ZIP artifact contents.
+2. Complete browser QA on desktop Chrome/Edge, iPhone Safari, and Android Chrome, including PDF Save to Files/download and Service Worker refresh.
+3. Create an isolated TEST spreadsheet and Apps Script project, then run read-only schema audit and Owner/Team acceptance.
+4. Perform the complete Quotation → Invoice/payment → Sales Order → reservation → picking/return → PO receipt → delivery/settlement workflow in TEST.
+5. Obtain explicit Owner approval before any production backup, schema setup, Apps Script deployment, or frontend release.
+
+No production Google Sheets write, production Apps Script deployment, merge to `main`, Supabase change, DNS change, or public website deployment has been performed.
