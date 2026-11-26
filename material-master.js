@@ -1,6 +1,6 @@
 (function(w){
 'use strict';
-var rootId='material-master-app',modalId='csk-material-editor',bound=false,query='',category='all',status='all',seedCache=null;
+var rootId='material-master-app',modalId='csk-material-editor',bound=false,query='',category='all',status='all',seedCache=null,stagedPriceImport=null;
 function el(id){return w.document.getElementById(id);}
 function bridge(){return w.CSKMaterialMasterBridge||null;}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
@@ -82,6 +82,205 @@ async function saveForm(){
  try{await save(rows);el(modalId).classList.add('hidden');render();notify('Master material '+sku+' tersimpan. '+(record.status==='active'?'Siap dipakai untuk HPP, PO, dan stok.':'Masih Draft, belum dapat dipakai transaksi.'));}
  catch(error){notify('Gagal menyimpan master material: '+String(error&&error.message||error),true);}
 }
+
+function csvCell(value){
+ var text=String(value==null?'':value);
+ if(/^\s*[=+\-@]/.test(text))text="'"+text;
+ return '"'+text.replace(/"/g,'""')+'"';
+}
+function buildPriceTemplateCsv(materials){
+ var headers=['sku','name','purchase_unit','usage_unit','conversion_factor','purchase_price','supplier_name','price_source','price_date','waste_rate'];
+ var rows=[headers];
+ (materials||[]).filter(function(m){return m&&m.sku&&m.status!=='template';}).forEach(function(m){
+  rows.push([m.sku,m.name||'',m.purchaseUnit||m.unit||'',m.unit||'',m.conversionFactor==null?'':m.conversionFactor,'','','','',m.wasteRate==null?0:m.wasteRate]);
+ });
+ return '\uFEFF'+rows.map(function(row){return row.map(csvCell).join(';');}).join('\r\n')+'\r\n';
+}
+function downloadPriceTemplate(){
+ var b=bridge();if(!b||!b.isOwner())return notify('Unduh template harga hanya dapat dilakukan oleh Owner.',true);
+ try{
+  var csv=buildPriceTemplateCsv(getRows()),blob=new w.Blob([csv],{type:'text/csv;charset=utf-8;'}),url=w.URL.createObjectURL(blob),a=w.document.createElement('a');
+  a.href=url;a.download='CSK-template-harga-supplier.csv';w.document.body.appendChild(a);a.click();a.remove();
+  w.setTimeout(function(){w.URL.revokeObjectURL(url);},1000);
+  notify('Template harga supplier berhasil disiapkan. Isi harga dan referensi dokumen supplier sebelum impor.');
+ }catch(error){notify('Template harga gagal dibuat: '+String(error&&error.message||error),true);}
+}
+function parseCsvMatrix(input){
+ var text=String(input==null?'':input).replace(/^\uFEFF/,'');
+ var firstLine=(text.split(/\r\n|\n|\r/)[0]||''),delimiter=firstLine.split(';').length>firstLine.split(',').length?';':',';
+ var rows=[],row=[],field='',quoted=false;
+ for(var i=0;i<text.length;i++){
+  var ch=text.charAt(i);
+  if(ch==='"'){
+   if(quoted&&text.charAt(i+1)==='"'){field+='"';i++;}
+   else quoted=!quoted;
+  }else if(!quoted&&ch===delimiter){row.push(field);field='';}
+  else if(!quoted&&(ch==='\n'||ch==='\r')){
+   row.push(field);if(row.some(function(v){return String(v).trim()!=='';}))rows.push(row);
+   row=[];field='';if(ch==='\r'&&text.charAt(i+1)==='\n')i++;
+  }else field+=ch;
+ }
+ if(quoted)throw new Error('CSV memiliki tanda kutip yang tidak berpasangan.');
+ if(field!==''||row.length){row.push(field);if(row.some(function(v){return String(v).trim()!=='';}))rows.push(row);}
+ return rows;
+}
+function normalizedHeader(value){
+ return String(value==null?'':value).replace(/^\uFEFF/,'').trim().toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+}
+function canonicalHeader(value){
+ var key=normalizedHeader(value),aliases={
+  kode:'sku',kode_material:'sku',kode_sku:'sku',material_sku:'sku',
+  harga_beli:'purchase_price',harga_beli_rp:'purchase_price',harga_beli_per_satuan_beli:'purchase_price',
+  supplier:'supplier_name',nama_supplier:'supplier_name',
+  sumber_harga:'price_source',sumber:'price_source',referensi_harga:'price_source',dokumen_sumber:'price_source',
+  tanggal_harga:'price_date',tanggal_harga_berlaku:'price_date',
+  satuan_beli:'purchase_unit',satuan_pembelian:'purchase_unit',
+  satuan_pakai:'usage_unit',satuan_pemakaian:'usage_unit',satuan_stok:'usage_unit',
+  faktor_konversi:'conversion_factor',konversi:'conversion_factor',
+  waste:'waste_rate',allowance:'waste_rate',waste_rate_percent:'waste_rate',
+  nama_material:'name'
+ };
+ return aliases[key]||key;
+}
+function parseLocaleNumber(value){
+ var text=String(value==null?'':value).trim().replace(/rp/ig,'').replace(/\s/g,'').replace(/[^\d,.-]/g,'');
+ if(!text)return NaN;
+ if(text.indexOf(',')>=0&&text.indexOf('.')>=0){
+  if(text.lastIndexOf(',')>text.lastIndexOf('.'))text=text.replace(/\./g,'').replace(',','.');
+  else text=text.replace(/,/g,'');
+ }else if(text.indexOf(',')>=0){
+  var commaParts=text.split(',');
+  if(commaParts.length===2&&commaParts[1].length<=2)text=text.replace(',','.');
+  else text=text.replace(/,/g,'');
+ }else if(text.indexOf('.')>=0){
+  var dotParts=text.split('.');
+  if(dotParts.length>2||dotParts[dotParts.length-1].length===3)text=text.replace(/\./g,'');
+ }
+ return Number(text);
+}
+function normalizePriceDate(value){
+ var text=String(value==null?'':value).trim(),match,year,month,day;
+ if((match=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text))){year=Number(match[1]);month=Number(match[2]);day=Number(match[3]);}
+ else if((match=/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/.exec(text))){day=Number(match[1]);month=Number(match[2]);year=Number(match[3]);}
+ else return '';
+ var date=new Date(Date.UTC(year,month-1,day));
+ if(date.getUTCFullYear()!==year||date.getUTCMonth()!==month-1||date.getUTCDate()!==day)return '';
+ return String(year).padStart(4,'0')+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+}
+function validatePriceImport(csvText,materials){
+ var matrix;
+ try{matrix=parseCsvMatrix(csvText);}catch(error){return{validRows:[],errors:[{row:1,sku:'',reason:String(error&&error.message||error)}],totalRows:0};}
+ if(matrix.length<2)return{validRows:[],errors:[{row:1,sku:'',reason:'CSV belum berisi baris harga supplier.'}],totalRows:0};
+ var indexes=Object.create(null);
+ matrix[0].forEach(function(header,index){var key=canonicalHeader(header);if(key&&!Object.prototype.hasOwnProperty.call(indexes,key))indexes[key]=index;});
+ var required=['sku','purchase_price','supplier_name','price_source','price_date'];
+ var missing=required.filter(function(key){return indexes[key]===undefined;});
+ if(missing.length)return{validRows:[],errors:[{row:1,sku:'',reason:'Kolom wajib belum ada: '+missing.join(', ')}],totalRows:0,missingHeaders:missing};
+ var records=matrix.slice(1).map(function(cells,index){return{cells:cells,rowNumber:index+2};}).filter(function(record){return record.cells.some(function(v){return String(v).trim()!=='';});});
+ var counts=Object.create(null),bySku=Object.create(null);
+ (materials||[]).forEach(function(m){var sku=String(m&&m.sku||'').trim().toUpperCase();if(sku&&m.status!=='template')bySku[sku]=m;});
+ records.forEach(function(record){var sku=String(record.cells[indexes.sku]||'').trim().toUpperCase();if(sku)counts[sku]=(counts[sku]||0)+1;});
+ var validRows=[],errors=[];
+ function cell(record,key){return indexes[key]===undefined?'':String(record.cells[indexes[key]]==null?'':record.cells[indexes[key]]).trim();}
+ function sameNumber(left,right){return Math.abs(left-right)<=Math.max(0.000000001,Math.abs(right)*0.000001);}
+ records.forEach(function(record){
+  var sku=cell(record,'sku').toUpperCase(),material=bySku[sku],reason='',price=parseLocaleNumber(cell(record,'purchase_price'));
+  if(!sku)reason='SKU wajib diisi.';
+  else if(counts[sku]>1)reason='SKU muncul lebih dari satu kali di CSV; seluruh baris duplikat dilewati.';
+  else if(!material)reason='SKU tidak ditemukan atau merupakan kode kelompok/template.';
+  else if(!Number.isFinite(price)||price<=0)reason='Harga beli harus berupa angka lebih besar dari nol.';
+  var supplier=cell(record,'supplier_name'),source=cell(record,'price_source'),priceDate=normalizePriceDate(cell(record,'price_date'));
+  if(!reason&&(!supplier||supplier.length>180))reason='Nama supplier wajib diisi dan maksimal 180 karakter.';
+  if(!reason&&(!source||source.length>240))reason='Sumber harga wajib diisi dan maksimal 240 karakter.';
+  if(!reason&&!priceDate)reason='Tanggal harga tidak valid. Gunakan YYYY-MM-DD atau DD/MM/YYYY.';
+  if(!reason){
+   var purchaseUnit=cell(record,'purchase_unit'),usageUnit=cell(record,'usage_unit'),factorText=cell(record,'conversion_factor'),wasteText=cell(record,'waste_rate');
+   if(purchaseUnit&&purchaseUnit.toLowerCase()!==String(material.purchaseUnit||material.unit||'').trim().toLowerCase())reason='Satuan beli berbeda dari Master Material. Ubah melalui Edit Data, bukan impor harga.';
+   if(!reason&&usageUnit&&usageUnit.toLowerCase()!==String(material.unit||'').trim().toLowerCase())reason='Satuan pakai berbeda dari Master Material. Ubah melalui Edit Data, bukan impor harga.';
+   var factor=Number(material.conversionFactor),waste=Number(material.wasteRate||0);
+   if(!Number.isFinite(factor)||factor<=0)reason='Faktor konversi pada Master Material belum valid.';
+   if(!reason&&factorText){var suppliedFactor=parseLocaleNumber(factorText);if(!Number.isFinite(suppliedFactor)||suppliedFactor<=0||!sameNumber(suppliedFactor,factor))reason='Faktor konversi CSV tidak sama dengan Master Material.';}
+   if(!reason&&wasteText){var suppliedWaste=parseLocaleNumber(wasteText);if(!Number.isFinite(suppliedWaste)||suppliedWaste<0||suppliedWaste>100||!sameNumber(suppliedWaste,waste))reason='Waste rate CSV tidak sama dengan Master Material.';}
+   if(!reason&&material.priceDate){var oldDate=normalizePriceDate(material.priceDate);if(oldDate&&priceDate<oldDate)reason='Tanggal harga lebih lama daripada harga yang sedang tersimpan.';}
+  }
+  if(reason)errors.push({row:record.rowNumber,sku:sku,reason:reason});
+  else validRows.push({row:record.rowNumber,materialId:material.id,sku:sku,purchasePrice:price,supplierName:supplier,priceSource:source,priceDate:priceDate});
+ });
+ return{validRows:validRows,errors:errors,totalRows:records.length};
+}
+function applyPriceImport(materials,importRows,updatedAt){
+ var rows=(materials||[]).map(function(m){return Object.assign({},m);}),stamp=updatedAt||new Date().toISOString();
+ (importRows||[]).forEach(function(entry){
+  var material=rows.find(function(m){return String(m.id)===String(entry.materialId);});
+  if(!material||material.status==='template')throw new Error('MATERIAL_IMPORT_TARGET_INVALID:'+String(entry.sku||''));
+  var factor=Number(material.conversionFactor),waste=Number(material.wasteRate||0),price=Number(entry.purchasePrice);
+  if(!Number.isFinite(factor)||factor<=0||!Number.isFinite(waste)||waste<0||waste>100||!Number.isFinite(price)||price<=0)throw new Error('MATERIAL_IMPORT_VALUES_INVALID:'+String(entry.sku||''));
+  material.purchasePrice=price;
+  material.unitPrice=(price/factor)*(1+waste/100);
+  material.supplierName=String(entry.supplierName||'').trim();
+  material.priceSource=String(entry.priceSource||'').trim();
+  material.priceDate=String(entry.priceDate||'');
+  material.updatedAt=stamp;
+ });
+ return rows;
+}
+function readPriceFile(file){
+ return new Promise(function(resolve,reject){
+  if(file&&typeof file.text==='function'){file.text().then(resolve,reject);return;}
+  var reader=new w.FileReader();reader.onload=function(){resolve(String(reader.result||''));};reader.onerror=function(){reject(new Error('File CSV tidak dapat dibaca.'));};reader.readAsText(file,'UTF-8');
+ });
+}
+function ensurePriceImportModal(){
+ var id='csk-material-price-import';if(el(id))return;
+ var modal=w.document.createElement('div');modal.id=id;modal.className='hidden fixed inset-0 z-[100100] bg-slate-950/70 p-3 flex items-center justify-center';
+ modal.innerHTML='<div class="w-full max-w-4xl max-h-[94vh] overflow-auto rounded-2xl bg-white shadow-2xl"><header class="sticky top-0 z-10 flex items-center justify-between gap-3 rounded-t-2xl bg-slate-950 p-4 text-white"><div><div class="text-sm font-bold">Impor Harga Supplier</div><div class="mt-1 text-[10px] text-slate-300">CSV · cocokkan SKU · pratinjau sebelum disimpan</div></div><button type="button" data-mmp-action="close" class="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold">Tutup</button></header><div class="space-y-4 p-4"><div class="rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-950"><b>Yang diperbarui:</b> harga beli, harga per satuan pakai, supplier, sumber harga, dan tanggal harga. Satuan, konversi, waste, spesifikasi, serta transaksi historis tidak diubah. SKU Draft tetap Draft dan tidak otomatis diaktifkan.</div><div class="flex flex-wrap items-center gap-2"><button type="button" data-mmp-action="template" class="rounded-lg bg-indigo-700 px-3 py-2 text-xs font-bold text-white">Unduh template CSV</button><label class="cursor-pointer rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-800">Pilih file CSV<input id="mm-price-file" type="file" accept=".csv,text/csv" class="hidden"></label><span class="text-[10px] text-slate-500">Kolom wajib: sku, purchase_price, supplier_name, price_source, price_date</span></div><div id="mm-price-import-summary" class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">Belum ada file. Unduh template, isi berdasarkan dokumen supplier, lalu pilih file CSV.</div><div id="mm-price-import-preview" class="space-y-3"></div></div><footer class="sticky bottom-0 flex items-center justify-between gap-3 border-t bg-white p-3"><button type="button" data-mmp-action="cancel" class="rounded-lg border px-4 py-2 text-xs font-bold">Batal</button><button type="button" data-mmp-action="apply" disabled class="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-bold text-white opacity-50">Terapkan harga valid</button></footer></div>';
+ modal.addEventListener('click',function(event){
+  var button=event.target.closest('[data-mmp-action]');if(!button)return;
+  var action=button.dataset.mmpAction;
+  if(action==='close'||action==='cancel'){modal.classList.add('hidden');stagedPriceImport=null;}
+  if(action==='template')downloadPriceTemplate();
+  if(action==='apply')applyPriceImportFromModal();
+ });
+ modal.addEventListener('change',function(event){if(event.target.id==='mm-price-file'&&event.target.files&&event.target.files[0])handlePriceImportFile(event.target.files[0]);});
+ w.document.body.appendChild(modal);
+}
+function openPriceImport(){
+ var b=bridge();if(!b||!b.isOwner())return notify('Impor harga supplier hanya dapat dilakukan oleh Owner.',true);
+ ensurePriceImportModal();stagedPriceImport=null;
+ el('mm-price-file').value='';el('mm-price-import-summary').textContent='Belum ada file. Unduh template, isi berdasarkan dokumen supplier, lalu pilih file CSV.';
+ el('mm-price-import-preview').innerHTML='';var apply=el('csk-material-price-import').querySelector('[data-mmp-action="apply"]');apply.disabled=true;apply.classList.add('opacity-50');
+ el('csk-material-price-import').classList.remove('hidden');
+}
+async function handlePriceImportFile(file){
+ var summary=el('mm-price-import-summary'),preview=el('mm-price-import-preview'),apply=el('csk-material-price-import').querySelector('[data-mmp-action="apply"]');
+ try{
+  summary.textContent='Membaca dan memeriksa '+file.name+'...';preview.innerHTML='';apply.disabled=true;apply.classList.add('opacity-50');
+  var text=await readPriceFile(file);stagedPriceImport=validatePriceImport(text,getRows());
+  renderPriceImportPreview(stagedPriceImport);
+ }catch(error){stagedPriceImport=null;summary.textContent='Gagal membaca CSV: '+String(error&&error.message||error);preview.innerHTML='';}
+}
+function renderPriceImportPreview(result){
+ var summary=el('mm-price-import-summary'),preview=el('mm-price-import-preview'),apply=el('csk-material-price-import').querySelector('[data-mmp-action="apply"]');
+ var valid=result.validRows.length,invalid=result.errors.length;
+ summary.innerHTML='<div class="flex flex-wrap gap-3"><b class="text-emerald-700">Valid: '+valid+'</b><b class="text-rose-700">Dilewati: '+invalid+'</b><span>Total baris: '+result.totalRows+'</span></div><p class="mt-2 text-[10px] text-slate-600">Hanya baris valid yang akan diterapkan. SKU Draft tetap Draft; tidak ada SKU yang diaktifkan otomatis.</p>';
+ var validHtml=result.validRows.slice(0,10).map(function(row){return'<tr class="border-t"><td class="p-2">'+row.row+'</td><td class="p-2 font-semibold">'+esc(row.sku)+'</td><td class="p-2 text-right">'+rupiah(row.purchasePrice)+'</td><td class="p-2">'+esc(row.supplierName)+'</td><td class="p-2">'+esc(row.priceDate)+'</td></tr>';}).join('');
+ var errorHtml=result.errors.slice(0,12).map(function(row){return'<tr class="border-t"><td class="p-2">'+row.row+'</td><td class="p-2 font-semibold">'+esc(row.sku||'-')+'</td><td class="p-2 text-rose-700">'+esc(row.reason)+'</td></tr>';}).join('');
+ preview.innerHTML=(valid?'<div class="overflow-x-auto rounded-xl border"><div class="p-3 text-xs font-bold text-slate-800">Pratinjau baris valid'+(valid>10?' (10 pertama)':'')+'</div><table class="w-full min-w-[560px] text-[11px]"><thead class="bg-slate-50"><tr><th class="p-2 text-left">Baris</th><th class="p-2 text-left">SKU</th><th class="p-2 text-right">Harga beli</th><th class="p-2 text-left">Supplier</th><th class="p-2 text-left">Tanggal</th></tr></thead><tbody>'+validHtml+'</tbody></table></div>':'')+(invalid?'<div class="overflow-x-auto rounded-xl border border-rose-100"><div class="p-3 text-xs font-bold text-rose-800">Baris yang dilewati'+(invalid>12?' (12 pertama)':'')+'</div><table class="w-full min-w-[560px] text-[11px]"><thead class="bg-rose-50"><tr><th class="p-2 text-left">Baris</th><th class="p-2 text-left">SKU</th><th class="p-2 text-left">Alasan</th></tr></thead><tbody>'+errorHtml+'</tbody></table></div>':'');
+ apply.disabled=!valid;apply.classList.toggle('opacity-50',!valid);apply.textContent=valid?'Terapkan '+valid+' harga valid':'Tidak ada harga valid';
+}
+async function applyPriceImportFromModal(){
+ var b=bridge();if(!b||!b.isOwner())return notify('Impor harga supplier hanya dapat dilakukan oleh Owner.',true);
+ if(!stagedPriceImport||!stagedPriceImport.validRows.length)return notify('Tidak ada baris harga valid untuk diterapkan.',true);
+ var valid=stagedPriceImport.validRows.length,invalid=stagedPriceImport.errors.length;
+ if(!w.confirm('Terapkan '+valid+' harga supplier yang valid? '+invalid+' baris tidak valid akan dilewati. SKU Draft tetap Draft dan tidak diaktifkan otomatis.'))return;
+ try{
+  var nextRows=applyPriceImport(getRows(),stagedPriceImport.validRows,new Date().toISOString());
+  await save(nextRows);el('csk-material-price-import').classList.add('hidden');stagedPriceImport=null;render();
+  notify('Impor harga selesai: '+valid+' SKU diperbarui, '+invalid+' baris dilewati. Periksa dokumen sumber sebelum mengaktifkan SKU.');
+ }catch(error){notify('Impor harga gagal disimpan: '+String(error&&error.message||error),true);}
+}
+
 async function importSeed(){
  var b=bridge();if(!b||!b.isOwner())return notify('Impor master material hanya dapat dilakukan oleh Owner.',true);
  try{
@@ -119,16 +318,16 @@ function render(){
  }).sort(function(a,b){return String(a.category).localeCompare(String(b.category))||String(a.sku).localeCompare(String(b.sku));});
  var activeCount=rows.filter(active).length,draftCount=rows.filter(function(x){return x.status==='draft'||(x.status==='active'&&!active(x));}).length,templateCount=rows.filter(function(x){return x.status==='template';}).length,priceMissing=rows.filter(function(x){return x.status==='draft'||(x.status==='active'&&!active(x));}).length;
  var b=bridge(),owner=!!(b&&b.isOwner());
- root.innerHTML='<div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"><div class="bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 text-white p-4 sm:p-5"><div class="flex flex-wrap items-start justify-between gap-3"><div><span class="inline-flex px-2 py-1 rounded-full bg-white/10 text-indigo-100 text-[10px] font-bold uppercase tracking-wide">Master Data CSK</span><h2 class="text-lg font-bold mt-2">Master Bahan Baku CSK</h2><p class="text-xs text-slate-300 mt-1 max-w-2xl">Satu kode untuk satu spesifikasi material. Data draft belum masuk HPP, purchasing, atau stok sebelum harga dan supplier diverifikasi.</p></div><div class="flex flex-wrap gap-2">'+(owner?'<button data-mm-action="import" class="px-3 py-2 rounded-lg bg-amber-400 text-slate-950 text-xs font-bold">Impor 101 SKU CSK</button><button data-mm-action="add" class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-xs font-bold">+ Material baru</button>':'')+'</div></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4"><div class="rounded-xl bg-white/10 p-3"><div class="text-[10px] text-slate-300">Total master</div><b class="text-xl">'+rows.length+'</b></div><div class="rounded-xl bg-white/10 p-3"><div class="text-[10px] text-slate-300">Aktif</div><b class="text-xl text-emerald-300">'+activeCount+'</b></div><div class="rounded-xl bg-white/10 p-3"><div class="text-[10px] text-slate-300">Draft</div><b class="text-xl text-amber-300">'+draftCount+'</b></div><div class="rounded-xl bg-white/10 p-3"><div class="text-[10px] text-slate-300">Perlu dilengkapi</div><b class="text-xl">'+priceMissing+'</b></div></div></div><div class="p-3 sm:p-4 space-y-3"><div class="grid grid-cols-1 sm:grid-cols-3 gap-2"><input id="mm-search" value="'+esc(query)+'" class="w-full border border-slate-200 rounded-lg p-2.5 text-xs" placeholder="Cari kode, nama, ukuran, warna..."><select id="mm-category-filter" class="w-full border border-slate-200 rounded-lg p-2.5 text-xs"><option value="all">Semua kategori</option>'+categories.map(function(x){return'<option value="'+esc(x)+'" '+(category===x?'selected':'')+'>'+esc(x)+'</option>';}).join('')+'</select><select id="mm-status-filter" class="w-full border border-slate-200 rounded-lg p-2.5 text-xs"><option value="all" '+(status==='all'?'selected':'')+'>Semua status</option><option value="active" '+(status==='active'?'selected':'')+'>Aktif</option><option value="draft" '+(status==='draft'?'selected':'')+'>Draft / template</option><option value="inactive" '+(status==='inactive'?'selected':'')+'>Nonaktif</option></select></div><div class="flex items-center justify-between gap-2"><span class="text-[10px] text-slate-500">Menampilkan '+filtered.length+' dari '+rows.length+' material</span><span class="text-[10px] text-slate-400">Harga ditampilkan per satuan beli / satuan pakai</span></div><div class="overflow-x-auto"><table class="w-full min-w-[850px] text-xs"><thead class="bg-slate-50 text-slate-500"><tr><th class="text-left p-3">Kode / Nama material</th><th class="text-left p-3">Kategori</th><th class="text-left p-3">Satuan beli → pakai</th><th class="text-right p-3">Harga beli</th><th class="text-right p-3">Harga pakai</th><th class="text-center p-3">Status</th><th class="text-right p-3">Aksi</th></tr></thead><tbody>'+filtered.map(function(m){var usable=active(m);return'<tr class="border-t border-slate-100 hover:bg-slate-50/70"><td class="p-3"><b class="text-slate-900">'+esc(m.sku)+'</b><div class="text-[11px] text-slate-600 mt-1">'+esc(m.name)+'</div><div class="text-[10px] text-slate-400 mt-1">'+esc(m.spec||'Spesifikasi belum dilengkapi')+'</div></td><td class="p-3"><div>'+esc(m.category)+'</div><div class="text-[10px] text-slate-400">'+esc(m.subcategory||'')+'</div></td><td class="p-3">'+esc(m.purchaseUnit||'-')+' → '+esc(m.unit||'-')+'<div class="text-[10px] text-slate-400">1 '+esc(m.purchaseUnit||'-')+' = '+esc(m.conversionFactor||'-')+' '+esc(m.unit||'-')+'</div></td><td class="p-3 text-right">'+(n(m.purchasePrice)>0?rupiah(m.purchasePrice):'Belum diisi')+'</td><td class="p-3 text-right">'+(n(m.unitPrice)>0?rupiah(m.unitPrice):'Belum diisi')+'</td><td class="p-3 text-center"><span class="inline-flex px-2 py-1 rounded-full text-[10px] font-bold '+statusClass(m)+'">'+statusLabel(m)+'</span></td><td class="p-3 text-right whitespace-nowrap">'+(owner?'<button data-mm-action="edit" data-id="'+esc(m.id)+'" class="px-2.5 py-1.5 rounded-lg border text-[10px] font-bold">Edit</button> '+(m.status==='active'?'<button data-mm-action="toggle" data-id="'+esc(m.id)+'" class="px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-[10px] font-bold">Nonaktifkan</button>':m.status==='template'?'':'<button data-mm-action="toggle" data-id="'+esc(m.id)+'" class="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold">Aktifkan</button>'):'-')+'</td></tr>';}).join('')+'</tbody></table></div><div class="rounded-xl bg-amber-50 border border-amber-100 p-3 text-[10px] text-amber-900"><b>Aturan master:</b> satuan stok mengikuti satuan pemakaian. Pembelian boleh memakai satuan berbeda, lalu dikonversi dengan faktor yang disimpan pada PO. Harga HPP dihitung otomatis: (harga beli ÷ faktor konversi) + waste allowance. Waste juga diperhitungkan pada kebutuhan stok dan reservasi Sales Order. Kode kelompok seperti H-H tidak dapat dipakai untuk transaksi sampai menjadi SKU ukuran yang spesifik.</div></div></div>';
+ root.innerHTML='<div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"><div class="bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 text-white p-4 sm:p-5"><div class="flex flex-wrap items-start justify-between gap-3"><div><span class="inline-flex px-2 py-1 rounded-full bg-white/10 text-indigo-100 text-[10px] font-bold uppercase tracking-wide">Master Data CSK</span><h2 class="text-lg font-bold mt-2">Master Bahan Baku CSK</h2><p class="text-xs text-slate-300 mt-1 max-w-2xl">Satu kode untuk satu spesifikasi material. Data draft belum masuk HPP, purchasing, atau stok sebelum harga dan supplier diverifikasi.</p></div><div class="flex flex-wrap gap-2">'+(owner?'<button data-mm-action="download-price-template" class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-xs font-bold">Unduh Template Harga</button><button data-mm-action="import-prices" class="px-3 py-2 rounded-lg bg-emerald-400 text-slate-950 text-xs font-bold">Impor Harga Supplier</button><button data-mm-action="import" class="px-3 py-2 rounded-lg bg-amber-400 text-slate-950 text-xs font-bold">Impor 101 SKU CSK</button><button data-mm-action="add" class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-xs font-bold">+ Material baru</button>':'')+'</div></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4"><div class="rounded-xl bg-white/10 p-3"><div class="text-[10px] text-slate-300">Total master</div><b class="text-xl">'+rows.length+'</b></div><div class="rounded-xl bg-white/10 p-3"><div class="text-[10px] text-slate-300">Aktif</div><b class="text-xl text-emerald-300">'+activeCount+'</b></div><div class="rounded-xl bg-white/10 p-3"><div class="text-[10px] text-slate-300">Draft</div><b class="text-xl text-amber-300">'+draftCount+'</b></div><div class="rounded-xl bg-white/10 p-3"><div class="text-[10px] text-slate-300">Perlu dilengkapi</div><b class="text-xl">'+priceMissing+'</b></div></div></div><div class="p-3 sm:p-4 space-y-3"><div class="grid grid-cols-1 sm:grid-cols-3 gap-2"><input id="mm-search" value="'+esc(query)+'" class="w-full border border-slate-200 rounded-lg p-2.5 text-xs" placeholder="Cari kode, nama, ukuran, warna..."><select id="mm-category-filter" class="w-full border border-slate-200 rounded-lg p-2.5 text-xs"><option value="all">Semua kategori</option>'+categories.map(function(x){return'<option value="'+esc(x)+'" '+(category===x?'selected':'')+'>'+esc(x)+'</option>';}).join('')+'</select><select id="mm-status-filter" class="w-full border border-slate-200 rounded-lg p-2.5 text-xs"><option value="all" '+(status==='all'?'selected':'')+'>Semua status</option><option value="active" '+(status==='active'?'selected':'')+'>Aktif</option><option value="draft" '+(status==='draft'?'selected':'')+'>Draft / template</option><option value="inactive" '+(status==='inactive'?'selected':'')+'>Nonaktif</option></select></div><div class="flex items-center justify-between gap-2"><span class="text-[10px] text-slate-500">Menampilkan '+filtered.length+' dari '+rows.length+' material</span><span class="text-[10px] text-slate-400">Harga ditampilkan per satuan beli / satuan pakai</span></div><div class="overflow-x-auto"><table class="w-full min-w-[850px] text-xs"><thead class="bg-slate-50 text-slate-500"><tr><th class="text-left p-3">Kode / Nama material</th><th class="text-left p-3">Kategori</th><th class="text-left p-3">Satuan beli → pakai</th><th class="text-right p-3">Harga beli</th><th class="text-right p-3">Harga pakai</th><th class="text-center p-3">Status</th><th class="text-right p-3">Aksi</th></tr></thead><tbody>'+filtered.map(function(m){var usable=active(m);return'<tr class="border-t border-slate-100 hover:bg-slate-50/70"><td class="p-3"><b class="text-slate-900">'+esc(m.sku)+'</b><div class="text-[11px] text-slate-600 mt-1">'+esc(m.name)+'</div><div class="text-[10px] text-slate-400 mt-1">'+esc(m.spec||'Spesifikasi belum dilengkapi')+'</div></td><td class="p-3"><div>'+esc(m.category)+'</div><div class="text-[10px] text-slate-400">'+esc(m.subcategory||'')+'</div></td><td class="p-3">'+esc(m.purchaseUnit||'-')+' → '+esc(m.unit||'-')+'<div class="text-[10px] text-slate-400">1 '+esc(m.purchaseUnit||'-')+' = '+esc(m.conversionFactor||'-')+' '+esc(m.unit||'-')+'</div></td><td class="p-3 text-right">'+(n(m.purchasePrice)>0?rupiah(m.purchasePrice):'Belum diisi')+'</td><td class="p-3 text-right">'+(n(m.unitPrice)>0?rupiah(m.unitPrice):'Belum diisi')+'</td><td class="p-3 text-center"><span class="inline-flex px-2 py-1 rounded-full text-[10px] font-bold '+statusClass(m)+'">'+statusLabel(m)+'</span></td><td class="p-3 text-right whitespace-nowrap">'+(owner?'<button data-mm-action="edit" data-id="'+esc(m.id)+'" class="px-2.5 py-1.5 rounded-lg border text-[10px] font-bold">Edit</button> '+(m.status==='active'?'<button data-mm-action="toggle" data-id="'+esc(m.id)+'" class="px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-[10px] font-bold">Nonaktifkan</button>':m.status==='template'?'':'<button data-mm-action="toggle" data-id="'+esc(m.id)+'" class="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold">Aktifkan</button>'):'-')+'</td></tr>';}).join('')+'</tbody></table></div><div class="rounded-xl bg-amber-50 border border-amber-100 p-3 text-[10px] text-amber-900"><b>Aturan master:</b> satuan stok mengikuti satuan pemakaian. Pembelian boleh memakai satuan berbeda, lalu dikonversi dengan faktor yang disimpan pada PO. Harga HPP dihitung otomatis: (harga beli ÷ faktor konversi) + waste allowance. Waste juga diperhitungkan pada kebutuhan stok dan reservasi Sales Order. Kode kelompok seperti H-H tidak dapat dipakai untuk transaksi sampai menjadi SKU ukuran yang spesifik.</div></div></div>';
  bind(root);
 }
 function bind(root){
  if(bound)return;
- root.addEventListener('click',function(event){var b=event.target.closest('[data-mm-action]');if(!b)return;var a=b.dataset.mmAction;if(a==='import')importSeed();if(a==='add')openEditor('');if(a==='edit')openEditor(b.dataset.id);if(a==='toggle')toggleStatus(b.dataset.id);});
+ root.addEventListener('click',function(event){var b=event.target.closest('[data-mm-action]');if(!b)return;var a=b.dataset.mmAction;if(a==='import')importSeed();if(a==='download-price-template')downloadPriceTemplate();if(a==='import-prices')openPriceImport();if(a==='add')openEditor('');if(a==='edit')openEditor(b.dataset.id);if(a==='toggle')toggleStatus(b.dataset.id);});
  root.addEventListener('input',function(event){if(event.target.id==='mm-search'){query=event.target.value;var p=event.target.selectionStart;render();var node=el('mm-search');node.focus();if(node.setSelectionRange)node.setSelectionRange(p,p);}});
  root.addEventListener('change',function(event){if(event.target.id==='mm-category-filter'){category=event.target.value;render();}if(event.target.id==='mm-status-filter'){status=event.target.value;render();}});
  bound=true;
 }
 function init(){render();}
-w.CSKMaterialMaster={render:init,openEditor:openEditor,toggleStatus:toggleStatus};
+w.CSKMaterialMaster={render:init,openEditor:openEditor,toggleStatus:toggleStatus,testUtils:{parseCsvMatrix:parseCsvMatrix,canonicalHeader:canonicalHeader,parseLocaleNumber:parseLocaleNumber,normalizePriceDate:normalizePriceDate,validatePriceImport:validatePriceImport,applyPriceImport:applyPriceImport,buildPriceTemplateCsv:buildPriceTemplateCsv}};
 })(typeof window!=='undefined'?window:null);
