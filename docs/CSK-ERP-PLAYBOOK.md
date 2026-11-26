@@ -439,4 +439,4 @@ Master Material menyediakan dua tindakan baru: **Unduh Template Harga** dan **Im
 
 Impor hanya memperbarui harga beli terbaru, harga per satuan pakai, supplier, sumber harga, tanggal harga, dan waktu pembaruan. Satuan, faktor konversi, waste, spesifikasi, dan transaksi tidak diubah. Snapshot HPP, quotation, invoice, Sales Order, serta histori transaksi yang sudah tersimpan tidak dihitung ulang. Fitur ini tidak membuat histori harga supplier terpisah; simpan dokumen sumber pembelian sebagai bukti.
 
-Template awal berisi katalog 101 baris Draft/Template. Harga tidak diisi otomatis dan tidak boleh ditebak.
+Template menampilkan SKU non-template dari katalog awal 101 baris; kode kelompok/template dikecualikan. Harga tidak diisi otomatis dan tidak boleh ditebak.
