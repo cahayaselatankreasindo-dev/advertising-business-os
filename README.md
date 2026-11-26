@@ -1,5 +1,7 @@
 # Advertising Business OS — 5 Pilar Terpadu (v2)
 
+> **STATUS 26 NOVEMBER 2026 — INTERNAL DEVELOPMENT / TEST ONLY.** The integrated candidate is based on `feature/csk-inventory-bridge-fix-20261124`. PR #56 adds the validated supplier-price importer for PWA 3.2.32; PR #55 prepares a combined TEST-only package on `feature/csk-release-package-20261126`. Automated regression checks pass, while the refreshed v3.2.32 package, real-device QA, and isolated Apps Script/Google Sheets acceptance remain pending. Do not merge this candidate to `main`, connect it to production data, or modify the public CSK marketing website. Use the [Admin Install & Upgrade Guide](docs/CSK-ADMIN-INSTALL-UPGRADE.md) for the controlled TEST procedure.
+
 Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertising / CSK**
 
 > **Versi 2.0** — Arsitektur 5 Pilar Bisnis Terpadu dengan otomasi antar-tab dan UI berjenjang hak akses.
@@ -271,3 +273,12 @@ Run `auditCSKSchemaReadOnly()` from the Apps Script editor or the **CSK Security
 - GitHub Actions source-checks and tests pass on the internal feature branch.
 
 Next: complete isolated TEST spreadsheet and Apps Script acceptance, real-device browser/PDF QA, and Owner-reviewed schema migration. No live deployment, production migration, or merge to main has been performed.
+
+
+## Admin Install & Upgrade — Internal TEST
+
+- Baca `docs/CSK-ADMIN-INSTALL-UPGRADE.md` sebelum menyiapkan aplikasi atau Apps Script.
+- Paket ZIP dibuat melalui `tools/csk-release-preflight.ps1` dari branch `feature/csk-*` yang bersih. Script menjalankan regression tests, memeriksa kesamaan source Apps Script dan versi PWA, lalu membuat paket TEST dengan checksum.
+- Artifact GitHub Actions bernama `csk-business-os-development-package` juga tersedia setelah workflow **CSK Release Package** lulus.
+- Paket tidak menyertakan `.clasp.json` aktual dan tidak menjalankan deployment, migrasi skema, atau penulisan Google Sheets.
+- Petunjuk GitHub Pages di bagian lama README ini bukan persetujuan untuk menerbitkan kandidat development saat ini.
