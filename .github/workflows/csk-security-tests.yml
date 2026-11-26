@@ -10,6 +10,7 @@ on:
       - feature/hpp-material-conversion-20261120
       - feature/csk-colorful-ui-20261124
       - feature/csk-inventory-bridge-fix-20261124
+      - feature/csk-project-profitability-20261125
       - feature/csk-stock-reservation-core-20261125
       - feature/csk-operational-completion-20261125
       - feature/csk-hpp-quotation-validation-20261125
@@ -64,6 +65,8 @@ jobs:
           node --check finance-integrity.test.cjs
           node --check finance-engine.js
           node --check finance-engine.test.cjs
+          node --check project-profitability-engine.js
+          node --check project-profitability-engine.test.cjs
           node --check crm-upgrade.js
           node --check crm-upgrade.test.cjs
           node --check deal-conversion.test.cjs
@@ -109,7 +112,9 @@ jobs:
       - name: Finance manual-entry and payment-ledger integrity tests
         run: node finance-integrity.test.cjs
       - name: Finance Invoice-payment reconciliation tests
-        run: node finance-engine.test.cjs
+        run: |
+          node finance-engine.test.cjs
+          node project-profitability-engine.test.cjs
       - name: Photo LAB private-access regression tests
         run: node photo-lab.test.cjs
       - name: PWA asset cache integrity tests

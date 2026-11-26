@@ -327,6 +327,7 @@
   <link rel="stylesheet" href="./csk-visual-refresh.css">
   <link rel="stylesheet" href="./csk-ui-components.css">
   <script src="./security/guard.js" defer></script>
+  <script src="./project-profitability-engine.js"></script>
   <script src="./finance-engine.js"></script>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden select-none">
@@ -616,6 +617,36 @@
           </button>
         </div>
         <div id="projects-container" class="space-y-3"></div>
+        <section id="project-profitability-panel" class="pillar-finance bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <div>
+              <span class="inline-flex px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase">Owner · Read only</span>
+              <h2 class="text-lg font-bold text-slate-900 mt-2">Profitabilitas Proyek</h2>
+              <p class="text-xs text-slate-500 mt-1">Ringkasan nilai kontrak, HPP tersimpan, biaya yang sudah tercatat, dan pembayaran terverifikasi.</p>
+            </div>
+            <span id="project-profitability-count" class="text-xs text-slate-500"></span>
+          </div>
+          <div id="project-profitability-kpis" class="grid grid-cols-2 xl:grid-cols-5 gap-3"></div>
+          <div class="overflow-x-auto rounded-xl border border-slate-100">
+            <table class="min-w-[1100px] w-full text-xs">
+              <thead class="bg-slate-50 text-slate-500">
+                <tr>
+                  <th class="text-left p-3 font-semibold">Proyek</th>
+                  <th class="text-right p-3 font-semibold">Nilai kontrak</th>
+                  <th class="text-right p-3 font-semibold">HPP estimasi</th>
+                  <th class="text-right p-3 font-semibold">Biaya tercatat</th>
+                  <th class="text-right p-3 font-semibold">Laba estimasi</th>
+                  <th class="text-right p-3 font-semibold">Margin estimasi</th>
+                  <th class="text-right p-3 font-semibold">Laba biaya tercatat</th>
+                  <th class="text-right p-3 font-semibold">Margin tercatat</th>
+                  <th class="text-right p-3 font-semibold">Kas masuk</th>
+                </tr>
+              </thead>
+              <tbody id="project-profitability-rows" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+          <div id="project-profitability-note" class="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-[11px] leading-relaxed text-amber-900"></div>
+        </section>
       </section>
 
       <!-- SERVICES CATALOG -->
@@ -1736,6 +1767,7 @@
       renderLeads();
       renderClients();
       renderProjects();
+      renderProjectProfitability();
       renderFinance();
       renderMarketing();
       renderMemory();
@@ -2049,6 +2081,79 @@
             (isOwnerSession() ? '<button onclick="deleteProject(\''+id+'\')" aria-label="Hapus proyek" class="min-h-10 px-3 rounded-xl border border-stone-200 text-stone-500 hover:text-red-600 text-xs"><i class="fa fa-trash mr-1"></i>Hapus</button>' : '') +
           '</div></article>';
       }).join('');
+    }
+
+    // ============== PROJECT PROFITABILITY (READ-ONLY) ==============
+    function renderProjectProfitability() {
+      const panel = document.getElementById('project-profitability-panel');
+      if (!panel) return;
+      if (!isOwnerSession()) {
+        panel.style.display = 'none';
+        return;
+      }
+      panel.style.display = '';
+      const engine = window.CSKProjectProfitabilityEngine;
+      const kpis = document.getElementById('project-profitability-kpis');
+      const rows = document.getElementById('project-profitability-rows');
+      const note = document.getElementById('project-profitability-note');
+      const count = document.getElementById('project-profitability-count');
+      if (!engine || typeof engine.calculatePortfolio !== 'function') {
+        if (rows) rows.innerHTML = '<tr><td colspan="9" class="p-4 text-red-700">Mesin profitabilitas belum tersedia. Muat ulang aplikasi.</td></tr>';
+        return;
+      }
+      const report = engine.calculatePortfolio({
+        projects: db.projects || [],
+        salesOrders: db.salesOrders || [],
+        costSheets: db.costSheets || [],
+        projectCosts: db.projectCosts || [],
+        invoices: db.invoices || [],
+        invoicePayments: db.invoicePayments || []
+      });
+      const totals = report.totals;
+      const percent = value => value === null || !Number.isFinite(Number(value)) ? '—' : Number(value).toFixed(1) + '%';
+      const cards = [
+        ['Nilai kontrak / proyek', totals.contractValue, 'fa-file-text-o', 'text-slate-900'],
+        ['HPP estimasi tersimpan', totals.estimatedHpp, 'fa-calculator', 'text-cyan-700'],
+        ['Biaya aktual tercatat', totals.recordedCosts, 'fa-list-alt', 'text-amber-700'],
+        ['Laba estimasi', totals.estimatedProfit, 'fa-line-chart', 'text-emerald-700'],
+        ['Kas masuk terverifikasi', totals.cashReceived, 'fa-money', 'text-emerald-700']
+      ];
+      if (kpis) kpis.innerHTML = cards.map(card =>
+        '<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3 min-w-0">' +
+          '<div class="text-[10px] uppercase font-semibold tracking-wide text-slate-500"><i class="fa ' + card[2] + ' mr-1"></i>' + card[0] + '</div>' +
+          '<div class="mt-2 text-base sm:text-lg font-bold ' + card[3] + ' break-words">' + formatRp(card[1]) + '</div>' +
+        '</div>'
+      ).join('');
+      if (count) count.textContent = report.projects.length + ' proyek · ' + totals.projectsWithHpp + ' memiliki HPP · ' + totals.projectsWithRecordedCosts + ' memiliki biaya tercatat';
+      if (rows) {
+        if (!report.projects.length) {
+          rows.innerHTML = '<tr><td colspan="7" class="p-5 text-center text-slate-500">Belum ada proyek untuk dianalisis.</td></tr>';
+        } else {
+          rows.innerHTML = report.projects.map(row => {
+            const revenueLabel = row.revenueSource === 'project_value' ? 'Nilai proyek (fallback)' :
+              row.revenueSource === 'sales_orders' ? 'Sales Order' : 'Nilai belum tersedia';
+            const warning = row.warnings.length ? '<div class="mt-1 text-[10px] text-amber-700">' + escapeInvoiceHtml(row.warnings.join(' ')) + '</div>' : '';
+            return '<tr class="align-top">' +
+              '<td class="p-3 min-w-[190px]"><div class="font-semibold text-slate-800">' + escapeInvoiceHtml(row.projectName) + '</div>' +
+                '<div class="mt-1 text-[10px] text-slate-500">' + escapeInvoiceHtml(row.client || '-') + ' · ' + escapeInvoiceHtml(row.status || '-') + '</div>' +
+                '<div class="mt-1 text-[10px] text-slate-400">' + revenueLabel + ' · ' + row.recordedCostCount + ' catatan biaya</div>' + warning + '</td>' +
+              '<td class="p-3 text-right font-semibold tabular-nums">' + (row.contractValue ? formatRp(row.contractValue) : '—') + '</td>' +
+              '<td class="p-3 text-right tabular-nums">' + (row.hpp ? formatRp(row.hpp.total) : '—') + '</td>' +
+              '<td class="p-3 text-right tabular-nums">' + (row.recordedCostCount ? formatRp(row.recordedCost) : '—') + '</td>' +
+              '<td class="p-3 text-right tabular-nums ' + (row.estimatedProfit !== null && row.estimatedProfit < 0 ? 'text-red-700' : 'text-emerald-700') + '">' +
+                (row.estimatedProfit === null ? '—' : formatRp(row.estimatedProfit)) + '</td>' +
+              '<td class="p-3 text-right tabular-nums">' + percent(row.estimatedMarginPct) + '</td>' +
+              '<td class="p-3 text-right tabular-nums ' + (row.recordedProfit !== null && row.recordedProfit < 0 ? 'text-red-700' : 'text-amber-700') + '">' +
+                (row.recordedProfit === null ? '—' : formatRp(row.recordedProfit)) + '</td>' +
+              '<td class="p-3 text-right tabular-nums">' + percent(row.recordedMarginPct) + '</td>' +
+              '<td class="p-3 text-right tabular-nums text-emerald-700">' + (row.cashReceived ? formatRp(row.cashReceived) : '—') + '</td>' +
+            '</tr>';
+          }).join('');
+        }
+      }
+      if (note) {
+        note.textContent = 'Cara baca: laba estimasi = nilai kontrak dikurangi HPP tersimpan; margin estimasi = laba estimasi dibagi nilai kontrak. Laba biaya tercatat = nilai kontrak dikurangi catatan pada arsip Project_Costs; margin tercatat = laba biaya tercatat dibagi nilai kontrak. Angka biaya tercatat belum merupakan laba final. Arsip biaya lama bersifat read-only; biaya yang belum dicatat dan nilai material yang belum dinilai dari ledger inventory tidak otomatis masuk perhitungan. Periksa peringatan per proyek sebelum memakai angka ini untuk keputusan bisnis.';
+      }
     }
 
     // ============== SERVICES CATALOG ==============
