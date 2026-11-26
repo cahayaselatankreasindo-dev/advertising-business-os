@@ -96,6 +96,23 @@ const duplicateValidation = priceTools.validatePriceImport(duplicateCsv, importM
 assert.equal(duplicateValidation.validRows.length, 0);
 assert.equal(duplicateValidation.errors.length, 2, 'both duplicate SKU rows are rejected');
 
+const duplicateMasterMaterials = importMaterials.concat([Object.assign({}, importMaterials[0], {id:'m1-duplicate'})]);
+const duplicateMasterCsv = [
+ 'sku,purchase_price,supplier_name,price_source,price_date',
+ 'H-H-2X2-1,100000,Vendor,Invoice,2026-11-26'
+].join('\\n');
+const duplicateMasterValidation = priceTools.validatePriceImport(duplicateMasterCsv, duplicateMasterMaterials);
+assert.equal(duplicateMasterValidation.validRows.length, 0, 'an ambiguous SKU in the current master must not receive a price');
+assert.ok(duplicateMasterValidation.errors[0].reason.includes('lebih dari satu kali pada Master Material'));
+
+const fractionalPriceCsv = [
+ 'sku,purchase_price,supplier_name,price_source,price_date',
+ 'H-H-2X2-1,1000.50,Vendor,Invoice,2026-11-26'
+].join('\\n');
+const fractionalPriceValidation = priceTools.validatePriceImport(fractionalPriceCsv, importMaterials);
+assert.equal(fractionalPriceValidation.validRows.length, 0, 'fractional Rupiah must not be imported');
+assert.ok(fractionalPriceValidation.errors[0].reason.includes('Rupiah bulat'));
+
 const olderCsv = [
  'sku,purchase_price,supplier_name,price_source,price_date',
  'PVC-18,190000,Vendor,Invoice,2026-11-10'
@@ -118,6 +135,16 @@ assert.ok(!templateCsv.includes('H-H;'), 'template family codes are excluded');
 const formulaTemplate = priceTools.buildPriceTemplateCsv([{sku:'SKU-1',name:'=HYPERLINK("x")',status:'draft',purchaseUnit:'pcs',unit:'pcs',conversionFactor:1,wasteRate:0}]);
 assert.ok(formulaTemplate.includes("'=HYPERLINK"), 'CSV template neutralizes formula-like text');
 console.log('CSK supplier price CSV import tests passed.');
+
+const staleApplyRow = Object.assign({}, validation.validRows[1], {priceDate:'2026-11-19'});
+assert.throws(()=>priceTools.applyPriceImport(importMaterials,[staleApplyRow]),/MATERIAL_IMPORT_DATE_OLDER/,'the apply layer independently rejects a stale supplier date');
+const changedFactorRow = Object.assign({}, validation.validRows[0], {conversionFactor:5});
+assert.throws(()=>priceTools.applyPriceImport(importMaterials,[changedFactorRow]),/MATERIAL_IMPORT_CONVERSION_CHANGED/,'the apply layer checks that the conversion factor has not changed since preview');
+const changedWasteRow = Object.assign({}, validation.validRows[0], {wasteRate:6});
+assert.throws(()=>priceTools.applyPriceImport(importMaterials,[changedWasteRow]),/MATERIAL_IMPORT_WASTE_CHANGED/,'the apply layer checks that the waste rate has not changed since preview');
+assert.throws(()=>priceTools.applyPriceImport(importMaterials,[validation.validRows[0],validation.validRows[0]]),/MATERIAL_IMPORT_DUPLICATE_TARGET/,'the apply layer rejects duplicate target records');
+const fractionalApplyRow = Object.assign({}, validation.validRows[0], {purchasePrice:1000.5});
+assert.throws(()=>priceTools.applyPriceImport(importMaterials,[fractionalApplyRow]),/MATERIAL_IMPORT_VALUES_INVALID/,'the apply layer independently rejects fractional Rupiah');
 
 const formulaSupplierCsv = [
  'sku,purchase_price,supplier_name,price_source,price_date',

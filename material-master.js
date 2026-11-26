@@ -178,8 +178,13 @@ function validatePriceImport(csvText,materials){
  var missing=required.filter(function(key){return indexes[key]===undefined;});
  if(missing.length)return{validRows:[],errors:[{row:1,sku:'',reason:'Kolom wajib belum ada: '+missing.join(', ')}],totalRows:0,missingHeaders:missing};
  var records=matrix.slice(1).map(function(cells,index){return{cells:cells,rowNumber:index+2};}).filter(function(record){return record.cells.some(function(v){return String(v).trim()!=='';});});
- var counts=Object.create(null),bySku=Object.create(null);
- (materials||[]).forEach(function(m){var sku=String(m&&m.sku||'').trim().toUpperCase();if(sku&&m.status!=='template')bySku[sku]=m;});
+ var counts=Object.create(null),bySku=Object.create(null),masterCounts=Object.create(null);
+ (materials||[]).forEach(function(m){
+  var sku=String(m&&m.sku||'').trim().toUpperCase();
+  if(!sku)return;
+  masterCounts[sku]=(masterCounts[sku]||0)+1;
+  if(m.status!=='template'&&!Object.prototype.hasOwnProperty.call(bySku,sku))bySku[sku]=m;
+ });
  records.forEach(function(record){var sku=String(record.cells[indexes.sku]||'').trim().toUpperCase();if(sku)counts[sku]=(counts[sku]||0)+1;});
  var validRows=[],errors=[];
  function cell(record,key){return indexes[key]===undefined?'':String(record.cells[indexes[key]]==null?'':record.cells[indexes[key]]).trim();}
@@ -188,8 +193,9 @@ function validatePriceImport(csvText,materials){
   var sku=cell(record,'sku').toUpperCase(),material=bySku[sku],reason='',price=parseLocaleNumber(cell(record,'purchase_price'));
   if(!sku)reason='SKU wajib diisi.';
   else if(counts[sku]>1)reason='SKU muncul lebih dari satu kali di CSV; seluruh baris duplikat dilewati.';
+  else if(masterCounts[sku]>1)reason='SKU muncul lebih dari satu kali pada Master Material; perbaiki data master sebelum impor.';
   else if(!material)reason='SKU tidak ditemukan atau merupakan kode kelompok/template.';
-  else if(!Number.isFinite(price)||price<=0)reason='Harga beli harus berupa angka lebih besar dari nol.';
+  else if(!Number.isSafeInteger(price)||price<=0)reason='Harga beli harus berupa Rupiah bulat positif tanpa pecahan.';
   var supplier=cell(record,'supplier_name'),source=cell(record,'price_source'),priceDate=normalizePriceDate(cell(record,'price_date'));
   if(!reason&&(!supplier||supplier.length>180))reason='Nama supplier wajib diisi dan maksimal 180 karakter.';
   if(!reason&&(!source||source.length>240))reason='Sumber harga wajib diisi dan maksimal 240 karakter.';
@@ -211,14 +217,23 @@ function validatePriceImport(csvText,materials){
  return{validRows:validRows,errors:errors,totalRows:records.length};
 }
 function applyPriceImport(materials,importRows,updatedAt){
- var rows=(materials||[]).map(function(m){return Object.assign({},m);}),stamp=updatedAt||new Date().toISOString();
+ var rows=(materials||[]).map(function(m){return Object.assign({},m);}),stamp=updatedAt||new Date().toISOString(),seenTargets=Object.create(null);
  (importRows||[]).forEach(function(entry){
-  var material=rows.find(function(m){return String(m.id)===String(entry.materialId);});
+  var targetId=String(entry.materialId||'');
+  if(!targetId||seenTargets[targetId])throw new Error('MATERIAL_IMPORT_DUPLICATE_TARGET:'+String(entry.sku||''));
+  seenTargets[targetId]=true;
+  var material=rows.find(function(m){return String(m.id)===targetId;});
   if(!material||material.status==='template'||String(material.sku||'').toUpperCase()!==String(entry.sku||'').toUpperCase())throw new Error('MATERIAL_IMPORT_TARGET_INVALID:'+String(entry.sku||''));
   var factor=Number(material.conversionFactor),waste=Number(material.wasteRate||0),price=Number(entry.purchasePrice);
   var supplier=String(entry.supplierName||'').trim(),source=String(entry.priceSource||'').trim(),priceDate=normalizePriceDate(entry.priceDate);
-  if(!Number.isFinite(factor)||factor<=0||!Number.isFinite(waste)||waste<0||waste>100||!Number.isFinite(price)||price<=0)throw new Error('MATERIAL_IMPORT_VALUES_INVALID:'+String(entry.sku||''));
-  if(!supplier||supplier.length>180||!source||source.length>240||/^[\s]*[=+\-@]/.test(supplier)||/^[\s]*[=+\-@]/.test(source)||!priceDate)throw new Error('MATERIAL_IMPORT_TEXT_INVALID:'+String(entry.sku||''));
+  if(!Number.isFinite(factor)||factor<=0||!Number.isFinite(waste)||waste<0||waste>100||!Number.isSafeInteger(price)||price<=0)throw new Error('MATERIAL_IMPORT_VALUES_INVALID:'+String(entry.sku||''));
+  if(!supplier||supplier.length>180||!source||source.length>240||/^[\\s]*[=+\\-@]/.test(supplier)||/^[\\s]*[=+\\-@]/.test(source)||!priceDate)throw new Error('MATERIAL_IMPORT_TEXT_INVALID:'+String(entry.sku||''));
+  function sameNumber(left,right){return Math.abs(left-right)<=Math.max(0.000000001,Math.abs(right)*0.000001);}
+  if(entry.purchaseUnit!==undefined&&String(entry.purchaseUnit).trim().toLowerCase()!==String(material.purchaseUnit||material.unit||'').trim().toLowerCase())throw new Error('MATERIAL_IMPORT_UNIT_CHANGED:'+String(entry.sku||''));
+  if(entry.usageUnit!==undefined&&String(entry.usageUnit).trim().toLowerCase()!==String(material.unit||'').trim().toLowerCase())throw new Error('MATERIAL_IMPORT_UNIT_CHANGED:'+String(entry.sku||''));
+  if(entry.conversionFactor!==undefined&&(!Number.isFinite(Number(entry.conversionFactor))||!sameNumber(Number(entry.conversionFactor),factor)))throw new Error('MATERIAL_IMPORT_CONVERSION_CHANGED:'+String(entry.sku||''));
+  if(entry.wasteRate!==undefined&&(!Number.isFinite(Number(entry.wasteRate))||!sameNumber(Number(entry.wasteRate),waste)))throw new Error('MATERIAL_IMPORT_WASTE_CHANGED:'+String(entry.sku||''));
+  if(material.priceDate){var oldDate=normalizePriceDate(material.priceDate);if(oldDate&&priceDate<oldDate)throw new Error('MATERIAL_IMPORT_DATE_OLDER:'+String(entry.sku||''));}
   material.purchasePrice=price;
   material.unitPrice=(price/factor)*(1+waste/100);
   material.supplierName=supplier;
@@ -268,9 +283,12 @@ function renderPriceImportPreview(result){
  var summary=el('mm-price-import-summary'),preview=el('mm-price-import-preview'),apply=el('csk-material-price-import').querySelector('[data-mmp-action="apply"]');
  var valid=result.validRows.length,invalid=result.errors.length;
  summary.innerHTML='<div class="flex flex-wrap gap-3"><b class="text-emerald-700">Valid: '+valid+'</b><b class="text-rose-700">Dilewati: '+invalid+'</b><span>Total baris: '+result.totalRows+'</span></div><p class="mt-2 text-[10px] text-slate-600">Hanya baris valid yang akan diterapkan. SKU Draft tetap Draft; tidak ada SKU yang diaktifkan otomatis.</p>';
- var validHtml=result.validRows.slice(0,10).map(function(row){return'<tr class="border-t"><td class="p-2">'+row.row+'</td><td class="p-2 font-semibold">'+esc(row.sku)+'</td><td class="p-2 text-right">'+rupiah(row.purchasePrice)+'</td><td class="p-2">'+esc(row.supplierName)+'</td><td class="p-2">'+esc(row.priceDate)+'</td></tr>';}).join('');
+ var validHtml=result.validRows.slice(0,10).map(function(row){
+  var usagePrice=(Number(row.purchasePrice)/Number(row.conversionFactor))*(1+Number(row.wasteRate||0)/100);
+  return'<tr class="border-t"><td class="p-2">'+row.row+'</td><td class="p-2 font-semibold">'+esc(row.sku)+'</td><td class="p-2 text-right">'+rupiah(row.purchasePrice)+'</td><td class="p-2 text-right">'+rupiah(usagePrice)+' / '+esc(row.usageUnit)+'</td><td class="p-2">'+esc(row.supplierName)+'</td><td class="p-2">'+esc(row.priceDate)+'</td></tr>';
+ }).join('');
  var errorHtml=result.errors.slice(0,12).map(function(row){return'<tr class="border-t"><td class="p-2">'+row.row+'</td><td class="p-2 font-semibold">'+esc(row.sku||'-')+'</td><td class="p-2 text-rose-700">'+esc(row.reason)+'</td></tr>';}).join('');
- preview.innerHTML=(valid?'<div class="overflow-x-auto rounded-xl border"><div class="p-3 text-xs font-bold text-slate-800">Pratinjau baris valid'+(valid>10?' (10 pertama)':'')+'</div><table class="w-full min-w-[560px] text-[11px]"><thead class="bg-slate-50"><tr><th class="p-2 text-left">Baris</th><th class="p-2 text-left">SKU</th><th class="p-2 text-right">Harga beli</th><th class="p-2 text-left">Supplier</th><th class="p-2 text-left">Tanggal</th></tr></thead><tbody>'+validHtml+'</tbody></table></div>':'')+(invalid?'<div class="overflow-x-auto rounded-xl border border-rose-100"><div class="p-3 text-xs font-bold text-rose-800">Baris yang dilewati'+(invalid>12?' (12 pertama)':'')+'</div><table class="w-full min-w-[560px] text-[11px]"><thead class="bg-rose-50"><tr><th class="p-2 text-left">Baris</th><th class="p-2 text-left">SKU</th><th class="p-2 text-left">Alasan</th></tr></thead><tbody>'+errorHtml+'</tbody></table></div>':'');
+ preview.innerHTML=(valid?'<div class="overflow-x-auto rounded-xl border"><div class="p-3 text-xs font-bold text-slate-800">Pratinjau baris valid'+(valid>10?' (10 pertama)':'')+'</div><table class="w-full min-w-[560px] text-[11px]"><thead class="bg-slate-50"><tr><th class="p-2 text-left">Baris</th><th class="p-2 text-left">SKU</th><th class="p-2 text-right">Harga beli</th><th class="p-2 text-right">Harga pakai</th><th class="p-2 text-left">Supplier</th><th class="p-2 text-left">Tanggal</th></tr></thead><tbody>'+validHtml+'</tbody></table></div>':'')+(invalid?'<div class="overflow-x-auto rounded-xl border border-rose-100"><div class="p-3 text-xs font-bold text-rose-800">Baris yang dilewati'+(invalid>12?' (12 pertama)':'')+'</div><table class="w-full min-w-[560px] text-[11px]"><thead class="bg-rose-50"><tr><th class="p-2 text-left">Baris</th><th class="p-2 text-left">SKU</th><th class="p-2 text-left">Alasan</th></tr></thead><tbody>'+errorHtml+'</tbody></table></div>':'');
  apply.disabled=!valid;apply.classList.toggle('opacity-50',!valid);apply.textContent=valid?'Terapkan '+valid+' harga valid':'Tidak ada harga valid';
 }
 async function applyPriceImportFromModal(){
