@@ -281,4 +281,5 @@ Next: complete isolated TEST spreadsheet and Apps Script acceptance, real-device
 - Paket ZIP dibuat melalui `tools/csk-release-preflight.ps1` dari branch `feature/csk-*` yang bersih. Script menjalankan regression tests, memeriksa kesamaan source Apps Script dan versi PWA, lalu membuat paket TEST dengan checksum.
 - Artifact GitHub Actions bernama `csk-business-os-development-package` juga tersedia setelah workflow **CSK Release Package** lulus.
 - Paket tidak menyertakan `.clasp.json` aktual dan tidak menjalankan deployment, migrasi skema, atau penulisan Google Sheets.
+- Paket kandidat saat ini menggunakan PWA 3.2.32 dan mencakup impor harga supplier yang tervalidasi; gunakan hanya pada lingkungan TEST.
 - Petunjuk GitHub Pages di bagian lama README ini bukan persetujuan untuk menerbitkan kandidat development saat ini.
