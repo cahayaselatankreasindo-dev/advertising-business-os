@@ -42,3 +42,79 @@ assert.ok(seed.items.find(x=>x.sku==='BR'));
 const family=seed.items.find(x=>x.sku==='H-H');
 assert.equal(family.status,'template','generic Hollow hitam is a family code, not a purchasable stock item');
 console.log('CSK raw material master seed tests passed.');
+
+
+// Supplier price CSV import: strict SKU matching, locale parsing, preview validation, and no auto-activation.
+global.window = {};
+require('./material-master.js');
+const priceTools = global.window.CSKMaterialMaster.testUtils;
+assert.ok(priceTools, 'material price import helpers are exposed for regression tests');
+assert.equal(priceTools.parseLocaleNumber('Rp 1.200.000'), 1200000);
+assert.equal(priceTools.parseLocaleNumber('1.200,50'), 1200.5);
+assert.equal(priceTools.normalizePriceDate('26/11/2026'), '2026-11-26');
+assert.equal(priceTools.normalizePriceDate('2026-02-30'), '');
+
+const importMaterials = [
+ {id:'m1',sku:'H-H-2X2-1',name:'Hollow 2x2',status:'draft',purchaseUnit:'batang',unit:'m',conversionFactor:6,wasteRate:5,purchasePrice:0,unitPrice:0,priceDate:''},
+ {id:'m2',sku:'PVC-18',name:'PVC sheet 18',status:'active',purchaseUnit:'roll',unit:'m2',conversionFactor:50,wasteRate:0,purchasePrice:200000,unitPrice:4000,supplierName:'Supplier Lama',priceSource:'Invoice lama',priceDate:'2026-11-20'},
+ {id:'m3',sku:'H-H',name:'Hollow family',status:'template',purchaseUnit:'batang',unit:'m',conversionFactor:6,wasteRate:0,purchasePrice:0,unitPrice:0},
+ {id:'m4',sku:'A-B3',name:'Akrilik 3 mm',status:'draft',purchaseUnit:'lembar',unit:'lembar',conversionFactor:1,wasteRate:0,purchasePrice:0,unitPrice:0}
+];
+const supplierCsv = [
+ 'sku;purchase_price;supplier_name;price_source;price_date;purchase_unit;usage_unit;conversion_factor;waste_rate',
+ 'H-H-2X2-1;1.200.000;Supplier A;"Quotation, 25 Nov";26/11/2026;batang;m;6;5',
+ 'PVC-18;250.000;Supplier B;Invoice 26 Nov;2026-11-26;roll;m2;50;0',
+ 'UNKNOWN-1;100.000;Supplier X;Price list;2026-11-26;pcs;pcs;1;0',
+ 'H-H;100.000;Supplier X;Price list;2026-11-26;batang;m;6;0',
+ 'A-B3;0;Supplier C;Price list;2026-11-26;lembar;lembar;1;0'
+].join('\r\n');
+const parsedImport = priceTools.parseCsvMatrix(supplierCsv);
+assert.equal(parsedImport[1][3], 'Quotation, 25 Nov', 'quoted delimiters remain inside one CSV field');
+const validation = priceTools.validatePriceImport(supplierCsv, importMaterials);
+assert.equal(validation.totalRows, 5);
+assert.equal(validation.validRows.length, 2, 'only known, unique, complete, priced SKU rows pass');
+assert.equal(validation.errors.length, 3, 'unknown SKU, template SKU, and zero price are rejected');
+assert.equal(validation.validRows[0].purchasePrice, 1200000);
+assert.equal(validation.validRows[0].priceDate, '2026-11-26');
+assert.ok(validation.errors.some(x=>x.reason.includes('tidak ditemukan')));
+assert.ok(validation.errors.some(x=>x.reason.includes('template')));
+
+const applied = priceTools.applyPriceImport(importMaterials, validation.validRows, '2026-11-26T12:00:00.000Z');
+assert.equal(applied[0].purchasePrice, 1200000);
+assert.equal(applied[0].unitPrice, 210000, 'usage price includes the existing conversion factor and waste allowance');
+assert.equal(applied[0].status, 'draft', 'price import never activates a Draft SKU');
+assert.equal(applied[1].unitPrice, 5000);
+assert.equal(applied[1].status, 'active', 'an already active SKU remains active');
+assert.equal(importMaterials[0].purchasePrice, 0, 'the source material array is not mutated');
+
+const duplicateCsv = [
+ 'sku,purchase_price,supplier_name,price_source,price_date',
+ 'H-H-2X2-1,100000,Vendor,Invoice,2026-11-26',
+ 'H-H-2X2-1,110000,Vendor,Invoice,2026-11-26'
+].join('\n');
+const duplicateValidation = priceTools.validatePriceImport(duplicateCsv, importMaterials);
+assert.equal(duplicateValidation.validRows.length, 0);
+assert.equal(duplicateValidation.errors.length, 2, 'both duplicate SKU rows are rejected');
+
+const olderCsv = [
+ 'sku,purchase_price,supplier_name,price_source,price_date',
+ 'PVC-18,190000,Vendor,Invoice,2026-11-10'
+].join('\n');
+assert.ok(priceTools.validatePriceImport(olderCsv, importMaterials).errors[0].reason.includes('lebih lama'));
+
+const unitMismatchCsv = [
+ 'sku,purchase_price,supplier_name,price_source,price_date,purchase_unit',
+ 'PVC-18,250000,Vendor,Invoice,2026-11-26,box'
+].join('\n');
+assert.ok(priceTools.validatePriceImport(unitMismatchCsv, importMaterials).errors[0].reason.includes('Satuan beli berbeda'));
+
+const missingHeaderCsv = 'sku,purchase_price\nH-H-2X2-1,100000';
+assert.ok(priceTools.validatePriceImport(missingHeaderCsv, importMaterials).errors[0].reason.includes('Kolom wajib'));
+
+const templateCsv = priceTools.buildPriceTemplateCsv(importMaterials);
+assert.ok(templateCsv.charCodeAt(0)===0xFEFF, 'template includes UTF-8 BOM for spreadsheet compatibility');
+assert.ok(templateCsv.includes('H-H-2X2-1'));
+assert.ok(!templateCsv.includes('H-H;'), 'template family codes are excluded');
+const formulaTemplate = priceTools.buildPriceTemplateCsv([{sku:'SKU-1',name:'=HYPERLINK("x")',status:'draft',purchaseUnit:'pcs',unit:'pcs',conversionFactor:1,wasteRate:0}]);
+assert.ok(formulaTemplate.includes("'=HYPERLINK"), 'CSV template neutralizes formula-like text');
+console.log('CSK supplier price CSV import tests passed.');
