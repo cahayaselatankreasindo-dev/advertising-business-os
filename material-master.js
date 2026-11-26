@@ -193,6 +193,7 @@ function validatePriceImport(csvText,materials){
   var supplier=cell(record,'supplier_name'),source=cell(record,'price_source'),priceDate=normalizePriceDate(cell(record,'price_date'));
   if(!reason&&(!supplier||supplier.length>180))reason='Nama supplier wajib diisi dan maksimal 180 karakter.';
   if(!reason&&(!source||source.length>240))reason='Sumber harga wajib diisi dan maksimal 240 karakter.';
+  if(!reason&&(/^\s*[=+\-@]/.test(supplier)||/^\s*[=+\-@]/.test(source)))reason='Nama supplier dan sumber harga tidak boleh diawali karakter formula spreadsheet.';
   if(!reason&&!priceDate)reason='Tanggal harga tidak valid. Gunakan YYYY-MM-DD atau DD/MM/YYYY.';
   if(!reason){
    var purchaseUnit=cell(record,'purchase_unit'),usageUnit=cell(record,'usage_unit'),factorText=cell(record,'conversion_factor'),wasteText=cell(record,'waste_rate');
