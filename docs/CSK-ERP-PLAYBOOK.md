@@ -1,4 +1,6 @@
 # CSK ERP Playbook
+
+**Status diperbarui: 26 November 2026.** Bagian 15–18 di bawah merupakan checkpoint historis; status integrasi terbaru dan gerbang rilis ada pada bagian 19–20.
 ## Standar Arsitektur, Analisis Bisnis, dan Pengembangan CSK Business OS
 
 Dokumen ini menjadi pedoman kerja khusus untuk pengembangan Cahaya Selatan Kreasindo (CSK) Business OS. Pedoman ini menggabungkan disiplin ERP architecture, business analysis, manufacturing costing, inventory/procurement, sales operations, document automation, UI/UX, dan software quality assurance.
@@ -425,3 +427,43 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - No reservation ledger, automatic issue, pick list, or purchase-unit conversion at goods receiving is enabled yet.
 - GitHub Actions source-checks and test jobs pass. No main-branch merge, Apps Script production deployment, live Google Sheets migration, or public website deployment has occurred.
 - Next: implement server-enforced reservation at production release, including partial issue/return and reservation release, then material pick lists and purchase-unit receiving conversion.
+
+
+## 19. Status integrasi terkini — 26 November 2026
+
+- Branch integrasi development aktif: `feature/csk-inventory-bridge-fix-20261124`. Branch ini tetap terpisah dari `main` dan website publik.
+- PR #37 mengunci migrasi skema eksplisit: sinkronisasi normal tidak membuat tab atau kolom; `setupSheet()` adalah jalur migrasi yang disengaja.
+- PR #38 menambahkan audit skema read-only. Audit melaporkan keberadaan tab, jumlah baris, serta header tanpa membaca nilai bisnis atau mengubah spreadsheet.
+- PR #39 dan #40 memperkuat preflight dependency CRM, Finance, dan Invoice sebelum penulisan.
+- PR #44 menambahkan simulasi regresi lintas modul dari Quotation/HPP sampai Sales Order, DP, reservasi, issue/return, PO receipt, delivery, dan settlement.
+- PR #45–#51 memperkuat validasi satuan, HPP, rollback cloud-save, finance ledger, serta rekonsiliasi Invoice Payments.
+- PR #54 menambahkan panel profitabilitas Owner-only. Recorded-cost profit harus dibaca sebagai indikator, bukan biaya material aktual yang sudah tervaluasi.
+- PR #54 lulus CSK Security Tests dan CSK business source regression checks. Lulus CI tidak menggantikan browser QA dan acceptance pada spreadsheet TEST.
+- Source `google_apps_script.js` dan `apps-script/Code.gs` tetap identik.
+
+## 20. Admin install/upgrade dan batas rilis — 26 November 2026
+
+- Panduan operasional lengkap berada di `docs/CSK-ADMIN-INSTALL-UPGRADE.md`.
+- Script `tools/csk-release-preflight.ps1` menjalankan syntax check dan regression test, memverifikasi versi PWA serta source Apps Script, lalu membuat paket ZIP dengan checksum.
+- Paket tidak menyertakan `.clasp.json` aktual, backup, test files, atau kredensial. Konfigurasi Apps Script TEST disediakan sebagai contoh yang harus diisi dengan Script ID TEST.
+- Workflow **CSK Release Package** lulus di Windows pada PR #55 dan mengunggah artifact TEST-only berisi 44 file. Seluruh 43 checksum SHA-256 pada manifest telah diverifikasi. Workflow tidak menjalankan deployment, migrasi, atau penulisan Google Sheets.
+- Katalog saat ini memiliki 53 keluarga material dan 41 keluarga produk/jasa. Sebanyak 101 baris Master Material awal masih Draft/Template dengan harga nol; data supplier dan harga harus diverifikasi dari dokumen pembelian CSK.
+- PDF iPhone/iPad dibuka sebagai pratinjau dan perlu tindakan Bagikan → Simpan ke File. PDF desktop/Android menggunakan unduhan browser. Library jsPDF dimuat dari CDN, sehingga koneksi internet diperlukan bila belum tersedia.
+- Penerimaan produksi tetap ditahan sampai regression final, QA desktop/iPhone/Android, Apps Script TEST, audit skema, dan uji transaksi end-to-end disetujui Owner.
+- Tidak ada deployment Apps Script produksi, perubahan Google Sheets produksi, merge ke `main`, atau perubahan website publik.
+
+## Impor massal harga supplier — Owner
+
+Master Material menyediakan dua tindakan baru: **Unduh Template Harga** dan **Impor Harga Supplier**.
+
+1. Unduh template CSV dari halaman Master Bahan Baku CSK. Template memuat SKU, nama, satuan beli/pakai, faktor konversi, dan waste rate yang sudah tercatat.
+2. Isi kolom purchase_price, supplier_name, price_source, dan price_date berdasarkan quotation, invoice pembelian, atau price list supplier yang benar-benar diterima.
+3. Pilih CSV dan periksa pratinjau. Sistem mencocokkan SKU tanpa membuat SKU baru; baris duplikat, SKU tidak dikenal/template, harga nol/negatif, tanggal tidak valid atau lebih lama, dan satuan/konversi/waste yang berbeda akan ditolak.
+4. Terapkan hanya baris valid. Baris tidak valid dilewati dan alasannya ditampilkan.
+5. SKU Draft tetap Draft setelah impor. Owner tetap harus memeriksa dokumen sumber dan mengaktifkan SKU secara terpisah.
+
+Impor hanya memperbarui harga beli terbaru, harga per satuan pakai, supplier, sumber harga, tanggal harga, dan waktu pembaruan. Satuan, faktor konversi, waste, spesifikasi, dan transaksi tidak diubah. Snapshot HPP, quotation, invoice, Sales Order, serta histori transaksi yang sudah tersimpan tidak dihitung ulang. Fitur ini tidak membuat histori harga supplier terpisah; simpan dokumen sumber pembelian sebagai bukti.
+
+Template menampilkan SKU non-template dari katalog awal 101 baris; kode kelompok/template dikecualikan. Harga tidak diisi otomatis dan tidak boleh ditebak.
+
+- PWA cache and web manifest are aligned at version 3.2.32 for the updated Master Material importer; verify the service-worker refresh on installed clients during device QA.
