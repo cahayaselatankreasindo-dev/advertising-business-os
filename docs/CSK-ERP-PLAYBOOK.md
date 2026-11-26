@@ -446,7 +446,7 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - Panduan operasional lengkap berada di `docs/CSK-ADMIN-INSTALL-UPGRADE.md`.
 - Script `tools/csk-release-preflight.ps1` menjalankan syntax check dan regression test, memverifikasi versi PWA serta source Apps Script, lalu membuat paket ZIP dengan checksum.
 - Paket tidak menyertakan `.clasp.json` aktual, backup, test files, atau kredensial. Konfigurasi Apps Script TEST disediakan sebagai contoh yang harus diisi dengan Script ID TEST.
-- Workflow **CSK Release Package** dijalankan di Windows dan mengunggah artifact TEST-only. Workflow tidak menjalankan deployment, migrasi, atau penulisan Google Sheets.
+- Workflow **CSK Release Package** lulus di Windows pada PR #55 dan mengunggah artifact TEST-only berisi 44 file. Seluruh 43 checksum SHA-256 pada manifest telah diverifikasi. Workflow tidak menjalankan deployment, migrasi, atau penulisan Google Sheets.
 - Katalog saat ini memiliki 53 keluarga material dan 41 keluarga produk/jasa. Sebanyak 101 baris Master Material awal masih Draft/Template dengan harga nol; data supplier dan harga harus diverifikasi dari dokumen pembelian CSK.
 - PDF iPhone/iPad dibuka sebagai pratinjau dan perlu tindakan Bagikan → Simpan ke File. PDF desktop/Android menggunakan unduhan browser. Library jsPDF dimuat dari CDN, sehingga koneksi internet diperlukan bila belum tersedia.
 - Penerimaan produksi tetap ditahan sampai regression final, QA desktop/iPhone/Android, Apps Script TEST, audit skema, dan uji transaksi end-to-end disetujui Owner.
