@@ -1,6 +1,6 @@
 # Advertising Business OS — 5 Pilar Terpadu (v2)
 
-> **STATUS 26 NOVEMBER 2026 — INTERNAL DEVELOPMENT / TEST ONLY.** The integrated candidate is maintained on `feature/csk-inventory-bridge-fix-20261124`. Automated regression checks have passed on the latest integration PR, but real-device QA and isolated Apps Script/Google Sheets acceptance are still pending. Do not merge this candidate to `main`, connect it to production data, or modify the public CSK marketing website. Use the [Admin Install & Upgrade Guide](docs/CSK-ADMIN-INSTALL-UPGRADE.md) for the controlled TEST procedure.
+> **STATUS 26 NOVEMBER 2026 — INTERNAL DEVELOPMENT / TEST ONLY.** The integrated candidate is maintained on `feature/csk-inventory-bridge-fix-20261124`. Automated regression checks and the Windows TEST-package workflow have passed, and the ZIP artifact has been inspected. Real-device QA and isolated Apps Script/Google Sheets acceptance are still pending. Do not merge this candidate to `main`, connect it to production data, or modify the public CSK marketing website. Use the [Admin Install & Upgrade Guide](docs/CSK-ADMIN-INSTALL-UPGRADE.md) for the controlled TEST procedure.
 
 Operating System Manajemen Bisnis & Pencatatan Terpadu — **The Scales Advertising / CSK**
 
