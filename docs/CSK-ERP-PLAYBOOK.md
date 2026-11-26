@@ -425,3 +425,18 @@ Dokumen ini adalah pedoman hidup proyek dan harus diperbarui ketika keputusan ar
 - No reservation ledger, automatic issue, pick list, or purchase-unit conversion at goods receiving is enabled yet.
 - GitHub Actions source-checks and test jobs pass. No main-branch merge, Apps Script production deployment, live Google Sheets migration, or public website deployment has occurred.
 - Next: implement server-enforced reservation at production release, including partial issue/return and reservation release, then material pick lists and purchase-unit receiving conversion.
+
+
+## Impor massal harga supplier — Owner
+
+Master Material menyediakan dua tindakan baru: **Unduh Template Harga** dan **Impor Harga Supplier**.
+
+1. Unduh template CSV dari halaman Master Bahan Baku CSK. Template memuat SKU, nama, satuan beli/pakai, faktor konversi, dan waste rate yang sudah tercatat.
+2. Isi kolom purchase_price, supplier_name, price_source, dan price_date berdasarkan quotation, invoice pembelian, atau price list supplier yang benar-benar diterima.
+3. Pilih CSV dan periksa pratinjau. Sistem mencocokkan SKU tanpa membuat SKU baru; baris duplikat, SKU tidak dikenal/template, harga nol/negatif, tanggal tidak valid atau lebih lama, dan satuan/konversi/waste yang berbeda akan ditolak.
+4. Terapkan hanya baris valid. Baris tidak valid dilewati dan alasannya ditampilkan.
+5. SKU Draft tetap Draft setelah impor. Owner tetap harus memeriksa dokumen sumber dan mengaktifkan SKU secara terpisah.
+
+Impor hanya memperbarui harga beli terbaru, harga per satuan pakai, supplier, sumber harga, tanggal harga, dan waktu pembaruan. Satuan, faktor konversi, waste, spesifikasi, dan transaksi tidak diubah. Snapshot HPP, quotation, invoice, Sales Order, serta histori transaksi yang sudah tersimpan tidak dihitung ulang. Fitur ini tidak membuat histori harga supplier terpisah; simpan dokumen sumber pembelian sebagai bukti.
+
+Template awal berisi katalog 101 baris Draft/Template. Harga tidak diisi otomatis dan tidak boleh ditebak.
