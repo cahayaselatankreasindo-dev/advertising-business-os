@@ -438,7 +438,7 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 
 ## 33. Bulk supplier price import — 26 November 2026
 
-- Added Owner-only CSV template export and supplier-price import to Master Material.
+- Added Owner-only CSV template export and supplier-price import to Master Material. Template exports purchasable SKU rows only and excludes generic family/template codes.
 - Import uses exact existing SKU matches, validates supplier/source/date and locale-formatted Rupiah, rejects duplicate/unknown/template SKUs, stale price dates, and unit/conversion/waste mismatches.
 - Valid rows update only the latest master purchase price and derived usage-unit price. Draft SKUs remain Draft; no material is auto-activated.
 - Existing HPP, quotation, invoice, Sales Order snapshots, and inventory/payment ledgers are not rewritten. No Sheets schema migration or new tab is introduced.
