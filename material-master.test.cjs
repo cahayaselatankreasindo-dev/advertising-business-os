@@ -79,7 +79,7 @@ const supplierCsv = [
 ].join('\r\n');
 const parsedImport = priceTools.parseCsvMatrix(supplierCsv);
 assert.equal(parsedImport[1][3], verifiedQuotationRef, 'verified evidence reference is retained as one CSV field');
-assert.equal(priceTools.parseCsvMatrix('sku,price_source\\nSKU-1,"Quotation, 25 Nov"')[1][1],'Quotation, 25 Nov','quoted delimiters remain inside one CSV field');
+assert.equal(priceTools.parseCsvMatrix('sku,price_source\nSKU-1,"Quotation, 25 Nov"')[1][1],'Quotation, 25 Nov','quoted delimiters remain inside one CSV field');
 const validation = priceTools.validatePriceImport(supplierCsv, importMaterials);
 assert.equal(validation.totalRows, 5);
 assert.equal(validation.validRows.length, 2, 'only known, unique, complete, priced SKU rows pass');
