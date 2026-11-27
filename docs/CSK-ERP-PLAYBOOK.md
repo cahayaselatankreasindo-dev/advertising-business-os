@@ -442,3 +442,12 @@ Impor hanya memperbarui harga beli terbaru, harga per satuan pakai, supplier, su
 Template menampilkan SKU non-template dari katalog awal 101 baris; kode kelompok/template dikecualikan. Harga tidak diisi otomatis dan tidak boleh ditebak.
 
 - PWA cache and web manifest are aligned at version 3.2.32 for the updated Master Material importer; verify the service-worker refresh on installed clients during device QA.
+
+
+## Audit bukti harga supplier — PR #56 hardening
+
+Sebelum impor, gunakan `docs/CSK-SUPPLIER-PRICE-EVIDENCE-REGISTER.csv` dan prosedur pada `docs/CSK-SUPPLIER-PRICE-EVIDENCE-AUDIT.md`. Register awal memuat 100 SKU non-template dari katalog 101 baris; kode kelompok/template dikecualikan. Seluruh kolom harga dan supplier dibiarkan kosong dengan status `PENDING_EVIDENCE` sampai dokumen supplier aktual diterima dan diperiksa.
+
+Importer kini mewajibkan seluruh sembilan kolom: `sku`, `purchase_price`, `supplier_name`, `price_source`, `price_date`, `purchase_unit`, `usage_unit`, `conversion_factor`, dan `waste_rate`. Sumber harga harus berbentuk `VERIFIED|JENIS_DOKUMEN|NOMOR_DOKUMEN|URL_ATAU_PATH_FILE|PEMERIKSA|YYYY-MM-DD`; format ini mencatat rujukan dan pemeriksa, tetapi tidak menggantikan pemeriksaan manual atas file sumber.
+
+Penyimpanan form tidak mengaktifkan SKU baru, Draft, atau Nonaktif. Draft hanya dapat diaktifkan melalui tindakan Owner terpisah setelah seluruh nilai master valid dan sumber harga memiliki referensi VERIFIED. Tidak ada kolom/tab Google Sheets baru atau migrasi Apps Script pada hardening ini. Jangan menyimpan dokumen supplier atau harga aktual di repository; simpan pada folder privat yang aksesnya dibatasi.
