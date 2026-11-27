@@ -53,6 +53,15 @@ assert.equal(priceTools.parseLocaleNumber('Rp 1.200.000'), 1200000);
 assert.equal(priceTools.parseLocaleNumber('1.200,50'), 1200.5);
 assert.equal(priceTools.normalizePriceDate('26/11/2026'), '2026-11-26');
 assert.equal(priceTools.normalizePriceDate('2026-02-30'), '');
+const verifiedQuotationRef='VERIFIED|QUOTATION|QT-2026-001|https://drive.google.com/file/d/quote001/view|owner|2026-11-28';
+const verifiedInvoiceRef='VERIFIED|INVOICE|INV-2026-002|https://drive.google.com/file/d/invoice002/view|owner|2026-11-28';
+assert.equal(priceTools.parsePriceEvidenceReference(verifiedQuotationRef).documentNumber,'QT-2026-001');
+assert.equal(priceTools.parsePriceEvidenceReference('Quotation 26 Nov'),null,'plain-text source labels are not proof references');
+assert.equal(priceTools.parsePriceEvidenceReference('VERIFIED|QUOTATION|QT-1||owner|2026-11-28'),null,'evidence reference requires a file or URL');
+assert.equal(priceTools.materialStatusAfterEdit({status:'draft'}),'draft','editing a Draft SKU never activates it');
+assert.equal(priceTools.materialStatusAfterEdit({status:'inactive'}),'inactive','editing an inactive SKU never reactivates it');
+assert.equal(priceTools.materialStatusAfterEdit({status:'active'}),'active','editing an active SKU preserves its explicit state');
+assert.equal(priceTools.materialStatusAfterEdit(null),'draft','new material starts as Draft even when price fields are supplied');
 
 const importMaterials = [
  {id:'m1',sku:'H-H-2X2-1',name:'Hollow 2x2',status:'draft',purchaseUnit:'batang',unit:'m',conversionFactor:6,wasteRate:5,purchasePrice:0,unitPrice:0,priceDate:''},
@@ -62,8 +71,8 @@ const importMaterials = [
 ];
 const supplierCsv = [
  'sku;purchase_price;supplier_name;price_source;price_date;purchase_unit;usage_unit;conversion_factor;waste_rate',
- 'H-H-2X2-1;1.200.000;Supplier A;"Quotation, 25 Nov";26/11/2026;batang;m;6;5',
- 'PVC-18;250.000;Supplier B;Invoice 26 Nov;2026-11-26;roll;m2;50;0',
+ 'H-H-2X2-1;1.200.000;Supplier A;'+verifiedQuotationRef+';26/11/2026;batang;m;6;5',
+ 'PVC-18;250.000;Supplier B;'+verifiedInvoiceRef+';2026-11-26;roll;m2;50;0',
  'UNKNOWN-1;100.000;Supplier X;Price list;2026-11-26;pcs;pcs;1;0',
  'H-H;100.000;Supplier X;Price list;2026-11-26;batang;m;6;0',
  'A-B3;0;Supplier C;Price list;2026-11-26;lembar;lembar;1;0'
@@ -120,13 +129,23 @@ const olderCsv = [
 assert.ok(priceTools.validatePriceImport(olderCsv, importMaterials).errors[0].reason.includes('lebih lama'));
 
 const unitMismatchCsv = [
- 'sku,purchase_price,supplier_name,price_source,price_date,purchase_unit',
- 'PVC-18,250000,Vendor,Invoice,2026-11-26,box'
+ 'sku,purchase_price,supplier_name,price_source,price_date,purchase_unit,usage_unit,conversion_factor,waste_rate',
+ 'PVC-18,250000,Vendor,'+verifiedInvoiceRef+',2026-11-26,box,m2,50,0'
 ].join('\n');
 assert.ok(priceTools.validatePriceImport(unitMismatchCsv, importMaterials).errors[0].reason.includes('Satuan beli berbeda'));
 
 const missingHeaderCsv = 'sku,purchase_price\nH-H-2X2-1,100000';
 assert.ok(priceTools.validatePriceImport(missingHeaderCsv, importMaterials).errors[0].reason.includes('Kolom wajib'));
+const missingUnitHeadersCsv = [
+ 'sku,purchase_price,supplier_name,price_source,price_date,usage_unit,conversion_factor,waste_rate',
+ 'H-H-2X2-1,100000,Vendor,'+verifiedQuotationRef+',2026-11-26,m,6,0'
+].join('\n');
+assert.ok(priceTools.validatePriceImport(missingUnitHeadersCsv, importMaterials).errors[0].reason.includes('Kolom wajib'),'purchase_unit is mandatory');
+const blankConversionCsv = [
+ 'sku,purchase_price,supplier_name,price_source,price_date,purchase_unit,usage_unit,conversion_factor,waste_rate',
+ 'H-H-2X2-1,100000,Vendor,'+verifiedQuotationRef+',2026-11-26,batang,m,,0'
+].join('\n');
+assert.ok(priceTools.validatePriceImport(blankConversionCsv, importMaterials).errors[0].reason.includes('Faktor konversi wajib'));
 
 const templateCsv = priceTools.buildPriceTemplateCsv(importMaterials);
 assert.ok(templateCsv.charCodeAt(0)===0xFEFF, 'template includes UTF-8 BOM for spreadsheet compatibility');
@@ -155,11 +174,20 @@ assert.throws(()=>priceTools.applyPriceImport(changedPriceDateMaterials,[validat
 const duplicateMasterApply = importMaterials.concat([Object.assign({},importMaterials[0],{id:'m1-duplicate'})]);
 assert.throws(()=>priceTools.applyPriceImport(duplicateMasterApply,[validation.validRows[0]]),/MATERIAL_IMPORT_TARGET_INVALID/,'the apply layer independently rejects ambiguous master SKUs');
 const formulaSupplierCsv = [
- 'sku,purchase_price,supplier_name,price_source,price_date',
- 'H-H-2X2-1,100000,=IMPORTXML("https://example.invalid"),Invoice,2026-11-26'
+ 'sku,purchase_price,supplier_name,price_source,price_date,purchase_unit,usage_unit,conversion_factor,waste_rate',
+ 'H-H-2X2-1,100000,=IMPORTXML("https://example.invalid"),'+verifiedQuotationRef+',2026-11-26,batang,m,6,5'
 ].join('\n');
 assert.ok(priceTools.validatePriceImport(formulaSupplierCsv, importMaterials).errors[0].reason.includes('karakter formula spreadsheet'), 'formula-like supplier text is rejected before any Sheets write');
 assert.ok(Number.isNaN(priceTools.parseLocaleNumber('Rp 1.200.000 supplier')), 'unrecognized text is not silently stripped from a price');
 assert.equal(validation.validRows[0].conversionFactor,6,'staged rows retain the conversion factor used in preview');
 assert.equal(validation.validRows[0].wasteRate,5,'staged rows retain the waste rate used in preview');
+assert.equal(validation.validRows[0].evidenceReference.documentType,'QUOTATION','the verified source document type is retained in the preview');
+const unverifiedSourceCsv=[
+ 'sku,purchase_price,supplier_name,price_source,price_date,purchase_unit,usage_unit,conversion_factor,waste_rate',
+ 'H-H-2X2-1,100000,Vendor,Quotation,2026-11-26,batang,m,6,5'
+].join('\n');
+assert.ok(priceTools.validatePriceImport(unverifiedSourceCsv,importMaterials).errors[0].reason.includes('bukti VERIFIED'),'plain source text cannot pass evidence validation');
+assert.throws(()=>priceTools.applyPriceImport(importMaterials,[Object.assign({},validation.validRows[0],{priceSource:'Invoice'})]),/MATERIAL_IMPORT_EVIDENCE_INVALID/,'apply independently enforces the verified evidence reference');
+assert.equal(priceTools.canActivateMaterial({purchasePrice:100000,unitPrice:17500,purchaseUnit:'batang',unit:'m',conversionFactor:6,wasteRate:5,supplierName:'Vendor',priceSource:verifiedQuotationRef,priceDate:'2026-11-26'}),true,'activation requires complete master values and a verified evidence reference');
+assert.equal(priceTools.canActivateMaterial({purchasePrice:100000,unitPrice:17500,purchaseUnit:'batang',unit:'m',conversionFactor:6,wasteRate:5,supplierName:'Vendor',priceSource:'Quotation',priceDate:'2026-11-26'}),false,'unverified source text blocks activation');
 assert.throws(()=>priceTools.applyPriceImport(importMaterials,[Object.assign({},validation.validRows[0],{purchasePrice:1000,supplierName:' =IMPORTXML(x)'})]),/MATERIAL_IMPORT_TEXT_INVALID/,'the apply layer also rejects formula-like supplier data, including leading whitespace');
