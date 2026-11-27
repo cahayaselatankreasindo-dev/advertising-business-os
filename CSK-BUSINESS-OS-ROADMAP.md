@@ -445,3 +445,14 @@ No Apps Script deployment, production Sheets write/schema migration, Script Prop
 - Regression tests cover CSV quoting, semicolon/comma delimiters, Indonesian number/date formats, duplicate rows, invalid data, historical-date protection, unit mismatch, formula-injection-safe template export, and preservation of Draft status.
 - Bumped the PWA cache and manifest to 3.2.32 so installed clients fetch the updated cache-first Master Material asset.
 - Remaining: populate the CSV only from verified supplier documents; then run the isolated Apps Script/Sheets TEST acceptance and real-device browser/PDF QA. No production prices are fabricated.
+
+
+## 34. Supplier price evidence register and Draft activation guard — 28 November 2026
+
+- Added a blank supplier price Evidence Register generated from the 101-row material seed: 100 non-template SKUs are listed and the generic family/template SKU is excluded. Commercial fields remain blank and every row starts at `PENDING_EVIDENCE`; no supplier price or supplier identity is fabricated.
+- Added an audit procedure mapping each import field to its supplier/internal source evidence, review statuses, pre-import checklist, restricted evidence storage, and reconciliation process.
+- Import now requires all nine columns, including purchase/usage units, conversion factor, and waste rate; each must match the current Master Material. `price_source` must contain a structured VERIFIED reference with document type, document number, URL/file path, verifier, and verification date.
+- Draft/new SKUs remain Draft when saved even if price fields are complete. Inactive SKUs remain inactive. Explicit Owner activation requires complete price/master attributes and a syntactically valid VERIFIED evidence reference. The reference is a traceability control, not cryptographic proof; the source document must still be manually inspected.
+- No Google Sheets schema migration, Apps Script deployment, production write, or merge to main. Supplier documents and actual price evidence must remain in a private controlled archive, not in this repository.
+- Bumped PWA cache and manifest to 3.2.33 and added regression coverage for evidence format, mandatory unit/conversion/waste columns, and Draft/Inactive state preservation.
+- Remaining release gates: GitHub Actions regression workflows, isolated Apps Script/Sheets TEST acceptance, and real-device QA. No supplier prices have been populated.
