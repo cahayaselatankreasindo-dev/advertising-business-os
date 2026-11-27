@@ -98,9 +98,9 @@ assert.equal(applied[1].status, 'active', 'an already active SKU remains active'
 assert.equal(importMaterials[0].purchasePrice, 0, 'the source material array is not mutated');
 
 const duplicateCsv = [
- 'sku,purchase_price,supplier_name,price_source,price_date',
- 'H-H-2X2-1,100000,Vendor,Invoice,2026-11-26',
- 'H-H-2X2-1,110000,Vendor,Invoice,2026-11-26'
+ 'sku,purchase_price,supplier_name,price_source,price_date,purchase_unit,usage_unit,conversion_factor,waste_rate',
+ 'H-H-2X2-1,100000,Vendor,'+verifiedQuotationRef+',2026-11-26,batang,m,6,0',
+ 'H-H-2X2-1,110000,Vendor,'+verifiedQuotationRef+',2026-11-26,batang,m,6,0'
 ].join('\n');
 const duplicateValidation = priceTools.validatePriceImport(duplicateCsv, importMaterials);
 assert.equal(duplicateValidation.validRows.length, 0);
@@ -108,24 +108,24 @@ assert.equal(duplicateValidation.errors.length, 2, 'both duplicate SKU rows are 
 
 const duplicateMasterMaterials = importMaterials.concat([Object.assign({}, importMaterials[0], {id:'m1-duplicate'})]);
 const duplicateMasterCsv = [
- 'sku,purchase_price,supplier_name,price_source,price_date',
- 'H-H-2X2-1,100000,Vendor,Invoice,2026-11-26'
+ 'sku,purchase_price,supplier_name,price_source,price_date,purchase_unit,usage_unit,conversion_factor,waste_rate',
+ 'H-H-2X2-1,100000,Vendor,'+verifiedQuotationRef+',2026-11-26,batang,m,6,0'
 ].join('\n');
 const duplicateMasterValidation = priceTools.validatePriceImport(duplicateMasterCsv, duplicateMasterMaterials);
 assert.equal(duplicateMasterValidation.validRows.length, 0, 'an ambiguous SKU in the current master must not receive a price');
 assert.ok(duplicateMasterValidation.errors[0].reason.includes('lebih dari satu kali pada Master Material'));
 
 const fractionalPriceCsv = [
- 'sku,purchase_price,supplier_name,price_source,price_date',
- 'H-H-2X2-1,1000.50,Vendor,Invoice,2026-11-26'
+ 'sku,purchase_price,supplier_name,price_source,price_date,purchase_unit,usage_unit,conversion_factor,waste_rate',
+ 'H-H-2X2-1,1000.50,Vendor,'+verifiedQuotationRef+',2026-11-26,batang,m,6,0'
 ].join('\n');
 const fractionalPriceValidation = priceTools.validatePriceImport(fractionalPriceCsv, importMaterials);
 assert.equal(fractionalPriceValidation.validRows.length, 0, 'fractional Rupiah must not be imported');
 assert.ok(fractionalPriceValidation.errors[0].reason.includes('Rupiah bulat'));
 
 const olderCsv = [
- 'sku,purchase_price,supplier_name,price_source,price_date',
- 'PVC-18,190000,Vendor,Invoice,2026-11-10'
+ 'sku,purchase_price,supplier_name,price_source,price_date,purchase_unit,usage_unit,conversion_factor,waste_rate',
+ 'PVC-18,190000,Vendor,'+verifiedInvoiceRef+',2026-11-10,roll,m2,50,0'
 ].join('\n');
 assert.ok(priceTools.validatePriceImport(olderCsv, importMaterials).errors[0].reason.includes('lebih lama'));
 
